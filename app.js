@@ -52,6 +52,7 @@ async function carregarDados() {
     return;
   }
   setSyncState("saving", "Carregando…");
+  renderSkeletons();
   try {
     const url = `${API_URL}?pessoa=${encodeURIComponent(state.pessoaAtual)}`;
     const res = await fetch(url, { method: "GET" });
@@ -126,9 +127,9 @@ function atualizarVisibilidadeEdicao() {
 
 function criarOperacoesLista(key, action) {
   return {
-    add(nome, valor) {
+    add(nome, valor, extra = {}) {
       if (isAmbos()) return;
-      state[key].push({ nome, valor });
+      state[key].push({ nome, valor, ...extra });
       salvarBloco(action, state[key]);
       renderAll();
     },
@@ -170,6 +171,25 @@ function aportarObjetivo(index, valor) {
 }
 
 // ---------------------------------------------------------------------
+// GASTOS FIXOS — status "pago" (VERDADEIRO/FALSO)
+// Itens antigos sem o campo "pago" são tratados como já pagos, pra não
+// mudar o saldo de quem já tinha lançamentos antes dessa coluna existir.
+// ---------------------------------------------------------------------
+
+function fixoEhPago(item) {
+  return item.pago !== false;
+}
+
+function togglePagoFixo(index) {
+  if (isAmbos()) return;
+  const item = state.gastosFixos[index];
+  if (!item) return;
+  item.pago = !fixoEhPago(item);
+  salvarBloco("saveGastosFixos", state.gastosFixos);
+  renderAll();
+}
+
+// ---------------------------------------------------------------------
 // TOTAIS
 // ---------------------------------------------------------------------
 
@@ -177,19 +197,33 @@ function soma(lista) {
   return lista.reduce((acc, i) => acc + (Number(i.valor) || 0), 0);
 }
 
+function somaFixosPagos(lista) {
+  return lista.reduce((acc, i) => acc + (fixoEhPago(i) ? Number(i.valor) || 0 : 0), 0);
+}
+
 function renderTotais() {
   const totalGanhos = soma(state.ganhos);
-  const totalFixos = soma(state.gastosFixos);
+  const totalFixosGeral = soma(state.gastosFixos);
+  const totalFixosPagos = somaFixosPagos(state.gastosFixos);
+  const totalFixosAPagar = totalFixosGeral - totalFixosPagos;
   const totalVariaveis = soma(state.gastosVariaveis);
-  const saldo = totalGanhos - totalFixos - totalVariaveis;
+  const saldo = totalGanhos - totalFixosPagos - totalVariaveis;
 
   document.getElementById("statGanhos").textContent = fmt(totalGanhos);
-  document.getElementById("statFixos").textContent = fmt(totalFixos);
+  document.getElementById("statFixos").textContent = fmt(totalFixosPagos);
   document.getElementById("statVariaveis").textContent = fmt(totalVariaveis);
 
   const saldoEl = document.getElementById("saldoValor");
   saldoEl.textContent = fmt(saldo);
   saldoEl.classList.toggle("negative", saldo < 0);
+
+  const formulaEl = document.getElementById("saldoFormula");
+  if (formulaEl) {
+    formulaEl.textContent =
+      totalFixosAPagar > 0
+        ? `ganhos − fixos pagos − variáveis · ${fmt(totalFixosAPagar)} em fixos a pagar`
+        : "ganhos − fixos pagos − variáveis";
+  }
 }
 
 // ---------------------------------------------------------------------
@@ -228,6 +262,53 @@ function renderLista(ulId, lista, tipo, onRemove) {
     `;
     if (!ambos) {
       li.querySelector(".btn-remove").addEventListener("click", () => onRemove(idx));
+    }
+    ul.appendChild(li);
+  });
+}
+
+// ---------------------------------------------------------------------
+// RENDER — GASTOS FIXOS (com toggle de status "pago")
+// ---------------------------------------------------------------------
+
+function renderFixos() {
+  const ul = document.getElementById("listaFixos");
+  ul.innerHTML = "";
+  if (state.gastosFixos.length === 0) {
+    ul.innerHTML = `<p class="empty-state">Nada por aqui ainda. Adicione o primeiro item acima.</p>`;
+    return;
+  }
+  const ambos = isAmbos();
+  state.gastosFixos.forEach((item, idx) => {
+    const pago = fixoEhPago(item);
+    const li = document.createElement("li");
+    li.className = pago ? "" : "is-pendente";
+    li.innerHTML = `
+      <div class="item-info">
+        <span class="item-nome">${escapeHtml(item.nome)} ${tagPessoa(item)}</span>
+      </div>
+      <div class="item-row">
+        <span class="item-valor expense">${fmt(item.valor)}</span>
+        ${
+          ambos
+            ? `<span class="pago-toggle ${pago ? "is-pago" : ""}" aria-disabled="true"><span class="dot"></span>${pago ? "Pago" : "Pendente"}</span>`
+            : `<label class="pago-toggle ${pago ? "is-pago" : ""}">
+                <input type="checkbox" data-idx="${idx}" ${pago ? "checked" : ""} />
+                <span class="dot"></span>${pago ? "Pago" : "Pendente"}
+              </label>`
+        }
+        ${
+          ambos
+            ? ""
+            : `<button class="btn-remove" aria-label="Remover" data-idx="${idx}">
+                <svg viewBox="0 0 24 24" fill="none"><path d="M6 6l12 12M18 6L6 18" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></svg>
+              </button>`
+        }
+      </div>
+    `;
+    if (!ambos) {
+      li.querySelector('input[type="checkbox"]').addEventListener("change", () => togglePagoFixo(idx));
+      li.querySelector(".btn-remove").addEventListener("click", () => opFixos.remove(idx));
     }
     ul.appendChild(li);
   });
@@ -279,7 +360,9 @@ function renderObjetivos() {
       `;
       if (!ambos) {
         card.querySelector(".btn-aporte").addEventListener("click", () => abrirModalAporte(idx, obj.nome));
-        card.querySelector("[data-remove]").addEventListener("click", () => removeObjetivo(idx));
+        card.querySelector("[data-remove]").addEventListener("click", () =>
+          abrirConfirmacao(`Remover a meta "${obj.nome}"? Essa ação não pode ser desfeita.`, () => removeObjetivo(idx))
+        );
       }
       wrap.appendChild(card);
     });
@@ -313,11 +396,19 @@ function renderObjetivos() {
 // RENDER — RESUMO: lançamentos recentes (mistura tudo, mais recentes primeiro)
 // ---------------------------------------------------------------------
 
+const ICONE_GANHO = `<svg viewBox="0 0 24 24" fill="none"><path d="M12 19V5M5 12l7-7 7 7" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>`;
+const ICONE_GASTO = `<svg viewBox="0 0 24 24" fill="none"><path d="M12 5v14M5 12l7 7 7-7" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>`;
+
 function renderRecentes() {
   const ledger = document.getElementById("ledgerRecentes");
   const todos = [
     ...state.ganhos.map((i) => ({ ...i, tipo: "income", tag: "Ganho" })),
-    ...state.gastosFixos.map((i) => ({ ...i, tipo: "expense", tag: "Fixo" })),
+    ...state.gastosFixos.map((i) => ({
+      ...i,
+      tipo: "expense",
+      tag: fixoEhPago(i) ? "Fixo" : "Fixo · pendente",
+      pendente: !fixoEhPago(i),
+    })),
     ...state.gastosVariaveis.map((i) => ({ ...i, tipo: "expense", tag: "Variável" })),
   ];
 
@@ -329,13 +420,90 @@ function renderRecentes() {
   const recentes = todos.slice(-8).reverse();
   recentes.forEach((item) => {
     const row = document.createElement("div");
-    row.className = "ledger-item";
+    row.className = "ledger-item" + (item.pendente ? " is-pendente" : "");
     row.innerHTML = `
-      <span><span class="tag">${item.tag}</span>${escapeHtml(item.nome)} ${tagPessoa(item)}</span>
-      <span class="valor ${item.tipo}">${item.tipo === "income" ? "+" : "−"} ${fmt(item.valor)}</span>
+      <span class="ledger-icon ${item.tipo}">${item.tipo === "income" ? ICONE_GANHO : ICONE_GASTO}</span>
+      <div class="ledger-info">
+        <span class="ledger-nome">${escapeHtml(item.nome)} ${tagPessoa(item)}</span>
+        <span class="ledger-tag">${item.tag}</span>
+      </div>
+      <span class="ledger-valor ${item.tipo}">${item.tipo === "income" ? "+" : "−"} ${fmt(item.valor)}</span>
     `;
     ledger.appendChild(row);
   });
+}
+
+// ---------------------------------------------------------------------
+// SKELETON LOADING — mostrado enquanto os dados vêm da planilha
+// ---------------------------------------------------------------------
+
+function skeletonItemRows(n) {
+  return Array.from({ length: n })
+    .map(
+      () => `
+      <li>
+        <span class="skeleton" style="width:55%;height:13px;">.</span>
+        <span class="skeleton" style="width:64px;height:13px;">.</span>
+      </li>`
+    )
+    .join("");
+}
+
+function skeletonLedgerRows(n) {
+  return Array.from({ length: n })
+    .map(
+      () => `
+      <div class="ledger-item">
+        <span class="skeleton" style="width:34px;height:34px;border-radius:50%;">.</span>
+        <div class="ledger-info">
+          <span class="skeleton" style="width:65%;height:12px;margin-bottom:6px;">.</span>
+          <span class="skeleton" style="width:35%;height:9px;">.</span>
+        </div>
+        <span class="skeleton" style="width:58px;height:13px;">.</span>
+      </div>`
+    )
+    .join("");
+}
+
+function skeletonGoalCards(n) {
+  return Array.from({ length: n })
+    .map(
+      () => `
+      <div class="goal-card">
+        <div class="skeleton" style="width:55%;height:17px;margin-bottom:16px;">.</div>
+        <div class="skeleton" style="height:10px;border-radius:100px;margin-bottom:14px;">.</div>
+        <div class="skeleton" style="width:40%;height:12px;">.</div>
+      </div>`
+    )
+    .join("");
+}
+
+function skeletonMiniGoals(n) {
+  return Array.from({ length: n })
+    .map(
+      () => `
+      <div class="mini-goal">
+        <div class="mini-goal-info">
+          <div class="skeleton" style="width:50%;height:12px;margin-bottom:8px;">.</div>
+          <div class="skeleton" style="height:6px;border-radius:100px;">.</div>
+        </div>
+        <span class="skeleton" style="width:30px;height:12px;">.</span>
+      </div>`
+    )
+    .join("");
+}
+
+function renderSkeletons() {
+  ["listaGanhos", "listaFixos", "listaVariaveis"].forEach((id) => {
+    const el = document.getElementById(id);
+    if (el) el.innerHTML = skeletonItemRows(3);
+  });
+  const ledger = document.getElementById("ledgerRecentes");
+  if (ledger) ledger.innerHTML = skeletonLedgerRows(4);
+  const resumoObj = document.getElementById("resumoObjetivos");
+  if (resumoObj) resumoObj.innerHTML = skeletonMiniGoals(2);
+  const listaObjetivos = document.getElementById("listaObjetivos");
+  if (listaObjetivos) listaObjetivos.innerHTML = skeletonGoalCards(2);
 }
 
 // ---------------------------------------------------------------------
@@ -345,7 +513,7 @@ function renderRecentes() {
 function renderAll() {
   renderTotais();
   renderLista("listaGanhos", state.ganhos, "income", opGanhos.remove);
-  renderLista("listaFixos", state.gastosFixos, "expense", opFixos.remove);
+  renderFixos();
   renderLista("listaVariaveis", state.gastosVariaveis, "expense", opVariaveis.remove);
   renderObjetivos();
   renderRecentes();
@@ -422,7 +590,8 @@ on("formFixos", "submit", (e) => {
   const nome = f.nome.value.trim();
   const valor = parseValor(f.valor.value);
   if (!nome || !(valor > 0)) return;
-  opFixos.add(nome, valor);
+  const pago = f.pago ? f.pago.checked : false;
+  opFixos.add(nome, valor, { pago });
   f.reset();
 });
 
@@ -481,6 +650,35 @@ on("formAporte", "submit", (e) => {
   aportarObjetivo(objetivoAtualIdx, valor);
   fecharModal();
 });
+
+// ---------------------------------------------------------------------
+// MODAL DE CONFIRMAÇÃO (usado hoje para remover metas)
+// ---------------------------------------------------------------------
+
+let confirmCallback = null;
+const confirmBackdrop = document.getElementById("confirmBackdrop");
+
+function abrirConfirmacao(texto, onConfirm) {
+  confirmCallback = onConfirm;
+  const textoEl = document.getElementById("confirmText");
+  if (textoEl) textoEl.textContent = texto;
+  if (confirmBackdrop) confirmBackdrop.classList.remove("is-hidden");
+}
+function fecharConfirmacao() {
+  if (confirmBackdrop) confirmBackdrop.classList.add("is-hidden");
+  confirmCallback = null;
+}
+on("confirmCancelar", "click", fecharConfirmacao);
+on("confirmOk", "click", () => {
+  const cb = confirmCallback;
+  fecharConfirmacao();
+  if (cb) cb();
+});
+if (confirmBackdrop) {
+  confirmBackdrop.addEventListener("click", (e) => {
+    if (e.target === confirmBackdrop) fecharConfirmacao();
+  });
+}
 
 // ---------------------------------------------------------------------
 // INÍCIO
