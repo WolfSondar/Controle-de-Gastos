@@ -30,8 +30,10 @@ function isAmbos() {
 const syncEl = document.getElementById("syncStatus");
 
 function setSyncState(mode, text) {
+  if (!syncEl) return;
   syncEl.dataset.state = mode;
-  syncEl.querySelector(".sync-text").textContent = text;
+  const label = syncEl.querySelector(".sync-text");
+  if (label) label.textContent = text;
 }
 
 function showToast(msg) {
@@ -359,21 +361,29 @@ function escapeHtml(str) {
 // NAVEGAÇÃO POR ABAS
 // ---------------------------------------------------------------------
 
-document.getElementById("tabbar").addEventListener("click", (e) => {
-  const btn = e.target.closest(".tab-btn");
-  if (!btn) return;
-  const tab = btn.dataset.tab;
+const tabbarEl = document.getElementById("tabbar");
+if (tabbarEl) {
+  tabbarEl.addEventListener("click", (e) => {
+    const btn = e.target.closest(".tab-btn");
+    if (!btn) return;
+    const tab = btn.dataset.tab;
 
-  document.querySelectorAll(".tab-btn").forEach((b) => b.classList.toggle("is-active", b === btn));
-  document.querySelectorAll(".tab-panel").forEach((p) => p.classList.toggle("is-hidden", p.dataset.tab !== tab));
-  window.scrollTo({ top: 0, behavior: "smooth" });
-});
+    document.querySelectorAll(".tab-btn").forEach((b) => b.classList.toggle("is-active", b === btn));
+    document.querySelectorAll(".tab-panel").forEach((p) => p.classList.toggle("is-hidden", p.dataset.tab !== tab));
+    window.scrollTo({ top: 0, behavior: "smooth" });
+  });
+}
 
-document.getElementById("personSwitch").addEventListener("click", (e) => {
-  const btn = e.target.closest(".person-btn");
-  if (!btn) return;
-  trocarPessoa(btn.dataset.pessoa);
-});
+const personSwitchEl = document.getElementById("personSwitch");
+if (personSwitchEl) {
+  personSwitchEl.addEventListener("click", (e) => {
+    const btn = e.target.closest(".person-btn");
+    if (!btn) return;
+    trocarPessoa(btn.dataset.pessoa);
+  });
+} else {
+  console.warn('Caixa: elemento #personSwitch não encontrado. Confira se o index.html foi atualizado junto com o app.js (falta a <div id="personSwitch"> no cabeçalho).');
+}
 
 // ---------------------------------------------------------------------
 // FORMULÁRIOS
@@ -383,7 +393,18 @@ function parseValor(v) {
   return Math.round(parseFloat(v) * 100) / 100;
 }
 
-document.getElementById("formGanhos").addEventListener("submit", (e) => {
+// Liga um listener só se o elemento existir — evita que um elemento faltando
+// no HTML derrube o script inteiro (e trave o resto do app).
+function on(id, evento, handler) {
+  const el = document.getElementById(id);
+  if (!el) {
+    console.warn(`Caixa: elemento #${id} não encontrado no HTML.`);
+    return;
+  }
+  el.addEventListener(evento, handler);
+}
+
+on("formGanhos", "submit", (e) => {
   e.preventDefault();
   if (isAmbos()) return;
   const f = e.target;
@@ -394,7 +415,7 @@ document.getElementById("formGanhos").addEventListener("submit", (e) => {
   f.reset();
 });
 
-document.getElementById("formFixos").addEventListener("submit", (e) => {
+on("formFixos", "submit", (e) => {
   e.preventDefault();
   if (isAmbos()) return;
   const f = e.target;
@@ -405,7 +426,7 @@ document.getElementById("formFixos").addEventListener("submit", (e) => {
   f.reset();
 });
 
-document.getElementById("formVariaveis").addEventListener("submit", (e) => {
+on("formVariaveis", "submit", (e) => {
   e.preventDefault();
   if (isAmbos()) return;
   const f = e.target;
@@ -416,7 +437,7 @@ document.getElementById("formVariaveis").addEventListener("submit", (e) => {
   f.reset();
 });
 
-document.getElementById("formObjetivos").addEventListener("submit", (e) => {
+on("formObjetivos", "submit", (e) => {
   e.preventDefault();
   if (isAmbos()) return;
   const f = e.target;
@@ -446,11 +467,13 @@ function fecharModal() {
   modalBackdrop.classList.add("is-hidden");
   objetivoAtualIdx = null;
 }
-document.getElementById("modalCancelar").addEventListener("click", fecharModal);
-modalBackdrop.addEventListener("click", (e) => {
-  if (e.target === modalBackdrop) fecharModal();
-});
-document.getElementById("formAporte").addEventListener("submit", (e) => {
+on("modalCancelar", "click", fecharModal);
+if (modalBackdrop) {
+  modalBackdrop.addEventListener("click", (e) => {
+    if (e.target === modalBackdrop) fecharModal();
+  });
+}
+on("formAporte", "submit", (e) => {
   e.preventDefault();
   if (isAmbos()) return;
   const valor = parseValor(document.getElementById("aporteValor").value);
