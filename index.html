@@ -5,6 +5,8 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
 <title>Caixa — Controle Financeiro</title>
 <meta name="description" content="Controle de ganhos, gastos e objetivos" />
+<link rel="icon" type="image/jpeg" href="IMG/Icon.jpg" />
+<link rel="apple-touch-icon" href="IMG/Icon.jpg" />
 <link rel="preconnect" href="https://fonts.googleapis.com" />
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
 <link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,400;9..144,500;9..144,600;9..144,700&family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500;600;700&display=swap" rel="stylesheet" />
@@ -98,6 +100,10 @@
       <form class="add-form" id="formFixos">
         <input type="text" name="nome" placeholder="Descrição (ex: Faculdade)" required maxlength="60" />
         <input type="number" name="valor" placeholder="0,00" step="0.01" min="0.01" inputmode="decimal" required />
+        <label class="checkbox-inline">
+          <input type="checkbox" name="pago" />
+          Já paguei essa conta
+        </label>
         <button type="submit" class="btn btn-expense">Adicionar gasto fixo</button>
       </form>
 
@@ -171,6 +177,18 @@
         <button type="submit" class="btn btn-gold">Guardar</button>
       </div>
     </form>
+  </div>
+</div>
+
+<!-- MODAL DE CONFIRMAÇÃO (remover meta, etc.) -->
+<div class="modal-backdrop is-hidden" id="confirmBackdrop">
+  <div class="modal modal-confirm">
+    <h3 id="confirmTitle">Remover?</h3>
+    <p class="confirm-text" id="confirmText">Essa ação não pode ser desfeita.</p>
+    <div class="modal-actions">
+      <button type="button" class="btn btn-ghost" id="confirmCancelar">Cancelar</button>
+      <button type="button" class="btn btn-danger" id="confirmOk">Remover</button>
+    </div>
   </div>
 </div>
 
