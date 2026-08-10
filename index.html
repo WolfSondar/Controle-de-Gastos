@@ -27,9 +27,11 @@
       </div>
     </div>
 
-    <div class="pessoa-bar">
-      <label class="pessoa-label" for="pessoaSelect">Mostrando</label>
-      <select class="pessoa-select" id="pessoaSelect"></select>
+    <!-- SELETOR DE PESSOA -->
+    <div class="person-switch" id="personSwitch">
+      <button class="person-btn is-active" data-pessoa="davi">Davi</button>
+      <button class="person-btn" data-pessoa="gabriel">Gabriel</button>
+      <button class="person-btn" data-pessoa="ambos">Ambos</button>
     </div>
 
     <div class="saldo-block">
@@ -56,9 +58,6 @@
 
   <!-- CONTEÚDO -->
   <main class="content">
-    <p class="readonly-notice is-hidden" id="readonlyNotice">
-      Modo "Ambos" é só visualização — pra adicionar ou remover algo, selecione Davi ou Gabriel.
-    </p>
 
     <!-- RESUMO -->
     <section class="tab-panel" id="tab-resumo" data-tab="resumo">
