@@ -27,6 +27,11 @@
       </div>
     </div>
 
+    <div class="pessoa-bar">
+      <label class="pessoa-label" for="pessoaSelect">Mostrando</label>
+      <select class="pessoa-select" id="pessoaSelect"></select>
+    </div>
+
     <div class="saldo-block">
       <span class="saldo-label">Saldo disponível</span>
       <span class="saldo-valor" id="saldoValor">R$ 0,00</span>
@@ -51,6 +56,9 @@
 
   <!-- CONTEÚDO -->
   <main class="content">
+    <p class="readonly-notice is-hidden" id="readonlyNotice">
+      Modo "Ambos" é só visualização — pra adicionar ou remover algo, selecione Davi ou Gabriel.
+    </p>
 
     <!-- RESUMO -->
     <section class="tab-panel" id="tab-resumo" data-tab="resumo">
