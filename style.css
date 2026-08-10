@@ -555,3 +555,62 @@ button, input {
   .app { border-left: 1px solid var(--line); border-right: 1px solid var(--line); }
   body { background: var(--paper-deep); }
 }
+
+/* ============ SELETOR DE PESSOA ============ */
+
+.person-switch {
+  display: flex;
+  gap: 6px;
+  background: rgba(255,255,255,0.06);
+  border: 1px solid rgba(255,255,255,0.14);
+  border-radius: 100px;
+  padding: 4px;
+  margin-bottom: 18px;
+}
+.person-btn {
+  flex: 1;
+  border: none;
+  background: transparent;
+  color: #a7c7b7;
+  font-size: 13px;
+  font-weight: 600;
+  padding: 8px 10px;
+  border-radius: 100px;
+  cursor: pointer;
+  transition: background 0.15s ease, color 0.15s ease;
+}
+.person-btn.is-active {
+  background: var(--gold);
+  color: #fffaf0;
+}
+.person-btn:not(.is-active):hover {
+  color: var(--paper);
+}
+
+/* ============ BADGE DE PESSOA (modo Ambos) ============ */
+
+.pessoa-tag {
+  display: inline-block;
+  font-size: 10px;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  font-weight: 700;
+  padding: 2px 7px;
+  border-radius: 100px;
+  margin-left: 6px;
+  vertical-align: middle;
+  white-space: nowrap;
+}
+.pessoa-tag.pessoa-davi {
+  background: var(--income-bg);
+  color: var(--income);
+}
+.pessoa-tag.pessoa-gabriel {
+  background: var(--expense-bg);
+  color: var(--expense);
+}
+
+/* Modo Ambos: some com formulários de adicionar e ações de editar */
+.is-hidden {
+  display: none !important;
+}
