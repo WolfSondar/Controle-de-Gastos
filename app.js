@@ -9,7 +9,36 @@ const state = {
   gastosVariaveis: [],
   objetivos: [],
   loaded: false,
+  pessoa: localStorage.getItem("caixa_pessoa") || (PESSOAS[0] || "Davi"),
 };
+
+const pessoaSelectEl = document.getElementById("pessoaSelect");
+const readonlyNoticeEl = document.getElementById("readonlyNotice");
+
+function isSomenteLeitura() {
+  return state.pessoa === "Ambos";
+}
+
+function montarSeletorPessoa() {
+  const opcoes = [...PESSOAS, "Ambos"];
+  pessoaSelectEl.innerHTML = opcoes
+    .map((p) => `<option value="${p}">${p === "Ambos" ? "Ambos" : p}</option>`)
+    .join("");
+  pessoaSelectEl.value = state.pessoa;
+  aplicarModoLeitura();
+}
+
+function aplicarModoLeitura() {
+  document.querySelector(".app").classList.toggle("is-readonly", isSomenteLeitura());
+  readonlyNoticeEl.classList.toggle("is-hidden", !isSomenteLeitura());
+}
+
+pessoaSelectEl.addEventListener("change", () => {
+  state.pessoa = pessoaSelectEl.value;
+  localStorage.setItem("caixa_pessoa", state.pessoa);
+  aplicarModoLeitura();
+  carregarDados();
+});
 
 const fmt = (n) =>
   (Number(n) || 0).toLocaleString("pt-BR", { style: "currency", currency: "BRL" });
@@ -42,7 +71,8 @@ async function carregarDados() {
   }
   setSyncState("saving", "Carregando…");
   try {
-    const res = await fetch(API_URL, { method: "GET" });
+    const url = `${API_URL}${API_URL.includes("?") ? "&" : "?"}pessoa=${encodeURIComponent(state.pessoa)}`;
+    const res = await fetch(url, { method: "GET" });
     const data = await res.json();
     state.ganhos = data.ganhos || [];
     state.gastosFixos = data.gastosFixos || [];
@@ -59,11 +89,12 @@ async function carregarDados() {
 }
 
 async function salvarBloco(action, payload) {
+  if (isSomenteLeitura()) return; // modo "Ambos" é só leitura
   setSyncState("saving", "Salvando…");
   try {
     await fetch(API_URL, {
       method: "POST",
-      body: JSON.stringify({ action, payload }),
+      body: JSON.stringify({ action, payload, pessoa: state.pessoa }),
     });
     setSyncState("idle", "Salvo");
   } catch (err) {
@@ -79,11 +110,13 @@ async function salvarBloco(action, payload) {
 function criarOperacoesLista(key, action) {
   return {
     add(nome, valor) {
+      if (isSomenteLeitura()) return;
       state[key].push({ nome, valor });
       salvarBloco(action, state[key]);
       renderAll();
     },
     remove(index) {
+      if (isSomenteLeitura()) return;
       state[key].splice(index, 1);
       salvarBloco(action, state[key]);
       renderAll();
@@ -100,16 +133,19 @@ const opVariaveis = criarOperacoesLista("gastosVariaveis", "saveGastosVariaveis"
 // ---------------------------------------------------------------------
 
 function addObjetivo(nome, custo) {
+  if (isSomenteLeitura()) return;
   state.objetivos.push({ nome, custo, valorAdicionado: 0 });
   salvarBloco("saveObjetivos", state.objetivos);
   renderAll();
 }
 function removeObjetivo(index) {
+  if (isSomenteLeitura()) return;
   state.objetivos.splice(index, 1);
   salvarBloco("saveObjetivos", state.objetivos);
   renderAll();
 }
 function aportarObjetivo(index, valor) {
+  if (isSomenteLeitura()) return;
   const obj = state.objetivos[index];
   obj.valorAdicionado = (Number(obj.valorAdicionado) || 0) + valor;
   salvarBloco("saveObjetivos", state.objetivos);
@@ -154,7 +190,9 @@ function renderLista(ulId, lista, tipo, onRemove) {
     const li = document.createElement("li");
     li.innerHTML = `
       <div class="item-info">
-        <span class="item-nome">${escapeHtml(item.nome)}</span>
+        <span class="item-nome">${escapeHtml(item.nome)}${
+          item.pessoa ? `<span class="item-pessoa">${escapeHtml(item.pessoa)}</span>` : ""
+        }</span>
       </div>
       <div class="item-row">
         <span class="item-valor ${tipo}">${fmt(item.valor)}</span>
@@ -189,7 +227,9 @@ function renderObjetivos() {
       card.className = "goal-card";
       card.innerHTML = `
         <div class="goal-head">
-          <span class="goal-nome">${escapeHtml(obj.nome)}</span>
+          <span class="goal-nome">${escapeHtml(obj.nome)}${
+            obj.pessoa ? `<span class="goal-pessoa">${escapeHtml(obj.pessoa)}</span>` : ""
+          }</span>
           <span class="goal-falta ${completo ? "completo" : ""}">${
             completo ? "Meta batida ✓" : "faltam " + fmt(falta)
           }</span>
@@ -227,7 +267,9 @@ function renderObjetivos() {
       row.className = "mini-goal";
       row.innerHTML = `
         <div class="mini-goal-info">
-          <div class="mini-goal-nome">${escapeHtml(obj.nome)}</div>
+          <div class="mini-goal-nome">${escapeHtml(obj.nome)}${
+            obj.pessoa ? `<span class="item-pessoa">${escapeHtml(obj.pessoa)}</span>` : ""
+          }</div>
           <div class="goal-bar-track"><div class="goal-bar-fill ${pct >= 100 ? "completo" : ""}" style="width:${pct}%"></div></div>
         </div>
         <span class="mini-goal-pct">${pct.toFixed(0)}%</span>
@@ -259,7 +301,7 @@ function renderRecentes() {
     const row = document.createElement("div");
     row.className = "ledger-item";
     row.innerHTML = `
-      <span><span class="tag">${item.tag}</span>${escapeHtml(item.nome)}</span>
+      <span><span class="tag">${item.tag}${item.pessoa ? " · " + escapeHtml(item.pessoa) : ""}</span>${escapeHtml(item.nome)}</span>
       <span class="valor ${item.tipo}">${item.tipo === "income" ? "+" : "−"} ${fmt(item.valor)}</span>
     `;
     ledger.appendChild(row);
@@ -381,4 +423,5 @@ document.getElementById("formAporte").addEventListener("submit", (e) => {
 // INÍCIO
 // ---------------------------------------------------------------------
 
+montarSeletorPessoa();
 carregarDados();
