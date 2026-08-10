@@ -258,6 +258,24 @@ button, input {
 .btn-expense { background: var(--expense); color: #fbf1ec; }
 .btn-gold { background: var(--gold); color: #fffaf0; }
 .btn-ghost { background: transparent; color: var(--muted); border: 1px solid var(--line); }
+.btn-danger { background: var(--expense); color: #fbf1ec; }
+
+.checkbox-inline {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 13.5px;
+  color: var(--muted);
+  padding: 2px 2px 4px;
+  cursor: pointer;
+}
+.checkbox-inline input[type="checkbox"] {
+  width: 17px;
+  height: 17px;
+  accent-color: var(--gold);
+  cursor: pointer;
+  flex-shrink: 0;
+}
 
 /* ============ LISTAS DE ITENS ============ */
 
@@ -295,7 +313,38 @@ button, input {
 .item-valor.income { color: var(--income); }
 .item-valor.expense { color: var(--expense); }
 
-.item-row { display: flex; align-items: center; gap: 12px; flex-shrink: 0; }
+.item-row { display: flex; align-items: center; gap: 10px; flex-shrink: 0; }
+
+.item-list li.is-pendente .item-nome { color: var(--muted); }
+.item-list li.is-pendente .item-valor { opacity: 0.65; }
+
+.pago-toggle {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  cursor: pointer;
+  font-size: 11px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  padding: 5px 10px;
+  border-radius: 100px;
+  border: 1px solid var(--line);
+  background: var(--paper);
+  color: var(--muted);
+  transition: background 0.15s ease, color 0.15s ease, border-color 0.15s ease;
+  flex-shrink: 0;
+  white-space: nowrap;
+}
+.pago-toggle input { position: absolute; width: 1px; height: 1px; opacity: 0; pointer-events: none; }
+.pago-toggle .dot { width: 6px; height: 6px; border-radius: 50%; background: var(--muted); flex-shrink: 0; }
+.pago-toggle.is-pago {
+  background: var(--income-bg);
+  color: var(--income);
+  border-color: transparent;
+}
+.pago-toggle.is-pago .dot { background: var(--income); }
+.pago-toggle[aria-disabled="true"] { cursor: default; }
 
 .btn-remove {
   border: none;
@@ -332,24 +381,61 @@ button, input {
   overflow: hidden;
 }
 .ledger-item {
-  display: flex;
-  justify-content: space-between;
+  display: grid;
+  grid-template-columns: 34px 1fr auto;
   align-items: center;
-  padding: 12px 14px;
+  gap: 11px;
+  padding: 11px 14px;
   border-bottom: 1px dashed var(--line);
-  font-size: 13.5px;
 }
 .ledger-item:last-child { border-bottom: none; }
-.ledger-item .tag {
-  font-size: 10px;
+
+.ledger-icon {
+  width: 34px;
+  height: 34px;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+}
+.ledger-icon svg { width: 15px; height: 15px; }
+.ledger-icon.income { background: var(--income-bg); color: var(--income); }
+.ledger-icon.expense { background: var(--expense-bg); color: var(--expense); }
+
+.ledger-info {
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+.ledger-nome {
+  font-size: 13.5px;
+  font-weight: 600;
+  color: var(--ink-text);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.ledger-tag {
+  font-size: 10.5px;
   text-transform: uppercase;
   letter-spacing: 0.08em;
   color: var(--muted);
-  margin-right: 8px;
 }
-.ledger-item .valor { font-family: var(--font-mono); font-weight: 600; }
-.ledger-item .valor.income { color: var(--income); }
-.ledger-item .valor.expense { color: var(--expense); }
+
+.ledger-valor {
+  font-family: var(--font-mono);
+  font-weight: 700;
+  font-size: 13.5px;
+  white-space: nowrap;
+  justify-self: end;
+}
+.ledger-valor.income { color: var(--income); }
+.ledger-valor.expense { color: var(--expense); }
+
+.ledger-item.is-pendente { opacity: 0.55; }
+.ledger-item.is-pendente .ledger-tag { color: var(--gold-deep); font-weight: 600; }
 
 /* ============ OBJETIVOS / METAS ============ */
 
@@ -511,6 +597,12 @@ button, input {
   margin: 0 0 14px;
   color: var(--ink);
 }
+.confirm-text {
+  font-size: 13.5px;
+  color: var(--muted);
+  margin: -6px 0 18px;
+  line-height: 1.5;
+}
 .modal input {
   width: 100%;
   border: 1px solid var(--line);
@@ -547,6 +639,22 @@ button, input {
 .toast.is-visible {
   opacity: 1;
   transform: translateX(-50%) translateY(0);
+}
+
+/* ============ SKELETON LOADING ============ */
+
+.skeleton {
+  display: inline-block;
+  background: linear-gradient(90deg, var(--paper-deep) 25%, var(--line-soft) 42%, var(--paper-deep) 63%);
+  background-size: 400% 100%;
+  animation: skeleton-shimmer 1.3s ease infinite;
+  border-radius: 6px;
+  color: transparent !important;
+  pointer-events: none;
+}
+@keyframes skeleton-shimmer {
+  0% { background-position: 100% 50%; }
+  100% { background-position: 0% 50%; }
 }
 
 /* ============ RESPONSIVO ============ */
