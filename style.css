@@ -137,64 +137,6 @@ button, input {
 .sync[data-state="error"] .sync-dot { background: #d97757; }
 @keyframes pulse { 0%,100% { opacity: 1; } 50% { opacity: 0.35; } }
 
-.pessoa-bar {
-  display: flex;
-  align-items: center;
-  gap: 10px;
-  margin-bottom: 16px;
-}
-.pessoa-label {
-  font-size: 11.5px;
-  text-transform: uppercase;
-  letter-spacing: 0.12em;
-  color: #a7c7b7;
-}
-.pessoa-select {
-  appearance: none;
-  -webkit-appearance: none;
-  background: rgba(255,255,255,0.08);
-  border: 1px solid rgba(255,255,255,0.22);
-  color: var(--paper);
-  font-family: var(--font-body);
-  font-weight: 600;
-  font-size: 13.5px;
-  padding: 7px 30px 7px 12px;
-  border-radius: 100px;
-  cursor: pointer;
-  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%23faf5e9' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M6 9l6 6 6-6'/%3E%3C/svg%3E");
-  background-repeat: no-repeat;
-  background-position: right 8px center;
-  background-size: 15px;
-}
-.pessoa-select:focus-visible { outline: 2px solid var(--gold); outline-offset: 2px; }
-
-.readonly-notice {
-  background: var(--paper-deep);
-  border: 1px dashed var(--gold);
-  color: var(--gold-deep);
-  font-size: 12.5px;
-  border-radius: var(--radius-m);
-  padding: 10px 14px;
-  margin-bottom: 16px;
-}
-.readonly-notice.is-hidden { display: none; }
-
-.app.is-readonly .add-form,
-.app.is-readonly .btn-remove,
-.app.is-readonly .btn-aporte {
-  display: none;
-}
-
-.item-pessoa,
-.goal-pessoa {
-  font-size: 10px;
-  text-transform: uppercase;
-  letter-spacing: 0.06em;
-  color: var(--muted);
-  font-weight: 500;
-  margin-left: 6px;
-}
-
 .saldo-block {
   display: flex;
   flex-direction: column;
@@ -612,4 +554,63 @@ button, input {
 @media (min-width: 640px) {
   .app { border-left: 1px solid var(--line); border-right: 1px solid var(--line); }
   body { background: var(--paper-deep); }
+}
+
+/* ============ SELETOR DE PESSOA ============ */
+
+.person-switch {
+  display: flex;
+  gap: 6px;
+  background: rgba(255,255,255,0.06);
+  border: 1px solid rgba(255,255,255,0.14);
+  border-radius: 100px;
+  padding: 4px;
+  margin-bottom: 18px;
+}
+.person-btn {
+  flex: 1;
+  border: none;
+  background: transparent;
+  color: #a7c7b7;
+  font-size: 13px;
+  font-weight: 600;
+  padding: 8px 10px;
+  border-radius: 100px;
+  cursor: pointer;
+  transition: background 0.15s ease, color 0.15s ease;
+}
+.person-btn.is-active {
+  background: var(--gold);
+  color: #fffaf0;
+}
+.person-btn:not(.is-active):hover {
+  color: var(--paper);
+}
+
+/* ============ BADGE DE PESSOA (modo Ambos) ============ */
+
+.pessoa-tag {
+  display: inline-block;
+  font-size: 10px;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  font-weight: 700;
+  padding: 2px 7px;
+  border-radius: 100px;
+  margin-left: 6px;
+  vertical-align: middle;
+  white-space: nowrap;
+}
+.pessoa-tag.pessoa-davi {
+  background: var(--income-bg);
+  color: var(--income);
+}
+.pessoa-tag.pessoa-gabriel {
+  background: var(--expense-bg);
+  color: var(--expense);
+}
+
+/* Modo Ambos: some com formulários de adicionar e ações de editar */
+.is-hidden {
+  display: none !important;
 }
