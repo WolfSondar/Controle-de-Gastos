@@ -1,7 +1,11 @@
 // =====================================================================
 // CAIXA — app.js
 // Estado local em memória + sincronização com a planilha via Apps Script
+// Agora com seletor de pessoa: davi | gabriel | ambos (somente leitura)
 // =====================================================================
+
+const PESSOA_LABEL = { davi: "Davi", gabriel: "Gabriel", ambos: "Ambos" };
+const PESSOA_STORAGE_KEY = "caixaPessoaAtual";
 
 const state = {
   ganhos: [],
@@ -9,39 +13,15 @@ const state = {
   gastosVariaveis: [],
   objetivos: [],
   loaded: false,
-  pessoa: localStorage.getItem("caixa_pessoa") || (PESSOAS[0] || "Davi"),
+  pessoaAtual: localStorage.getItem(PESSOA_STORAGE_KEY) || "davi",
 };
-
-const pessoaSelectEl = document.getElementById("pessoaSelect");
-const readonlyNoticeEl = document.getElementById("readonlyNotice");
-
-function isSomenteLeitura() {
-  return state.pessoa === "Ambos";
-}
-
-function montarSeletorPessoa() {
-  const opcoes = [...PESSOAS, "Ambos"];
-  pessoaSelectEl.innerHTML = opcoes
-    .map((p) => `<option value="${p}">${p === "Ambos" ? "Ambos" : p}</option>`)
-    .join("");
-  pessoaSelectEl.value = state.pessoa;
-  aplicarModoLeitura();
-}
-
-function aplicarModoLeitura() {
-  document.querySelector(".app").classList.toggle("is-readonly", isSomenteLeitura());
-  readonlyNoticeEl.classList.toggle("is-hidden", !isSomenteLeitura());
-}
-
-pessoaSelectEl.addEventListener("change", () => {
-  state.pessoa = pessoaSelectEl.value;
-  localStorage.setItem("caixa_pessoa", state.pessoa);
-  aplicarModoLeitura();
-  carregarDados();
-});
 
 const fmt = (n) =>
   (Number(n) || 0).toLocaleString("pt-BR", { style: "currency", currency: "BRL" });
+
+function isAmbos() {
+  return state.pessoaAtual === "ambos";
+}
 
 // ---------------------------------------------------------------------
 // SINCRONIZAÇÃO COM A PLANILHA
@@ -71,9 +51,12 @@ async function carregarDados() {
   }
   setSyncState("saving", "Carregando…");
   try {
-    const url = `${API_URL}${API_URL.includes("?") ? "&" : "?"}pessoa=${encodeURIComponent(state.pessoa)}`;
+    const url = `${API_URL}?pessoa=${encodeURIComponent(state.pessoaAtual)}`;
     const res = await fetch(url, { method: "GET" });
     const data = await res.json();
+    if (data && data.ok === false) {
+      throw new Error(data.error || "Erro desconhecido");
+    }
     state.ganhos = data.ganhos || [];
     state.gastosFixos = data.gastosFixos || [];
     state.gastosVariaveis = data.gastosVariaveis || [];
@@ -89,18 +72,50 @@ async function carregarDados() {
 }
 
 async function salvarBloco(action, payload) {
-  if (isSomenteLeitura()) return; // modo "Ambos" é só leitura
+  if (isAmbos()) return; // trava de segurança: modo Ambos nunca salva
   setSyncState("saving", "Salvando…");
   try {
-    await fetch(API_URL, {
+    const res = await fetch(API_URL, {
       method: "POST",
-      body: JSON.stringify({ action, payload, pessoa: state.pessoa }),
+      body: JSON.stringify({ action, payload, pessoa: state.pessoaAtual }),
     });
+    const data = await res.json().catch(() => null);
+    if (data && data.ok === false) {
+      throw new Error(data.error || "Erro desconhecido");
+    }
     setSyncState("idle", "Salvo");
   } catch (err) {
     setSyncState("error", "Falha ao salvar");
     showToast("Não consegui salvar na planilha agora.");
   }
+}
+
+// ---------------------------------------------------------------------
+// SELETOR DE PESSOA (Davi / Gabriel / Ambos)
+// ---------------------------------------------------------------------
+
+function trocarPessoa(pessoa) {
+  if (pessoa === state.pessoaAtual) return;
+  state.pessoaAtual = pessoa;
+  localStorage.setItem(PESSOA_STORAGE_KEY, pessoa);
+  renderPessoaSwitch();
+  atualizarVisibilidadeEdicao();
+  carregarDados();
+}
+
+function renderPessoaSwitch() {
+  document.querySelectorAll(".person-btn").forEach((btn) => {
+    btn.classList.toggle("is-active", btn.dataset.pessoa === state.pessoaAtual);
+  });
+}
+
+// Esconde formulários de adicionar e ações de excluir/aportar no modo Ambos.
+function atualizarVisibilidadeEdicao() {
+  const ambos = isAmbos();
+  document.querySelectorAll(".add-form, .goal-actions .btn-aporte, .modo-edicao").forEach((el) => {
+    el.classList.toggle("is-hidden", ambos);
+  });
+  document.body.classList.toggle("modo-somente-leitura", ambos);
 }
 
 // ---------------------------------------------------------------------
@@ -110,13 +125,13 @@ async function salvarBloco(action, payload) {
 function criarOperacoesLista(key, action) {
   return {
     add(nome, valor) {
-      if (isSomenteLeitura()) return;
+      if (isAmbos()) return;
       state[key].push({ nome, valor });
       salvarBloco(action, state[key]);
       renderAll();
     },
     remove(index) {
-      if (isSomenteLeitura()) return;
+      if (isAmbos()) return;
       state[key].splice(index, 1);
       salvarBloco(action, state[key]);
       renderAll();
@@ -133,19 +148,19 @@ const opVariaveis = criarOperacoesLista("gastosVariaveis", "saveGastosVariaveis"
 // ---------------------------------------------------------------------
 
 function addObjetivo(nome, custo) {
-  if (isSomenteLeitura()) return;
+  if (isAmbos()) return;
   state.objetivos.push({ nome, custo, valorAdicionado: 0 });
   salvarBloco("saveObjetivos", state.objetivos);
   renderAll();
 }
 function removeObjetivo(index) {
-  if (isSomenteLeitura()) return;
+  if (isAmbos()) return;
   state.objetivos.splice(index, 1);
   salvarBloco("saveObjetivos", state.objetivos);
   renderAll();
 }
 function aportarObjetivo(index, valor) {
-  if (isSomenteLeitura()) return;
+  if (isAmbos()) return;
   const obj = state.objetivos[index];
   obj.valorAdicionado = (Number(obj.valorAdicionado) || 0) + valor;
   salvarBloco("saveObjetivos", state.objetivos);
@@ -179,6 +194,11 @@ function renderTotais() {
 // RENDER — LISTAS SIMPLES (ganhos / fixos / variáveis)
 // ---------------------------------------------------------------------
 
+function tagPessoa(item) {
+  if (!isAmbos() || !item.pessoa) return "";
+  return `<span class="pessoa-tag pessoa-${item.pessoa}">${PESSOA_LABEL[item.pessoa]}</span>`;
+}
+
 function renderLista(ulId, lista, tipo, onRemove) {
   const ul = document.getElementById(ulId);
   ul.innerHTML = "";
@@ -186,22 +206,27 @@ function renderLista(ulId, lista, tipo, onRemove) {
     ul.innerHTML = `<p class="empty-state">Nada por aqui ainda. Adicione o primeiro item acima.</p>`;
     return;
   }
+  const ambos = isAmbos();
   lista.forEach((item, idx) => {
     const li = document.createElement("li");
     li.innerHTML = `
       <div class="item-info">
-        <span class="item-nome">${escapeHtml(item.nome)}${
-          item.pessoa ? `<span class="item-pessoa">${escapeHtml(item.pessoa)}</span>` : ""
-        }</span>
+        <span class="item-nome">${escapeHtml(item.nome)} ${tagPessoa(item)}</span>
       </div>
       <div class="item-row">
         <span class="item-valor ${tipo}">${fmt(item.valor)}</span>
-        <button class="btn-remove" aria-label="Remover" data-idx="${idx}">
-          <svg viewBox="0 0 24 24" fill="none"><path d="M6 6l12 12M18 6L6 18" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></svg>
-        </button>
+        ${
+          ambos
+            ? ""
+            : `<button class="btn-remove" aria-label="Remover" data-idx="${idx}">
+                <svg viewBox="0 0 24 24" fill="none"><path d="M6 6l12 12M18 6L6 18" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></svg>
+              </button>`
+        }
       </div>
     `;
-    li.querySelector(".btn-remove").addEventListener("click", () => onRemove(idx));
+    if (!ambos) {
+      li.querySelector(".btn-remove").addEventListener("click", () => onRemove(idx));
+    }
     ul.appendChild(li);
   });
 }
@@ -211,6 +236,7 @@ function renderLista(ulId, lista, tipo, onRemove) {
 // ---------------------------------------------------------------------
 
 function renderObjetivos() {
+  const ambos = isAmbos();
   const wrap = document.getElementById("listaObjetivos");
   wrap.innerHTML = "";
   if (state.objetivos.length === 0) {
@@ -227,9 +253,7 @@ function renderObjetivos() {
       card.className = "goal-card";
       card.innerHTML = `
         <div class="goal-head">
-          <span class="goal-nome">${escapeHtml(obj.nome)}${
-            obj.pessoa ? `<span class="goal-pessoa">${escapeHtml(obj.pessoa)}</span>` : ""
-          }</span>
+          <span class="goal-nome">${escapeHtml(obj.nome)} ${tagPessoa(obj)}</span>
           <span class="goal-falta ${completo ? "completo" : ""}">${
             completo ? "Meta batida ✓" : "faltam " + fmt(falta)
           }</span>
@@ -239,16 +263,22 @@ function renderObjetivos() {
         </div>
         <div class="goal-foot">
           <span class="goal-valores"><strong>${fmt(guardado)}</strong> de ${fmt(custo)}</span>
-          <div class="goal-actions">
-            <button class="btn-aporte" data-idx="${idx}">+ guardar</button>
-            <button class="btn-remove" aria-label="Remover meta" data-remove="${idx}">
-              <svg viewBox="0 0 24 24" fill="none"><path d="M6 6l12 12M18 6L6 18" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></svg>
-            </button>
-          </div>
+          ${
+            ambos
+              ? ""
+              : `<div class="goal-actions">
+                  <button class="btn-aporte" data-idx="${idx}">+ guardar</button>
+                  <button class="btn-remove" aria-label="Remover meta" data-remove="${idx}">
+                    <svg viewBox="0 0 24 24" fill="none"><path d="M6 6l12 12M18 6L6 18" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></svg>
+                  </button>
+                </div>`
+          }
         </div>
       `;
-      card.querySelector(".btn-aporte").addEventListener("click", () => abrirModalAporte(idx, obj.nome));
-      card.querySelector("[data-remove]").addEventListener("click", () => removeObjetivo(idx));
+      if (!ambos) {
+        card.querySelector(".btn-aporte").addEventListener("click", () => abrirModalAporte(idx, obj.nome));
+        card.querySelector("[data-remove]").addEventListener("click", () => removeObjetivo(idx));
+      }
       wrap.appendChild(card);
     });
   }
@@ -267,9 +297,7 @@ function renderObjetivos() {
       row.className = "mini-goal";
       row.innerHTML = `
         <div class="mini-goal-info">
-          <div class="mini-goal-nome">${escapeHtml(obj.nome)}${
-            obj.pessoa ? `<span class="item-pessoa">${escapeHtml(obj.pessoa)}</span>` : ""
-          }</div>
+          <div class="mini-goal-nome">${escapeHtml(obj.nome)} ${tagPessoa(obj)}</div>
           <div class="goal-bar-track"><div class="goal-bar-fill ${pct >= 100 ? "completo" : ""}" style="width:${pct}%"></div></div>
         </div>
         <span class="mini-goal-pct">${pct.toFixed(0)}%</span>
@@ -301,7 +329,7 @@ function renderRecentes() {
     const row = document.createElement("div");
     row.className = "ledger-item";
     row.innerHTML = `
-      <span><span class="tag">${item.tag}${item.pessoa ? " · " + escapeHtml(item.pessoa) : ""}</span>${escapeHtml(item.nome)}</span>
+      <span><span class="tag">${item.tag}</span>${escapeHtml(item.nome)} ${tagPessoa(item)}</span>
       <span class="valor ${item.tipo}">${item.tipo === "income" ? "+" : "−"} ${fmt(item.valor)}</span>
     `;
     ledger.appendChild(row);
@@ -341,6 +369,12 @@ document.getElementById("tabbar").addEventListener("click", (e) => {
   window.scrollTo({ top: 0, behavior: "smooth" });
 });
 
+document.getElementById("personSwitch").addEventListener("click", (e) => {
+  const btn = e.target.closest(".person-btn");
+  if (!btn) return;
+  trocarPessoa(btn.dataset.pessoa);
+});
+
 // ---------------------------------------------------------------------
 // FORMULÁRIOS
 // ---------------------------------------------------------------------
@@ -351,6 +385,7 @@ function parseValor(v) {
 
 document.getElementById("formGanhos").addEventListener("submit", (e) => {
   e.preventDefault();
+  if (isAmbos()) return;
   const f = e.target;
   const nome = f.nome.value.trim();
   const valor = parseValor(f.valor.value);
@@ -361,6 +396,7 @@ document.getElementById("formGanhos").addEventListener("submit", (e) => {
 
 document.getElementById("formFixos").addEventListener("submit", (e) => {
   e.preventDefault();
+  if (isAmbos()) return;
   const f = e.target;
   const nome = f.nome.value.trim();
   const valor = parseValor(f.valor.value);
@@ -371,6 +407,7 @@ document.getElementById("formFixos").addEventListener("submit", (e) => {
 
 document.getElementById("formVariaveis").addEventListener("submit", (e) => {
   e.preventDefault();
+  if (isAmbos()) return;
   const f = e.target;
   const nome = f.nome.value.trim();
   const valor = parseValor(f.valor.value);
@@ -381,6 +418,7 @@ document.getElementById("formVariaveis").addEventListener("submit", (e) => {
 
 document.getElementById("formObjetivos").addEventListener("submit", (e) => {
   e.preventDefault();
+  if (isAmbos()) return;
   const f = e.target;
   const nome = f.nome.value.trim();
   const custo = parseValor(f.custo.value);
@@ -397,6 +435,7 @@ let objetivoAtualIdx = null;
 const modalBackdrop = document.getElementById("modalBackdrop");
 
 function abrirModalAporte(idx, nome) {
+  if (isAmbos()) return;
   objetivoAtualIdx = idx;
   document.getElementById("modalTitle").textContent = `Guardar valor — ${nome}`;
   document.getElementById("aporteValor").value = "";
@@ -413,6 +452,7 @@ modalBackdrop.addEventListener("click", (e) => {
 });
 document.getElementById("formAporte").addEventListener("submit", (e) => {
   e.preventDefault();
+  if (isAmbos()) return;
   const valor = parseValor(document.getElementById("aporteValor").value);
   if (!(valor > 0) || objetivoAtualIdx === null) return;
   aportarObjetivo(objetivoAtualIdx, valor);
@@ -423,5 +463,6 @@ document.getElementById("formAporte").addEventListener("submit", (e) => {
 // INÍCIO
 // ---------------------------------------------------------------------
 
-montarSeletorPessoa();
+renderPessoaSwitch();
+atualizarVisibilidadeEdicao();
 carregarDados();
