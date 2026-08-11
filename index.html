@@ -21,7 +21,6 @@
     <div class="hero-top">
       <div class="brand">
         <span class="brand-mark">Caixa</span>
-        <span class="brand-sub">livro-caixa pessoal</span>
       </div>
       <div class="hero-top-actions">
         <button class="icon-btn" id="btnAcoesConjunto" aria-label="Ações em conjunto">
@@ -78,7 +77,7 @@
         <div class="ledger-line">
           <h2 class="section-title">Divisão do casal</h2>
         </div>
-        <p class="section-hint" id="splitHint">Quanto do total de vocês dois cada um já usou.</p>
+        <p class="section-hint" id="splitHint">Quanto do total cada um já usou.</p>
         <div class="split-chart-wrap">
           <div class="split-donut" id="splitDonut">
             <div class="split-donut-center" id="splitDonutCenter"></div>
@@ -105,7 +104,7 @@
     <!-- GANHOS -->
     <section class="tab-panel is-hidden" id="tab-ganhos" data-tab="ganhos">
       <h2 class="section-title">Ganhos</h2>
-      <p class="section-hint">Tudo que entra: salário, bônus, ajudas, o que for.</p>
+      <p class="section-hint">Tudo que entra: salário, bônus, presente, o que for.</p>
 
       <form class="add-form" id="formGanhos">
         <input type="text" name="nome" placeholder="Descrição (ex: Salário)" required maxlength="60" />
@@ -119,7 +118,7 @@
     <!-- GASTOS FIXOS -->
     <section class="tab-panel is-hidden" id="tab-fixos" data-tab="fixos">
       <h2 class="section-title">Gastos fixos</h2>
-      <p class="section-hint">Contas que se repetem todo mês: assinaturas, mensalidades, contas. Toque em "Pago / Pendente" pra marcar se já pagou — contas pendentes não são descontadas do saldo disponível.</p>
+      <p class="section-hint">Contas que se repetem todo mês: assinaturas, mensalidades, contas.</p>
 
       <form class="add-form" id="formFixos">
         <input type="text" name="nome" placeholder="Descrição (ex: Faculdade)" required maxlength="60" />
@@ -154,7 +153,7 @@
       <p class="section-hint">Sonho de consumo pra comprar, e quanto falta.</p>
 
       <form class="add-form" id="formObjetivos">
-        <input type="text" name="nome" placeholder="Nome (ex: Nintendo Switch 2)" required maxlength="60" />
+        <input type="text" name="nome" placeholder="Nome (ex: Xbox Series X)" required maxlength="60" />
         <input type="number" name="custo" placeholder="Custo total, R$" step="0.01" min="0.01" inputmode="decimal" required />
         <button type="submit" class="btn btn-gold">Adicionar objetivo</button>
       </form>
