@@ -260,6 +260,23 @@ button, input {
 .btn-ghost { background: transparent; color: var(--muted); border: 1px solid var(--line); }
 .btn-danger { background: var(--expense); color: #fbf1ec; }
 
+.checkbox-inline {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 13.5px;
+  color: var(--muted);
+  padding: 2px 2px 4px;
+  cursor: pointer;
+}
+.checkbox-inline input[type="checkbox"] {
+  width: 17px;
+  height: 17px;
+  accent-color: var(--gold);
+  cursor: pointer;
+  flex-shrink: 0;
+}
+
 /* ============ LISTAS DE ITENS ============ */
 
 .item-list {
@@ -296,7 +313,38 @@ button, input {
 .item-valor.income { color: var(--income); }
 .item-valor.expense { color: var(--expense); }
 
-.item-row { display: flex; align-items: center; gap: 12px; flex-shrink: 0; }
+.item-row { display: flex; align-items: center; gap: 10px; flex-shrink: 0; }
+
+.item-list li.is-pendente .item-nome { color: var(--muted); }
+.item-list li.is-pendente .item-valor { opacity: 0.65; }
+
+.pago-toggle {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  cursor: pointer;
+  font-size: 11px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  padding: 5px 10px;
+  border-radius: 100px;
+  border: 1px solid var(--line);
+  background: var(--paper);
+  color: var(--muted);
+  transition: background 0.15s ease, color 0.15s ease, border-color 0.15s ease;
+  flex-shrink: 0;
+  white-space: nowrap;
+}
+.pago-toggle input { position: absolute; width: 1px; height: 1px; opacity: 0; pointer-events: none; }
+.pago-toggle .dot { width: 6px; height: 6px; border-radius: 50%; background: var(--muted); flex-shrink: 0; }
+.pago-toggle.is-pago {
+  background: var(--income-bg);
+  color: var(--income);
+  border-color: transparent;
+}
+.pago-toggle.is-pago .dot { background: var(--income); }
+.pago-toggle[aria-disabled="true"] { cursor: default; }
 
 .btn-remove {
   border: none;
@@ -385,6 +433,9 @@ button, input {
 }
 .ledger-valor.income { color: var(--income); }
 .ledger-valor.expense { color: var(--expense); }
+
+.ledger-item.is-pendente { opacity: 0.55; }
+.ledger-item.is-pendente .ledger-tag { color: var(--gold-deep); font-weight: 600; }
 
 /* ============ OBJETIVOS / METAS ============ */
 
