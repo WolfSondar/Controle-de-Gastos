@@ -16,6 +16,9 @@ const state = {
   pessoaAtual: localStorage.getItem(PESSOA_STORAGE_KEY) || "davi",
 };
 
+// guarda os últimos totais renderizados, pra animar contagem e mostrar o valor flutuante
+const prevTotals = { ganhos: null, fixos: null, variaveis: null, saldo: null };
+
 const fmt = (n) =>
   (Number(n) || 0).toLocaleString("pt-BR", { style: "currency", currency: "BRL" });
 
@@ -101,6 +104,11 @@ function trocarPessoa(pessoa) {
   if (pessoa === state.pessoaAtual) return;
   state.pessoaAtual = pessoa;
   localStorage.setItem(PESSOA_STORAGE_KEY, pessoa);
+  // troca de pessoa não é "o valor mudando" — não deve animar nem fazer pop
+  prevTotals.ganhos = null;
+  prevTotals.fixos = null;
+  prevTotals.variaveis = null;
+  prevTotals.saldo = null;
   renderPessoaSwitch();
   atualizarVisibilidadeEdicao();
   carregarDados();
@@ -113,12 +121,23 @@ function renderPessoaSwitch() {
 }
 
 // Esconde formulários de adicionar e ações de excluir/aportar no modo Ambos.
+// No modo Ambos, também só a aba Resumo faz sentido (é a única com dados agregados úteis).
 function atualizarVisibilidadeEdicao() {
   const ambos = isAmbos();
   document.querySelectorAll(".add-form, .goal-actions .btn-aporte, .modo-edicao").forEach((el) => {
     el.classList.toggle("is-hidden", ambos);
   });
   document.body.classList.toggle("modo-somente-leitura", ambos);
+
+  document.querySelectorAll(".tab-btn").forEach((btn) => {
+    const ehResumo = btn.dataset.tab === "resumo";
+    btn.classList.toggle("is-hidden", ambos && !ehResumo);
+  });
+
+  if (ambos) {
+    document.querySelectorAll(".tab-btn").forEach((b) => b.classList.toggle("is-active", b.dataset.tab === "resumo"));
+    document.querySelectorAll(".tab-panel").forEach((p) => p.classList.toggle("is-hidden", p.dataset.tab !== "resumo"));
+  }
 }
 
 // ---------------------------------------------------------------------
@@ -136,6 +155,15 @@ function criarOperacoesLista(key, action) {
     remove(index) {
       if (isAmbos()) return;
       state[key].splice(index, 1);
+      salvarBloco(action, state[key]);
+      renderAll();
+    },
+    edit(index, nome, valor) {
+      if (isAmbos()) return;
+      const item = state[key][index];
+      if (!item) return;
+      item.nome = nome;
+      item.valor = valor;
       salvarBloco(action, state[key]);
       renderAll();
     },
@@ -159,6 +187,15 @@ function addObjetivo(nome, custo) {
 function removeObjetivo(index) {
   if (isAmbos()) return;
   state.objetivos.splice(index, 1);
+  salvarBloco("saveObjetivos", state.objetivos);
+  renderAll();
+}
+function editObjetivo(index, nome, custo) {
+  if (isAmbos()) return;
+  const obj = state.objetivos[index];
+  if (!obj) return;
+  obj.nome = nome;
+  obj.custo = custo;
   salvarBloco("saveObjetivos", state.objetivos);
   renderAll();
 }
@@ -199,6 +236,41 @@ function somaFixosPagos(lista) {
   return lista.reduce((acc, i) => acc + (fixoEhPago(i) ? Number(i.valor) || 0 : 0), 0);
 }
 
+// Anima um número de "de" até "para", contando em tempo real (efeito de contador).
+function animarNumero(el, de, para, duracao = 550) {
+  if (!el) return;
+  if (de === null || de === undefined || de === para) {
+    el.textContent = fmt(para);
+    return;
+  }
+  el.classList.remove("is-pulsing");
+  void el.offsetWidth; // reinicia a animação de pulso mesmo se já estava rodando
+  el.classList.add("is-pulsing");
+  const inicio = performance.now();
+  function passo(agora) {
+    const p = Math.min((agora - inicio) / duracao, 1);
+    const suavizado = 1 - Math.pow(1 - p, 3);
+    el.textContent = fmt(de + (para - de) * suavizado);
+    if (p < 1) requestAnimationFrame(passo);
+    else el.textContent = fmt(para);
+  }
+  requestAnimationFrame(passo);
+}
+
+// Mostra um valorzinho flutuante tipo "+ R$ 20,00" ou "− R$ 20,00" subindo e sumindo,
+// perto do número que mudou — a "cor" pode ser fixa (income/expense) ou seguir o sinal do delta.
+function popValorFlutuante(container, delta, corFixa) {
+  if (!container || !delta) return;
+  const positivo = delta > 0;
+  const cor = corFixa || (positivo ? "income" : "expense");
+  const span = document.createElement("span");
+  span.className = "value-pop " + cor;
+  span.textContent = (positivo ? "+ " : "− ") + fmt(Math.abs(delta));
+  container.appendChild(span);
+  requestAnimationFrame(() => requestAnimationFrame(() => span.classList.add("is-animating")));
+  setTimeout(() => span.remove(), 1100);
+}
+
 function renderTotais() {
   const totalGanhos = soma(state.ganhos);
   const totalFixosGeral = soma(state.gastosFixos);
@@ -207,12 +279,26 @@ function renderTotais() {
   const totalVariaveis = soma(state.gastosVariaveis);
   const saldo = totalGanhos - totalFixosPagos - totalVariaveis;
 
-  document.getElementById("statGanhos").textContent = fmt(totalGanhos);
-  document.getElementById("statFixos").textContent = fmt(totalFixosPagos);
-  document.getElementById("statVariaveis").textContent = fmt(totalVariaveis);
-
+  const ganhosEl = document.getElementById("statGanhos");
+  const fixosEl = document.getElementById("statFixos");
+  const variaveisEl = document.getElementById("statVariaveis");
   const saldoEl = document.getElementById("saldoValor");
-  saldoEl.textContent = fmt(saldo);
+
+  const primeiraVez = prevTotals.saldo === null;
+
+  animarNumero(ganhosEl, prevTotals.ganhos, totalGanhos);
+  animarNumero(fixosEl, prevTotals.fixos, totalFixosPagos);
+  animarNumero(variaveisEl, prevTotals.variaveis, totalVariaveis);
+  animarNumero(saldoEl, prevTotals.saldo, saldo);
+
+  if (!primeiraVez) {
+    const heroStats = document.querySelectorAll(".hero-stat");
+    popValorFlutuante(document.querySelector(".saldo-block"), saldo - prevTotals.saldo);
+    popValorFlutuante(heroStats[0], totalGanhos - prevTotals.ganhos, "income");
+    popValorFlutuante(heroStats[1], totalFixosPagos - prevTotals.fixos, "expense");
+    popValorFlutuante(heroStats[2], totalVariaveis - prevTotals.variaveis, "expense");
+  }
+
   saldoEl.classList.toggle("negative", saldo < 0);
 
   const formulaEl = document.getElementById("saldoFormula");
@@ -222,6 +308,11 @@ function renderTotais() {
         ? `ganhos − fixos pagos − variáveis · ${fmt(totalFixosAPagar)} em fixos a pagar`
         : "ganhos − fixos pagos − variáveis";
   }
+
+  prevTotals.ganhos = totalGanhos;
+  prevTotals.fixos = totalFixosPagos;
+  prevTotals.variaveis = totalVariaveis;
+  prevTotals.saldo = saldo;
 }
 
 // ---------------------------------------------------------------------
@@ -233,7 +324,10 @@ function tagPessoa(item) {
   return `<span class="pessoa-tag pessoa-${item.pessoa}">${PESSOA_LABEL[item.pessoa]}</span>`;
 }
 
-function renderLista(ulId, lista, tipo, onRemove) {
+const ICONE_LAPIS = `<svg viewBox="0 0 24 24" fill="none"><path d="M12 20h9M16.5 3.5a2.12 2.12 0 0 1 3 3L7 19l-4 1 1-4 12.5-12.5Z" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/></svg>`;
+const ICONE_X = `<svg viewBox="0 0 24 24" fill="none"><path d="M6 6l12 12M18 6L6 18" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></svg>`;
+
+function renderLista(ulId, lista, tipo, ops, tipoModal) {
   const ul = document.getElementById(ulId);
   ul.innerHTML = "";
   if (lista.length === 0) {
@@ -252,14 +346,18 @@ function renderLista(ulId, lista, tipo, onRemove) {
         ${
           ambos
             ? ""
-            : `<button class="btn-remove" aria-label="Remover" data-idx="${idx}">
-                <svg viewBox="0 0 24 24" fill="none"><path d="M6 6l12 12M18 6L6 18" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></svg>
-              </button>`
+            : `<button class="btn-edit" aria-label="Editar" data-idx="${idx}">${ICONE_LAPIS}</button>
+              <button class="btn-remove" aria-label="Remover" data-idx="${idx}">${ICONE_X}</button>`
         }
       </div>
     `;
     if (!ambos) {
-      li.querySelector(".btn-remove").addEventListener("click", () => onRemove(idx));
+      li.querySelector(".btn-edit").addEventListener("click", () =>
+        abrirModalEditar(tipoModal, idx, item.nome, item.valor)
+      );
+      li.querySelector(".btn-remove").addEventListener("click", () =>
+        abrirConfirmacao(`Remover "${item.nome}"? Essa ação não pode ser desfeita.`, () => ops.remove(idx))
+      );
     }
     ul.appendChild(li);
   });
@@ -298,15 +396,17 @@ function renderFixos() {
         ${
           ambos
             ? ""
-            : `<button class="btn-remove" aria-label="Remover" data-idx="${idx}">
-                <svg viewBox="0 0 24 24" fill="none"><path d="M6 6l12 12M18 6L6 18" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></svg>
-              </button>`
+            : `<button class="btn-edit" aria-label="Editar" data-idx="${idx}">${ICONE_LAPIS}</button>
+              <button class="btn-remove" aria-label="Remover" data-idx="${idx}">${ICONE_X}</button>`
         }
       </div>
     `;
     if (!ambos) {
       li.querySelector('input[type="checkbox"]').addEventListener("change", () => togglePagoFixo(idx));
-      li.querySelector(".btn-remove").addEventListener("click", () => opFixos.remove(idx));
+      li.querySelector(".btn-edit").addEventListener("click", () => abrirModalEditar("fixos", idx, item.nome, item.valor));
+      li.querySelector(".btn-remove").addEventListener("click", () =>
+        abrirConfirmacao(`Remover "${item.nome}"? Essa ação não pode ser desfeita.`, () => opFixos.remove(idx))
+      );
     }
     ul.appendChild(li);
   });
@@ -348,15 +448,15 @@ function renderObjetivos() {
             ambos
               ? ""
               : `<div class="goal-actions">
+                  <button class="btn-edit" aria-label="Editar meta" data-edit="${idx}">${ICONE_LAPIS}</button>
                   <button class="btn-aporte" data-idx="${idx}">+ guardar</button>
-                  <button class="btn-remove" aria-label="Remover meta" data-remove="${idx}">
-                    <svg viewBox="0 0 24 24" fill="none"><path d="M6 6l12 12M18 6L6 18" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></svg>
-                  </button>
+                  <button class="btn-remove" aria-label="Remover meta" data-remove="${idx}">${ICONE_X}</button>
                 </div>`
           }
         </div>
       `;
       if (!ambos) {
+        card.querySelector("[data-edit]").addEventListener("click", () => abrirModalEditar("objetivos", idx, obj.nome, obj.custo));
         card.querySelector(".btn-aporte").addEventListener("click", () => abrirModalAporte(idx, obj.nome));
         card.querySelector("[data-remove]").addEventListener("click", () =>
           abrirConfirmacao(`Remover a meta "${obj.nome}"? Essa ação não pode ser desfeita.`, () => removeObjetivo(idx))
@@ -514,11 +614,74 @@ function renderSkeletons() {
 
 function renderAll() {
   renderTotais();
-  renderLista("listaGanhos", state.ganhos, "income", opGanhos.remove);
+  renderLista("listaGanhos", state.ganhos, "income", opGanhos, "ganhos");
   renderFixos();
-  renderLista("listaVariaveis", state.gastosVariaveis, "expense", opVariaveis.remove);
+  renderLista("listaVariaveis", state.gastosVariaveis, "expense", opVariaveis, "variaveis");
   renderObjetivos();
   renderRecentes();
+  renderSplit();
+}
+
+// ---------------------------------------------------------------------
+// RENDER — DIVISÃO DO CASAL (só aparece no modo "Ambos")
+// Mostra o total que os dois ganharam juntos, e quanto fatia cada um já gastou.
+// ---------------------------------------------------------------------
+
+function renderSplit() {
+  const card = document.getElementById("splitCard");
+  if (!card) return;
+  const ambos = isAmbos();
+  card.classList.toggle("is-hidden", !ambos);
+  if (!ambos) return;
+
+  const totalGanhos = soma(state.ganhos);
+  const gastoPorPessoa = { davi: 0, gabriel: 0 };
+  [...state.gastosFixos.filter(fixoEhPago), ...state.gastosVariaveis].forEach((item) => {
+    if (item.pessoa === "davi" || item.pessoa === "gabriel") {
+      gastoPorPessoa[item.pessoa] += Number(item.valor) || 0;
+    }
+  });
+  const gastoDavi = gastoPorPessoa.davi;
+  const gastoGabriel = gastoPorPessoa.gabriel;
+  const restante = totalGanhos - gastoDavi - gastoGabriel;
+  const base = Math.max(totalGanhos, gastoDavi + gastoGabriel, 0.01);
+
+  const pctDavi = Math.max((gastoDavi / base) * 100, 0);
+  const pctGabriel = Math.max((gastoGabriel / base) * 100, 0);
+  const pctRestante = Math.max(100 - pctDavi - pctGabriel, 0);
+
+  const corte1 = pctDavi;
+  const corte2 = pctDavi + pctGabriel;
+
+  const donut = document.getElementById("splitDonut");
+  if (donut) {
+    donut.style.background = `conic-gradient(var(--income) 0% ${corte1}%, var(--expense) ${corte1}% ${corte2}%, var(--line-soft) ${corte2}% 100%)`;
+  }
+  const centro = document.getElementById("splitDonutCenter");
+  if (centro) {
+    centro.innerHTML = `<span>${fmt(restante)}</span><small>${restante < 0 ? "no vermelho" : "sobrando"}</small>`;
+  }
+
+  const legend = document.getElementById("splitLegend");
+  if (legend) {
+    legend.innerHTML = `
+      <div class="split-legend-item">
+        <span class="dot" style="background:var(--income)"></span>
+        Davi gastou
+        <strong>${pctDavi.toFixed(0)}%</strong>
+      </div>
+      <div class="split-legend-item">
+        <span class="dot" style="background:var(--expense)"></span>
+        Gabriel gastou
+        <strong>${pctGabriel.toFixed(0)}%</strong>
+      </div>
+      <div class="split-legend-item">
+        <span class="dot" style="background:var(--line-soft)"></span>
+        Ainda sobrando
+        <strong>${pctRestante.toFixed(0)}%</strong>
+      </div>
+    `;
+  }
 }
 
 function escapeHtml(str) {
@@ -651,6 +814,53 @@ on("formAporte", "submit", (e) => {
   if (!(valor > 0) || objetivoAtualIdx === null) return;
   aportarObjetivo(objetivoAtualIdx, valor);
   fecharModal();
+});
+
+// ---------------------------------------------------------------------
+// MODAL DE EDIÇÃO (ganhos, fixos, variáveis e objetivos)
+// ---------------------------------------------------------------------
+
+let editContext = null; // { tipo, idx }
+const editBackdrop = document.getElementById("editBackdrop");
+const TITULOS_EDICAO = {
+  ganhos: "Editar ganho",
+  fixos: "Editar gasto fixo",
+  variaveis: "Editar gasto variável",
+  objetivos: "Editar objetivo",
+};
+
+function abrirModalEditar(tipo, idx, nome, valor) {
+  if (isAmbos()) return;
+  editContext = { tipo, idx };
+  const tituloEl = document.getElementById("editTitle");
+  if (tituloEl) tituloEl.textContent = TITULOS_EDICAO[tipo] || "Editar item";
+  document.getElementById("editNome").value = nome;
+  document.getElementById("editValor").value = valor;
+  if (editBackdrop) editBackdrop.classList.remove("is-hidden");
+  setTimeout(() => document.getElementById("editNome").focus(), 50);
+}
+function fecharModalEditar() {
+  if (editBackdrop) editBackdrop.classList.add("is-hidden");
+  editContext = null;
+}
+on("editCancelar", "click", fecharModalEditar);
+if (editBackdrop) {
+  editBackdrop.addEventListener("click", (e) => {
+    if (e.target === editBackdrop) fecharModalEditar();
+  });
+}
+on("formEditar", "submit", (e) => {
+  e.preventDefault();
+  if (!editContext || isAmbos()) return;
+  const nome = document.getElementById("editNome").value.trim();
+  const valor = parseValor(document.getElementById("editValor").value);
+  if (!nome || !(valor > 0)) return;
+  const { tipo, idx } = editContext;
+  if (tipo === "ganhos") opGanhos.edit(idx, nome, valor);
+  else if (tipo === "fixos") opFixos.edit(idx, nome, valor);
+  else if (tipo === "variaveis") opVariaveis.edit(idx, nome, valor);
+  else if (tipo === "objetivos") editObjetivo(idx, nome, valor);
+  fecharModalEditar();
 });
 
 // ---------------------------------------------------------------------
