@@ -19,6 +19,9 @@ const state = {
 // guarda os últimos totais renderizados, pra animar contagem e mostrar o valor flutuante
 const prevTotals = { ganhos: null, fixos: null, variaveis: null, saldo: null };
 
+// evita comemorar metas que já chegaram completas do servidor (só comemora quem "acabou de bater")
+let primeiraRenderObjetivos = true;
+
 const fmt = (n) =>
   (Number(n) || 0).toLocaleString("pt-BR", { style: "currency", currency: "BRL" });
 
@@ -109,6 +112,7 @@ function trocarPessoa(pessoa) {
   prevTotals.fixos = null;
   prevTotals.variaveis = null;
   prevTotals.saldo = null;
+  primeiraRenderObjetivos = true;
   renderPessoaSwitch();
   atualizarVisibilidadeEdicao();
   carregarDados();
@@ -205,6 +209,56 @@ function aportarObjetivo(index, valor) {
   obj.valorAdicionado = (Number(obj.valorAdicionado) || 0) + valor;
   salvarBloco("saveObjetivos", state.objetivos);
   renderAll();
+}
+
+// ---------------------------------------------------------------------
+// AÇÕES EM CONJUNTO — dividir uma compra entre Davi e Gabriel
+// Busca os dados atuais de cada um, soma metade do valor no fixo/variável
+// escolhido, e salva os dois de uma vez — independe de quem está selecionado.
+// ---------------------------------------------------------------------
+
+async function dividirCompra(nome, valorTotal, categoria) {
+  if (!API_URL || API_URL.includes("COLE_AQUI")) {
+    showToast("Configure a URL do Apps Script em config.js");
+    return false;
+  }
+  const metade = Math.round((valorTotal / 2) * 100) / 100;
+  const action = categoria === "fixos" ? "saveGastosFixos" : "saveGastosVariaveis";
+  const chave = categoria === "fixos" ? "gastosFixos" : "gastosVariaveis";
+
+  try {
+    const [daviData, gabrielData] = await Promise.all([
+      fetch(`${API_URL}?pessoa=davi`).then((r) => r.json()),
+      fetch(`${API_URL}?pessoa=gabriel`).then((r) => r.json()),
+    ]);
+    if ((daviData && daviData.ok === false) || (gabrielData && gabrielData.ok === false)) {
+      throw new Error("Erro ao ler dados atuais");
+    }
+
+    const listaDavi = (daviData && daviData[chave]) || [];
+    const listaGabriel = (gabrielData && gabrielData[chave]) || [];
+
+    const item = { nome, valor: metade };
+    if (categoria === "fixos") item.pago = false;
+
+    listaDavi.push({ ...item });
+    listaGabriel.push({ ...item });
+
+    const [resDavi, resGabriel] = await Promise.all([
+      fetch(API_URL, { method: "POST", body: JSON.stringify({ action, payload: listaDavi, pessoa: "davi" }) }),
+      fetch(API_URL, { method: "POST", body: JSON.stringify({ action, payload: listaGabriel, pessoa: "gabriel" }) }),
+    ]);
+    const [dataDavi, dataGabriel] = await Promise.all([
+      resDavi.json().catch(() => null),
+      resGabriel.json().catch(() => null),
+    ]);
+    if ((dataDavi && dataDavi.ok === false) || (dataGabriel && dataGabriel.ok === false)) {
+      throw new Error("Erro ao salvar em um dos dois");
+    }
+    return true;
+  } catch (err) {
+    return false;
+  }
 }
 
 // ---------------------------------------------------------------------
@@ -413,6 +467,39 @@ function renderFixos() {
 }
 
 // ---------------------------------------------------------------------
+// CONFETE — comemoração quando uma meta bate 100%
+// ---------------------------------------------------------------------
+
+const CORES_CONFETE = ["#b9862f", "#3c6e4f", "#a8482e", "#93691f", "#f1e9d8", "#5b9c78"];
+
+function dispararConfete() {
+  const container = document.createElement("div");
+  container.className = "confete-container";
+  document.body.appendChild(container);
+
+  const n = 70;
+  for (let i = 0; i < n; i++) {
+    const p = document.createElement("span");
+    p.className = "confete-particula";
+    p.style.background = CORES_CONFETE[Math.floor(Math.random() * CORES_CONFETE.length)];
+    p.style.left = Math.random() * 100 + "%";
+    p.style.setProperty("--drift", Math.round(Math.random() * 180 - 90) + "px");
+    p.style.setProperty("--giro", Math.round(Math.random() * 720 - 360) + "deg");
+    p.style.animationDuration = (1.5 + Math.random() * 1.2).toFixed(2) + "s";
+    p.style.animationDelay = (Math.random() * 0.35).toFixed(2) + "s";
+    if (Math.random() > 0.5) p.style.borderRadius = "50%";
+    if (Math.random() > 0.6) {
+      p.style.width = "6px";
+      p.style.height = "6px";
+    }
+    container.appendChild(p);
+  }
+
+  showToast("Meta batida! 🎉");
+  setTimeout(() => container.remove(), 3200);
+}
+
+// ---------------------------------------------------------------------
 // RENDER — OBJETIVOS
 // ---------------------------------------------------------------------
 
@@ -430,8 +517,17 @@ function renderObjetivos() {
       const pct = custo > 0 ? Math.min((guardado / custo) * 100, 100) : 0;
       const completo = falta <= 0 && custo > 0;
 
+      // dispara o confete só quando a meta ACABOU de ser batida nesta sessão —
+      // não quando ela já chega completa do servidor no primeiro carregamento.
+      if (completo && !obj._comemorado) {
+        if (!primeiraRenderObjetivos) obj._comemoraAoRenderizar = true;
+        obj._comemorado = true;
+      } else if (!completo) {
+        obj._comemorado = false;
+      }
+
       const card = document.createElement("div");
-      card.className = "goal-card";
+      card.className = "goal-card" + (obj._comemoraAoRenderizar ? " is-celebrando" : "");
       card.innerHTML = `
         <div class="goal-head">
           <span class="goal-nome">${escapeHtml(obj.nome)} ${tagPessoa(obj)}</span>
@@ -462,9 +558,15 @@ function renderObjetivos() {
           abrirConfirmacao(`Remover a meta "${obj.nome}"? Essa ação não pode ser desfeita.`, () => removeObjetivo(idx))
         );
       }
+      if (obj._comemoraAoRenderizar) {
+        dispararConfete();
+        obj._comemoraAoRenderizar = false;
+      }
       wrap.appendChild(card);
     });
   }
+
+  primeiraRenderObjetivos = false;
 
   // mini lista no resumo
   const mini = document.getElementById("resumoObjetivos");
@@ -861,6 +963,81 @@ on("formEditar", "submit", (e) => {
   else if (tipo === "variaveis") opVariaveis.edit(idx, nome, valor);
   else if (tipo === "objetivos") editObjetivo(idx, nome, valor);
   fecharModalEditar();
+});
+
+// ---------------------------------------------------------------------
+// MODAL DE AÇÕES EM CONJUNTO (dividir compra)
+// ---------------------------------------------------------------------
+
+const acoesBackdrop = document.getElementById("acoesBackdrop");
+const acoesMenuView = document.getElementById("acoesMenuView");
+const formDividir = document.getElementById("formDividir");
+let categoriaDividir = "variaveis";
+
+function abrirAcoesConjunto() {
+  if (acoesMenuView) acoesMenuView.classList.remove("is-hidden");
+  if (formDividir) formDividir.classList.add("is-hidden");
+  if (acoesBackdrop) acoesBackdrop.classList.remove("is-hidden");
+}
+function fecharAcoesConjunto() {
+  if (acoesBackdrop) acoesBackdrop.classList.add("is-hidden");
+}
+on("btnAcoesConjunto", "click", abrirAcoesConjunto);
+on("acoesFechar", "click", fecharAcoesConjunto);
+if (acoesBackdrop) {
+  acoesBackdrop.addEventListener("click", (e) => {
+    if (e.target === acoesBackdrop) fecharAcoesConjunto();
+  });
+}
+
+on("btnAbrirDividir", "click", () => {
+  if (acoesMenuView) acoesMenuView.classList.add("is-hidden");
+  if (formDividir) formDividir.classList.remove("is-hidden");
+  document.getElementById("dividirNome").value = "";
+  document.getElementById("dividirValor").value = "";
+  setTimeout(() => document.getElementById("dividirNome").focus(), 50);
+});
+on("dividirVoltar", "click", () => {
+  if (formDividir) formDividir.classList.add("is-hidden");
+  if (acoesMenuView) acoesMenuView.classList.remove("is-hidden");
+});
+
+const segmentedDividirEl = document.getElementById("dividirCategoria");
+if (segmentedDividirEl) {
+  segmentedDividirEl.addEventListener("click", (e) => {
+    const btn = e.target.closest(".segmented-btn");
+    if (!btn) return;
+    categoriaDividir = btn.dataset.categoria;
+    segmentedDividirEl.querySelectorAll(".segmented-btn").forEach((b) => b.classList.toggle("is-active", b === btn));
+  });
+}
+
+on("formDividir", "submit", async (e) => {
+  e.preventDefault();
+  const nome = document.getElementById("dividirNome").value.trim();
+  const valor = parseValor(document.getElementById("dividirValor").value);
+  if (!nome || !(valor > 0)) return;
+
+  const btnSubmit = document.getElementById("dividirSubmit");
+  if (btnSubmit) {
+    btnSubmit.disabled = true;
+    btnSubmit.textContent = "Dividindo…";
+  }
+
+  const ok = await dividirCompra(nome, valor, categoriaDividir);
+
+  if (btnSubmit) {
+    btnSubmit.disabled = false;
+    btnSubmit.textContent = "Dividir";
+  }
+
+  if (ok) {
+    showToast(`"${nome}" dividido — metade pra cada um`);
+    fecharAcoesConjunto();
+    carregarDados();
+  } else {
+    showToast("Não consegui dividir agora. Tenta de novo em instantes.");
+  }
 });
 
 // ---------------------------------------------------------------------
