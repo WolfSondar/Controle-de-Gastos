@@ -6,6 +6,7 @@
 
 const PESSOA_LABEL = { davi: "Davi", gabriel: "Gabriel", ambos: "Ambos" };
 const PESSOA_STORAGE_KEY = "caixaPessoaAtual";
+const CACHE_PREFIX = "caixaCache:";
 
 const state = {
   ganhos: [],
@@ -27,6 +28,38 @@ const fmt = (n) =>
 
 function isAmbos() {
   return state.pessoaAtual === "ambos";
+}
+
+// ---------------------------------------------------------------------
+// CACHE LOCAL — guarda o último resultado de cada pessoa no aparelho.
+// Isso é o que faz a troca de pessoa e a abertura do app parecerem
+// instantâneas: mostramos o último dado conhecido na hora, e atualizamos
+// em silêncio assim que a resposta da planilha chega.
+// ---------------------------------------------------------------------
+
+function getCache(pessoa) {
+  try {
+    const raw = localStorage.getItem(CACHE_PREFIX + pessoa);
+    return raw ? JSON.parse(raw) : null;
+  } catch (err) {
+    return null;
+  }
+}
+
+function setCache(pessoa, data) {
+  try {
+    localStorage.setItem(
+      CACHE_PREFIX + pessoa,
+      JSON.stringify({
+        ganhos: data.ganhos || [],
+        gastosFixos: data.gastosFixos || [],
+        gastosVariaveis: data.gastosVariaveis || [],
+        objetivos: data.objetivos || [],
+      })
+    );
+  } catch (err) {
+    // localStorage cheio ou indisponível — sem problema, só não guarda o cache
+  }
 }
 
 // ---------------------------------------------------------------------
@@ -57,27 +90,74 @@ async function carregarDados() {
     renderAll();
     return;
   }
-  setSyncState("saving", "Carregando…");
-  renderSkeletons();
+
+  // Trava qual pessoa esta chamada representa. Se o usuário trocar de pessoa
+  // de novo antes da planilha responder, a gente descarta essa resposta lá
+  // embaixo — assim uma resposta antiga nunca "pisa" nos dados da pessoa atual.
+  const pessoaRequisitada = state.pessoaAtual;
+
+  const cache = getCache(pessoaRequisitada);
+  if (cache) {
+    // Mostra o último dado conhecido na hora — sem skeleton, sem espera —
+    // e atualiza discretamente assim que a resposta fresca chegar.
+    state.ganhos = cache.ganhos;
+    state.gastosFixos = cache.gastosFixos;
+    state.gastosVariaveis = cache.gastosVariaveis;
+    state.objetivos = cache.objetivos;
+    state.loaded = true;
+    setSyncState("saving", "Atualizando…");
+    renderAll();
+  } else {
+    setSyncState("saving", "Carregando…");
+    renderSkeletons();
+  }
+
   try {
-    const url = `${API_URL}?pessoa=${encodeURIComponent(state.pessoaAtual)}`;
+    const url = `${API_URL}?pessoa=${encodeURIComponent(pessoaRequisitada)}`;
     const res = await fetch(url, { method: "GET" });
     const data = await res.json();
     if (data && data.ok === false) {
       throw new Error(data.error || "Erro desconhecido");
     }
+    if (state.pessoaAtual !== pessoaRequisitada) return; // usuário já trocou de pessoa, ignora
+
     state.ganhos = data.ganhos || [];
     state.gastosFixos = data.gastosFixos || [];
     state.gastosVariaveis = data.gastosVariaveis || [];
     state.objetivos = data.objetivos || [];
     state.loaded = true;
+    setCache(pessoaRequisitada, data);
     setSyncState("idle", "Sincronizado");
     renderAll();
+    prefetchOutrasPessoas(pessoaRequisitada);
   } catch (err) {
+    if (state.pessoaAtual !== pessoaRequisitada) return;
     setSyncState("error", "Erro ao carregar");
-    showToast("Não consegui carregar a planilha. Confira a API_URL.");
-    renderAll();
+    if (!cache) {
+      showToast("Não consegui carregar a planilha. Confira a API_URL.");
+      renderAll();
+    } else {
+      // já tem algo na tela (o cache) — só avisa que não deu pra atualizar agora
+      showToast("Não consegui atualizar agora. Mostrando o último dado salvo.");
+    }
   }
+}
+
+// Depois de carregar a pessoa que o usuário está vendo, busca as outras duas
+// visões (a outra pessoa e "Ambos") em segundo plano e guarda no cache —
+// sem renderizar nada. Assim, quando o usuário tocar em outra aba, o dado
+// já está pronto no aparelho e aparece na hora.
+function prefetchOutrasPessoas(pessoaJaCarregada) {
+  Object.keys(PESSOA_LABEL)
+    .filter((p) => p !== pessoaJaCarregada)
+    .forEach((p) => {
+      fetch(`${API_URL}?pessoa=${encodeURIComponent(p)}`)
+        .then((res) => res.json())
+        .then((data) => {
+          if (data && data.ok !== false) setCache(p, data);
+        })
+        .catch(() => {});
+    });
 }
 
 async function salvarBloco(action, payload) {
@@ -115,7 +195,19 @@ function trocarPessoa(pessoa) {
   primeiraRenderObjetivos = true;
   renderPessoaSwitch();
   atualizarVisibilidadeEdicao();
+  atualizarVisibilidadeSplitCard(); // esconde/mostra o gráfico na hora, sem esperar os dados
   carregarDados();
+}
+
+// Mostra/esconde o card de divisão do casal IMEDIATAMENTE ao trocar de pessoa.
+// Antes isso só acontecia dentro de renderSplit(), que só roda depois que os
+// dados terminam de chegar — por isso o gráfico ficava "grudado" na tela por
+// um instante ao sair do modo Ambos, parecendo que travou. Agora a visibilidade
+// já muda no clique; o conteúdo (números) é preenchido depois, normalmente.
+function atualizarVisibilidadeSplitCard() {
+  const card = document.getElementById("splitCard");
+  if (!card) return;
+  card.classList.toggle("is-hidden", !isAmbos());
 }
 
 function renderPessoaSwitch() {
@@ -708,6 +800,22 @@ function renderSkeletons() {
   if (resumoObj) resumoObj.innerHTML = skeletonMiniGoals(2);
   const listaObjetivos = document.getElementById("listaObjetivos");
   if (listaObjetivos) listaObjetivos.innerHTML = skeletonGoalCards(2);
+  if (isAmbos()) renderSplitSkeleton();
+}
+
+// Skeleton do gráfico de divisão — só aparece no modo Ambos quando ainda não
+// existe nenhum cache pra mostrar de cara (ou seja, bem raramente).
+function renderSplitSkeleton() {
+  const donut = document.getElementById("splitDonut");
+  if (donut) donut.style.background = "var(--paper-deep)";
+  const centro = document.getElementById("splitDonutCenter");
+  if (centro) centro.innerHTML = `<span class="skeleton" style="width:76px;height:16px;">.</span>`;
+  const legend = document.getElementById("splitLegend");
+  if (legend) {
+    legend.innerHTML = [0, 1, 2]
+      .map(() => `<div class="split-legend-item"><span class="skeleton" style="width:100%;height:14px;">.</span></div>`)
+      .join("");
+  }
 }
 
 // ---------------------------------------------------------------------
@@ -1075,4 +1183,5 @@ if (confirmBackdrop) {
 
 renderPessoaSwitch();
 atualizarVisibilidadeEdicao();
+atualizarVisibilidadeSplitCard();
 carregarDados();
