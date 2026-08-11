@@ -23,9 +23,19 @@
         <span class="brand-mark">Caixa</span>
         <span class="brand-sub">livro-caixa pessoal</span>
       </div>
-      <div class="sync" id="syncStatus" data-state="idle">
-        <span class="sync-dot"></span>
-        <span class="sync-text">Pronto</span>
+      <div class="hero-top-actions">
+        <button class="icon-btn" id="btnAcoesConjunto" aria-label="Ações em conjunto">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
+            <path d="M16 3h5v5"/>
+            <path d="M8 3H3v5"/>
+            <path d="M12 22v-8.3a4 4 0 0 0-1.172-2.872L3 3"/>
+            <path d="m15 9 6-6"/>
+          </svg>
+        </button>
+        <div class="sync" id="syncStatus" data-state="idle">
+          <span class="sync-dot"></span>
+          <span class="sync-text">Pronto</span>
+        </div>
       </div>
     </div>
 
@@ -218,6 +228,49 @@
       <button type="button" class="btn btn-ghost" id="confirmCancelar">Cancelar</button>
       <button type="button" class="btn btn-danger" id="confirmOk">Remover</button>
     </div>
+  </div>
+</div>
+
+<!-- MODAL DE AÇÕES EM CONJUNTO -->
+<div class="modal-backdrop is-hidden" id="acoesBackdrop">
+  <div class="modal modal-acoes">
+    <div id="acoesMenuView">
+      <h3>Ações em conjunto</h3>
+      <p class="section-hint">Coisas que mexem na conta dos dois de uma vez.</p>
+      <button type="button" class="acao-card" id="btnAbrirDividir">
+        <span class="acao-card-icon">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
+            <path d="M16 3h5v5"/>
+            <path d="M8 3H3v5"/>
+            <path d="M12 22v-8.3a4 4 0 0 0-1.172-2.872L3 3"/>
+            <path d="m15 9 6-6"/>
+          </svg>
+        </span>
+        <span class="acao-card-texto">
+          <strong>Dividir uma compra</strong>
+          <small>Metade pra cada um, em fixos ou variáveis</small>
+        </span>
+        <span class="acao-card-seta">›</span>
+      </button>
+      <div class="modal-actions">
+        <button type="button" class="btn btn-ghost" id="acoesFechar">Fechar</button>
+      </div>
+    </div>
+
+    <form id="formDividir" class="is-hidden">
+      <h3>Dividir uma compra</h3>
+      <p class="section-hint">O valor total é dividido ao meio — metade entra no Davi, metade no Gabriel.</p>
+      <input type="text" id="dividirNome" placeholder="Descrição (ex: Mercado)" required maxlength="60" />
+      <input type="number" id="dividirValor" placeholder="Valor total, R$" step="0.01" min="0.01" inputmode="decimal" required />
+      <div class="segmented" id="dividirCategoria">
+        <button type="button" class="segmented-btn is-active" data-categoria="variaveis">Variável</button>
+        <button type="button" class="segmented-btn" data-categoria="fixos">Fixo</button>
+      </div>
+      <div class="modal-actions">
+        <button type="button" class="btn btn-ghost" id="dividirVoltar">Voltar</button>
+        <button type="submit" class="btn btn-gold" id="dividirSubmit">Dividir</button>
+      </div>
+    </form>
   </div>
 </div>
 
