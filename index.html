@@ -63,6 +63,20 @@
 
     <!-- RESUMO -->
     <section class="tab-panel" id="tab-resumo" data-tab="resumo">
+
+      <div class="split-card is-hidden" id="splitCard">
+        <div class="ledger-line">
+          <h2 class="section-title">Divisão do casal</h2>
+        </div>
+        <p class="section-hint" id="splitHint">Quanto do total de vocês dois cada um já usou.</p>
+        <div class="split-chart-wrap">
+          <div class="split-donut" id="splitDonut">
+            <div class="split-donut-center" id="splitDonutCenter"></div>
+          </div>
+          <div class="split-legend" id="splitLegend"></div>
+        </div>
+      </div>
+
       <div class="ledger-line">
         <h2 class="section-title">Lançamentos recentes</h2>
       </div>
@@ -175,6 +189,21 @@
       <div class="modal-actions">
         <button type="button" class="btn btn-ghost" id="modalCancelar">Cancelar</button>
         <button type="submit" class="btn btn-gold">Guardar</button>
+      </div>
+    </form>
+  </div>
+</div>
+
+<!-- MODAL DE EDIÇÃO -->
+<div class="modal-backdrop is-hidden" id="editBackdrop">
+  <div class="modal">
+    <h3 id="editTitle">Editar item</h3>
+    <form id="formEditar">
+      <input type="text" id="editNome" placeholder="Descrição" required maxlength="60" />
+      <input type="number" id="editValor" placeholder="0,00" step="0.01" min="0.01" inputmode="decimal" required />
+      <div class="modal-actions">
+        <button type="button" class="btn btn-ghost" id="editCancelar">Cancelar</button>
+        <button type="submit" class="btn btn-gold">Salvar</button>
       </div>
     </form>
   </div>
