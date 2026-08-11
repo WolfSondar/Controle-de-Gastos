@@ -127,9 +127,9 @@ function atualizarVisibilidadeEdicao() {
 
 function criarOperacoesLista(key, action) {
   return {
-    add(nome, valor) {
+    add(nome, valor, extra = {}) {
       if (isAmbos()) return;
-      state[key].push({ nome, valor });
+      state[key].push({ nome, valor, ...extra });
       salvarBloco(action, state[key]);
       renderAll();
     },
@@ -171,6 +171,23 @@ function aportarObjetivo(index, valor) {
 }
 
 // ---------------------------------------------------------------------
+// GASTOS FIXOS — status "pago" (coluna PAGO na planilha, VERDADEIRO/FALSO)
+// ---------------------------------------------------------------------
+
+function fixoEhPago(item) {
+  return item.pago === true;
+}
+
+function togglePagoFixo(index) {
+  if (isAmbos()) return;
+  const item = state.gastosFixos[index];
+  if (!item) return;
+  item.pago = !fixoEhPago(item);
+  salvarBloco("saveGastosFixos", state.gastosFixos);
+  renderAll();
+}
+
+// ---------------------------------------------------------------------
 // TOTAIS
 // ---------------------------------------------------------------------
 
@@ -178,19 +195,33 @@ function soma(lista) {
   return lista.reduce((acc, i) => acc + (Number(i.valor) || 0), 0);
 }
 
+function somaFixosPagos(lista) {
+  return lista.reduce((acc, i) => acc + (fixoEhPago(i) ? Number(i.valor) || 0 : 0), 0);
+}
+
 function renderTotais() {
   const totalGanhos = soma(state.ganhos);
-  const totalFixos = soma(state.gastosFixos);
+  const totalFixosGeral = soma(state.gastosFixos);
+  const totalFixosPagos = somaFixosPagos(state.gastosFixos);
+  const totalFixosAPagar = totalFixosGeral - totalFixosPagos;
   const totalVariaveis = soma(state.gastosVariaveis);
-  const saldo = totalGanhos - totalFixos - totalVariaveis;
+  const saldo = totalGanhos - totalFixosPagos - totalVariaveis;
 
   document.getElementById("statGanhos").textContent = fmt(totalGanhos);
-  document.getElementById("statFixos").textContent = fmt(totalFixos);
+  document.getElementById("statFixos").textContent = fmt(totalFixosPagos);
   document.getElementById("statVariaveis").textContent = fmt(totalVariaveis);
 
   const saldoEl = document.getElementById("saldoValor");
   saldoEl.textContent = fmt(saldo);
   saldoEl.classList.toggle("negative", saldo < 0);
+
+  const formulaEl = document.getElementById("saldoFormula");
+  if (formulaEl) {
+    formulaEl.textContent =
+      totalFixosAPagar > 0
+        ? `ganhos − fixos pagos − variáveis · ${fmt(totalFixosAPagar)} em fixos a pagar`
+        : "ganhos − fixos pagos − variáveis";
+  }
 }
 
 // ---------------------------------------------------------------------
@@ -229,6 +260,53 @@ function renderLista(ulId, lista, tipo, onRemove) {
     `;
     if (!ambos) {
       li.querySelector(".btn-remove").addEventListener("click", () => onRemove(idx));
+    }
+    ul.appendChild(li);
+  });
+}
+
+// ---------------------------------------------------------------------
+// RENDER — GASTOS FIXOS (com toggle de status "pago")
+// ---------------------------------------------------------------------
+
+function renderFixos() {
+  const ul = document.getElementById("listaFixos");
+  ul.innerHTML = "";
+  if (state.gastosFixos.length === 0) {
+    ul.innerHTML = `<p class="empty-state">Nada por aqui ainda. Adicione o primeiro item acima.</p>`;
+    return;
+  }
+  const ambos = isAmbos();
+  state.gastosFixos.forEach((item, idx) => {
+    const pago = fixoEhPago(item);
+    const li = document.createElement("li");
+    li.className = pago ? "" : "is-pendente";
+    li.innerHTML = `
+      <div class="item-info">
+        <span class="item-nome">${escapeHtml(item.nome)} ${tagPessoa(item)}</span>
+      </div>
+      <div class="item-row">
+        <span class="item-valor expense">${fmt(item.valor)}</span>
+        ${
+          ambos
+            ? `<span class="pago-toggle ${pago ? "is-pago" : ""}" aria-disabled="true"><span class="dot"></span>${pago ? "Pago" : "Pendente"}</span>`
+            : `<label class="pago-toggle ${pago ? "is-pago" : ""}">
+                <input type="checkbox" data-idx="${idx}" ${pago ? "checked" : ""} />
+                <span class="dot"></span>${pago ? "Pago" : "Pendente"}
+              </label>`
+        }
+        ${
+          ambos
+            ? ""
+            : `<button class="btn-remove" aria-label="Remover" data-idx="${idx}">
+                <svg viewBox="0 0 24 24" fill="none"><path d="M6 6l12 12M18 6L6 18" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></svg>
+              </button>`
+        }
+      </div>
+    `;
+    if (!ambos) {
+      li.querySelector('input[type="checkbox"]').addEventListener("change", () => togglePagoFixo(idx));
+      li.querySelector(".btn-remove").addEventListener("click", () => opFixos.remove(idx));
     }
     ul.appendChild(li);
   });
@@ -319,12 +397,21 @@ function renderObjetivos() {
 const ICONE_GANHO = `<svg viewBox="0 0 24 24" fill="none"><path d="M12 19V5M5 12l7-7 7 7" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>`;
 const ICONE_GASTO = `<svg viewBox="0 0 24 24" fill="none"><path d="M12 5v14M5 12l7 7 7-7" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>`;
 
+function itensRecentesPorCategoria(lista, tipo, tag, n) {
+  return lista
+    .slice(-n)
+    .reverse()
+    .map((i) => ({ ...i, tipo, tag }));
+}
+
 function renderRecentes() {
   const ledger = document.getElementById("ledgerRecentes");
+  // Pega os últimos N de cada categoria, e não os últimos N do total —
+  // assim ganhos nunca somem da lista só porque há muitos gastos depois.
   const todos = [
-    ...state.ganhos.map((i) => ({ ...i, tipo: "income", tag: "Ganho" })),
-    ...state.gastosFixos.map((i) => ({ ...i, tipo: "expense", tag: "Fixo" })),
-    ...state.gastosVariaveis.map((i) => ({ ...i, tipo: "expense", tag: "Variável" })),
+    ...itensRecentesPorCategoria(state.ganhos, "income", "Ganho", 3),
+    ...itensRecentesPorCategoria(state.gastosFixos, "expense", "Fixo", 3),
+    ...itensRecentesPorCategoria(state.gastosVariaveis, "expense", "Variável", 3),
   ];
 
   ledger.innerHTML = "";
@@ -332,15 +419,15 @@ function renderRecentes() {
     ledger.innerHTML = `<p class="empty-state">Ainda não há lançamentos. Comece pela aba "Ganhos".</p>`;
     return;
   }
-  const recentes = todos.slice(-8).reverse();
-  recentes.forEach((item) => {
+  todos.forEach((item) => {
+    const pendente = item.tipo === "expense" && item.pago === false;
     const row = document.createElement("div");
-    row.className = "ledger-item";
+    row.className = "ledger-item" + (pendente ? " is-pendente" : "");
     row.innerHTML = `
       <span class="ledger-icon ${item.tipo}">${item.tipo === "income" ? ICONE_GANHO : ICONE_GASTO}</span>
       <div class="ledger-info">
         <span class="ledger-nome">${escapeHtml(item.nome)} ${tagPessoa(item)}</span>
-        <span class="ledger-tag">${item.tag}</span>
+        <span class="ledger-tag">${pendente ? "Fixo · pendente" : item.tag}</span>
       </div>
       <span class="ledger-valor ${item.tipo}">${item.tipo === "income" ? "+" : "−"} ${fmt(item.valor)}</span>
     `;
@@ -428,7 +515,7 @@ function renderSkeletons() {
 function renderAll() {
   renderTotais();
   renderLista("listaGanhos", state.ganhos, "income", opGanhos.remove);
-  renderLista("listaFixos", state.gastosFixos, "expense", opFixos.remove);
+  renderFixos();
   renderLista("listaVariaveis", state.gastosVariaveis, "expense", opVariaveis.remove);
   renderObjetivos();
   renderRecentes();
@@ -505,7 +592,8 @@ on("formFixos", "submit", (e) => {
   const nome = f.nome.value.trim();
   const valor = parseValor(f.valor.value);
   if (!nome || !(valor > 0)) return;
-  opFixos.add(nome, valor);
+  const pago = f.pago ? f.pago.checked : false;
+  opFixos.add(nome, valor, { pago });
   f.reset();
 });
 
