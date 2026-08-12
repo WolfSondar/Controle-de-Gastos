@@ -941,7 +941,11 @@ button, input {
   border-radius: 100px;
   padding: 6px 11px;
   white-space: nowrap;
+  cursor: pointer;
+  transition: background 0.15s ease;
 }
+.mes-atual-badge:hover { background: rgba(255,255,255,0.16); }
+.mes-atual-badge:active { transform: scale(0.96); }
 .mes-atual-badge:empty { display: none; }
 .icon-btn {
   width: 34px;
