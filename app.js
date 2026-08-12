@@ -6,6 +6,10 @@
 
 const PESSOA_LABEL = { davi: "Davi", gabriel: "Gabriel", ambos: "Ambos" };
 const PESSOA_STORAGE_KEY = "caixaPessoaAtual";
+const MESES = [
+  "janeiro", "fevereiro", "março", "abril", "maio", "junho",
+  "julho", "agosto", "setembro", "outubro", "novembro", "dezembro",
+];
 
 const state = {
   ganhos: [],
@@ -14,6 +18,8 @@ const state = {
   objetivos: [],
   loaded: false,
   pessoaAtual: localStorage.getItem(PESSOA_STORAGE_KEY) || "davi",
+  mesAtual: null,
+  anoAtual: null,
 };
 
 // guarda os últimos totais renderizados, pra animar contagem e mostrar o valor flutuante
@@ -50,6 +56,17 @@ function showToast(msg) {
   showToast._t = setTimeout(() => t.classList.remove("is-visible"), 2600);
 }
 
+function renderPeriodoAtual() {
+  const el = document.getElementById("periodoAtual");
+  if (!el) return;
+  if (!state.mesAtual || !state.anoAtual) {
+    el.textContent = "";
+    return;
+  }
+  const nomeMes = MESES[state.mesAtual - 1] || "";
+  el.textContent = `${nomeMes} de ${state.anoAtual}`;
+}
+
 async function carregarDados() {
   if (!API_URL || API_URL.includes("COLE_AQUI")) {
     setSyncState("error", "Configure a API");
@@ -74,6 +91,9 @@ async function carregarDados() {
     state.gastosVariaveis = data.gastosVariaveis || [];
     state.objetivos = data.objetivos || [];
     state.loaded = true;
+    if (data.mesAtual) state.mesAtual = data.mesAtual;
+    if (data.anoAtual) state.anoAtual = data.anoAtual;
+    renderPeriodoAtual();
     setSyncState("idle", "Sincronizado");
     renderAll();
   } catch (err) {
@@ -975,11 +995,13 @@ on("formEditar", "submit", (e) => {
 const acoesBackdrop = document.getElementById("acoesBackdrop");
 const acoesMenuView = document.getElementById("acoesMenuView");
 const formDividir = document.getElementById("formDividir");
+const formFecharMes = document.getElementById("formFecharMes");
 let categoriaDividir = "variaveis";
 
 function abrirAcoesConjunto() {
   if (acoesMenuView) acoesMenuView.classList.remove("is-hidden");
   if (formDividir) formDividir.classList.add("is-hidden");
+  if (formFecharMes) formFecharMes.classList.add("is-hidden");
   if (acoesBackdrop) acoesBackdrop.classList.remove("is-hidden");
 }
 function fecharAcoesConjunto() {
@@ -1048,6 +1070,151 @@ on("formDividir", "submit", async (e) => {
     carregarDados();
   }
 });
+
+// ---------------------------------------------------------------------
+// FECHAR MÊS — soma os dois, lança no HISTORICO, prepara o mês seguinte
+// ---------------------------------------------------------------------
+
+on("btnAbrirFecharMes", "click", () => {
+  if (acoesMenuView) acoesMenuView.classList.add("is-hidden");
+  if (formFecharMes) formFecharMes.classList.remove("is-hidden");
+
+  const selectMes = document.getElementById("fecharMesMes");
+  const inputAno = document.getElementById("fecharMesAno");
+  if (selectMes) selectMes.value = String(state.mesAtual || new Date().getMonth() + 1);
+  if (inputAno) inputAno.value = String(state.anoAtual || new Date().getFullYear());
+
+  carregarResumoFechamento();
+});
+on("fecharMesVoltar", "click", () => {
+  if (formFecharMes) formFecharMes.classList.add("is-hidden");
+  if (acoesMenuView) acoesMenuView.classList.remove("is-hidden");
+});
+
+// Busca os dados combinados (davi+gabriel) na hora, só pra mostrar uma prévia
+// de quanto vai ser lançado no histórico — não usa o que já está em `state`
+// porque isso pode estar filtrado por uma pessoa só.
+async function carregarResumoFechamento() {
+  const caixa = document.getElementById("fecharMesResumoCaixa");
+  if (!caixa) return;
+  caixa.innerHTML = `<p class="empty-state">Calculando os totais do mês…</p>`;
+  try {
+    const res = await fetch(`${API_URL}?pessoa=ambos&_ts=${Date.now()}`, { cache: "no-store" });
+    const data = await res.json();
+    if (data && data.ok === false) throw new Error(data.error);
+
+    const totalGanhos = soma(data.ganhos || []);
+    const totalDebitos = somaFixosPagos(data.gastosFixos || []) + soma(data.gastosVariaveis || []);
+    const saldo = totalGanhos - totalDebitos;
+
+    caixa.innerHTML = `
+      <div class="fechar-mes-resumo-linha"><span>Ganhos (Davi + Gabriel)</span><strong>${fmt(totalGanhos)}</strong></div>
+      <div class="fechar-mes-resumo-linha"><span>Gastos (fixos pagos + variáveis)</span><strong>${fmt(totalDebitos)}</strong></div>
+      <div class="fechar-mes-resumo-linha saldo"><span>Saldo do mês</span><strong class="${saldo >= 0 ? "positivo" : "negativo"}">${fmt(saldo)}</strong></div>
+    `;
+  } catch (err) {
+    caixa.innerHTML = `<p class="empty-state">Não consegui calcular os totais agora. Você ainda pode fechar o mês assim mesmo.</p>`;
+  }
+}
+
+on("formFecharMes", "submit", (e) => {
+  e.preventDefault();
+  const mes = Number(document.getElementById("fecharMesMes").value);
+  const ano = Number(document.getElementById("fecharMesAno").value);
+  if (!mes || !ano) return;
+  const nomeMes = MESES[mes - 1] || "";
+
+  abrirConfirmacao(
+    `Fechar ${nomeMes} de ${ano}? Isso lança o total no histórico, zera os gastos variáveis e volta os fixos pra "pendente" no mês seguinte.`,
+    () => executarFecharMes(mes, ano)
+  );
+});
+
+async function executarFecharMes(mes, ano) {
+  fecharAcoesConjunto();
+  showToast("Fechando o mês…");
+  try {
+    const res = await fetch(API_URL, {
+      method: "POST",
+      body: JSON.stringify({ action: "fecharMes", mes, ano }),
+    });
+    const data = await res.json().catch(() => null);
+    if (!data || data.ok === false) throw new Error((data && data.error) || "Falha ao fechar o mês");
+
+    if (data.mesAtual) state.mesAtual = data.mesAtual;
+    if (data.anoAtual) state.anoAtual = data.anoAtual;
+    renderPeriodoAtual();
+
+    const resumo = data.fechado || {};
+    const saldoTxt = resumo.saldo > 0 ? `sobrou ${fmt(resumo.saldo)}` : `faltou ${fmt(Math.abs(resumo.saldo || 0))}`;
+    showToast(`Mês fechado — ${saldoTxt}`);
+    carregarDados();
+  } catch (err) {
+    showToast("Não consegui fechar o mês agora. Tenta de novo em instantes.");
+  }
+}
+
+// ---------------------------------------------------------------------
+// HISTÓRICO — tela de leitura dos meses já fechados
+// ---------------------------------------------------------------------
+
+const historicoBackdrop = document.getElementById("historicoBackdrop");
+
+function fecharHistorico() {
+  if (historicoBackdrop) historicoBackdrop.classList.add("is-hidden");
+}
+on("historicoFecharBtn", "click", fecharHistorico);
+if (historicoBackdrop) {
+  historicoBackdrop.addEventListener("click", (e) => {
+    if (e.target === historicoBackdrop) fecharHistorico();
+  });
+}
+
+on("btnHistorico", "click", async () => {
+  if (historicoBackdrop) historicoBackdrop.classList.remove("is-hidden");
+  const lista = document.getElementById("historicoLista");
+  if (lista) lista.innerHTML = `<p class="empty-state">Carregando…</p>`;
+
+  try {
+    const res = await fetch(`${API_URL}?pessoa=historico&_ts=${Date.now()}`, { cache: "no-store" });
+    const data = await res.json();
+    if (data && data.ok === false) throw new Error(data.error);
+    renderHistorico(data.anos || []);
+  } catch (err) {
+    if (lista) lista.innerHTML = `<p class="empty-state">Não consegui carregar o histórico agora.</p>`;
+  }
+});
+
+function renderHistorico(anos) {
+  const lista = document.getElementById("historicoLista");
+  if (!lista) return;
+  if (!anos || anos.length === 0) {
+    lista.innerHTML = `<p class="empty-state">Nenhum mês fechado ainda. Use "Fechar mês" em Ações em conjunto quando terminar o mês atual.</p>`;
+    return;
+  }
+
+  // mais recente primeiro: ano decrescente, dentro do ano mês decrescente
+  const anosOrdenados = [...anos].sort((a, b) => b.ano - a.ano);
+  lista.innerHTML = anosOrdenados
+    .map((bloco) => {
+      const mesesOrdenados = [...bloco.meses].sort((a, b) => b.mes - a.mes);
+      const cards = mesesOrdenados
+        .map(
+          (m) => `
+            <div class="historico-mes-card">
+              <div>
+                <div class="historico-mes-nome">${MESES[m.mes - 1] || m.nome.toLowerCase()}</div>
+                <div class="historico-mes-detalhe">ganhos ${fmt(m.ganhos)} · gastos ${fmt(Math.abs(m.debitos))}</div>
+              </div>
+              <div class="historico-mes-saldo ${m.saldo >= 0 ? "positivo" : "negativo"}">${fmt(m.saldo)}</div>
+            </div>
+          `
+        )
+        .join("");
+      return `<div><p class="historico-ano-titulo">${bloco.ano}</p>${cards}</div>`;
+    })
+    .join("");
+}
 
 // ---------------------------------------------------------------------
 // MODAL DE CONFIRMAÇÃO (usado hoje para remover metas)
