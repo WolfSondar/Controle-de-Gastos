@@ -930,6 +930,19 @@ button, input {
   align-items: center;
   gap: 8px;
 }
+.mes-atual-badge {
+  font-family: var(--font-mono);
+  font-size: 11.5px;
+  font-weight: 600;
+  letter-spacing: 0.03em;
+  color: var(--paper);
+  background: rgba(255,255,255,0.06);
+  border: 1px solid rgba(255,255,255,0.18);
+  border-radius: 100px;
+  padding: 6px 11px;
+  white-space: nowrap;
+}
+.mes-atual-badge:empty { display: none; }
 .icon-btn {
   width: 34px;
   height: 34px;
