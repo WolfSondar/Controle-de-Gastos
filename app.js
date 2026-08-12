@@ -240,17 +240,34 @@ function atualizarVisibilidadeEdicao() {
 // OPERAÇÕES — GANHOS / FIXOS / VARIÁVEIS (nome + valor)
 // ---------------------------------------------------------------------
 
+// Atualiza o cache local da pessoa atual com o state em memória.
+// Chamada depois de toda mutação local (add/remove/edit) pra garantir que,
+// se o usuário trocar de pessoa e voltar antes da planilha responder, o
+// cache que ele vê já reflita a mudança — sem o item deletado/editado
+// "piscar" de volta por um instante.
+function sincronizarCacheAtual() {
+  if (isAmbos()) return;
+  setCache(state.pessoaAtual, {
+    ganhos: state.ganhos,
+    gastosFixos: state.gastosFixos,
+    gastosVariaveis: state.gastosVariaveis,
+    objetivos: state.objetivos,
+  });
+}
+
 function criarOperacoesLista(key, action) {
   return {
     add(nome, valor, extra = {}) {
       if (isAmbos()) return;
       state[key].push({ nome, valor, ...extra });
+      sincronizarCacheAtual();
       salvarBloco(action, state[key]);
       renderAll();
     },
     remove(index) {
       if (isAmbos()) return;
       state[key].splice(index, 1);
+      sincronizarCacheAtual();
       salvarBloco(action, state[key]);
       renderAll();
     },
@@ -260,6 +277,7 @@ function criarOperacoesLista(key, action) {
       if (!item) return;
       item.nome = nome;
       item.valor = valor;
+      sincronizarCacheAtual();
       salvarBloco(action, state[key]);
       renderAll();
     },
@@ -277,12 +295,14 @@ const opVariaveis = criarOperacoesLista("gastosVariaveis", "saveGastosVariaveis"
 function addObjetivo(nome, custo) {
   if (isAmbos()) return;
   state.objetivos.push({ nome, custo, valorAdicionado: 0 });
+  sincronizarCacheAtual();
   salvarBloco("saveObjetivos", state.objetivos);
   renderAll();
 }
 function removeObjetivo(index) {
   if (isAmbos()) return;
   state.objetivos.splice(index, 1);
+  sincronizarCacheAtual();
   salvarBloco("saveObjetivos", state.objetivos);
   renderAll();
 }
@@ -292,6 +312,7 @@ function editObjetivo(index, nome, custo) {
   if (!obj) return;
   obj.nome = nome;
   obj.custo = custo;
+  sincronizarCacheAtual();
   salvarBloco("saveObjetivos", state.objetivos);
   renderAll();
 }
@@ -299,6 +320,7 @@ function aportarObjetivo(index, valor) {
   if (isAmbos()) return;
   const obj = state.objetivos[index];
   obj.valorAdicionado = (Number(obj.valorAdicionado) || 0) + valor;
+  sincronizarCacheAtual();
   salvarBloco("saveObjetivos", state.objetivos);
   renderAll();
 }
@@ -308,6 +330,21 @@ function aportarObjetivo(index, valor) {
 // Busca os dados atuais de cada um, soma metade do valor no fixo/variável
 // escolhido, e salva os dois de uma vez — independe de quem está selecionado.
 // ---------------------------------------------------------------------
+
+// Pega a lista mais recente que já temos à mão pra uma pessoa, sem bater na
+// planilha: se for a pessoa selecionada no momento, usa o `state` (o mais
+// fresco possível); senão usa o cache local (alimentado pelo prefetch).
+// Só busca na planilha em último caso, se não houver nada local ainda.
+async function obterListaLocal(pessoa, chave) {
+  if (pessoa === state.pessoaAtual && !isAmbos()) {
+    return [...state[chave]];
+  }
+  const cache = getCache(pessoa);
+  if (cache) return [...(cache[chave] || [])];
+  const data = await fetch(`${API_URL}?pessoa=${encodeURIComponent(pessoa)}`).then((r) => r.json());
+  if (data && data.ok === false) throw new Error(data.error || "Erro ao ler dados atuais");
+  return (data && data[chave]) || [];
+}
 
 async function dividirCompra(nome, valorTotal, categoria) {
   if (!API_URL || API_URL.includes("COLE_AQUI")) {
@@ -319,16 +356,13 @@ async function dividirCompra(nome, valorTotal, categoria) {
   const chave = categoria === "fixos" ? "gastosFixos" : "gastosVariaveis";
 
   try {
-    const [daviData, gabrielData] = await Promise.all([
-      fetch(`${API_URL}?pessoa=davi`).then((r) => r.json()),
-      fetch(`${API_URL}?pessoa=gabriel`).then((r) => r.json()),
+    // Usa o que já está em memória/cache em vez de buscar de novo na
+    // planilha — é isso que fazia a divisão demorar (2 idas e voltas a
+    // mais no Apps Script antes mesmo de começar a salvar).
+    const [listaDavi, listaGabriel] = await Promise.all([
+      obterListaLocal("davi", chave),
+      obterListaLocal("gabriel", chave),
     ]);
-    if ((daviData && daviData.ok === false) || (gabrielData && gabrielData.ok === false)) {
-      throw new Error("Erro ao ler dados atuais");
-    }
-
-    const listaDavi = (daviData && daviData[chave]) || [];
-    const listaGabriel = (gabrielData && gabrielData[chave]) || [];
 
     const item = { nome, valor: metade };
     if (categoria === "fixos") item.pago = false;
@@ -347,6 +381,16 @@ async function dividirCompra(nome, valorTotal, categoria) {
     if ((dataDavi && dataDavi.ok === false) || (dataGabriel && dataGabriel.ok === false)) {
       throw new Error("Erro ao salvar em um dos dois");
     }
+
+    // Atualiza os caches locais de ambos na hora, pra não repetir o
+    // problema do item "fantasma" ao trocar de pessoa logo em seguida.
+    const cacheDavi = getCache("davi") || {};
+    const cacheGabriel = getCache("gabriel") || {};
+    setCache("davi", { ...cacheDavi, [chave]: listaDavi });
+    setCache("gabriel", { ...cacheGabriel, [chave]: listaGabriel });
+    if (state.pessoaAtual === "davi") state[chave] = listaDavi;
+    if (state.pessoaAtual === "gabriel") state[chave] = listaGabriel;
+
     return true;
   } catch (err) {
     return false;
@@ -366,6 +410,7 @@ function togglePagoFixo(index) {
   const item = state.gastosFixos[index];
   if (!item) return;
   item.pago = !fixoEhPago(item);
+  sincronizarCacheAtual();
   salvarBloco("saveGastosFixos", state.gastosFixos);
   renderAll();
 }
