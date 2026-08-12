@@ -162,6 +162,16 @@
       <div class="goal-list" id="listaObjetivos"></div>
     </section>
 
+    <!-- HISTÓRICO -->
+    <section class="tab-panel is-hidden" id="tab-historico" data-tab="historico">
+      <h2 class="section-title">Histórico</h2>
+      <p class="section-hint">Meses já fechados, com o saldo de cada um.</p>
+
+      <div class="historico-lista" id="historicoLista">
+        <p class="empty-state">Carregando histórico…</p>
+      </div>
+    </section>
+
   </main>
 
   <!-- NAVEGAÇÃO INFERIOR -->
@@ -185,6 +195,10 @@
     <button class="tab-btn" data-tab="objetivos" aria-label="Objetivos">
       <svg viewBox="0 0 24 24" fill="none"><circle cx="12" cy="12" r="8" stroke="currentColor" stroke-width="1.8"/><circle cx="12" cy="12" r="3.2" stroke="currentColor" stroke-width="1.8"/></svg>
       <span>Metas</span>
+    </button>
+    <button class="tab-btn" data-tab="historico" aria-label="Histórico">
+      <svg viewBox="0 0 24 24" fill="none"><path d="M3 12a9 9 0 1 0 3-6.7" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/><path d="M3 4v5h5" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/><path d="M12 8v4.5l3 2" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/></svg>
+      <span>Histórico</span>
     </button>
   </nav>
 
@@ -252,6 +266,20 @@
         </span>
         <span class="acao-card-seta">›</span>
       </button>
+      <button type="button" class="acao-card" id="btnAbrirFecharMes">
+        <span class="acao-card-icon">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
+            <path d="M3 12a9 9 0 1 0 3-6.7"/>
+            <path d="M3 4v5h5"/>
+            <path d="M12 8v4.5l3 2"/>
+          </svg>
+        </span>
+        <span class="acao-card-texto">
+          <strong>Fechar o mês</strong>
+          <small>Grava no histórico e passa o saldo pro mês seguinte</small>
+        </span>
+        <span class="acao-card-seta">›</span>
+      </button>
       <div class="modal-actions">
         <button type="button" class="btn btn-ghost" id="acoesFechar">Fechar</button>
       </div>
@@ -269,6 +297,21 @@
       <div class="modal-actions">
         <button type="button" class="btn btn-ghost" id="dividirVoltar">Voltar</button>
         <button type="submit" class="btn btn-gold" id="dividirSubmit">Dividir</button>
+      </div>
+    </form>
+
+    <form id="formFecharMes" class="is-hidden">
+      <h3>Fechar o mês</h3>
+      <p class="section-hint">
+        Confira o mês e o ano antes de confirmar. O saldo de cada um (o que sobrar depois dos gastos pagos) vira ganho automático da própria pessoa no mês seguinte. Os gastos variáveis zeram; os ganhos e os gastos fixos continuam do mesmo jeito. Essa ação não pode ser desfeita.
+      </p>
+      <div class="fechar-mes-campos">
+        <select id="fecharMesSelect" required></select>
+        <input type="number" id="fecharAnoInput" placeholder="Ano" required min="2026" max="2100" />
+      </div>
+      <div class="modal-actions">
+        <button type="button" class="btn btn-ghost" id="fecharMesVoltar">Voltar</button>
+        <button type="submit" class="btn btn-gold" id="fecharMesSubmit">Fechar mês</button>
       </div>
     </form>
   </div>
