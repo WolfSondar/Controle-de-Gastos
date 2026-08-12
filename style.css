@@ -990,3 +990,106 @@ button, input {
   background: var(--ink);
   color: var(--paper);
 }
+
+/* ============ PERÍODO ATUAL (mês/ano do app) ============ */
+
+.periodo-atual {
+  display: block;
+  text-align: center;
+  font-size: 11px;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  color: #8fb3a0;
+  margin: 0 0 14px;
+  min-height: 13px;
+}
+
+/* ============ FECHAR MÊS ============ */
+
+.fechar-mes-linha {
+  display: flex;
+  gap: 10px;
+  margin-bottom: 4px;
+}
+.fechar-mes-linha select,
+.fechar-mes-linha input {
+  border: 1px solid var(--line);
+  background: var(--paper-deep);
+  border-radius: var(--radius-s);
+  padding: 12px;
+  font-size: 15px;
+  font-family: inherit;
+  color: var(--ink-text);
+}
+.fechar-mes-linha select { flex: 1.4; }
+.fechar-mes-linha input { flex: 1; min-width: 0; }
+
+.fechar-mes-resumo-caixa {
+  background: var(--paper-deep);
+  border: 1px solid var(--line);
+  border-radius: var(--radius-m);
+  padding: 12px 14px;
+  margin: 14px 0 4px;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+.fechar-mes-resumo-linha {
+  display: flex;
+  justify-content: space-between;
+  font-size: 13px;
+  color: var(--ink-text);
+}
+.fechar-mes-resumo-linha strong {
+  font-family: var(--font-mono);
+}
+.fechar-mes-resumo-linha.saldo strong.positivo { color: var(--income); }
+.fechar-mes-resumo-linha.saldo strong.negativo { color: var(--expense); }
+
+/* ============ HISTÓRICO ============ */
+
+.modal-historico { max-height: 82vh; display: flex; flex-direction: column; }
+.historico-lista {
+  overflow-y: auto;
+  margin-bottom: 14px;
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+.historico-ano-titulo {
+  font-family: var(--font-mono);
+  font-size: 12px;
+  letter-spacing: 0.08em;
+  color: var(--muted);
+  margin: 0 0 6px;
+}
+.historico-mes-card {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  background: var(--paper-deep);
+  border: 1px solid var(--line);
+  border-radius: var(--radius-m);
+  padding: 11px 13px;
+  margin-bottom: 8px;
+}
+.historico-mes-nome {
+  font-size: 13.5px;
+  font-weight: 600;
+  color: var(--ink-text);
+  text-transform: capitalize;
+}
+.historico-mes-detalhe {
+  font-size: 11px;
+  color: var(--muted);
+  font-family: var(--font-mono);
+}
+.historico-mes-saldo {
+  font-family: var(--font-mono);
+  font-weight: 700;
+  font-size: 15px;
+  flex-shrink: 0;
+}
+.historico-mes-saldo.positivo { color: var(--income); }
+.historico-mes-saldo.negativo { color: var(--expense); }
