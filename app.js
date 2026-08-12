@@ -1272,13 +1272,11 @@ on("formEditar", "submit", (e) => {
 const acoesBackdrop = document.getElementById("acoesBackdrop");
 const acoesMenuView = document.getElementById("acoesMenuView");
 const formDividir = document.getElementById("formDividir");
-const formFecharMes = document.getElementById("formFecharMes");
 let categoriaDividir = "variaveis";
 
 function abrirAcoesConjunto() {
   if (acoesMenuView) acoesMenuView.classList.remove("is-hidden");
   if (formDividir) formDividir.classList.add("is-hidden");
-  if (formFecharMes) formFecharMes.classList.add("is-hidden");
   if (acoesBackdrop) acoesBackdrop.classList.remove("is-hidden");
 }
 function fecharAcoesConjunto() {
@@ -1346,17 +1344,25 @@ on("formDividir", "submit", async (e) => {
 // FECHAR MÊS — some as pontas do mês pros dois, grava no HISTORICO e
 // já passa o saldo de cada um (sem dividir) como ganho automático do
 // próximo mês. Some com os variáveis, mantém ganhos e fixos.
+// Abre ao tocar no selo de mês, no topo — não é mais uma "ação em conjunto".
 // ---------------------------------------------------------------------
 
-on("btnAbrirFecharMes", "click", () => {
-  if (acoesMenuView) acoesMenuView.classList.add("is-hidden");
-  if (formFecharMes) formFecharMes.classList.remove("is-hidden");
+const fecharMesBackdrop = document.getElementById("fecharMesBackdrop");
+
+function abrirFecharMes() {
   prepararFormFecharMes();
-});
-on("fecharMesVoltar", "click", () => {
-  if (formFecharMes) formFecharMes.classList.add("is-hidden");
-  if (acoesMenuView) acoesMenuView.classList.remove("is-hidden");
-});
+  if (fecharMesBackdrop) fecharMesBackdrop.classList.remove("is-hidden");
+}
+function fecharModalFecharMes() {
+  if (fecharMesBackdrop) fecharMesBackdrop.classList.add("is-hidden");
+}
+on("mesAtualBadge", "click", abrirFecharMes);
+on("fecharMesCancelar", "click", fecharModalFecharMes);
+if (fecharMesBackdrop) {
+  fecharMesBackdrop.addEventListener("click", (e) => {
+    if (e.target === fecharMesBackdrop) fecharModalFecharMes();
+  });
+}
 
 function prepararFormFecharMes() {
   const selectMes = document.getElementById("fecharMesSelect");
@@ -1426,7 +1432,7 @@ on("formFecharMes", "submit", async (e) => {
     showToast(
       `${MESES_LABEL[f.mes - 1]}/${f.ano} fechado — Davi ${fmt(f.saldoDavi)} · Gabriel ${fmt(f.saldoGabriel)}`
     );
-    fecharAcoesConjunto();
+    fecharModalFecharMes();
     carregarDados();
     carregarHistorico();
   } else {
