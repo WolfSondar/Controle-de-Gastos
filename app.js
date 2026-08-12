@@ -7,6 +7,10 @@
 const PESSOA_LABEL = { davi: "Davi", gabriel: "Gabriel", ambos: "Ambos" };
 const PESSOA_STORAGE_KEY = "caixaPessoaAtual";
 const CACHE_PREFIX = "caixaCache:";
+const MESES_LABEL = [
+  "Janeiro", "Fevereiro", "Março", "Abril", "Maio", "Junho",
+  "Julho", "Agosto", "Setembro", "Outubro", "Novembro", "Dezembro",
+];
 
 const state = {
   ganhos: [],
@@ -15,6 +19,9 @@ const state = {
   objetivos: [],
   loaded: false,
   pessoaAtual: localStorage.getItem(PESSOA_STORAGE_KEY) || "davi",
+  mesAtual: null,
+  anoAtual: null,
+  historico: null, // { anos: [...] }, carregado sob demanda ao abrir a aba
 };
 
 // guarda os últimos totais renderizados, pra animar contagem e mostrar o valor flutuante
@@ -126,6 +133,8 @@ async function carregarDados() {
     state.gastosVariaveis = data.gastosVariaveis || [];
     state.objetivos = data.objetivos || [];
     state.loaded = true;
+    if (data.mesAtual) state.mesAtual = data.mesAtual;
+    if (data.anoAtual) state.anoAtual = data.anoAtual;
     setCache(pessoaRequisitada, data);
     setSyncState("idle", "Sincronizado");
     renderAll();
@@ -226,8 +235,8 @@ function atualizarVisibilidadeEdicao() {
   document.body.classList.toggle("modo-somente-leitura", ambos);
 
   document.querySelectorAll(".tab-btn").forEach((btn) => {
-    const ehResumo = btn.dataset.tab === "resumo";
-    btn.classList.toggle("is-hidden", ambos && !ehResumo);
+    const semRestricao = btn.dataset.tab === "resumo" || btn.dataset.tab === "historico";
+    btn.classList.toggle("is-hidden", ambos && !semRestricao);
   });
 
   if (ambos) {
@@ -946,6 +955,112 @@ function escapeHtml(str) {
 }
 
 // ---------------------------------------------------------------------
+// HISTÓRICO — meses já fechados, com o saldo individual de cada pessoa
+// ---------------------------------------------------------------------
+
+function getCacheHistorico() {
+  try {
+    const raw = localStorage.getItem(CACHE_PREFIX + "historico");
+    return raw ? JSON.parse(raw) : null;
+  } catch (err) {
+    return null;
+  }
+}
+function setCacheHistorico(data) {
+  try {
+    localStorage.setItem(CACHE_PREFIX + "historico", JSON.stringify({ anos: data.anos || [] }));
+  } catch (err) {
+    // sem problema, só não guarda o cache
+  }
+}
+
+async function carregarHistorico() {
+  const cache = getCacheHistorico();
+  if (cache) {
+    state.historico = cache;
+    renderHistorico();
+  } else {
+    renderHistoricoSkeleton();
+  }
+  if (!API_URL || API_URL.includes("COLE_AQUI")) return;
+  try {
+    const res = await fetch(`${API_URL}?pessoa=historico`);
+    const data = await res.json();
+    if (data && data.ok === false) throw new Error(data.error || "Erro desconhecido");
+    state.historico = data;
+    if (data.mesAtual) state.mesAtual = data.mesAtual;
+    if (data.anoAtual) state.anoAtual = data.anoAtual;
+    setCacheHistorico(data);
+    renderHistorico();
+  } catch (err) {
+    if (!cache) {
+      const wrap = document.getElementById("historicoLista");
+      if (wrap) wrap.innerHTML = `<p class="empty-state">Não consegui carregar o histórico agora.</p>`;
+    }
+  }
+}
+
+function renderHistoricoSkeleton() {
+  const wrap = document.getElementById("historicoLista");
+  if (!wrap) return;
+  wrap.innerHTML = Array.from({ length: 2 })
+    .map(
+      () => `
+      <div class="historico-mes-card">
+        <div class="skeleton" style="width:40%;height:16px;margin-bottom:12px;">.</div>
+        <div class="skeleton" style="width:100%;height:13px;margin-bottom:8px;">.</div>
+        <div class="skeleton" style="width:100%;height:13px;">.</div>
+      </div>`
+    )
+    .join("");
+}
+
+function renderHistorico() {
+  const wrap = document.getElementById("historicoLista");
+  if (!wrap) return;
+  const anos = (state.historico && state.historico.anos) || [];
+  if (anos.length === 0) {
+    wrap.innerHTML = `<p class="empty-state">Nenhum mês fechado ainda. Feche o primeiro mês em "Ações em conjunto".</p>`;
+    return;
+  }
+  // mais recente primeiro: ano decrescente, e dentro do ano, mês decrescente
+  const anosOrdenados = [...anos].sort((a, b) => b.ano - a.ano);
+  wrap.innerHTML = anosOrdenados
+    .map((bloco) => {
+      const mesesOrdenados = [...bloco.meses].sort((a, b) => b.mes - a.mes);
+      const cards = mesesOrdenados
+        .map((m) => {
+          const saldoTotal = m.saldoDavi + m.saldoGabriel;
+          const nomeMes = m.nome.charAt(0) + m.nome.slice(1).toLowerCase();
+          return `
+          <div class="historico-mes-card">
+            <div class="historico-mes-head">
+              <span class="historico-mes-nome">${nomeMes}</span>
+              <span class="historico-mes-saldo ${saldoTotal < 0 ? "negative" : ""}">${fmt(saldoTotal)}</span>
+            </div>
+            <div class="historico-mes-linha">
+              <span>Ganhos</span><span class="income">${fmt(m.ganhos)}</span>
+            </div>
+            <div class="historico-mes-linha">
+              <span>Débitos</span><span class="expense">${fmt(Math.abs(m.debitos))}</span>
+            </div>
+            <div class="historico-mes-pessoas">
+              <span class="pessoa-tag pessoa-davi">Davi ${fmt(m.saldoDavi)}</span>
+              <span class="pessoa-tag pessoa-gabriel">Gabriel ${fmt(m.saldoGabriel)}</span>
+            </div>
+          </div>`;
+        })
+        .join("");
+      return `
+        <div class="historico-ano-bloco">
+          <h3 class="historico-ano-titulo">${bloco.ano}</h3>
+          ${cards}
+        </div>`;
+    })
+    .join("");
+}
+
+// ---------------------------------------------------------------------
 // NAVEGAÇÃO POR ABAS
 // ---------------------------------------------------------------------
 
@@ -959,6 +1074,7 @@ if (tabbarEl) {
     document.querySelectorAll(".tab-btn").forEach((b) => b.classList.toggle("is-active", b === btn));
     document.querySelectorAll(".tab-panel").forEach((p) => p.classList.toggle("is-hidden", p.dataset.tab !== tab));
     window.scrollTo({ top: 0, behavior: "smooth" });
+    if (tab === "historico") carregarHistorico();
   });
 }
 
@@ -1125,11 +1241,13 @@ on("formEditar", "submit", (e) => {
 const acoesBackdrop = document.getElementById("acoesBackdrop");
 const acoesMenuView = document.getElementById("acoesMenuView");
 const formDividir = document.getElementById("formDividir");
+const formFecharMes = document.getElementById("formFecharMes");
 let categoriaDividir = "variaveis";
 
 function abrirAcoesConjunto() {
   if (acoesMenuView) acoesMenuView.classList.remove("is-hidden");
   if (formDividir) formDividir.classList.add("is-hidden");
+  if (formFecharMes) formFecharMes.classList.add("is-hidden");
   if (acoesBackdrop) acoesBackdrop.classList.remove("is-hidden");
 }
 function fecharAcoesConjunto() {
@@ -1190,6 +1308,97 @@ on("formDividir", "submit", async (e) => {
     carregarDados();
   } else {
     showToast("Não consegui dividir agora. Tenta de novo em instantes.");
+  }
+});
+
+// ---------------------------------------------------------------------
+// FECHAR MÊS — some as pontas do mês pros dois, grava no HISTORICO e
+// já passa o saldo de cada um (sem dividir) como ganho automático do
+// próximo mês. Some com os variáveis, mantém ganhos e fixos.
+// ---------------------------------------------------------------------
+
+on("btnAbrirFecharMes", "click", () => {
+  if (acoesMenuView) acoesMenuView.classList.add("is-hidden");
+  if (formFecharMes) formFecharMes.classList.remove("is-hidden");
+  prepararFormFecharMes();
+});
+on("fecharMesVoltar", "click", () => {
+  if (formFecharMes) formFecharMes.classList.add("is-hidden");
+  if (acoesMenuView) acoesMenuView.classList.remove("is-hidden");
+});
+
+function prepararFormFecharMes() {
+  const selectMes = document.getElementById("fecharMesSelect");
+  const inputAno = document.getElementById("fecharAnoInput");
+  if (selectMes && selectMes.options.length === 0) {
+    MESES_LABEL.forEach((nome, idx) => {
+      const opt = document.createElement("option");
+      opt.value = String(idx + 1);
+      opt.textContent = nome;
+      selectMes.appendChild(opt);
+    });
+  }
+  const agora = new Date();
+  const mes = state.mesAtual || agora.getMonth() + 1;
+  const ano = state.anoAtual || agora.getFullYear();
+  if (selectMes) selectMes.value = String(mes);
+  if (inputAno) inputAno.value = ano;
+}
+
+async function fecharMesRequisicao(mes, ano) {
+  if (!API_URL || API_URL.includes("COLE_AQUI")) {
+    showToast("Configure a URL do Apps Script em config.js");
+    return null;
+  }
+  try {
+    const res = await fetch(API_URL, {
+      method: "POST",
+      body: JSON.stringify({ action: "fecharMes", mes, ano }),
+    });
+    const data = await res.json().catch(() => null);
+    if (!data || data.ok === false) throw new Error((data && data.error) || "Erro desconhecido");
+    return data;
+  } catch (err) {
+    return null;
+  }
+}
+
+on("formFecharMes", "submit", async (e) => {
+  e.preventDefault();
+  const mes = Number(document.getElementById("fecharMesSelect").value);
+  const ano = Number(document.getElementById("fecharAnoInput").value);
+  if (!mes || !ano) return;
+
+  const btnSubmit = document.getElementById("fecharMesSubmit");
+  if (btnSubmit) {
+    btnSubmit.disabled = true;
+    btnSubmit.textContent = "Fechando…";
+  }
+
+  const resultado = await fecharMesRequisicao(mes, ano);
+
+  if (btnSubmit) {
+    btnSubmit.disabled = false;
+    btnSubmit.textContent = "Fechar mês";
+  }
+
+  if (resultado) {
+    const f = resultado.fechado;
+    state.mesAtual = resultado.mesAtual;
+    state.anoAtual = resultado.anoAtual;
+
+    // Davi e Gabriel (e Ambos e o histórico) mudaram — os caches antigos
+    // ficariam desatualizados, então joga tudo fora e recarrega na hora.
+    ["davi", "gabriel", "ambos", "historico"].forEach((p) => localStorage.removeItem(CACHE_PREFIX + p));
+
+    showToast(
+      `${MESES_LABEL[f.mes - 1]}/${f.ano} fechado — Davi ${fmt(f.saldoDavi)} · Gabriel ${fmt(f.saldoGabriel)}`
+    );
+    fecharAcoesConjunto();
+    carregarDados();
+    carregarHistorico();
+  } else {
+    showToast("Não consegui fechar o mês agora. Tenta de novo em instantes.");
   }
 });
 
