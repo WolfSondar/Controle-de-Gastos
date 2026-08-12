@@ -7,10 +7,22 @@
 const PESSOA_LABEL = { davi: "Davi", gabriel: "Gabriel", ambos: "Ambos" };
 const PESSOA_STORAGE_KEY = "caixaPessoaAtual";
 const CACHE_PREFIX = "caixaCache:";
+const MES_ATUAL_STORAGE_KEY = "caixaMesAtual";
 const MESES_LABEL = [
   "Janeiro", "Fevereiro", "Março", "Abril", "Maio", "Junho",
   "Julho", "Agosto", "Setembro", "Outubro", "Novembro", "Dezembro",
 ];
+
+function getMesAtualCache() {
+  try {
+    const raw = localStorage.getItem(MES_ATUAL_STORAGE_KEY);
+    return raw ? JSON.parse(raw) : null;
+  } catch (err) {
+    return null;
+  }
+}
+
+const mesAtualCache = getMesAtualCache();
 
 const state = {
   ganhos: [],
@@ -19,10 +31,27 @@ const state = {
   objetivos: [],
   loaded: false,
   pessoaAtual: localStorage.getItem(PESSOA_STORAGE_KEY) || "davi",
-  mesAtual: null,
-  anoAtual: null,
+  mesAtual: mesAtualCache ? mesAtualCache.mes : null,
+  anoAtual: mesAtualCache ? mesAtualCache.ano : null,
   historico: null, // { anos: [...] }, carregado sob demanda ao abrir a aba
 };
+
+// Mostra o selo "Mês de referência" no cabeçalho e guarda no aparelho, pra
+// já aparecer certo na próxima abertura do app, antes mesmo da planilha responder.
+function renderMesAtual() {
+  const el = document.getElementById("mesAtualBadge");
+  if (!el) return;
+  if (!state.mesAtual || !state.anoAtual) {
+    el.textContent = "";
+    return;
+  }
+  el.textContent = MESES_LABEL[state.mesAtual - 1] + "/" + state.anoAtual;
+  try {
+    localStorage.setItem(MES_ATUAL_STORAGE_KEY, JSON.stringify({ mes: state.mesAtual, ano: state.anoAtual }));
+  } catch (err) {
+    // sem problema, só não guarda o cache
+  }
+}
 
 // guarda os últimos totais renderizados, pra animar contagem e mostrar o valor flutuante
 const prevTotals = { ganhos: null, fixos: null, variaveis: null, saldo: null };
@@ -135,6 +164,7 @@ async function carregarDados() {
     state.loaded = true;
     if (data.mesAtual) state.mesAtual = data.mesAtual;
     if (data.anoAtual) state.anoAtual = data.anoAtual;
+    renderMesAtual();
     setCache(pessoaRequisitada, data);
     setSyncState("idle", "Sincronizado");
     renderAll();
@@ -990,6 +1020,7 @@ async function carregarHistorico() {
     state.historico = data;
     if (data.mesAtual) state.mesAtual = data.mesAtual;
     if (data.anoAtual) state.anoAtual = data.anoAtual;
+    renderMesAtual();
     setCacheHistorico(data);
     renderHistorico();
   } catch (err) {
@@ -1386,6 +1417,7 @@ on("formFecharMes", "submit", async (e) => {
     const f = resultado.fechado;
     state.mesAtual = resultado.mesAtual;
     state.anoAtual = resultado.anoAtual;
+    renderMesAtual();
 
     // Davi e Gabriel (e Ambos e o histórico) mudaram — os caches antigos
     // ficariam desatualizados, então joga tudo fora e recarrega na hora.
@@ -1436,6 +1468,7 @@ if (confirmBackdrop) {
 // ---------------------------------------------------------------------
 
 renderPessoaSwitch();
+renderMesAtual();
 atualizarVisibilidadeEdicao();
 atualizarVisibilidadeSplitCard();
 carregarDados();
