@@ -1,0 +1,282 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
+<title>Caixa — Controle Financeiro</title>
+<meta name="description" content="Controle de ganhos, gastos e objetivos" />
+<link rel="icon" type="image/jpeg" href="IMG/Icon.jpg" />
+<link rel="apple-touch-icon" href="IMG/Icon.jpg" />
+<link rel="preconnect" href="https://fonts.googleapis.com" />
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+<link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,400;9..144,500;9..144,600;9..144,700&family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500;600;700&display=swap" rel="stylesheet" />
+<link rel="stylesheet" href="style.css" />
+</head>
+<body>
+
+<div class="app">
+
+  <!-- CABEÇALHO / SALDO -->
+  <header class="hero">
+    <div class="hero-top">
+      <div class="brand">
+        <span class="brand-mark">Caixa</span>
+        <span class="brand-sub">livro-caixa pessoal</span>
+      </div>
+      <div class="hero-top-actions">
+        <button class="icon-btn" id="btnAcoesConjunto" aria-label="Ações em conjunto">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
+            <path d="M16 3h5v5"/>
+            <path d="M8 3H3v5"/>
+            <path d="M12 22v-8.3a4 4 0 0 0-1.172-2.872L3 3"/>
+            <path d="m15 9 6-6"/>
+          </svg>
+        </button>
+        <div class="sync" id="syncStatus" data-state="idle">
+          <span class="sync-dot"></span>
+          <span class="sync-text">Pronto</span>
+        </div>
+      </div>
+    </div>
+
+    <!-- SELETOR DE PESSOA -->
+    <div class="person-switch" id="personSwitch">
+      <button class="person-btn is-active" data-pessoa="davi">Davi</button>
+      <button class="person-btn" data-pessoa="gabriel">Gabriel</button>
+      <button class="person-btn" data-pessoa="ambos">Ambos</button>
+    </div>
+
+    <div class="saldo-block">
+      <span class="saldo-label">Saldo disponível</span>
+      <span class="saldo-valor" id="saldoValor">R$ 0,00</span>
+      <span class="saldo-formula" id="saldoFormula">ganhos − fixos − variáveis</span>
+    </div>
+
+    <div class="hero-stats">
+      <div class="hero-stat">
+        <span class="hero-stat-label">Ganhos</span>
+        <span class="hero-stat-valor income" id="statGanhos">R$ 0,00</span>
+      </div>
+      <div class="hero-stat">
+        <span class="hero-stat-label">Fixos</span>
+        <span class="hero-stat-valor expense" id="statFixos">R$ 0,00</span>
+      </div>
+      <div class="hero-stat">
+        <span class="hero-stat-label">Variáveis</span>
+        <span class="hero-stat-valor expense" id="statVariaveis">R$ 0,00</span>
+      </div>
+    </div>
+  </header>
+
+  <!-- CONTEÚDO -->
+  <main class="content">
+
+    <!-- RESUMO -->
+    <section class="tab-panel" id="tab-resumo" data-tab="resumo">
+
+      <div class="split-card is-hidden" id="splitCard">
+        <div class="ledger-line">
+          <h2 class="section-title">Divisão do casal</h2>
+        </div>
+        <p class="section-hint" id="splitHint">Quanto do total de vocês dois cada um já usou.</p>
+        <div class="split-chart-wrap">
+          <div class="split-donut" id="splitDonut">
+            <div class="split-donut-center" id="splitDonutCenter"></div>
+          </div>
+          <div class="split-legend" id="splitLegend"></div>
+        </div>
+      </div>
+
+      <div class="ledger-line">
+        <h2 class="section-title">Lançamentos recentes</h2>
+      </div>
+      <div class="ledger" id="ledgerRecentes">
+        <p class="empty-state">Carregando seus lançamentos…</p>
+      </div>
+
+      <div class="ledger-line">
+        <h2 class="section-title">Suas metas</h2>
+      </div>
+      <div class="goal-mini-list" id="resumoObjetivos">
+        <p class="empty-state">Carregando metas…</p>
+      </div>
+    </section>
+
+    <!-- GANHOS -->
+    <section class="tab-panel is-hidden" id="tab-ganhos" data-tab="ganhos">
+      <h2 class="section-title">Ganhos</h2>
+      <p class="section-hint">Tudo que entra: salário, bônus, ajudas, o que for.</p>
+
+      <form class="add-form" id="formGanhos">
+        <input type="text" name="nome" placeholder="Descrição (ex: Salário)" required maxlength="60" />
+        <input type="number" name="valor" placeholder="0,00" step="0.01" min="0.01" inputmode="decimal" required />
+        <button type="submit" class="btn btn-income">Adicionar ganho</button>
+      </form>
+
+      <ul class="item-list" id="listaGanhos"></ul>
+    </section>
+
+    <!-- GASTOS FIXOS -->
+    <section class="tab-panel is-hidden" id="tab-fixos" data-tab="fixos">
+      <h2 class="section-title">Gastos fixos</h2>
+      <p class="section-hint">Contas que se repetem todo mês: assinaturas, mensalidades, contas. Toque em "Pago / Pendente" pra marcar se já pagou — contas pendentes não são descontadas do saldo disponível.</p>
+
+      <form class="add-form" id="formFixos">
+        <input type="text" name="nome" placeholder="Descrição (ex: Faculdade)" required maxlength="60" />
+        <input type="number" name="valor" placeholder="0,00" step="0.01" min="0.01" inputmode="decimal" required />
+        <label class="checkbox-inline">
+          <input type="checkbox" name="pago" />
+          Já paguei essa conta
+        </label>
+        <button type="submit" class="btn btn-expense">Adicionar gasto fixo</button>
+      </form>
+
+      <ul class="item-list" id="listaFixos"></ul>
+    </section>
+
+    <!-- GASTOS VARIÁVEIS -->
+    <section class="tab-panel is-hidden" id="tab-variaveis" data-tab="variaveis">
+      <h2 class="section-title">Gastos variáveis</h2>
+      <p class="section-hint">Compras avulsas do dia a dia.</p>
+
+      <form class="add-form" id="formVariaveis">
+        <input type="text" name="nome" placeholder="Descrição (ex: Presente)" required maxlength="60" />
+        <input type="number" name="valor" placeholder="0,00" step="0.01" min="0.01" inputmode="decimal" required />
+        <button type="submit" class="btn btn-expense">Adicionar gasto variável</button>
+      </form>
+
+      <ul class="item-list" id="listaVariaveis"></ul>
+    </section>
+
+    <!-- OBJETIVOS -->
+    <section class="tab-panel is-hidden" id="tab-objetivos" data-tab="objetivos">
+      <h2 class="section-title">Objetivos</h2>
+      <p class="section-hint">Sonho de consumo pra comprar, e quanto falta.</p>
+
+      <form class="add-form" id="formObjetivos">
+        <input type="text" name="nome" placeholder="Nome (ex: Nintendo Switch 2)" required maxlength="60" />
+        <input type="number" name="custo" placeholder="Custo total, R$" step="0.01" min="0.01" inputmode="decimal" required />
+        <button type="submit" class="btn btn-gold">Adicionar objetivo</button>
+      </form>
+
+      <div class="goal-list" id="listaObjetivos"></div>
+    </section>
+
+  </main>
+
+  <!-- NAVEGAÇÃO INFERIOR -->
+  <nav class="tabbar" id="tabbar">
+    <button class="tab-btn is-active" data-tab="resumo" aria-label="Resumo">
+      <svg viewBox="0 0 24 24" fill="none"><path d="M4 13h4v7H4v-7Zm6-9h4v16h-4V4Zm6 5h4v11h-4V9Z" stroke="currentColor" stroke-width="1.8" stroke-linejoin="round"/></svg>
+      <span>Resumo</span>
+    </button>
+    <button class="tab-btn" data-tab="ganhos" aria-label="Ganhos">
+      <svg viewBox="0 0 24 24" fill="none"><path d="M12 19V5M5 12l7-7 7 7" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/></svg>
+      <span>Ganhos</span>
+    </button>
+    <button class="tab-btn" data-tab="fixos" aria-label="Fixos">
+      <svg viewBox="0 0 24 24" fill="none"><rect x="3.5" y="6" width="17" height="12" rx="1.6" stroke="currentColor" stroke-width="1.8"/><path d="M3.5 10h17" stroke="currentColor" stroke-width="1.8"/></svg>
+      <span>Fixos</span>
+    </button>
+    <button class="tab-btn" data-tab="variaveis" aria-label="Variáveis">
+      <svg viewBox="0 0 24 24" fill="none"><path d="M12 5v14M5 12l7 7 7-7" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/></svg>
+      <span>Variáveis</span>
+    </button>
+    <button class="tab-btn" data-tab="objetivos" aria-label="Objetivos">
+      <svg viewBox="0 0 24 24" fill="none"><circle cx="12" cy="12" r="8" stroke="currentColor" stroke-width="1.8"/><circle cx="12" cy="12" r="3.2" stroke="currentColor" stroke-width="1.8"/></svg>
+      <span>Metas</span>
+    </button>
+  </nav>
+
+</div>
+
+<!-- MODAL DE APORTE PARA OBJETIVO -->
+<div class="modal-backdrop is-hidden" id="modalBackdrop">
+  <div class="modal">
+    <h3 id="modalTitle">Adicionar valor à meta</h3>
+    <form id="formAporte">
+      <input type="number" id="aporteValor" placeholder="0,00" step="0.01" min="0.01" inputmode="decimal" required />
+      <div class="modal-actions">
+        <button type="button" class="btn btn-ghost" id="modalCancelar">Cancelar</button>
+        <button type="submit" class="btn btn-gold">Guardar</button>
+      </div>
+    </form>
+  </div>
+</div>
+
+<!-- MODAL DE EDIÇÃO -->
+<div class="modal-backdrop is-hidden" id="editBackdrop">
+  <div class="modal">
+    <h3 id="editTitle">Editar item</h3>
+    <form id="formEditar">
+      <input type="text" id="editNome" placeholder="Descrição" required maxlength="60" />
+      <input type="number" id="editValor" placeholder="0,00" step="0.01" min="0.01" inputmode="decimal" required />
+      <div class="modal-actions">
+        <button type="button" class="btn btn-ghost" id="editCancelar">Cancelar</button>
+        <button type="submit" class="btn btn-gold">Salvar</button>
+      </div>
+    </form>
+  </div>
+</div>
+
+<!-- MODAL DE CONFIRMAÇÃO (remover meta, etc.) -->
+<div class="modal-backdrop is-hidden" id="confirmBackdrop">
+  <div class="modal modal-confirm">
+    <h3 id="confirmTitle">Remover?</h3>
+    <p class="confirm-text" id="confirmText">Essa ação não pode ser desfeita.</p>
+    <div class="modal-actions">
+      <button type="button" class="btn btn-ghost" id="confirmCancelar">Cancelar</button>
+      <button type="button" class="btn btn-danger" id="confirmOk">Remover</button>
+    </div>
+  </div>
+</div>
+
+<!-- MODAL DE AÇÕES EM CONJUNTO -->
+<div class="modal-backdrop is-hidden" id="acoesBackdrop">
+  <div class="modal modal-acoes">
+    <div id="acoesMenuView">
+      <h3>Ações em conjunto</h3>
+      <p class="section-hint">Coisas que mexem na conta dos dois de uma vez.</p>
+      <button type="button" class="acao-card" id="btnAbrirDividir">
+        <span class="acao-card-icon">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
+            <path d="M16 3h5v5"/>
+            <path d="M8 3H3v5"/>
+            <path d="M12 22v-8.3a4 4 0 0 0-1.172-2.872L3 3"/>
+            <path d="m15 9 6-6"/>
+          </svg>
+        </span>
+        <span class="acao-card-texto">
+          <strong>Dividir uma compra</strong>
+          <small>Metade pra cada um, em fixos ou variáveis</small>
+        </span>
+        <span class="acao-card-seta">›</span>
+      </button>
+      <div class="modal-actions">
+        <button type="button" class="btn btn-ghost" id="acoesFechar">Fechar</button>
+      </div>
+    </div>
+
+    <form id="formDividir" class="is-hidden">
+      <h3>Dividir uma compra</h3>
+      <p class="section-hint">O valor total é dividido ao meio — metade entra no Davi, metade no Gabriel.</p>
+      <input type="text" id="dividirNome" placeholder="Descrição (ex: Mercado)" required maxlength="60" />
+      <input type="number" id="dividirValor" placeholder="Valor total, R$" step="0.01" min="0.01" inputmode="decimal" required />
+      <div class="segmented" id="dividirCategoria">
+        <button type="button" class="segmented-btn is-active" data-categoria="variaveis">Variável</button>
+        <button type="button" class="segmented-btn" data-categoria="fixos">Fixo</button>
+      </div>
+      <div class="modal-actions">
+        <button type="button" class="btn btn-ghost" id="dividirVoltar">Voltar</button>
+        <button type="submit" class="btn btn-gold" id="dividirSubmit">Dividir</button>
+      </div>
+    </form>
+  </div>
+</div>
+
+<div class="toast" id="toast"></div>
+
+<script src="config.js"></script>
+<script src="app.js"></script>
+</body>
+</html>
