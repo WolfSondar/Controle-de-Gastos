@@ -612,6 +612,31 @@ button, input {
   font-size: 16px;
   margin-bottom: 14px;
 }
+.modal select {
+  width: 100%;
+  border: 1px solid var(--line);
+  background: var(--paper-deep);
+  border-radius: var(--radius-s);
+  padding: 12px;
+  font-size: 16px;
+  margin-bottom: 14px;
+  color: var(--ink-text);
+  appearance: none;
+  -webkit-appearance: none;
+  background-image: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%237a6f58' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'><path d='m6 9 6 6 6-6'/></svg>");
+  background-repeat: no-repeat;
+  background-position: right 12px center;
+  background-size: 16px;
+}
+.fechar-mes-campos {
+  display: grid;
+  grid-template-columns: 2fr 1fr;
+  gap: 8px;
+}
+.fechar-mes-campos select,
+.fechar-mes-campos input {
+  margin-bottom: 0;
+}
 .modal-actions { display: flex; gap: 10px; justify-content: flex-end; }
 .modal-actions .btn { flex: 1; }
 
@@ -989,4 +1014,83 @@ button, input {
 .segmented-btn.is-active {
   background: var(--ink);
   color: var(--paper);
+}
+
+/* ============ HISTÓRICO ============ */
+
+.historico-lista {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.historico-ano-bloco {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  margin-bottom: 24px;
+}
+.historico-ano-bloco:last-child { margin-bottom: 0; }
+
+.historico-ano-titulo {
+  font-family: var(--font-display);
+  font-size: 16px;
+  font-weight: 600;
+  color: var(--muted);
+  margin: 0;
+}
+
+.historico-mes-card {
+  background: var(--paper-deep);
+  border: 1px solid var(--line);
+  border-radius: var(--radius-m);
+  padding: 14px 16px;
+}
+
+.historico-mes-head {
+  display: flex;
+  justify-content: space-between;
+  align-items: baseline;
+  margin-bottom: 10px;
+}
+.historico-mes-nome {
+  font-family: var(--font-display);
+  font-size: 16.5px;
+  font-weight: 600;
+  color: var(--ink);
+}
+.historico-mes-saldo {
+  font-family: var(--font-mono);
+  font-size: 15px;
+  font-weight: 700;
+  color: var(--income);
+}
+.historico-mes-saldo.negative { color: var(--expense); }
+
+.historico-mes-linha {
+  display: flex;
+  justify-content: space-between;
+  font-size: 13px;
+  color: var(--muted);
+  padding: 3px 0;
+}
+.historico-mes-linha span:last-child {
+  font-family: var(--font-mono);
+  font-weight: 600;
+}
+.historico-mes-linha .income { color: var(--income); }
+.historico-mes-linha .expense { color: var(--expense); }
+
+.historico-mes-pessoas {
+  display: flex;
+  gap: 8px;
+  margin-top: 10px;
+  padding-top: 10px;
+  border-top: 1px dashed var(--line);
+}
+.historico-mes-pessoas .pessoa-tag {
+  margin-left: 0;
+  font-family: var(--font-mono);
+  font-size: 11px;
+  padding: 4px 9px;
 }
