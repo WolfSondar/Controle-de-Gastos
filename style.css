@@ -164,7 +164,7 @@ button, input {
 
 .hero-stats {
   display: grid;
-  grid-template-columns: repeat(3, 1fr);
+  grid-template-columns: repeat(2, 1fr);
   gap: 10px;
 }
 .hero-stat {
@@ -189,6 +189,7 @@ button, input {
 }
 .hero-stat-valor.income { color: #8fd4ab; }
 .hero-stat-valor.expense { color: #e8a58c; }
+.hero-stat-valor.gold { color: #e3c581; }
 
 /* ============ CONTEÚDO ============ */
 
@@ -525,6 +526,57 @@ button, input {
 }
 .btn-aporte:active { transform: scale(0.97); }
 
+/* ============ CAIXINHAS (GUARDADO) ============ */
+
+.caixinha-card { display: flex; flex-direction: column; }
+.caixinha-card .goal-head { margin-bottom: 8px; }
+
+.caixinha-valores {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 8px;
+  font-size: 12.5px;
+  margin-bottom: 12px;
+  flex-wrap: wrap;
+}
+.caixinha-guardado {
+  font-family: var(--font-mono);
+  color: var(--muted);
+}
+.caixinha-guardado strong { color: var(--ink-text); font-size: 15px; }
+.caixinha-rendimento {
+  font-family: var(--font-mono);
+  font-size: 11.5px;
+  font-weight: 700;
+  white-space: nowrap;
+}
+.caixinha-rendimento.income { color: var(--income); }
+.caixinha-rendimento.expense { color: var(--expense); }
+
+.caixinha-actions {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px;
+}
+.caixinha-actions .btn {
+  flex: 1 1 auto;
+  padding: 8px 10px;
+  font-size: 12px;
+  border-radius: 100px;
+  white-space: nowrap;
+}
+.btn-caixinha-guardar { background: var(--income); color: #f2f8f0; }
+.btn-caixinha-retirar { background: var(--paper); color: var(--expense); border: 1px solid var(--expense); }
+.btn-caixinha-rendimento { background: var(--gold); color: #fffaf0; }
+.caixinha-actions .btn-edit,
+.caixinha-actions .btn-remove {
+  flex: 0 0 auto;
+  margin-left: auto;
+}
+.caixinha-actions .btn-remove { margin-left: 0; }
+
 .mini-goal {
   display: flex;
   align-items: center;
@@ -547,28 +599,39 @@ button, input {
   margin: 0 auto;
   background: var(--ink);
   display: flex;
-  padding: 8px 6px calc(8px + env(safe-area-inset-bottom));
+  padding: 7px 3px calc(7px + env(safe-area-inset-bottom));
   box-shadow: 0 -6px 24px rgba(22,51,44,0.25);
+  overflow-x: auto;
+  -webkit-overflow-scrolling: touch;
+  scrollbar-width: none;
 }
+.tabbar::-webkit-scrollbar { display: none; }
 .tab-btn {
-  flex: 1;
+  flex: 1 0 auto;
+  min-width: 50px;
   display: flex;
   flex-direction: column;
   align-items: center;
-  gap: 3px;
+  gap: 2px;
   background: none;
   border: none;
   color: #8fac9e;
-  padding: 6px 2px;
+  padding: 6px 1px;
   border-radius: var(--radius-s);
   cursor: pointer;
-  font-size: 10.5px;
+  font-size: 9.5px;
   font-family: var(--font-body);
   transition: color 0.15s ease;
 }
-.tab-btn svg { width: 21px; height: 21px; }
+.tab-btn svg { width: 19px; height: 19px; }
+.tab-btn span { white-space: nowrap; }
 .tab-btn.is-active { color: var(--paper); }
 .tab-btn.is-active svg { stroke: var(--gold); }
+
+@media (max-width: 400px) {
+  .tab-btn { font-size: 8.8px; }
+  .tab-btn svg { width: 18px; height: 18px; }
+}
 
 /* ============ MODAL DE APORTE ============ */
 
@@ -803,6 +866,7 @@ button, input {
 }
 .value-pop.income { color: #8fd4ab; }
 .value-pop.expense { color: #e8a58c; }
+.value-pop.gold { color: #e3c581; }
 .value-pop.is-animating {
   transform: translateY(-32px);
   opacity: 0;
@@ -1097,6 +1161,7 @@ button, input {
 }
 .historico-mes-linha .income { color: var(--income); }
 .historico-mes-linha .expense { color: var(--expense); }
+.historico-mes-linha .gold { color: var(--gold-deep); }
 
 .historico-mes-pessoas {
   display: flex;
