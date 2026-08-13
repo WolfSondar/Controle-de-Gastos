@@ -29,6 +29,7 @@ const state = {
   gastosFixos: [],
   gastosVariaveis: [],
   objetivos: [],
+  caixinhas: [],
   loaded: false,
   pessoaAtual: localStorage.getItem(PESSOA_STORAGE_KEY) || "davi",
   mesAtual: mesAtualCache ? mesAtualCache.mes : null,
@@ -54,10 +55,11 @@ function renderMesAtual() {
 }
 
 // guarda os últimos totais renderizados, pra animar contagem e mostrar o valor flutuante
-const prevTotals = { ganhos: null, fixos: null, variaveis: null, saldo: null };
+const prevTotals = { ganhos: null, fixos: null, variaveis: null, saldo: null, guardado: null };
 
 // evita comemorar metas que já chegaram completas do servidor (só comemora quem "acabou de bater")
 let primeiraRenderObjetivos = true;
+let primeiraRenderCaixinhas = true;
 
 const fmt = (n) =>
   (Number(n) || 0).toLocaleString("pt-BR", { style: "currency", currency: "BRL" });
@@ -91,6 +93,7 @@ function setCache(pessoa, data) {
         gastosFixos: data.gastosFixos || [],
         gastosVariaveis: data.gastosVariaveis || [],
         objetivos: data.objetivos || [],
+        caixinhas: data.caixinhas || [],
       })
     );
   } catch (err) {
@@ -140,6 +143,7 @@ async function carregarDados() {
     state.gastosFixos = cache.gastosFixos;
     state.gastosVariaveis = cache.gastosVariaveis;
     state.objetivos = cache.objetivos;
+    state.caixinhas = cache.caixinhas || [];
     state.loaded = true;
     setSyncState("saving", "Atualizando…");
     renderAll();
@@ -161,6 +165,7 @@ async function carregarDados() {
     state.gastosFixos = data.gastosFixos || [];
     state.gastosVariaveis = data.gastosVariaveis || [];
     state.objetivos = data.objetivos || [];
+    state.caixinhas = data.caixinhas || [];
     state.loaded = true;
     if (data.mesAtual) state.mesAtual = data.mesAtual;
     if (data.anoAtual) state.anoAtual = data.anoAtual;
@@ -291,6 +296,7 @@ function sincronizarCacheAtual() {
     gastosFixos: state.gastosFixos,
     gastosVariaveis: state.gastosVariaveis,
     objetivos: state.objetivos,
+    caixinhas: state.caixinhas,
   });
 }
 
@@ -361,6 +367,68 @@ function aportarObjetivo(index, valor) {
   obj.valorAdicionado = (Number(obj.valorAdicionado) || 0) + valor;
   sincronizarCacheAtual();
   salvarBloco("saveObjetivos", state.objetivos);
+  renderAll();
+}
+
+// ---------------------------------------------------------------------
+// OPERAÇÕES — CAIXINHAS (cofrinhos/investimentos guardados)
+// ---------------------------------------------------------------------
+
+function addCaixinha(nome, valorInicial, valorObjetivo) {
+  if (isAmbos()) return;
+  state.caixinhas.push({
+    nome,
+    valorGuardado: valorInicial,
+    valorObjetivo: valorObjetivo || 0,
+    rendimentoMes: 0,
+  });
+  sincronizarCacheAtual();
+  salvarBloco("saveCaixinhas", state.caixinhas);
+  renderAll();
+}
+function removeCaixinha(index) {
+  if (isAmbos()) return;
+  state.caixinhas.splice(index, 1);
+  sincronizarCacheAtual();
+  salvarBloco("saveCaixinhas", state.caixinhas);
+  renderAll();
+}
+function editCaixinha(index, nome, valorObjetivo) {
+  if (isAmbos()) return;
+  const cx = state.caixinhas[index];
+  if (!cx) return;
+  cx.nome = nome;
+  cx.valorObjetivo = valorObjetivo || 0;
+  sincronizarCacheAtual();
+  salvarBloco("saveCaixinhas", state.caixinhas);
+  renderAll();
+}
+function guardarNaCaixinha(index, valor) {
+  if (isAmbos()) return;
+  const cx = state.caixinhas[index];
+  if (!cx) return;
+  cx.valorGuardado = (Number(cx.valorGuardado) || 0) + valor;
+  sincronizarCacheAtual();
+  salvarBloco("saveCaixinhas", state.caixinhas);
+  renderAll();
+}
+function retirarDaCaixinha(index, valor) {
+  if (isAmbos()) return;
+  const cx = state.caixinhas[index];
+  if (!cx) return;
+  cx.valorGuardado = Math.max((Number(cx.valorGuardado) || 0) - valor, 0);
+  sincronizarCacheAtual();
+  salvarBloco("saveCaixinhas", state.caixinhas);
+  renderAll();
+}
+function registrarRendimentoCaixinha(index, valor) {
+  if (isAmbos()) return;
+  const cx = state.caixinhas[index];
+  if (!cx) return;
+  cx.rendimentoMes = (Number(cx.rendimentoMes) || 0) + valor;
+  cx.valorGuardado = (Number(cx.valorGuardado) || 0) + valor;
+  sincronizarCacheAtual();
+  salvarBloco("saveCaixinhas", state.caixinhas);
   renderAll();
 }
 
@@ -466,6 +534,10 @@ function somaFixosPagos(lista) {
   return lista.reduce((acc, i) => acc + (fixoEhPago(i) ? Number(i.valor) || 0 : 0), 0);
 }
 
+function somaCampo(lista, campo) {
+  return lista.reduce((acc, i) => acc + (Number(i[campo]) || 0), 0);
+}
+
 // Anima um número de "de" até "para", contando em tempo real (efeito de contador).
 function animarNumero(el, de, para, duracao = 550) {
   if (!el) return;
@@ -508,10 +580,12 @@ function renderTotais() {
   const totalFixosAPagar = totalFixosGeral - totalFixosPagos;
   const totalVariaveis = soma(state.gastosVariaveis);
   const saldo = totalGanhos - totalFixosPagos - totalVariaveis;
+  const totalGuardado = somaCampo(state.caixinhas, "valorGuardado");
 
   const ganhosEl = document.getElementById("statGanhos");
   const fixosEl = document.getElementById("statFixos");
   const variaveisEl = document.getElementById("statVariaveis");
+  const guardadoEl = document.getElementById("statGuardado");
   const saldoEl = document.getElementById("saldoValor");
 
   const primeiraVez = prevTotals.saldo === null;
@@ -519,6 +593,7 @@ function renderTotais() {
   animarNumero(ganhosEl, prevTotals.ganhos, totalGanhos);
   animarNumero(fixosEl, prevTotals.fixos, totalFixosPagos);
   animarNumero(variaveisEl, prevTotals.variaveis, totalVariaveis);
+  animarNumero(guardadoEl, prevTotals.guardado, totalGuardado);
   animarNumero(saldoEl, prevTotals.saldo, saldo);
 
   if (!primeiraVez) {
@@ -527,6 +602,7 @@ function renderTotais() {
     popValorFlutuante(heroStats[0], totalGanhos - prevTotals.ganhos, "income");
     popValorFlutuante(heroStats[1], totalFixosPagos - prevTotals.fixos, "expense");
     popValorFlutuante(heroStats[2], totalVariaveis - prevTotals.variaveis, "expense");
+    popValorFlutuante(heroStats[3], totalGuardado - prevTotals.guardado, "gold");
   }
 
   saldoEl.classList.toggle("negative", saldo < 0);
@@ -542,6 +618,7 @@ function renderTotais() {
   prevTotals.ganhos = totalGanhos;
   prevTotals.fixos = totalFixosPagos;
   prevTotals.variaveis = totalVariaveis;
+  prevTotals.guardado = totalGuardado;
   prevTotals.saldo = saldo;
 }
 
@@ -769,6 +846,113 @@ function renderObjetivos() {
 }
 
 // ---------------------------------------------------------------------
+// RENDER — CAIXINHAS
+// ---------------------------------------------------------------------
+
+function renderCaixinhas() {
+  const ambos = isAmbos();
+  const wrap = document.getElementById("listaCaixinhas");
+  if (wrap) {
+    wrap.innerHTML = "";
+    if (state.caixinhas.length === 0) {
+      wrap.innerHTML = `<p class="empty-state">Nenhuma caixinha ainda. Que tal criar uma?</p>`;
+    } else {
+      state.caixinhas.forEach((cx, idx) => {
+        const guardado = Number(cx.valorGuardado) || 0;
+        const objetivo = Number(cx.valorObjetivo) || 0;
+        const rendimento = Number(cx.rendimentoMes) || 0;
+        const temObjetivo = objetivo > 0;
+        const falta = Math.max(objetivo - guardado, 0);
+        const pct = temObjetivo ? Math.min((guardado / objetivo) * 100, 100) : 0;
+        const completo = temObjetivo && falta <= 0;
+
+        if (completo && !cx._comemorado) {
+          if (!primeiraRenderCaixinhas) cx._comemoraAoRenderizar = true;
+          cx._comemorado = true;
+        } else if (!completo) {
+          cx._comemorado = false;
+        }
+
+        const card = document.createElement("div");
+        card.className = "goal-card caixinha-card" + (cx._comemoraAoRenderizar ? " is-celebrando" : "");
+        card.innerHTML = `
+          <div class="goal-head">
+            <span class="goal-nome">${escapeHtml(cx.nome)} ${tagPessoa(cx)}</span>
+            ${
+              temObjetivo
+                ? `<span class="goal-falta ${completo ? "completo" : ""}">${completo ? "Objetivo batido ✓" : "faltam " + fmt(falta)}</span>`
+                : ""
+            }
+          </div>
+          ${temObjetivo ? `<div class="goal-bar-track"><div class="goal-bar-fill ${completo ? "completo" : ""}" style="width:${pct}%"></div></div>` : ""}
+          <div class="caixinha-valores">
+            <span class="caixinha-guardado"><strong>${fmt(guardado)}</strong>${temObjetivo ? ` de ${fmt(objetivo)}` : " guardados"}</span>
+            ${rendimento !== 0 ? `<span class="caixinha-rendimento ${rendimento > 0 ? "income" : "expense"}">${rendimento > 0 ? "+" : ""}${fmt(rendimento)} no mês</span>` : ""}
+          </div>
+          ${
+            ambos
+              ? ""
+              : `<div class="caixinha-actions">
+                  <button class="btn btn-caixinha-guardar" data-idx="${idx}">+ guardar</button>
+                  <button class="btn btn-caixinha-retirar" data-idx="${idx}">− retirar</button>
+                  <button class="btn btn-caixinha-rendimento" data-idx="${idx}">+ rendimento</button>
+                  <button class="btn-edit" aria-label="Editar caixinha" data-edit="${idx}">${ICONE_LAPIS}</button>
+                  <button class="btn-remove" aria-label="Remover caixinha" data-remove="${idx}">${ICONE_X}</button>
+                </div>`
+          }
+        `;
+        if (!ambos) {
+          card.querySelector(".btn-caixinha-guardar").addEventListener("click", () => abrirModalCaixinha("guardar", idx));
+          card.querySelector(".btn-caixinha-retirar").addEventListener("click", () => abrirModalCaixinha("retirar", idx));
+          card.querySelector(".btn-caixinha-rendimento").addEventListener("click", () => abrirModalCaixinha("rendimento", idx));
+          card.querySelector("[data-edit]").addEventListener("click", () => abrirModalEditar("caixinhas", idx, cx.nome, cx.valorObjetivo));
+          card.querySelector("[data-remove]").addEventListener("click", () =>
+            abrirConfirmacao(`Remover a caixinha "${cx.nome}"? Essa ação não pode ser desfeita.`, () => removeCaixinha(idx))
+          );
+        }
+        if (cx._comemoraAoRenderizar) {
+          dispararConfete();
+          cx._comemoraAoRenderizar = false;
+        }
+        wrap.appendChild(card);
+      });
+    }
+  }
+
+  primeiraRenderCaixinhas = false;
+
+  // mini lista no resumo
+  const mini = document.getElementById("resumoCaixinhas");
+  if (!mini) return;
+  mini.innerHTML = "";
+  if (state.caixinhas.length === 0) {
+    mini.innerHTML = `<p class="empty-state">Crie uma caixinha na aba "Guardado".</p>`;
+  } else {
+    state.caixinhas.forEach((cx) => {
+      const guardado = Number(cx.valorGuardado) || 0;
+      const objetivo = Number(cx.valorObjetivo) || 0;
+      const temObjetivo = objetivo > 0;
+      const pct = temObjetivo ? Math.min((guardado / objetivo) * 100, 100) : 0;
+      const row = document.createElement("div");
+      row.className = "mini-goal";
+      row.innerHTML = temObjetivo
+        ? `
+        <div class="mini-goal-info">
+          <div class="mini-goal-nome">${escapeHtml(cx.nome)} ${tagPessoa(cx)}</div>
+          <div class="goal-bar-track"><div class="goal-bar-fill ${pct >= 100 ? "completo" : ""}" style="width:${pct}%"></div></div>
+        </div>
+        <span class="mini-goal-pct">${fmt(guardado)}</span>`
+        : `
+        <div class="mini-goal-info">
+          <div class="mini-goal-nome">${escapeHtml(cx.nome)} ${tagPessoa(cx)}</div>
+        </div>
+        <span class="mini-goal-pct">${fmt(guardado)}</span>`;
+      mini.appendChild(row);
+    });
+  }
+}
+
+// ---------------------------------------------------------------------
 // RENDER — RESUMO: lançamentos recentes (mistura tudo, mais recentes primeiro)
 // ---------------------------------------------------------------------
 
@@ -884,6 +1068,10 @@ function renderSkeletons() {
   if (resumoObj) resumoObj.innerHTML = skeletonMiniGoals(2);
   const listaObjetivos = document.getElementById("listaObjetivos");
   if (listaObjetivos) listaObjetivos.innerHTML = skeletonGoalCards(2);
+  const resumoCx = document.getElementById("resumoCaixinhas");
+  if (resumoCx) resumoCx.innerHTML = skeletonMiniGoals(2);
+  const listaCaixinhas = document.getElementById("listaCaixinhas");
+  if (listaCaixinhas) listaCaixinhas.innerHTML = skeletonGoalCards(2);
   if (isAmbos()) renderSplitSkeleton();
 }
 
@@ -912,6 +1100,7 @@ function renderAll() {
   renderFixos();
   renderLista("listaVariaveis", state.gastosVariaveis, "expense", opVariaveis, "variaveis");
   renderObjetivos();
+  renderCaixinhas();
   renderRecentes();
   renderSplit();
 }
@@ -1062,6 +1251,10 @@ function renderHistorico() {
       const cards = mesesOrdenados
         .map((m) => {
           const saldoTotal = m.saldoDavi + m.saldoGabriel;
+          const ganhosTotal = m.ganhosDavi + m.ganhosGabriel;
+          const debitosTotal = m.debitosDavi + m.debitosGabriel;
+          const guardadoTotal = m.guardadoDavi + m.guardadoGabriel;
+          const rendimentoTotal = m.rendimentoDavi + m.rendimentoGabriel;
           const nomeMes = m.nome.charAt(0) + m.nome.slice(1).toLowerCase();
           return `
           <div class="historico-mes-card">
@@ -1070,11 +1263,18 @@ function renderHistorico() {
               <span class="historico-mes-saldo ${saldoTotal < 0 ? "negative" : ""}">${fmt(saldoTotal)}</span>
             </div>
             <div class="historico-mes-linha">
-              <span>Ganhos</span><span class="income">${fmt(m.ganhos)}</span>
+              <span>Ganhos</span><span class="income">${fmt(ganhosTotal)}</span>
             </div>
             <div class="historico-mes-linha">
-              <span>Débitos</span><span class="expense">${fmt(Math.abs(m.debitos))}</span>
+              <span>Débitos</span><span class="expense">${fmt(Math.abs(debitosTotal))}</span>
             </div>
+            ${
+              guardadoTotal > 0 || rendimentoTotal !== 0
+                ? `<div class="historico-mes-linha">
+                    <span>Guardado</span><span class="gold">${fmt(guardadoTotal)}${rendimentoTotal !== 0 ? ` · rendeu ${fmt(rendimentoTotal)}` : ""}</span>
+                  </div>`
+                : ""
+            }
             <div class="historico-mes-pessoas">
               <span class="pessoa-tag pessoa-davi">Davi ${fmt(m.saldoDavi)}</span>
               <span class="pessoa-tag pessoa-gabriel">Gabriel ${fmt(m.saldoGabriel)}</span>
@@ -1184,24 +1384,39 @@ on("formObjetivos", "submit", (e) => {
   f.reset();
 });
 
+on("formCaixinhas", "submit", (e) => {
+  e.preventDefault();
+  if (isAmbos()) return;
+  const f = e.target;
+  const nome = f.nome.value.trim();
+  const valorInicial = f.valorInicial.value ? parseValor(f.valorInicial.value) : 0;
+  const valorObjetivo = f.valorObjetivo.value ? parseValor(f.valorObjetivo.value) : 0;
+  if (!nome || valorInicial < 0) return;
+  addCaixinha(nome, valorInicial, valorObjetivo);
+  f.reset();
+});
+
 // ---------------------------------------------------------------------
 // MODAL DE APORTE
 // ---------------------------------------------------------------------
 
-let objetivoAtualIdx = null;
+// Modal genérico de "digitar um valor" — usado por metas (guardar) e por
+// caixinhas (guardar / retirar / rendimento). Cada chamador define o título
+// e o que fazer com o valor digitado via `onConfirmarValor`.
+let onConfirmarValor = null;
 const modalBackdrop = document.getElementById("modalBackdrop");
 
-function abrirModalAporte(idx, nome) {
+function abrirModalValor(titulo, callback) {
   if (isAmbos()) return;
-  objetivoAtualIdx = idx;
-  document.getElementById("modalTitle").textContent = `Guardar valor — ${nome}`;
+  onConfirmarValor = callback;
+  document.getElementById("modalTitle").textContent = titulo;
   document.getElementById("aporteValor").value = "";
   modalBackdrop.classList.remove("is-hidden");
   setTimeout(() => document.getElementById("aporteValor").focus(), 50);
 }
 function fecharModal() {
   modalBackdrop.classList.add("is-hidden");
-  objetivoAtualIdx = null;
+  onConfirmarValor = null;
 }
 on("modalCancelar", "click", fecharModal);
 if (modalBackdrop) {
@@ -1213,10 +1428,31 @@ on("formAporte", "submit", (e) => {
   e.preventDefault();
   if (isAmbos()) return;
   const valor = parseValor(document.getElementById("aporteValor").value);
-  if (!(valor > 0) || objetivoAtualIdx === null) return;
-  aportarObjetivo(objetivoAtualIdx, valor);
+  if (!(valor > 0) || !onConfirmarValor) return;
+  onConfirmarValor(valor);
   fecharModal();
 });
+
+function abrirModalAporte(idx, nome) {
+  abrirModalValor(`Guardar valor — ${nome}`, (valor) => aportarObjetivo(idx, valor));
+}
+
+const TITULOS_CAIXINHA = {
+  guardar: (nome) => `Guardar em — ${nome}`,
+  retirar: (nome) => `Retirar de — ${nome}`,
+  rendimento: (nome) => `Rendimento do mês — ${nome}`,
+};
+function abrirModalCaixinha(acao, idx) {
+  const cx = state.caixinhas[idx];
+  if (!cx) return;
+  const titulo = TITULOS_CAIXINHA[acao](cx.nome);
+  const acoes = {
+    guardar: (valor) => guardarNaCaixinha(idx, valor),
+    retirar: (valor) => retirarDaCaixinha(idx, valor),
+    rendimento: (valor) => registrarRendimentoCaixinha(idx, valor),
+  };
+  abrirModalValor(titulo, acoes[acao]);
+}
 
 // ---------------------------------------------------------------------
 // MODAL DE EDIÇÃO (ganhos, fixos, variáveis e objetivos)
@@ -1229,6 +1465,7 @@ const TITULOS_EDICAO = {
   fixos: "Editar gasto fixo",
   variaveis: "Editar gasto variável",
   objetivos: "Editar objetivo",
+  caixinhas: "Editar caixinha",
 };
 
 function abrirModalEditar(tipo, idx, nome, valor) {
@@ -1237,7 +1474,9 @@ function abrirModalEditar(tipo, idx, nome, valor) {
   const tituloEl = document.getElementById("editTitle");
   if (tituloEl) tituloEl.textContent = TITULOS_EDICAO[tipo] || "Editar item";
   document.getElementById("editNome").value = nome;
-  document.getElementById("editValor").value = valor;
+  const valorEl = document.getElementById("editValor");
+  valorEl.value = valor;
+  valorEl.placeholder = tipo === "caixinhas" ? "Objetivo, R$ (0 = sem meta)" : "0,00";
   if (editBackdrop) editBackdrop.classList.remove("is-hidden");
   setTimeout(() => document.getElementById("editNome").focus(), 50);
 }
@@ -1255,13 +1494,14 @@ on("formEditar", "submit", (e) => {
   e.preventDefault();
   if (!editContext || isAmbos()) return;
   const nome = document.getElementById("editNome").value.trim();
-  const valor = parseValor(document.getElementById("editValor").value);
-  if (!nome || !(valor > 0)) return;
+  const valor = parseValor(document.getElementById("editValor").value) || 0;
   const { tipo, idx } = editContext;
+  if (!nome || (tipo !== "caixinhas" && !(valor > 0))) return;
   if (tipo === "ganhos") opGanhos.edit(idx, nome, valor);
   else if (tipo === "fixos") opFixos.edit(idx, nome, valor);
   else if (tipo === "variaveis") opVariaveis.edit(idx, nome, valor);
   else if (tipo === "objetivos") editObjetivo(idx, nome, valor);
+  else if (tipo === "caixinhas") editCaixinha(idx, nome, valor);
   fecharModalEditar();
 });
 
