@@ -65,6 +65,10 @@
         <span class="hero-stat-label">Variáveis</span>
         <span class="hero-stat-valor expense" id="statVariaveis">R$ 0,00</span>
       </div>
+      <div class="hero-stat">
+        <span class="hero-stat-label">Guardado</span>
+        <span class="hero-stat-valor gold" id="statGuardado">R$ 0,00</span>
+      </div>
     </div>
   </header>
 
@@ -99,6 +103,13 @@
       </div>
       <div class="goal-mini-list" id="resumoObjetivos">
         <p class="empty-state">Carregando metas…</p>
+      </div>
+
+      <div class="ledger-line">
+        <h2 class="section-title">Suas caixinhas</h2>
+      </div>
+      <div class="goal-mini-list" id="resumoCaixinhas">
+        <p class="empty-state">Carregando caixinhas…</p>
       </div>
     </section>
 
@@ -162,6 +173,21 @@
       <div class="goal-list" id="listaObjetivos"></div>
     </section>
 
+    <!-- CAIXINHAS (GUARDADO) -->
+    <section class="tab-panel is-hidden" id="tab-guardado" data-tab="guardado">
+      <h2 class="section-title">Caixinhas</h2>
+      <p class="section-hint">Cofrinhos e investimentos guardados — cada um com seu valor guardado, objetivo opcional e rendimento do mês.</p>
+
+      <form class="add-form" id="formCaixinhas">
+        <input type="text" name="nome" placeholder="Nome (ex: Reserva de emergência)" required maxlength="60" />
+        <input type="number" name="valorInicial" placeholder="Valor inicial guardado, R$" step="0.01" min="0" inputmode="decimal" required />
+        <input type="number" name="valorObjetivo" placeholder="Objetivo, R$ (opcional)" step="0.01" min="0" inputmode="decimal" />
+        <button type="submit" class="btn btn-gold">Criar caixinha</button>
+      </form>
+
+      <div class="goal-list" id="listaCaixinhas"></div>
+    </section>
+
     <!-- HISTÓRICO -->
     <section class="tab-panel is-hidden" id="tab-historico" data-tab="historico">
       <h2 class="section-title">Histórico</h2>
@@ -196,6 +222,10 @@
       <svg viewBox="0 0 24 24" fill="none"><circle cx="12" cy="12" r="8" stroke="currentColor" stroke-width="1.8"/><circle cx="12" cy="12" r="3.2" stroke="currentColor" stroke-width="1.8"/></svg>
       <span>Metas</span>
     </button>
+    <button class="tab-btn" data-tab="guardado" aria-label="Guardado">
+      <svg viewBox="0 0 24 24" fill="none"><path d="M4 11.5c0-3.6 3.4-6.5 8-6.5s8 2.9 8 6.5c0 1.5-.6 2.9-1.6 4v2.3a1.2 1.2 0 0 1-1.2 1.2h-1.6a1.2 1.2 0 0 1-1.2-1.2V17c-.7.13-1.5.2-2.4.2s-1.7-.07-2.4-.2v.8a1.2 1.2 0 0 1-1.2 1.2H7.2A1.2 1.2 0 0 1 6 17.8v-1.9C4.7 14.9 4 13.3 4 11.5Z" stroke="currentColor" stroke-width="1.7" stroke-linejoin="round"/><circle cx="16.3" cy="10.8" r=".9" fill="currentColor" stroke="none"/><path d="M4 11h-1.6M9 5.4 8 3.3" stroke="currentColor" stroke-width="1.7" stroke-linecap="round"/></svg>
+      <span>Guardado</span>
+    </button>
     <button class="tab-btn" data-tab="historico" aria-label="Histórico">
       <svg viewBox="0 0 24 24" fill="none"><path d="M3 12a9 9 0 1 0 3-6.7" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/><path d="M3 4v5h5" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/><path d="M12 8v4.5l3 2" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/></svg>
       <span>Histórico</span>
@@ -224,7 +254,7 @@
     <h3 id="editTitle">Editar item</h3>
     <form id="formEditar">
       <input type="text" id="editNome" placeholder="Descrição" required maxlength="60" />
-      <input type="number" id="editValor" placeholder="0,00" step="0.01" min="0.01" inputmode="decimal" required />
+      <input type="number" id="editValor" placeholder="0,00" step="0.01" min="0" inputmode="decimal" required />
       <div class="modal-actions">
         <button type="button" class="btn btn-ghost" id="editCancelar">Cancelar</button>
         <button type="submit" class="btn btn-gold">Salvar</button>
@@ -293,7 +323,7 @@
   <div class="modal">
     <h3>Fechar o mês</h3>
     <p class="section-hint">
-      Confira o mês e o ano antes de confirmar. O saldo de cada um (o que sobrar depois dos gastos pagos) vira ganho automático da própria pessoa no mês seguinte. Os gastos variáveis zeram; os ganhos e os gastos fixos continuam do mesmo jeito. Essa ação não pode ser desfeita.
+      Confira o mês e o ano antes de confirmar. O saldo de cada um (o que sobrar depois dos gastos pagos) vira ganho automático da própria pessoa no mês seguinte. Os gastos variáveis zeram; os ganhos e os gastos fixos continuam do mesmo jeito. As caixinhas mantêm o valor guardado, mas o rendimento do mês de cada uma zera pro próximo mês. Essa ação não pode ser desfeita.
     </p>
     <form id="formFecharMes">
       <div class="fechar-mes-campos">
