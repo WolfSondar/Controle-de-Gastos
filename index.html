@@ -176,12 +176,13 @@
     <!-- CAIXINHAS (GUARDADO) -->
     <section class="tab-panel is-hidden" id="tab-guardado" data-tab="guardado">
       <h2 class="section-title">Caixinhas</h2>
-      <p class="section-hint">Cofrinhos e investimentos guardados — cada um com seu valor guardado, objetivo opcional e rendimento do mês.</p>
+      <p class="section-hint">Cofrinhos e investimentos guardados — cada um com seu valor guardado e objetivo opcional.</p>
 
       <form class="add-form" id="formCaixinhas">
         <input type="text" name="nome" placeholder="Nome (ex: Reserva de emergência)" required maxlength="60" />
         <input type="number" name="valorInicial" placeholder="Valor inicial guardado, R$" step="0.01" min="0" inputmode="decimal" required />
         <input type="number" name="valorObjetivo" placeholder="Objetivo, R$ (opcional)" step="0.01" min="0" inputmode="decimal" />
+        <button type="button" class="btn btn-ghost" id="btnVincularMeta">🔗 Vincular a uma meta</button>
         <button type="submit" class="btn btn-gold">Criar caixinha</button>
       </form>
 
@@ -318,12 +319,27 @@
   </div>
 </div>
 
+<!-- MODAL DE VINCULAR CAIXINHA A UMA META -->
+<div class="modal-backdrop is-hidden" id="vincularBackdrop">
+  <div class="modal">
+    <h3>Vincular a uma meta</h3>
+    <p class="section-hint">Escolha uma meta já criada — preenchemos o nome, o valor já guardado e o objetivo da caixinha com base nela.</p>
+    <form id="formVincular">
+      <select id="vincularMetaSelect" required></select>
+      <div class="modal-actions">
+        <button type="button" class="btn btn-ghost" id="vincularCancelar">Cancelar</button>
+        <button type="submit" class="btn btn-gold">Usar essa meta</button>
+      </div>
+    </form>
+  </div>
+</div>
+
 <!-- MODAL DE FECHAR MÊS (aberto ao tocar no selo de mês, no topo) -->
 <div class="modal-backdrop is-hidden" id="fecharMesBackdrop">
   <div class="modal">
     <h3>Fechar o mês</h3>
     <p class="section-hint">
-      Confira o mês e o ano antes de confirmar. O saldo de cada um (o que sobrar depois dos gastos pagos) vira ganho automático da própria pessoa no mês seguinte. Os gastos variáveis zeram; os ganhos e os gastos fixos continuam do mesmo jeito. As caixinhas mantêm o valor guardado, mas o rendimento do mês de cada uma zera pro próximo mês. Essa ação não pode ser desfeita.
+      Confira o mês e o ano antes de confirmar. O saldo de cada um (o que sobrar depois dos gastos pagos) vira ganho automático da própria pessoa no mês seguinte. Os gastos variáveis zeram; os ganhos e os gastos fixos continuam do mesmo jeito. As caixinhas mantêm o valor guardado. Essa ação não pode ser desfeita.
     </p>
     <form id="formFecharMes">
       <div class="fechar-mes-campos">
