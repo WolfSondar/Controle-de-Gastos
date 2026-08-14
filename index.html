@@ -4,7 +4,7 @@
 <meta charset="UTF-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
 <title>Caixa — Controle Financeiro</title>
-<meta name="description" content="Controle de ganhos, gastos e objetivos" />
+<meta name="description" content="Controle de ganhos, gastos e caixinhas" />
 <link rel="icon" type="image/jpeg" href="IMG/Icon.jpg" />
 <link rel="apple-touch-icon" href="IMG/Icon.jpg" />
 <link rel="preconnect" href="https://fonts.googleapis.com" />
@@ -49,7 +49,7 @@
     <div class="saldo-block">
       <span class="saldo-label">Saldo disponível</span>
       <span class="saldo-valor" id="saldoValor">R$ 0,00</span>
-      <span class="saldo-formula" id="saldoFormula">ganhos − fixos − variáveis</span>
+      <span class="saldo-formula" id="saldoFormula">ganhos − fixos pagos − variáveis</span>
     </div>
 
     <div class="hero-stats">
@@ -91,7 +91,7 @@
         </div>
       </div>
 
-      <div class="split-card" id="visaoGeralCard">
+      <div class="split-card is-hidden" id="visaoGeralCard">
         <div class="ledger-line">
           <h2 class="section-title">Visão geral</h2>
         </div>
@@ -109,13 +109,6 @@
       </div>
       <div class="ledger" id="ledgerRecentes">
         <p class="empty-state">Carregando seus lançamentos…</p>
-      </div>
-
-      <div class="ledger-line">
-        <h2 class="section-title">Suas metas</h2>
-      </div>
-      <div class="goal-mini-list" id="resumoObjetivos">
-        <p class="empty-state">Carregando metas…</p>
       </div>
 
       <div class="ledger-line">
@@ -172,30 +165,15 @@
       <ul class="item-list" id="listaVariaveis"></ul>
     </section>
 
-    <!-- OBJETIVOS -->
-    <section class="tab-panel is-hidden" id="tab-objetivos" data-tab="objetivos">
-      <h2 class="section-title">Metas</h2>
-      <p class="section-hint">Sonho de consumo pra comprar, e quanto falta.</p>
-
-      <form class="add-form" id="formObjetivos">
-        <input type="text" name="nome" placeholder="Nome" required maxlength="60" />
-        <input type="number" name="custo" placeholder="Custo total, R$" step="0.01" min="0.01" inputmode="decimal" required />
-        <button type="submit" class="btn btn-gold">Adicionar objetivo</button>
-      </form>
-
-      <div class="goal-list" id="listaObjetivos"></div>
-    </section>
-
-    <!-- CAIXINHAS (GUARDADO) -->
+    <!-- CAIXINHAS (GUARDADO + METAS) -->
     <section class="tab-panel is-hidden" id="tab-guardado" data-tab="guardado">
       <h2 class="section-title">Caixinhas</h2>
-      <p class="section-hint">Cofrinhos e investimentos guardados — cada um com seu valor guardado e objetivo opcional.</p>
+      <p class="section-hint">Cofrinhos, investimentos e metas — cada um com seu valor guardado e um objetivo opcional. Pra criar uma meta nova, é só criar uma caixinha com um objetivo.</p>
 
       <form class="add-form" id="formCaixinhas">
         <input type="text" name="nome" placeholder="Nome (ex: Reserva de emergência)" required maxlength="60" />
         <input type="number" name="valorInicial" placeholder="Valor inicial guardado, R$" step="0.01" min="0" inputmode="decimal" required />
         <input type="number" name="valorObjetivo" placeholder="Objetivo, R$ (opcional)" step="0.01" min="0" inputmode="decimal" />
-        <button type="button" class="btn btn-ghost" id="btnVincularMeta">🔗 Vincular a uma meta</button>
         <button type="submit" class="btn btn-gold">Criar caixinha</button>
       </form>
 
@@ -232,13 +210,9 @@
       <svg viewBox="0 0 24 24" fill="none"><path d="M12 5v14M5 12l7 7 7-7" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/></svg>
       <span>Variáveis</span>
     </button>
-    <button class="tab-btn" data-tab="objetivos" aria-label="Objetivos">
-      <svg viewBox="0 0 24 24" fill="none"><circle cx="12" cy="12" r="8" stroke="currentColor" stroke-width="1.8"/><circle cx="12" cy="12" r="3.2" stroke="currentColor" stroke-width="1.8"/></svg>
-      <span>Metas</span>
-    </button>
-    <button class="tab-btn" data-tab="guardado" aria-label="Guardado">
+    <button class="tab-btn" data-tab="guardado" aria-label="Caixinhas">
       <svg viewBox="0 0 24 24" fill="none"><path d="M4 11.5c0-3.6 3.4-6.5 8-6.5s8 2.9 8 6.5c0 1.5-.6 2.9-1.6 4v2.3a1.2 1.2 0 0 1-1.2 1.2h-1.6a1.2 1.2 0 0 1-1.2-1.2V17c-.7.13-1.5.2-2.4.2s-1.7-.07-2.4-.2v.8a1.2 1.2 0 0 1-1.2 1.2H7.2A1.2 1.2 0 0 1 6 17.8v-1.9C4.7 14.9 4 13.3 4 11.5Z" stroke="currentColor" stroke-width="1.7" stroke-linejoin="round"/><circle cx="16.3" cy="10.8" r=".9" fill="currentColor" stroke="none"/><path d="M4 11h-1.6M9 5.4 8 3.3" stroke="currentColor" stroke-width="1.7" stroke-linecap="round"/></svg>
-      <span>Guardado</span>
+      <span>Caixinhas</span>
     </button>
     <button class="tab-btn" data-tab="historico" aria-label="Histórico">
       <svg viewBox="0 0 24 24" fill="none"><path d="M3 12a9 9 0 1 0 3-6.7" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/><path d="M3 4v5h5" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/><path d="M12 8v4.5l3 2" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/></svg>
@@ -248,10 +222,10 @@
 
 </div>
 
-<!-- MODAL DE APORTE PARA OBJETIVO -->
+<!-- MODAL DE APORTE (guardar/retirar de uma caixinha) -->
 <div class="modal-backdrop is-hidden" id="modalBackdrop">
   <div class="modal">
-    <h3 id="modalTitle">Adicionar valor à meta</h3>
+    <h3 id="modalTitle">Adicionar valor</h3>
     <form id="formAporte">
       <input type="number" id="aporteValor" placeholder="0,00" step="0.01" min="0.01" inputmode="decimal" required />
       <div class="modal-actions">
@@ -327,21 +301,6 @@
       <div class="modal-actions">
         <button type="button" class="btn btn-ghost" id="dividirVoltar">Voltar</button>
         <button type="submit" class="btn btn-gold" id="dividirSubmit">Dividir</button>
-      </div>
-    </form>
-  </div>
-</div>
-
-<!-- MODAL DE VINCULAR CAIXINHA A UMA META -->
-<div class="modal-backdrop is-hidden" id="vincularBackdrop">
-  <div class="modal">
-    <h3>Vincular a uma meta</h3>
-    <p class="section-hint">Escolha uma meta já criada — preenchemos o nome, o valor já guardado e o objetivo da caixinha com base nela.</p>
-    <form id="formVincular">
-      <select id="vincularMetaSelect" required></select>
-      <div class="modal-actions">
-        <button type="button" class="btn btn-ghost" id="vincularCancelar">Cancelar</button>
-        <button type="submit" class="btn btn-gold">Usar essa meta</button>
       </div>
     </form>
   </div>
