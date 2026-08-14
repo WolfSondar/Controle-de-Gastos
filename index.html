@@ -58,16 +58,16 @@
         <span class="hero-stat-valor income" id="statGanhos">R$ 0,00</span>
       </div>
       <div class="hero-stat">
+        <span class="hero-stat-label">Guardado</span>
+        <span class="hero-stat-valor gold" id="statGuardado">R$ 0,00</span>
+      </div>
+      <div class="hero-stat">
         <span class="hero-stat-label">Fixos</span>
         <span class="hero-stat-valor expense" id="statFixos">R$ 0,00</span>
       </div>
       <div class="hero-stat">
         <span class="hero-stat-label">Variáveis</span>
         <span class="hero-stat-valor expense" id="statVariaveis">R$ 0,00</span>
-      </div>
-      <div class="hero-stat">
-        <span class="hero-stat-label">Guardado</span>
-        <span class="hero-stat-valor gold" id="statGuardado">R$ 0,00</span>
       </div>
     </div>
   </header>
@@ -88,6 +88,19 @@
             <div class="split-donut-center" id="splitDonutCenter"></div>
           </div>
           <div class="split-legend" id="splitLegend"></div>
+        </div>
+      </div>
+
+      <div class="split-card" id="visaoGeralCard">
+        <div class="ledger-line">
+          <h2 class="section-title">Visão geral</h2>
+        </div>
+        <p class="section-hint">Como o que você ganhou se divide entre guardado, gasto e livre.</p>
+        <div class="split-chart-wrap">
+          <div class="split-donut" id="visaoGeralDonut">
+            <div class="split-donut-center" id="visaoGeralDonutCenter"></div>
+          </div>
+          <div class="split-legend" id="visaoGeralLegend"></div>
         </div>
       </div>
 
@@ -161,7 +174,7 @@
 
     <!-- OBJETIVOS -->
     <section class="tab-panel is-hidden" id="tab-objetivos" data-tab="objetivos">
-      <h2 class="section-title">Objetivos</h2>
+      <h2 class="section-title">Metas</h2>
       <p class="section-hint">Sonho de consumo pra comprar, e quanto falta.</p>
 
       <form class="add-form" id="formObjetivos">
@@ -243,7 +256,7 @@
       <input type="number" id="aporteValor" placeholder="0,00" step="0.01" min="0.01" inputmode="decimal" required />
       <div class="modal-actions">
         <button type="button" class="btn btn-ghost" id="modalCancelar">Cancelar</button>
-        <button type="submit" class="btn btn-gold">Guardar</button>
+        <button type="submit" class="btn btn-gold" id="modalConfirmar">Guardar</button>
       </div>
     </form>
   </div>
