@@ -380,7 +380,6 @@ function addCaixinha(nome, valorInicial, valorObjetivo) {
     nome,
     valorGuardado: valorInicial,
     valorObjetivo: valorObjetivo || 0,
-    rendimentoMes: 0,
   });
   sincronizarCacheAtual();
   salvarBloco("saveCaixinhas", state.caixinhas);
@@ -421,15 +420,23 @@ function retirarDaCaixinha(index, valor) {
   salvarBloco("saveCaixinhas", state.caixinhas);
   renderAll();
 }
-function registrarRendimentoCaixinha(index, valor) {
-  if (isAmbos()) return;
-  const cx = state.caixinhas[index];
-  if (!cx) return;
-  cx.rendimentoMes = (Number(cx.rendimentoMes) || 0) + valor;
-  cx.valorGuardado = (Number(cx.valorGuardado) || 0) + valor;
-  sincronizarCacheAtual();
-  salvarBloco("saveCaixinhas", state.caixinhas);
-  renderAll();
+
+// ---------------------------------------------------------------------
+// VÍNCULO CAIXINHA ↔ META
+// Quando uma caixinha tem o mesmo nome de uma meta (ex: caixinha "Fable" e
+// meta "Fable"), a meta passa a mostrar o valor guardado da caixinha —
+// sempre atualizado — em vez de um valor aportado manualmente nela. Assim
+// não é preciso manter os dois em sincronia na mão.
+// ---------------------------------------------------------------------
+
+function normalizarNome(nome) {
+  return String(nome || "").trim().toLowerCase();
+}
+
+function caixinhaVinculada(nomeMeta) {
+  const alvo = normalizarNome(nomeMeta);
+  if (!alvo) return null;
+  return state.caixinhas.find((cx) => normalizarNome(cx.nome) === alvo) || null;
 }
 
 // ---------------------------------------------------------------------
@@ -765,7 +772,8 @@ function renderObjetivos() {
   } else {
     state.objetivos.forEach((obj, idx) => {
       const custo = Number(obj.custo) || 0;
-      const guardado = Number(obj.valorAdicionado) || 0;
+      const vinculo = caixinhaVinculada(obj.nome);
+      const guardado = vinculo ? Number(vinculo.valorGuardado) || 0 : Number(obj.valorAdicionado) || 0;
       const falta = Math.max(custo - guardado, 0);
       const pct = custo > 0 ? Math.min((guardado / custo) * 100, 100) : 0;
       const completo = falta <= 0 && custo > 0;
@@ -783,7 +791,7 @@ function renderObjetivos() {
       card.className = "goal-card" + (obj._comemoraAoRenderizar ? " is-celebrando" : "");
       card.innerHTML = `
         <div class="goal-head">
-          <span class="goal-nome">${escapeHtml(obj.nome)} ${tagPessoa(obj)}</span>
+          <span class="goal-nome">${escapeHtml(obj.nome)} ${tagPessoa(obj)} ${vinculo ? '<span class="vinculo-tag">🔗 vinculada</span>' : ""}</span>
           <span class="goal-falta ${completo ? "completo" : ""}">${
             completo ? "Meta batida ✓" : "faltam " + fmt(falta)
           }</span>
@@ -798,15 +806,17 @@ function renderObjetivos() {
               ? ""
               : `<div class="goal-actions">
                   <button class="btn-edit" aria-label="Editar meta" data-edit="${idx}">${ICONE_LAPIS}</button>
-                  <button class="btn-aporte" data-idx="${idx}">+ guardar</button>
+                  ${vinculo ? "" : `<button class="btn-aporte" data-idx="${idx}">+ guardar</button>`}
                   <button class="btn-remove" aria-label="Remover meta" data-remove="${idx}">${ICONE_X}</button>
                 </div>`
           }
         </div>
+        ${vinculo ? `<p class="vinculo-hint">Sincronizada com a caixinha "${escapeHtml(vinculo.nome)}" — guarde ou retire por lá.</p>` : ""}
       `;
       if (!ambos) {
         card.querySelector("[data-edit]").addEventListener("click", () => abrirModalEditar("objetivos", idx, obj.nome, obj.custo));
-        card.querySelector(".btn-aporte").addEventListener("click", () => abrirModalAporte(idx, obj.nome));
+        const btnAporte = card.querySelector(".btn-aporte");
+        if (btnAporte) btnAporte.addEventListener("click", () => abrirModalAporte(idx, obj.nome));
         card.querySelector("[data-remove]").addEventListener("click", () =>
           abrirConfirmacao(`Remover a meta "${obj.nome}"? Essa ação não pode ser desfeita.`, () => removeObjetivo(idx))
         );
@@ -829,7 +839,8 @@ function renderObjetivos() {
   } else {
     state.objetivos.forEach((obj) => {
       const custo = Number(obj.custo) || 0;
-      const guardado = Number(obj.valorAdicionado) || 0;
+      const vinculo = caixinhaVinculada(obj.nome);
+      const guardado = vinculo ? Number(vinculo.valorGuardado) || 0 : Number(obj.valorAdicionado) || 0;
       const pct = custo > 0 ? Math.min((guardado / custo) * 100, 100) : 0;
       const row = document.createElement("div");
       row.className = "mini-goal";
@@ -860,7 +871,6 @@ function renderCaixinhas() {
       state.caixinhas.forEach((cx, idx) => {
         const guardado = Number(cx.valorGuardado) || 0;
         const objetivo = Number(cx.valorObjetivo) || 0;
-        const rendimento = Number(cx.rendimentoMes) || 0;
         const temObjetivo = objetivo > 0;
         const falta = Math.max(objetivo - guardado, 0);
         const pct = temObjetivo ? Math.min((guardado / objetivo) * 100, 100) : 0;
@@ -887,7 +897,6 @@ function renderCaixinhas() {
           ${temObjetivo ? `<div class="goal-bar-track"><div class="goal-bar-fill ${completo ? "completo" : ""}" style="width:${pct}%"></div></div>` : ""}
           <div class="caixinha-valores">
             <span class="caixinha-guardado"><strong>${fmt(guardado)}</strong>${temObjetivo ? ` de ${fmt(objetivo)}` : " guardados"}</span>
-            ${rendimento !== 0 ? `<span class="caixinha-rendimento ${rendimento > 0 ? "income" : "expense"}">${rendimento > 0 ? "+" : ""}${fmt(rendimento)} no mês</span>` : ""}
           </div>
           ${
             ambos
@@ -895,7 +904,6 @@ function renderCaixinhas() {
               : `<div class="caixinha-actions">
                   <button class="btn btn-caixinha-guardar" data-idx="${idx}">+ guardar</button>
                   <button class="btn btn-caixinha-retirar" data-idx="${idx}">− retirar</button>
-                  <button class="btn btn-caixinha-rendimento" data-idx="${idx}">+ rendimento</button>
                   <button class="btn-edit" aria-label="Editar caixinha" data-edit="${idx}">${ICONE_LAPIS}</button>
                   <button class="btn-remove" aria-label="Remover caixinha" data-remove="${idx}">${ICONE_X}</button>
                 </div>`
@@ -904,7 +912,6 @@ function renderCaixinhas() {
         if (!ambos) {
           card.querySelector(".btn-caixinha-guardar").addEventListener("click", () => abrirModalCaixinha("guardar", idx));
           card.querySelector(".btn-caixinha-retirar").addEventListener("click", () => abrirModalCaixinha("retirar", idx));
-          card.querySelector(".btn-caixinha-rendimento").addEventListener("click", () => abrirModalCaixinha("rendimento", idx));
           card.querySelector("[data-edit]").addEventListener("click", () => abrirModalEditar("caixinhas", idx, cx.nome, cx.valorObjetivo));
           card.querySelector("[data-remove]").addEventListener("click", () =>
             abrirConfirmacao(`Remover a caixinha "${cx.nome}"? Essa ação não pode ser desfeita.`, () => removeCaixinha(idx))
@@ -1254,7 +1261,6 @@ function renderHistorico() {
           const ganhosTotal = m.ganhosDavi + m.ganhosGabriel;
           const debitosTotal = m.debitosDavi + m.debitosGabriel;
           const guardadoTotal = m.guardadoDavi + m.guardadoGabriel;
-          const rendimentoTotal = m.rendimentoDavi + m.rendimentoGabriel;
           const nomeMes = m.nome.charAt(0) + m.nome.slice(1).toLowerCase();
           return `
           <div class="historico-mes-card">
@@ -1269,9 +1275,9 @@ function renderHistorico() {
               <span>Débitos</span><span class="expense">${fmt(Math.abs(debitosTotal))}</span>
             </div>
             ${
-              guardadoTotal > 0 || rendimentoTotal !== 0
+              guardadoTotal > 0
                 ? `<div class="historico-mes-linha">
-                    <span>Guardado</span><span class="gold">${fmt(guardadoTotal)}${rendimentoTotal !== 0 ? ` · rendeu ${fmt(rendimentoTotal)}` : ""}</span>
+                    <span>Guardado</span><span class="gold">${fmt(guardadoTotal)}</span>
                   </div>`
                 : ""
             }
@@ -1397,6 +1403,55 @@ on("formCaixinhas", "submit", (e) => {
 });
 
 // ---------------------------------------------------------------------
+// VINCULAR CAIXINHA A UMA META JÁ EXISTENTE
+// Como dificilmente uma meta aparece sem uma caixinha correspondente, esse
+// botão evita redigitar tudo de novo: escolhe uma meta já criada e preenche
+// o formulário de nova caixinha com o nome, o valor já guardado e o quanto
+// se quer atingir, direto da meta.
+// ---------------------------------------------------------------------
+
+const vincularBackdrop = document.getElementById("vincularBackdrop");
+const vincularMetaSelect = document.getElementById("vincularMetaSelect");
+
+function abrirVincularMeta() {
+  if (isAmbos()) return;
+  if (state.objetivos.length === 0) {
+    showToast('Crie uma meta na aba "Metas" primeiro pra poder vincular.');
+    return;
+  }
+  if (vincularMetaSelect) {
+    vincularMetaSelect.innerHTML = state.objetivos
+      .map((obj, idx) => `<option value="${idx}">${escapeHtml(obj.nome)}</option>`)
+      .join("");
+  }
+  if (vincularBackdrop) vincularBackdrop.classList.remove("is-hidden");
+}
+function fecharVincularMeta() {
+  if (vincularBackdrop) vincularBackdrop.classList.add("is-hidden");
+}
+on("btnVincularMeta", "click", abrirVincularMeta);
+on("vincularCancelar", "click", fecharVincularMeta);
+if (vincularBackdrop) {
+  vincularBackdrop.addEventListener("click", (e) => {
+    if (e.target === vincularBackdrop) fecharVincularMeta();
+  });
+}
+on("formVincular", "submit", (e) => {
+  e.preventDefault();
+  const idx = Number(vincularMetaSelect.value);
+  const obj = state.objetivos[idx];
+  if (!obj) return;
+  const f = document.getElementById("formCaixinhas");
+  if (f) {
+    f.nome.value = obj.nome;
+    f.valorInicial.value = Number(obj.valorAdicionado) || 0;
+    f.valorObjetivo.value = Number(obj.custo) || 0;
+  }
+  fecharVincularMeta();
+  showToast(`Preenchido com os dados da meta "${obj.nome}"`);
+});
+
+// ---------------------------------------------------------------------
 // MODAL DE APORTE
 // ---------------------------------------------------------------------
 
@@ -1440,7 +1495,6 @@ function abrirModalAporte(idx, nome) {
 const TITULOS_CAIXINHA = {
   guardar: (nome) => `Guardar em — ${nome}`,
   retirar: (nome) => `Retirar de — ${nome}`,
-  rendimento: (nome) => `Rendimento do mês — ${nome}`,
 };
 function abrirModalCaixinha(acao, idx) {
   const cx = state.caixinhas[idx];
@@ -1449,7 +1503,6 @@ function abrirModalCaixinha(acao, idx) {
   const acoes = {
     guardar: (valor) => guardarNaCaixinha(idx, valor),
     retirar: (valor) => retirarDaCaixinha(idx, valor),
-    rendimento: (valor) => registrarRendimentoCaixinha(idx, valor),
   };
   abrirModalValor(titulo, acoes[acao]);
 }
