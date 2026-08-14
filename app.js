@@ -439,6 +439,23 @@ function caixinhaVinculada(nomeMeta) {
   return state.caixinhas.find((cx) => normalizarNome(cx.nome) === alvo) || null;
 }
 
+function metaVinculada(nomeCaixinha) {
+  const alvo = normalizarNome(nomeCaixinha);
+  if (!alvo) return null;
+  return state.objetivos.find((obj) => normalizarNome(obj.nome) === alvo) || null;
+}
+
+// Soma o que foi guardado manualmente em metas SEM caixinha vinculada — as
+// que já têm caixinha usam o valor dela (contado à parte, em
+// state.caixinhas), então não entram aqui pra não contar o mesmo dinheiro
+// duas vezes.
+function totalGuardadoObjetivosNaoVinculados() {
+  return state.objetivos.reduce((acc, obj) => {
+    if (caixinhaVinculada(obj.nome)) return acc;
+    return acc + (Number(obj.valorAdicionado) || 0);
+  }, 0);
+}
+
 // ---------------------------------------------------------------------
 // AÇÕES EM CONJUNTO — dividir uma compra entre Davi e Gabriel
 // Busca os dados atuais de cada um, soma metade do valor no fixo/variável
@@ -586,8 +603,12 @@ function renderTotais() {
   const totalFixosPagos = somaFixosPagos(state.gastosFixos);
   const totalFixosAPagar = totalFixosGeral - totalFixosPagos;
   const totalVariaveis = soma(state.gastosVariaveis);
-  const saldo = totalGanhos - totalFixosPagos - totalVariaveis;
-  const totalGuardado = somaCampo(state.caixinhas, "valorGuardado");
+  // Guardado = tudo que já saiu do saldo disponível pra ser reservado: o que
+  // está nas caixinhas, mais o que foi aportado em metas que ainda não têm
+  // caixinha vinculada (pra não contar o mesmo dinheiro duas vezes quando a
+  // meta já usa o valor da caixinha).
+  const totalGuardado = somaCampo(state.caixinhas, "valorGuardado") + totalGuardadoObjetivosNaoVinculados();
+  const saldo = totalGanhos - totalFixosPagos - totalVariaveis - totalGuardado;
 
   const ganhosEl = document.getElementById("statGanhos");
   const fixosEl = document.getElementById("statFixos");
@@ -607,9 +628,9 @@ function renderTotais() {
     const heroStats = document.querySelectorAll(".hero-stat");
     popValorFlutuante(document.querySelector(".saldo-block"), saldo - prevTotals.saldo);
     popValorFlutuante(heroStats[0], totalGanhos - prevTotals.ganhos, "income");
-    popValorFlutuante(heroStats[1], totalFixosPagos - prevTotals.fixos, "expense");
-    popValorFlutuante(heroStats[2], totalVariaveis - prevTotals.variaveis, "expense");
-    popValorFlutuante(heroStats[3], totalGuardado - prevTotals.guardado, "gold");
+    popValorFlutuante(heroStats[1], totalGuardado - prevTotals.guardado, "gold");
+    popValorFlutuante(heroStats[2], totalFixosPagos - prevTotals.fixos, "expense");
+    popValorFlutuante(heroStats[3], totalVariaveis - prevTotals.variaveis, "expense");
   }
 
   saldoEl.classList.toggle("negative", saldo < 0);
@@ -618,8 +639,8 @@ function renderTotais() {
   if (formulaEl) {
     formulaEl.textContent =
       totalFixosAPagar > 0
-        ? `ganhos − fixos pagos − variáveis · ${fmt(totalFixosAPagar)} em fixos a pagar`
-        : "ganhos − fixos pagos − variáveis";
+        ? `ganhos − fixos pagos − variáveis − guardado · ${fmt(totalFixosAPagar)} em fixos a pagar`
+        : "ganhos − fixos pagos − variáveis − guardado";
   }
 
   prevTotals.ganhos = totalGanhos;
@@ -805,13 +826,12 @@ function renderObjetivos() {
             ambos
               ? ""
               : `<div class="goal-actions">
-                  <button class="btn-edit" aria-label="Editar meta" data-edit="${idx}">${ICONE_LAPIS}</button>
                   ${vinculo ? "" : `<button class="btn-aporte" data-idx="${idx}">+ guardar</button>`}
+                  <button class="btn-edit" aria-label="Editar meta" data-edit="${idx}">${ICONE_LAPIS}</button>
                   <button class="btn-remove" aria-label="Remover meta" data-remove="${idx}">${ICONE_X}</button>
                 </div>`
           }
         </div>
-        ${vinculo ? `<p class="vinculo-hint">Sincronizada com a caixinha "${escapeHtml(vinculo.nome)}" — guarde ou retire por lá.</p>` : ""}
       `;
       if (!ambos) {
         card.querySelector("[data-edit]").addEventListener("click", () => abrirModalEditar("objetivos", idx, obj.nome, obj.custo));
@@ -928,14 +948,19 @@ function renderCaixinhas() {
 
   primeiraRenderCaixinhas = false;
 
-  // mini lista no resumo
+  // mini lista no resumo — caixinhas que já aparecem em "Suas metas" (por
+  // estarem vinculadas a uma meta de mesmo nome) não se repetem aqui.
   const mini = document.getElementById("resumoCaixinhas");
   if (!mini) return;
   mini.innerHTML = "";
-  if (state.caixinhas.length === 0) {
-    mini.innerHTML = `<p class="empty-state">Crie uma caixinha na aba "Guardado".</p>`;
+  const caixinhasParaResumo = state.caixinhas.filter((cx) => !metaVinculada(cx.nome));
+  if (caixinhasParaResumo.length === 0) {
+    mini.innerHTML =
+      state.caixinhas.length === 0
+        ? `<p class="empty-state">Crie uma caixinha na aba "Guardado".</p>`
+        : `<p class="empty-state">Suas caixinhas estão vinculadas às metas acima.</p>`;
   } else {
-    state.caixinhas.forEach((cx) => {
+    caixinhasParaResumo.forEach((cx) => {
       const guardado = Number(cx.valorGuardado) || 0;
       const objetivo = Number(cx.valorObjetivo) || 0;
       const temObjetivo = objetivo > 0;
@@ -1079,7 +1104,23 @@ function renderSkeletons() {
   if (resumoCx) resumoCx.innerHTML = skeletonMiniGoals(2);
   const listaCaixinhas = document.getElementById("listaCaixinhas");
   if (listaCaixinhas) listaCaixinhas.innerHTML = skeletonGoalCards(2);
+  renderVisaoGeralSkeleton();
   if (isAmbos()) renderSplitSkeleton();
+}
+
+// Skeleton do gráfico "Visão geral" — sempre aparece na aba Resumo enquanto
+// o primeiro carregamento não chega (não depende do modo Ambos).
+function renderVisaoGeralSkeleton() {
+  const donut = document.getElementById("visaoGeralDonut");
+  if (donut) donut.style.background = "var(--paper-deep)";
+  const centro = document.getElementById("visaoGeralDonutCenter");
+  if (centro) centro.innerHTML = `<span class="skeleton" style="width:76px;height:16px;">.</span>`;
+  const legend = document.getElementById("visaoGeralLegend");
+  if (legend) {
+    legend.innerHTML = [0, 1, 2]
+      .map(() => `<div class="split-legend-item"><span class="skeleton" style="width:100%;height:14px;">.</span></div>`)
+      .join("");
+  }
 }
 
 // Skeleton do gráfico de divisão — só aparece no modo Ambos quando ainda não
@@ -1108,8 +1149,61 @@ function renderAll() {
   renderLista("listaVariaveis", state.gastosVariaveis, "expense", opVariaveis, "variaveis");
   renderObjetivos();
   renderCaixinhas();
+  renderVisaoGeral();
   renderRecentes();
   renderSplit();
+}
+
+// ---------------------------------------------------------------------
+// RENDER — VISÃO GERAL (resumo): como o ganho se divide entre guardado,
+// gasto e livre. Aparece sempre na aba Resumo, pra qualquer pessoa
+// selecionada (Davi, Gabriel ou Ambos).
+// ---------------------------------------------------------------------
+
+function renderVisaoGeral() {
+  const donut = document.getElementById("visaoGeralDonut");
+  const centro = document.getElementById("visaoGeralDonutCenter");
+  const legend = document.getElementById("visaoGeralLegend");
+  if (!donut && !centro && !legend) return;
+
+  const totalGanhos = soma(state.ganhos);
+  const totalGastos = somaFixosPagos(state.gastosFixos) + soma(state.gastosVariaveis);
+  const totalGuardado = somaCampo(state.caixinhas, "valorGuardado") + totalGuardadoObjetivosNaoVinculados();
+  const livre = totalGanhos - totalGastos - totalGuardado;
+  const base = Math.max(totalGanhos, totalGastos + totalGuardado, 0.01);
+
+  const pctGuardado = Math.max((totalGuardado / base) * 100, 0);
+  const pctGastos = Math.max((totalGastos / base) * 100, 0);
+  const pctLivre = Math.max(100 - pctGuardado - pctGastos, 0);
+
+  const corte1 = pctGuardado;
+  const corte2 = pctGuardado + pctGastos;
+
+  if (donut) {
+    donut.style.background = `conic-gradient(var(--gold) 0% ${corte1}%, var(--expense) ${corte1}% ${corte2}%, var(--income) ${corte2}% 100%)`;
+  }
+  if (centro) {
+    centro.innerHTML = `<span>${fmt(totalGanhos)}</span><small>${livre < 0 ? "ganho · estourou" : "ganho no total"}</small>`;
+  }
+  if (legend) {
+    legend.innerHTML = `
+      <div class="split-legend-item">
+        <span class="dot" style="background:var(--gold)"></span>
+        Guardado
+        <strong>${pctGuardado.toFixed(0)}%</strong>
+      </div>
+      <div class="split-legend-item">
+        <span class="dot" style="background:var(--expense)"></span>
+        Gastos
+        <strong>${pctGastos.toFixed(0)}%</strong>
+      </div>
+      <div class="split-legend-item">
+        <span class="dot" style="background:var(--income)"></span>
+        Livre
+        <strong>${pctLivre.toFixed(0)}%</strong>
+      </div>
+    `;
+  }
 }
 
 // ---------------------------------------------------------------------
@@ -1456,16 +1550,18 @@ on("formVincular", "submit", (e) => {
 // ---------------------------------------------------------------------
 
 // Modal genérico de "digitar um valor" — usado por metas (guardar) e por
-// caixinhas (guardar / retirar / rendimento). Cada chamador define o título
+// caixinhas (guardar / retirar). Cada chamador define o título
 // e o que fazer com o valor digitado via `onConfirmarValor`.
 let onConfirmarValor = null;
 const modalBackdrop = document.getElementById("modalBackdrop");
 
-function abrirModalValor(titulo, callback) {
+function abrirModalValor(titulo, callback, textoBotao) {
   if (isAmbos()) return;
   onConfirmarValor = callback;
   document.getElementById("modalTitle").textContent = titulo;
   document.getElementById("aporteValor").value = "";
+  const botaoConfirmar = document.getElementById("modalConfirmar");
+  if (botaoConfirmar) botaoConfirmar.textContent = textoBotao || "Guardar";
   modalBackdrop.classList.remove("is-hidden");
   setTimeout(() => document.getElementById("aporteValor").focus(), 50);
 }
@@ -1496,6 +1592,10 @@ const TITULOS_CAIXINHA = {
   guardar: (nome) => `Guardar em — ${nome}`,
   retirar: (nome) => `Retirar de — ${nome}`,
 };
+const BOTOES_CAIXINHA = {
+  guardar: "Guardar",
+  retirar: "Retirar",
+};
 function abrirModalCaixinha(acao, idx) {
   const cx = state.caixinhas[idx];
   if (!cx) return;
@@ -1504,7 +1604,7 @@ function abrirModalCaixinha(acao, idx) {
     guardar: (valor) => guardarNaCaixinha(idx, valor),
     retirar: (valor) => retirarDaCaixinha(idx, valor),
   };
-  abrirModalValor(titulo, acoes[acao]);
+  abrirModalValor(titulo, acoes[acao], BOTOES_CAIXINHA[acao]);
 }
 
 // ---------------------------------------------------------------------
