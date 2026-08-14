@@ -28,7 +28,6 @@ const state = {
   ganhos: [],
   gastosFixos: [],
   gastosVariaveis: [],
-  objetivos: [],
   caixinhas: [],
   loaded: false,
   pessoaAtual: localStorage.getItem(PESSOA_STORAGE_KEY) || "davi",
@@ -57,8 +56,7 @@ function renderMesAtual() {
 // guarda os últimos totais renderizados, pra animar contagem e mostrar o valor flutuante
 const prevTotals = { ganhos: null, fixos: null, variaveis: null, saldo: null, guardado: null };
 
-// evita comemorar metas que já chegaram completas do servidor (só comemora quem "acabou de bater")
-let primeiraRenderObjetivos = true;
+// evita comemorar caixinhas que já chegaram completas do servidor (só comemora quem "acabou de bater")
 let primeiraRenderCaixinhas = true;
 
 const fmt = (n) =>
@@ -92,7 +90,6 @@ function setCache(pessoa, data) {
         ganhos: data.ganhos || [],
         gastosFixos: data.gastosFixos || [],
         gastosVariaveis: data.gastosVariaveis || [],
-        objetivos: data.objetivos || [],
         caixinhas: data.caixinhas || [],
       })
     );
@@ -142,7 +139,6 @@ async function carregarDados() {
     state.ganhos = cache.ganhos;
     state.gastosFixos = cache.gastosFixos;
     state.gastosVariaveis = cache.gastosVariaveis;
-    state.objetivos = cache.objetivos;
     state.caixinhas = cache.caixinhas || [];
     state.loaded = true;
     setSyncState("saving", "Atualizando…");
@@ -164,7 +160,6 @@ async function carregarDados() {
     state.ganhos = data.ganhos || [];
     state.gastosFixos = data.gastosFixos || [];
     state.gastosVariaveis = data.gastosVariaveis || [];
-    state.objetivos = data.objetivos || [];
     state.caixinhas = data.caixinhas || [];
     state.loaded = true;
     if (data.mesAtual) state.mesAtual = data.mesAtual;
@@ -236,10 +231,10 @@ function trocarPessoa(pessoa) {
   prevTotals.fixos = null;
   prevTotals.variaveis = null;
   prevTotals.saldo = null;
-  primeiraRenderObjetivos = true;
   renderPessoaSwitch();
   atualizarVisibilidadeEdicao();
   atualizarVisibilidadeSplitCard(); // esconde/mostra o gráfico na hora, sem esperar os dados
+  atualizarVisibilidadeVisaoGeral(); // idem pro card "Visão geral" (some no modo Ambos)
   carregarDados();
 }
 
@@ -252,6 +247,14 @@ function atualizarVisibilidadeSplitCard() {
   const card = document.getElementById("splitCard");
   if (!card) return;
   card.classList.toggle("is-hidden", !isAmbos());
+}
+
+// "Visão geral" é por pessoa (Davi ou Gabriel) — no modo Ambos ela não faz
+// sentido (a "Divisão do casal" já cobre esse caso), então some.
+function atualizarVisibilidadeVisaoGeral() {
+  const card = document.getElementById("visaoGeralCard");
+  if (!card) return;
+  card.classList.toggle("is-hidden", isAmbos());
 }
 
 function renderPessoaSwitch() {
@@ -295,7 +298,6 @@ function sincronizarCacheAtual() {
     ganhos: state.ganhos,
     gastosFixos: state.gastosFixos,
     gastosVariaveis: state.gastosVariaveis,
-    objetivos: state.objetivos,
     caixinhas: state.caixinhas,
   });
 }
@@ -334,55 +336,31 @@ const opFixos = criarOperacoesLista("gastosFixos", "saveGastosFixos");
 const opVariaveis = criarOperacoesLista("gastosVariaveis", "saveGastosVariaveis");
 
 // ---------------------------------------------------------------------
-// OPERAÇÕES — OBJETIVOS
-// ---------------------------------------------------------------------
-
-function addObjetivo(nome, custo) {
-  if (isAmbos()) return;
-  state.objetivos.push({ nome, custo, valorAdicionado: 0 });
-  sincronizarCacheAtual();
-  salvarBloco("saveObjetivos", state.objetivos);
-  renderAll();
-}
-function removeObjetivo(index) {
-  if (isAmbos()) return;
-  state.objetivos.splice(index, 1);
-  sincronizarCacheAtual();
-  salvarBloco("saveObjetivos", state.objetivos);
-  renderAll();
-}
-function editObjetivo(index, nome, custo) {
-  if (isAmbos()) return;
-  const obj = state.objetivos[index];
-  if (!obj) return;
-  obj.nome = nome;
-  obj.custo = custo;
-  sincronizarCacheAtual();
-  salvarBloco("saveObjetivos", state.objetivos);
-  renderAll();
-}
-function aportarObjetivo(index, valor) {
-  if (isAmbos()) return;
-  const obj = state.objetivos[index];
-  obj.valorAdicionado = (Number(obj.valorAdicionado) || 0) + valor;
-  sincronizarCacheAtual();
-  salvarBloco("saveObjetivos", state.objetivos);
-  renderAll();
-}
-
-// ---------------------------------------------------------------------
-// OPERAÇÕES — CAIXINHAS (cofrinhos/investimentos guardados)
+// OPERAÇÕES — CAIXINHAS (cofrinhos/investimentos guardados, com meta
+// opcional — é aqui também que ficavam as antigas "Metas": pra ter uma meta
+// nova, basta criar uma caixinha com um objetivo).
+//
+// O valor guardado numa caixinha é dinheiro que sai do saldo disponível,
+// então guardar É um gasto variável (lançado automaticamente como "Guardado:
+// nome da caixinha"); retirar é o oposto, um ganho automático. O valor
+// guardado em si (cx.valorGuardado) é só um saldo à parte — não entra de
+// novo na conta do saldo disponível, senão o dinheiro seria descontado duas
+// vezes.
 // ---------------------------------------------------------------------
 
 function addCaixinha(nome, valorInicial, valorObjetivo) {
   if (isAmbos()) return;
   state.caixinhas.push({
     nome,
-    valorGuardado: valorInicial,
+    valorGuardado: valorInicial || 0,
     valorObjetivo: valorObjetivo || 0,
   });
-  sincronizarCacheAtual();
   salvarBloco("saveCaixinhas", state.caixinhas);
+  if (valorInicial > 0) {
+    state.gastosVariaveis.push({ nome: `Guardado: ${nome}`, valor: valorInicial });
+    salvarBloco("saveGastosVariaveis", state.gastosVariaveis);
+  }
+  sincronizarCacheAtual();
   renderAll();
 }
 function removeCaixinha(index) {
@@ -407,8 +385,10 @@ function guardarNaCaixinha(index, valor) {
   const cx = state.caixinhas[index];
   if (!cx) return;
   cx.valorGuardado = (Number(cx.valorGuardado) || 0) + valor;
+  state.gastosVariaveis.push({ nome: `Guardado: ${cx.nome}`, valor });
   sincronizarCacheAtual();
   salvarBloco("saveCaixinhas", state.caixinhas);
+  salvarBloco("saveGastosVariaveis", state.gastosVariaveis);
   renderAll();
 }
 function retirarDaCaixinha(index, valor) {
@@ -416,44 +396,11 @@ function retirarDaCaixinha(index, valor) {
   const cx = state.caixinhas[index];
   if (!cx) return;
   cx.valorGuardado = Math.max((Number(cx.valorGuardado) || 0) - valor, 0);
+  state.ganhos.push({ nome: `Retirado da caixinha: ${cx.nome}`, valor });
   sincronizarCacheAtual();
   salvarBloco("saveCaixinhas", state.caixinhas);
+  salvarBloco("saveGanhos", state.ganhos);
   renderAll();
-}
-
-// ---------------------------------------------------------------------
-// VÍNCULO CAIXINHA ↔ META
-// Quando uma caixinha tem o mesmo nome de uma meta (ex: caixinha "Fable" e
-// meta "Fable"), a meta passa a mostrar o valor guardado da caixinha —
-// sempre atualizado — em vez de um valor aportado manualmente nela. Assim
-// não é preciso manter os dois em sincronia na mão.
-// ---------------------------------------------------------------------
-
-function normalizarNome(nome) {
-  return String(nome || "").trim().toLowerCase();
-}
-
-function caixinhaVinculada(nomeMeta) {
-  const alvo = normalizarNome(nomeMeta);
-  if (!alvo) return null;
-  return state.caixinhas.find((cx) => normalizarNome(cx.nome) === alvo) || null;
-}
-
-function metaVinculada(nomeCaixinha) {
-  const alvo = normalizarNome(nomeCaixinha);
-  if (!alvo) return null;
-  return state.objetivos.find((obj) => normalizarNome(obj.nome) === alvo) || null;
-}
-
-// Soma o que foi guardado manualmente em metas SEM caixinha vinculada — as
-// que já têm caixinha usam o valor dela (contado à parte, em
-// state.caixinhas), então não entram aqui pra não contar o mesmo dinheiro
-// duas vezes.
-function totalGuardadoObjetivosNaoVinculados() {
-  return state.objetivos.reduce((acc, obj) => {
-    if (caixinhaVinculada(obj.nome)) return acc;
-    return acc + (Number(obj.valorAdicionado) || 0);
-  }, 0);
 }
 
 // ---------------------------------------------------------------------
@@ -562,6 +509,13 @@ function somaCampo(lista, campo) {
   return lista.reduce((acc, i) => acc + (Number(i[campo]) || 0), 0);
 }
 
+// Identifica os lançamentos automáticos criados ao guardar/retirar de uma
+// caixinha (ver guardarNaCaixinha/retirarDaCaixinha), pra não contar esse
+// dinheiro duas vezes em telas que já mostram o valor guardado à parte.
+function ehLancamentoDeCaixinha(nome) {
+  return typeof nome === "string" && nome.indexOf("Guardado: ") === 0;
+}
+
 // Anima um número de "de" até "para", contando em tempo real (efeito de contador).
 function animarNumero(el, de, para, duracao = 550) {
   if (!el) return;
@@ -603,12 +557,12 @@ function renderTotais() {
   const totalFixosPagos = somaFixosPagos(state.gastosFixos);
   const totalFixosAPagar = totalFixosGeral - totalFixosPagos;
   const totalVariaveis = soma(state.gastosVariaveis);
-  // Guardado = tudo que já saiu do saldo disponível pra ser reservado: o que
-  // está nas caixinhas, mais o que foi aportado em metas que ainda não têm
-  // caixinha vinculada (pra não contar o mesmo dinheiro duas vezes quando a
-  // meta já usa o valor da caixinha).
-  const totalGuardado = somaCampo(state.caixinhas, "valorGuardado") + totalGuardadoObjetivosNaoVinculados();
-  const saldo = totalGanhos - totalFixosPagos - totalVariaveis - totalGuardado;
+  // Guardado é só informativo aqui: o valor total parado nas caixinhas.
+  // Ele NÃO entra na conta do saldo — guardar já vira um gasto variável na
+  // hora (ver guardarNaCaixinha), então já foi descontado ali. Somar de
+  // novo aqui descontaria o mesmo dinheiro duas vezes.
+  const totalGuardado = somaCampo(state.caixinhas, "valorGuardado");
+  const saldo = totalGanhos - totalFixosPagos - totalVariaveis;
 
   const ganhosEl = document.getElementById("statGanhos");
   const fixosEl = document.getElementById("statFixos");
@@ -639,8 +593,8 @@ function renderTotais() {
   if (formulaEl) {
     formulaEl.textContent =
       totalFixosAPagar > 0
-        ? `ganhos − fixos pagos − variáveis − guardado · ${fmt(totalFixosAPagar)} em fixos a pagar`
-        : "ganhos − fixos pagos − variáveis − guardado";
+        ? `ganhos − fixos pagos − variáveis · ${fmt(totalFixosAPagar)} em fixos a pagar`
+        : "ganhos − fixos pagos − variáveis";
   }
 
   prevTotals.ganhos = totalGanhos;
@@ -781,103 +735,8 @@ function dispararConfete() {
 }
 
 // ---------------------------------------------------------------------
-// RENDER — OBJETIVOS
-// ---------------------------------------------------------------------
-
-function renderObjetivos() {
-  const ambos = isAmbos();
-  const wrap = document.getElementById("listaObjetivos");
-  wrap.innerHTML = "";
-  if (state.objetivos.length === 0) {
-    wrap.innerHTML = `<p class="empty-state">Nenhum objetivo ainda. Que tal criar um?</p>`;
-  } else {
-    state.objetivos.forEach((obj, idx) => {
-      const custo = Number(obj.custo) || 0;
-      const vinculo = caixinhaVinculada(obj.nome);
-      const guardado = vinculo ? Number(vinculo.valorGuardado) || 0 : Number(obj.valorAdicionado) || 0;
-      const falta = Math.max(custo - guardado, 0);
-      const pct = custo > 0 ? Math.min((guardado / custo) * 100, 100) : 0;
-      const completo = falta <= 0 && custo > 0;
-
-      // dispara o confete só quando a meta ACABOU de ser batida nesta sessão —
-      // não quando ela já chega completa do servidor no primeiro carregamento.
-      if (completo && !obj._comemorado) {
-        if (!primeiraRenderObjetivos) obj._comemoraAoRenderizar = true;
-        obj._comemorado = true;
-      } else if (!completo) {
-        obj._comemorado = false;
-      }
-
-      const card = document.createElement("div");
-      card.className = "goal-card" + (obj._comemoraAoRenderizar ? " is-celebrando" : "");
-      card.innerHTML = `
-        <div class="goal-head">
-          <span class="goal-nome">${escapeHtml(obj.nome)} ${tagPessoa(obj)} ${vinculo ? '<span class="vinculo-tag">🔗 vinculada</span>' : ""}</span>
-          <span class="goal-falta ${completo ? "completo" : ""}">${
-            completo ? "Meta batida ✓" : "faltam " + fmt(falta)
-          }</span>
-        </div>
-        <div class="goal-bar-track">
-          <div class="goal-bar-fill ${completo ? "completo" : ""}" style="width:${pct}%"></div>
-        </div>
-        <div class="goal-foot">
-          <span class="goal-valores"><strong>${fmt(guardado)}</strong> de ${fmt(custo)}</span>
-          ${
-            ambos
-              ? ""
-              : `<div class="goal-actions">
-                  ${vinculo ? "" : `<button class="btn-aporte" data-idx="${idx}">+ guardar</button>`}
-                  <button class="btn-edit" aria-label="Editar meta" data-edit="${idx}">${ICONE_LAPIS}</button>
-                  <button class="btn-remove" aria-label="Remover meta" data-remove="${idx}">${ICONE_X}</button>
-                </div>`
-          }
-        </div>
-      `;
-      if (!ambos) {
-        card.querySelector("[data-edit]").addEventListener("click", () => abrirModalEditar("objetivos", idx, obj.nome, obj.custo));
-        const btnAporte = card.querySelector(".btn-aporte");
-        if (btnAporte) btnAporte.addEventListener("click", () => abrirModalAporte(idx, obj.nome));
-        card.querySelector("[data-remove]").addEventListener("click", () =>
-          abrirConfirmacao(`Remover a meta "${obj.nome}"? Essa ação não pode ser desfeita.`, () => removeObjetivo(idx))
-        );
-      }
-      if (obj._comemoraAoRenderizar) {
-        dispararConfete();
-        obj._comemoraAoRenderizar = false;
-      }
-      wrap.appendChild(card);
-    });
-  }
-
-  primeiraRenderObjetivos = false;
-
-  // mini lista no resumo
-  const mini = document.getElementById("resumoObjetivos");
-  mini.innerHTML = "";
-  if (state.objetivos.length === 0) {
-    mini.innerHTML = `<p class="empty-state">Crie um objetivo na aba "Metas".</p>`;
-  } else {
-    state.objetivos.forEach((obj) => {
-      const custo = Number(obj.custo) || 0;
-      const vinculo = caixinhaVinculada(obj.nome);
-      const guardado = vinculo ? Number(vinculo.valorGuardado) || 0 : Number(obj.valorAdicionado) || 0;
-      const pct = custo > 0 ? Math.min((guardado / custo) * 100, 100) : 0;
-      const row = document.createElement("div");
-      row.className = "mini-goal";
-      row.innerHTML = `
-        <div class="mini-goal-info">
-          <div class="mini-goal-nome">${escapeHtml(obj.nome)} ${tagPessoa(obj)}</div>
-          <div class="goal-bar-track"><div class="goal-bar-fill ${pct >= 100 ? "completo" : ""}" style="width:${pct}%"></div></div>
-        </div>
-        <span class="mini-goal-pct">${pct.toFixed(0)}%</span>
-      `;
-      mini.appendChild(row);
-    });
-  }
-}
-
-// ---------------------------------------------------------------------
-// RENDER — CAIXINHAS
+// RENDER — CAIXINHAS (inclui as antigas "Metas": toda caixinha pode ter um
+// objetivo opcional; sem objetivo definido, ela é só um cofrinho comum)
 // ---------------------------------------------------------------------
 
 function renderCaixinhas() {
@@ -948,19 +807,14 @@ function renderCaixinhas() {
 
   primeiraRenderCaixinhas = false;
 
-  // mini lista no resumo — caixinhas que já aparecem em "Suas metas" (por
-  // estarem vinculadas a uma meta de mesmo nome) não se repetem aqui.
+  // mini lista no resumo
   const mini = document.getElementById("resumoCaixinhas");
   if (!mini) return;
   mini.innerHTML = "";
-  const caixinhasParaResumo = state.caixinhas.filter((cx) => !metaVinculada(cx.nome));
-  if (caixinhasParaResumo.length === 0) {
-    mini.innerHTML =
-      state.caixinhas.length === 0
-        ? `<p class="empty-state">Crie uma caixinha na aba "Guardado".</p>`
-        : `<p class="empty-state">Suas caixinhas estão vinculadas às metas acima.</p>`;
+  if (state.caixinhas.length === 0) {
+    mini.innerHTML = `<p class="empty-state">Crie uma caixinha na aba "Caixinhas".</p>`;
   } else {
-    caixinhasParaResumo.forEach((cx) => {
+    state.caixinhas.forEach((cx) => {
       const guardado = Number(cx.valorGuardado) || 0;
       const objetivo = Number(cx.valorObjetivo) || 0;
       const temObjetivo = objetivo > 0;
@@ -1096,10 +950,6 @@ function renderSkeletons() {
   });
   const ledger = document.getElementById("ledgerRecentes");
   if (ledger) ledger.innerHTML = skeletonLedgerRows(4);
-  const resumoObj = document.getElementById("resumoObjetivos");
-  if (resumoObj) resumoObj.innerHTML = skeletonMiniGoals(2);
-  const listaObjetivos = document.getElementById("listaObjetivos");
-  if (listaObjetivos) listaObjetivos.innerHTML = skeletonGoalCards(2);
   const resumoCx = document.getElementById("resumoCaixinhas");
   if (resumoCx) resumoCx.innerHTML = skeletonMiniGoals(2);
   const listaCaixinhas = document.getElementById("listaCaixinhas");
@@ -1147,7 +997,6 @@ function renderAll() {
   renderLista("listaGanhos", state.ganhos, "income", opGanhos, "ganhos");
   renderFixos();
   renderLista("listaVariaveis", state.gastosVariaveis, "expense", opVariaveis, "variaveis");
-  renderObjetivos();
   renderCaixinhas();
   renderVisaoGeral();
   renderRecentes();
@@ -1161,14 +1010,21 @@ function renderAll() {
 // ---------------------------------------------------------------------
 
 function renderVisaoGeral() {
+  atualizarVisibilidadeVisaoGeral();
+  if (isAmbos()) return; // não faz sentido no modo Ambos — ver "Divisão do casal"
+
   const donut = document.getElementById("visaoGeralDonut");
   const centro = document.getElementById("visaoGeralDonutCenter");
   const legend = document.getElementById("visaoGeralLegend");
   if (!donut && !centro && !legend) return;
 
   const totalGanhos = soma(state.ganhos);
-  const totalGastos = somaFixosPagos(state.gastosFixos) + soma(state.gastosVariaveis);
-  const totalGuardado = somaCampo(state.caixinhas, "valorGuardado") + totalGuardadoObjetivosNaoVinculados();
+  // Os lançamentos automáticos "Guardado: ..." já representam o dinheiro que
+  // foi pra uma caixinha — não entram aqui de novo pra não contar em dobro
+  // junto com o bloco "Guardado" do gráfico.
+  const variaveisSemGuardado = state.gastosVariaveis.filter((i) => !ehLancamentoDeCaixinha(i.nome));
+  const totalGastos = somaFixosPagos(state.gastosFixos) + soma(variaveisSemGuardado);
+  const totalGuardado = somaCampo(state.caixinhas, "valorGuardado");
   const livre = totalGanhos - totalGastos - totalGuardado;
   const base = Math.max(totalGanhos, totalGastos + totalGuardado, 0.01);
 
@@ -1473,17 +1329,6 @@ on("formVariaveis", "submit", (e) => {
   f.reset();
 });
 
-on("formObjetivos", "submit", (e) => {
-  e.preventDefault();
-  if (isAmbos()) return;
-  const f = e.target;
-  const nome = f.nome.value.trim();
-  const custo = parseValor(f.custo.value);
-  if (!nome || !(custo > 0)) return;
-  addObjetivo(nome, custo);
-  f.reset();
-});
-
 on("formCaixinhas", "submit", (e) => {
   e.preventDefault();
   if (isAmbos()) return;
@@ -1497,61 +1342,12 @@ on("formCaixinhas", "submit", (e) => {
 });
 
 // ---------------------------------------------------------------------
-// VINCULAR CAIXINHA A UMA META JÁ EXISTENTE
-// Como dificilmente uma meta aparece sem uma caixinha correspondente, esse
-// botão evita redigitar tudo de novo: escolhe uma meta já criada e preenche
-// o formulário de nova caixinha com o nome, o valor já guardado e o quanto
-// se quer atingir, direto da meta.
-// ---------------------------------------------------------------------
-
-const vincularBackdrop = document.getElementById("vincularBackdrop");
-const vincularMetaSelect = document.getElementById("vincularMetaSelect");
-
-function abrirVincularMeta() {
-  if (isAmbos()) return;
-  if (state.objetivos.length === 0) {
-    showToast('Crie uma meta na aba "Metas" primeiro pra poder vincular.');
-    return;
-  }
-  if (vincularMetaSelect) {
-    vincularMetaSelect.innerHTML = state.objetivos
-      .map((obj, idx) => `<option value="${idx}">${escapeHtml(obj.nome)}</option>`)
-      .join("");
-  }
-  if (vincularBackdrop) vincularBackdrop.classList.remove("is-hidden");
-}
-function fecharVincularMeta() {
-  if (vincularBackdrop) vincularBackdrop.classList.add("is-hidden");
-}
-on("btnVincularMeta", "click", abrirVincularMeta);
-on("vincularCancelar", "click", fecharVincularMeta);
-if (vincularBackdrop) {
-  vincularBackdrop.addEventListener("click", (e) => {
-    if (e.target === vincularBackdrop) fecharVincularMeta();
-  });
-}
-on("formVincular", "submit", (e) => {
-  e.preventDefault();
-  const idx = Number(vincularMetaSelect.value);
-  const obj = state.objetivos[idx];
-  if (!obj) return;
-  const f = document.getElementById("formCaixinhas");
-  if (f) {
-    f.nome.value = obj.nome;
-    f.valorInicial.value = Number(obj.valorAdicionado) || 0;
-    f.valorObjetivo.value = Number(obj.custo) || 0;
-  }
-  fecharVincularMeta();
-  showToast(`Preenchido com os dados da meta "${obj.nome}"`);
-});
-
-// ---------------------------------------------------------------------
 // MODAL DE APORTE
 // ---------------------------------------------------------------------
 
-// Modal genérico de "digitar um valor" — usado por metas (guardar) e por
-// caixinhas (guardar / retirar). Cada chamador define o título
-// e o que fazer com o valor digitado via `onConfirmarValor`.
+// Modal genérico de "digitar um valor" — usado pelas caixinhas (guardar /
+// retirar). Cada chamador define o título e o que fazer com o valor
+// digitado via `onConfirmarValor`.
 let onConfirmarValor = null;
 const modalBackdrop = document.getElementById("modalBackdrop");
 
@@ -1584,10 +1380,6 @@ on("formAporte", "submit", (e) => {
   fecharModal();
 });
 
-function abrirModalAporte(idx, nome) {
-  abrirModalValor(`Guardar valor — ${nome}`, (valor) => aportarObjetivo(idx, valor));
-}
-
 const TITULOS_CAIXINHA = {
   guardar: (nome) => `Guardar em — ${nome}`,
   retirar: (nome) => `Retirar de — ${nome}`,
@@ -1608,7 +1400,7 @@ function abrirModalCaixinha(acao, idx) {
 }
 
 // ---------------------------------------------------------------------
-// MODAL DE EDIÇÃO (ganhos, fixos, variáveis e objetivos)
+// MODAL DE EDIÇÃO (ganhos, fixos, variáveis e caixinhas)
 // ---------------------------------------------------------------------
 
 let editContext = null; // { tipo, idx }
@@ -1617,7 +1409,6 @@ const TITULOS_EDICAO = {
   ganhos: "Editar ganho",
   fixos: "Editar gasto fixo",
   variaveis: "Editar gasto variável",
-  objetivos: "Editar objetivo",
   caixinhas: "Editar caixinha",
 };
 
@@ -1653,7 +1444,6 @@ on("formEditar", "submit", (e) => {
   if (tipo === "ganhos") opGanhos.edit(idx, nome, valor);
   else if (tipo === "fixos") opFixos.edit(idx, nome, valor);
   else if (tipo === "variaveis") opVariaveis.edit(idx, nome, valor);
-  else if (tipo === "objetivos") editObjetivo(idx, nome, valor);
   else if (tipo === "caixinhas") editCaixinha(idx, nome, valor);
   fecharModalEditar();
 });
@@ -1834,7 +1624,7 @@ on("formFecharMes", "submit", async (e) => {
 });
 
 // ---------------------------------------------------------------------
-// MODAL DE CONFIRMAÇÃO (usado hoje para remover metas)
+// MODAL DE CONFIRMAÇÃO (usado hoje para remover itens e caixinhas)
 // ---------------------------------------------------------------------
 
 let confirmCallback = null;
@@ -1870,4 +1660,5 @@ renderPessoaSwitch();
 renderMesAtual();
 atualizarVisibilidadeEdicao();
 atualizarVisibilidadeSplitCard();
+atualizarVisibilidadeVisaoGeral();
 carregarDados();
