@@ -4,7 +4,8 @@
 // Agora com seletor de pessoa: davi | gabriel | ambos (somente leitura)
 // =====================================================================
 
-const PESSOA_LABEL = { davi: "Davi", gabriel: "Gabriel", ambos: "Ambos" };
+const PESSOA_LABEL = { davi: "Davi", gabriel: "Gabriel", ambos: "Juntos" };
+const COLAPSO_STORAGE_KEY = "caixaFormsColapsados";
 const PESSOA_STORAGE_KEY = "caixaPessoaAtual";
 const CACHE_PREFIX = "caixaCache:";
 const MES_ATUAL_STORAGE_KEY = "caixaMesAtual";
@@ -314,6 +315,7 @@ function trocarPessoa(pessoa) {
   atualizarVisibilidadeEdicao();
   atualizarVisibilidadeSplitCard(); // esconde/mostra o gráfico na hora, sem esperar os dados
   atualizarVisibilidadeVisaoGeral(); // idem pro card "Visão geral" (some no modo Ambos)
+  atualizarVisibilidadeJuntosView(); // idem pra view "Juntos" e o resumo padrão
   carregarDados();
 }
 
@@ -360,6 +362,7 @@ function atualizarVisibilidadeEdicao() {
     document.querySelectorAll(".tab-btn").forEach((b) => b.classList.toggle("is-active", b.dataset.tab === "resumo"));
     document.querySelectorAll(".tab-panel").forEach((p) => p.classList.toggle("is-hidden", p.dataset.tab !== "resumo"));
   }
+  posicionarIndicadorAba();
 }
 
 // ---------------------------------------------------------------------
@@ -1170,6 +1173,7 @@ function renderAll() {
   renderVisaoGeral();
   renderRecentes();
   renderSplit();
+  renderJuntosView();
 }
 
 // ---------------------------------------------------------------------
@@ -1290,6 +1294,86 @@ function renderSplit() {
         <strong>${pctRestante.toFixed(0)}%</strong>
       </div>
     `;
+  }
+}
+
+// ---------------------------------------------------------------------
+// RENDER — "JUNTOS": cards de conta por pessoa (Davi/Gabriel), mostrando
+// o saldo atual e, pequeno embaixo, o valor projetado — só aparece no
+// modo Ambos, substituindo os lançamentos recentes/caixinhas padrão.
+// ---------------------------------------------------------------------
+
+const AVATAR_LETRA = { davi: "D", gabriel: "G" };
+
+function agruparPorPessoa(lista) {
+  const grupos = { davi: [], gabriel: [] };
+  lista.forEach((item) => {
+    if (item.pessoa === "davi" || item.pessoa === "gabriel") grupos[item.pessoa].push(item);
+  });
+  return grupos;
+}
+
+function cardJuntos(pessoa, atual, projetado, corClasse) {
+  return `
+    <div class="juntos-card">
+      <span class="juntos-avatar avatar-${pessoa}">${AVATAR_LETRA[pessoa]}</span>
+      <div class="juntos-card-info">
+        <span class="juntos-card-nome">${PESSOA_LABEL[pessoa]}</span>
+        <span class="juntos-card-projetado">Projetado: ${fmt(projetado)}</span>
+      </div>
+      <span class="juntos-card-valor ${corClasse}">${fmt(atual)}</span>
+    </div>`;
+}
+
+// Mostra/esconde a view "Juntos" e o resumo padrão IMEDIATAMENTE ao trocar
+// de pessoa — mesmo princípio do splitCard: não espera os dados chegarem.
+function atualizarVisibilidadeJuntosView() {
+  const ambos = isAmbos();
+  const view = document.getElementById("juntosView");
+  if (view) view.classList.toggle("is-hidden", !ambos);
+  const resumoPadrao = document.getElementById("resumoPadrao");
+  if (resumoPadrao) resumoPadrao.classList.toggle("is-hidden", ambos);
+}
+
+function renderJuntosView() {
+  atualizarVisibilidadeJuntosView();
+  if (!isAmbos()) return;
+
+  const ganhosPorPessoa = agruparPorPessoa(state.ganhos);
+  const fixosPorPessoa = agruparPorPessoa(state.gastosFixos);
+  const variaveisPorPessoa = agruparPorPessoa(state.gastosVariaveis);
+  const caixinhasPorPessoa = agruparPorPessoa(state.caixinhas);
+
+  const ganhosEl = document.getElementById("juntosGanhos");
+  if (ganhosEl) {
+    ganhosEl.innerHTML = ["davi", "gabriel"]
+      .map((p) => cardJuntos(p, somaComStatus(ganhosPorPessoa[p], "recebido"), soma(ganhosPorPessoa[p]), "income"))
+      .join("");
+  }
+
+  const guardadoEl = document.getElementById("juntosGuardado");
+  if (guardadoEl) {
+    guardadoEl.innerHTML = ["davi", "gabriel"]
+      .map((p) => {
+        const atual = somaCampo(caixinhasPorPessoa[p], "valorGuardado");
+        const objetivo = somaCampo(caixinhasPorPessoa[p], "valorObjetivo");
+        return cardJuntos(p, atual, Math.max(objetivo, atual), "gold");
+      })
+      .join("");
+  }
+
+  const fixosEl = document.getElementById("juntosFixos");
+  if (fixosEl) {
+    fixosEl.innerHTML = ["davi", "gabriel"]
+      .map((p) => cardJuntos(p, somaFixosPagos(fixosPorPessoa[p]), soma(fixosPorPessoa[p]), "expense"))
+      .join("");
+  }
+
+  const variaveisEl = document.getElementById("juntosVariaveis");
+  if (variaveisEl) {
+    variaveisEl.innerHTML = ["davi", "gabriel"]
+      .map((p) => cardJuntos(p, somaComStatus(variaveisPorPessoa[p], "pago"), soma(variaveisPorPessoa[p]), "expense"))
+      .join("");
   }
 }
 
@@ -1417,8 +1501,69 @@ function renderHistorico() {
 }
 
 // ---------------------------------------------------------------------
+// GAVETAS — botão de recolher nos formulários de Ganhos, Fixos, Variáveis
+// e Caixinhas. O estado (aberto/fechado) fica salvo no aparelho, então
+// continua do jeito que a pessoa deixou da última vez que abriu o app.
+// ---------------------------------------------------------------------
+
+function getColapsoState() {
+  try {
+    const raw = localStorage.getItem(COLAPSO_STORAGE_KEY);
+    return raw ? JSON.parse(raw) : {};
+  } catch (err) {
+    return {};
+  }
+}
+function setColapsoState(estado) {
+  try {
+    localStorage.setItem(COLAPSO_STORAGE_KEY, JSON.stringify(estado));
+  } catch (err) {
+    // sem problema, só não guarda a preferência
+  }
+}
+
+function aplicarColapso(btn, alvo, colapsado) {
+  alvo.classList.toggle("is-collapsed", colapsado);
+  btn.classList.toggle("is-collapsed", colapsado);
+  btn.setAttribute("aria-expanded", String(!colapsado));
+}
+
+function initGavetas() {
+  const estado = getColapsoState();
+  document.querySelectorAll(".collapse-toggle").forEach((btn) => {
+    const chave = btn.dataset.collapse;
+    const alvo = document.getElementById("collapsible-" + chave);
+    if (!alvo) return;
+    aplicarColapso(btn, alvo, !!estado[chave]);
+    btn.addEventListener("click", () => {
+      const novoColapsado = !alvo.classList.contains("is-collapsed");
+      aplicarColapso(btn, alvo, novoColapsado);
+      const estadoAtual = getColapsoState();
+      estadoAtual[chave] = novoColapsado;
+      setColapsoState(estadoAtual);
+    });
+  });
+}
+
+// ---------------------------------------------------------------------
 // NAVEGAÇÃO POR ABAS
 // ---------------------------------------------------------------------
+
+// "Note" que desliza suavemente até ficar em cima da aba ativa.
+function posicionarIndicadorAba() {
+  const indicador = document.getElementById("tabIndicator");
+  const tabbar = document.getElementById("tabbar");
+  if (!indicador || !tabbar) return;
+  const ativa = tabbar.querySelector(".tab-btn.is-active:not(.is-hidden)");
+  if (!ativa) {
+    indicador.classList.remove("is-visible");
+    return;
+  }
+  const largura = 26;
+  indicador.style.width = largura + "px";
+  indicador.style.left = ativa.offsetLeft + (ativa.offsetWidth - largura) / 2 + "px";
+  indicador.classList.add("is-visible");
+}
 
 const tabbarEl = document.getElementById("tabbar");
 if (tabbarEl) {
@@ -1430,9 +1575,11 @@ if (tabbarEl) {
     document.querySelectorAll(".tab-btn").forEach((b) => b.classList.toggle("is-active", b === btn));
     document.querySelectorAll(".tab-panel").forEach((p) => p.classList.toggle("is-hidden", p.dataset.tab !== tab));
     window.scrollTo({ top: 0, behavior: "smooth" });
+    posicionarIndicadorAba();
     if (tab === "historico") carregarHistorico();
   });
 }
+window.addEventListener("resize", posicionarIndicadorAba);
 
 const personSwitchEl = document.getElementById("personSwitch");
 if (personSwitchEl) {
@@ -1913,4 +2060,7 @@ renderMesAtual();
 atualizarVisibilidadeEdicao();
 atualizarVisibilidadeSplitCard();
 atualizarVisibilidadeVisaoGeral();
+atualizarVisibilidadeJuntosView();
+initGavetas();
+posicionarIndicadorAba();
 carregarDados();
