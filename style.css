@@ -1189,3 +1189,32 @@ button, input {
   font-size: 11px;
   padding: 4px 9px;
 }
+
+/* ---------------------------------------------------------------------
+   TRANSFERIR — seletor de direção (Davi ⇄ Gabriel) no modal de Ações em
+   conjunto.
+--------------------------------------------------------------------- */
+.transferir-direcao {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 14px;
+  margin-bottom: 14px;
+  padding: 14px;
+  background: var(--paper-deep);
+  border-radius: var(--radius-m);
+}
+.transferir-direcao span {
+  font-family: var(--font-display);
+  font-weight: 600;
+  font-size: 16px;
+  color: var(--ink-text);
+  min-width: 64px;
+  text-align: center;
+}
+.transferir-direcao .icon-btn {
+  border-color: var(--line);
+  background: var(--paper);
+  color: var(--gold-deep);
+}
+.transferir-direcao .icon-btn:hover { background: var(--line-soft); }
