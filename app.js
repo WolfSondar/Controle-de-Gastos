@@ -310,6 +310,7 @@ function trocarPessoa(pessoa) {
   prevTotals.ganhos = null;
   prevTotals.fixos = null;
   prevTotals.variaveis = null;
+  prevTotals.guardado = null;
   prevTotals.saldo = null;
   renderPessoaSwitch();
   atualizarVisibilidadeEdicao();
@@ -692,7 +693,7 @@ function ehLancamentoDeCaixinha(nome) {
 }
 
 // Anima um número de "de" até "para", contando em tempo real (efeito de contador).
-function animarNumero(el, de, para, duracao = 550) {
+function animarNumero(el, de, para, duracao = 650) {
   if (!el) return;
   if (de === null || de === undefined || de === para) {
     el.textContent = fmt(para);
@@ -704,7 +705,7 @@ function animarNumero(el, de, para, duracao = 550) {
   const inicio = performance.now();
   function passo(agora) {
     const p = Math.min((agora - inicio) / duracao, 1);
-    const suavizado = 1 - Math.pow(1 - p, 3);
+    const suavizado = 1 - Math.pow(1 - p, 4); // easeOutQuart — mais suave no fim
     el.textContent = fmt(de + (para - de) * suavizado);
     if (p < 1) requestAnimationFrame(passo);
     else el.textContent = fmt(para);
@@ -1215,7 +1216,7 @@ function renderVisaoGeral() {
     donut.style.background = `conic-gradient(var(--gold) 0% ${corte1}%, var(--expense) ${corte1}% ${corte2}%, var(--income) ${corte2}% 100%)`;
   }
   if (centro) {
-    centro.innerHTML = `<span>${fmt(totalGanhos)}</span><small>${livre < 0 ? "ganho · estourou" : "ganho no total"}</small>`;
+    centro.innerHTML = `${spanCentro(fmt(totalGanhos))}<small>${livre < 0 ? "ganho · estourou" : "ganho no total"}</small>`;
   }
   if (legend) {
     legend.innerHTML = `
@@ -1275,7 +1276,7 @@ function renderSplit() {
   }
   const centro = document.getElementById("splitDonutCenter");
   if (centro) {
-    centro.innerHTML = `<span>${fmt(restante)}</span><small>${restante < 0 ? "no vermelho" : "sobrando"}</small>`;
+    centro.innerHTML = `${spanCentro(fmt(restante))}<small>${restante < 0 ? "no vermelho" : "sobrando"}</small>`;
   }
 
   const legend = document.getElementById("splitLegend");
@@ -1317,12 +1318,13 @@ function agruparPorPessoa(lista) {
 }
 
 function cardJuntos(pessoa, atual, projetado, corClasse) {
+  const mostraProjetado = projetado !== null && projetado !== undefined;
   return `
     <div class="juntos-card">
       <span class="juntos-avatar avatar-${pessoa}">${AVATAR_LETRA[pessoa]}</span>
       <div class="juntos-card-info">
         <span class="juntos-card-nome">${PESSOA_LABEL[pessoa]}</span>
-        <span class="juntos-card-projetado">Projetado: ${fmt(projetado)}</span>
+        ${mostraProjetado ? `<span class="juntos-card-projetado">Projetado: ${fmt(projetado)}</span>` : ""}
       </div>
       <span class="juntos-card-valor ${corClasse}">${fmt(atual)}</span>
     </div>`;
@@ -1359,8 +1361,7 @@ function renderJuntosView() {
     guardadoEl.innerHTML = ["davi", "gabriel"]
       .map((p) => {
         const atual = somaCampo(caixinhasPorPessoa[p], "valorGuardado");
-        const objetivo = somaCampo(caixinhasPorPessoa[p], "valorObjetivo");
-        return cardJuntos(p, atual, Math.max(objetivo, atual), "gold");
+        return cardJuntos(p, atual, null, "gold");
       })
       .join("");
   }
@@ -1368,16 +1369,27 @@ function renderJuntosView() {
   const fixosEl = document.getElementById("juntosFixos");
   if (fixosEl) {
     fixosEl.innerHTML = ["davi", "gabriel"]
-      .map((p) => cardJuntos(p, somaFixosPagos(fixosPorPessoa[p]), soma(fixosPorPessoa[p]), "expense"))
+      .map((p) => cardJuntos(p, somaFixosPagos(fixosPorPessoa[p]), null, "expense"))
       .join("");
   }
 
   const variaveisEl = document.getElementById("juntosVariaveis");
   if (variaveisEl) {
     variaveisEl.innerHTML = ["davi", "gabriel"]
-      .map((p) => cardJuntos(p, somaComStatus(variaveisPorPessoa[p], "pago"), soma(variaveisPorPessoa[p]), "expense"))
+      .map((p) => cardJuntos(p, somaComStatus(variaveisPorPessoa[p], "pago"), null, "expense"))
       .join("");
   }
+}
+
+// Ajusta o tamanho da fonte do valor central do donut conforme o
+// tamanho do texto, pra nunca estourar pra fora do círculo (valores
+// grandes como "R$ 12.345,00" precisam de uma fonte menor que "R$ 0,00").
+function spanCentro(valorFormatado) {
+  let tamanho = 13.5;
+  if (valorFormatado.length > 9) tamanho = 12;
+  if (valorFormatado.length > 11) tamanho = 10.5;
+  if (valorFormatado.length > 13) tamanho = 9.5;
+  return `<span style="font-size:${tamanho}px">${valorFormatado}</span>`;
 }
 
 function escapeHtml(str) {
