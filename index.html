@@ -127,6 +127,10 @@
       <form class="add-form" id="formGanhos">
         <input type="text" name="nome" placeholder="Descrição (ex: Salário)" required maxlength="60" />
         <input type="number" name="valor" placeholder="0,00" step="0.01" min="0.01" inputmode="decimal" required />
+        <label class="checkbox-inline">
+          <input type="checkbox" name="recebido" />
+          Já recebi esse valor
+        </label>
         <button type="submit" class="btn btn-income">Adicionar ganho</button>
       </form>
 
@@ -159,6 +163,10 @@
       <form class="add-form" id="formVariaveis">
         <input type="text" name="nome" placeholder="Descrição (ex: Presente)" required maxlength="60" />
         <input type="number" name="valor" placeholder="0,00" step="0.01" min="0.01" inputmode="decimal" required />
+        <label class="checkbox-inline">
+          <input type="checkbox" name="pago" />
+          Já paguei essa compra
+        </label>
         <button type="submit" class="btn btn-expense">Adicionar gasto variável</button>
       </form>
 
@@ -284,6 +292,21 @@
         </span>
         <span class="acao-card-seta">›</span>
       </button>
+      <button type="button" class="acao-card" id="btnAbrirTransferir">
+        <span class="acao-card-icon">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
+            <path d="M17 3 21 7l-4 4"/>
+            <path d="M21 7H9a4 4 0 0 0-4 4v1"/>
+            <path d="M7 21 3 17l4-4"/>
+            <path d="M3 17h12a4 4 0 0 0 4-4v-1"/>
+          </svg>
+        </span>
+        <span class="acao-card-texto">
+          <strong>Transferir</strong>
+          <small>Manda um valor de uma pessoa pra outra</small>
+        </span>
+        <span class="acao-card-seta">›</span>
+      </button>
       <div class="modal-actions">
         <button type="button" class="btn btn-ghost" id="acoesFechar">Fechar</button>
       </div>
@@ -301,6 +324,29 @@
       <div class="modal-actions">
         <button type="button" class="btn btn-ghost" id="dividirVoltar">Voltar</button>
         <button type="submit" class="btn btn-gold" id="dividirSubmit">Dividir</button>
+      </div>
+    </form>
+
+    <form id="formTransferir" class="is-hidden">
+      <h3>Transferir</h3>
+      <p class="section-hint">Sai como gasto variável já pago de quem transfere, e entra como ganho já recebido de quem recebe.</p>
+      <div class="transferir-direcao">
+        <span id="transferirDe">Davi</span>
+        <button type="button" class="icon-btn" id="transferirInverter" aria-label="Inverter direção">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
+            <path d="M17 3 21 7l-4 4"/>
+            <path d="M21 7H3"/>
+            <path d="M7 21 3 17l4-4"/>
+            <path d="M3 17h18"/>
+          </svg>
+        </button>
+        <span id="transferirPara">Gabriel</span>
+      </div>
+      <input type="text" id="transferirNome" placeholder="Descrição (opcional)" maxlength="60" />
+      <input type="number" id="transferirValor" placeholder="Valor, R$" step="0.01" min="0.01" inputmode="decimal" required />
+      <div class="modal-actions">
+        <button type="button" class="btn btn-ghost" id="transferirVoltar">Voltar</button>
+        <button type="submit" class="btn btn-gold" id="transferirSubmit">Transferir</button>
       </div>
     </form>
   </div>
