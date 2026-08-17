@@ -770,16 +770,29 @@ function renderTotais() {
 
   saldoEl.classList.toggle("negative", saldo < 0);
 
+  // Formula de baixo do saldo agora é uma projeção: "se tudo que ainda tá
+  // pendente fosse recebido/pago, o saldo ficaria assim". Usa os totais
+  // GERAIS (sem filtrar por status) — é só uma prévia, não afeta o saldo real.
+  const saldoProjetado = totalGanhosGeral - totalFixosGeral - totalVariaveisGeral;
   const formulaEl = document.getElementById("saldoFormula");
   if (formulaEl) {
-    const pendencias = [];
-    if (totalGanhosAReceber > 0) pendencias.push(`${fmt(totalGanhosAReceber)} a receber`);
-    if (totalFixosAPagar > 0) pendencias.push(`${fmt(totalFixosAPagar)} em fixos a pagar`);
-    if (totalVariaveisAPagar > 0) pendencias.push(`${fmt(totalVariaveisAPagar)} em variáveis a pagar`);
-    formulaEl.textContent =
-      pendencias.length > 0
-        ? `ganhos recebidos − fixos pagos − variáveis pagos · ${pendencias.join(" · ")}`
-        : "ganhos recebidos − fixos pagos − variáveis pagos";
+    formulaEl.textContent = `Projetado: ${fmt(saldoProjetado)}`;
+    formulaEl.classList.toggle("negative", saldoProjetado < 0);
+  }
+
+  // Pendências ficam pequenininhas dentro de cada card, perto do valor que
+  // elas afetam — em vez de um texto só embaixo do saldo.
+  const ganhosPendenteEl = document.getElementById("statGanhosPendente");
+  if (ganhosPendenteEl) {
+    ganhosPendenteEl.textContent = totalGanhosAReceber > 0 ? `+ ${fmt(totalGanhosAReceber)} a receber` : "";
+  }
+  const fixosPendenteEl = document.getElementById("statFixosPendente");
+  if (fixosPendenteEl) {
+    fixosPendenteEl.textContent = totalFixosAPagar > 0 ? `− ${fmt(totalFixosAPagar)} a pagar` : "";
+  }
+  const variaveisPendenteEl = document.getElementById("statVariaveisPendente");
+  if (variaveisPendenteEl) {
+    variaveisPendenteEl.textContent = totalVariaveisAPagar > 0 ? `− ${fmt(totalVariaveisAPagar)} a pagar` : "";
   }
 
   prevTotals.ganhos = totalGanhosRecebidos;
