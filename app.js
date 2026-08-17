@@ -784,15 +784,15 @@ function renderTotais() {
   // elas afetam — em vez de um texto só embaixo do saldo.
   const ganhosPendenteEl = document.getElementById("statGanhosPendente");
   if (ganhosPendenteEl) {
-    ganhosPendenteEl.textContent = totalGanhosAReceber > 0 ? `+ ${fmt(totalGanhosAReceber)} a receber` : "";
+    ganhosPendenteEl.textContent = totalGanhosAReceber > 0 ? `+ ${fmt(totalGanhosAReceber)}` : "";
   }
   const fixosPendenteEl = document.getElementById("statFixosPendente");
   if (fixosPendenteEl) {
-    fixosPendenteEl.textContent = totalFixosAPagar > 0 ? `− ${fmt(totalFixosAPagar)} a pagar` : "";
+    fixosPendenteEl.textContent = totalFixosAPagar > 0 ? `− ${fmt(totalFixosAPagar)}` : "";
   }
   const variaveisPendenteEl = document.getElementById("statVariaveisPendente");
   if (variaveisPendenteEl) {
-    variaveisPendenteEl.textContent = totalVariaveisAPagar > 0 ? `− ${fmt(totalVariaveisAPagar)} a pagar` : "";
+    variaveisPendenteEl.textContent = totalVariaveisAPagar > 0 ? `− ${fmt(totalVariaveisAPagar)}` : "";
   }
 
   prevTotals.ganhos = totalGanhosRecebidos;
