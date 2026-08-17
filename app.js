@@ -119,6 +119,57 @@ function showToast(msg) {
   showToast._t = setTimeout(() => t.classList.remove("is-visible"), 2600);
 }
 
+// ---------------------------------------------------------------------
+// HISTORY API — botão/gesto "voltar" fecha o modal em vez de sair do app.
+// Toda vez que um modal abre, empilhamos um estado no histórico do
+// navegador; ao voltar, o navegador dispara "popstate" e a gente só fecha
+// o modal do topo da pilha (sem navegar pra fora da página). Fechar pelo
+// X/Cancelar/clique no fundo também precisa "consumir" esse estado — senão
+// o próximo "voltar" cairia num estado fantasma e o usuário precisaria
+// apertar voltar duas vezes pra sair de verdade.
+// ---------------------------------------------------------------------
+const pilhaModais = []; // ids dos backdrops abertos, do mais antigo pro mais novo
+let suprimirProximoPopstate = false; // true logo antes de um history.back() disparado por nós mesmos
+
+function registrarAberturaModal(id) {
+  pilhaModais.push(id);
+  history.pushState({ caixaModal: id }, "");
+}
+
+// Chame isso DENTRO de cada fecharXxx() já existente, envolvendo a lógica
+// real de esconder o backdrop — assim cancelar/clicar fora continua
+// funcionando igual, só que agora também sincroniza com o histórico.
+// Se o id já não está mais na pilha (porque esse fechamento veio de um
+// popstate, ver abaixo), só roda a lógica de esconder e não mexe mais no
+// histórico — evita chamar history.back() duas vezes pro mesmo modal.
+function fecharComHistorico(id, logicaDeFechar) {
+  const idx = pilhaModais.lastIndexOf(id);
+  logicaDeFechar();
+  if (idx === -1) return;
+  pilhaModais.splice(idx, 1);
+  suprimirProximoPopstate = true;
+  history.back();
+}
+
+window.addEventListener("popstate", () => {
+  // Esse popstate foi causado pelo nosso próprio history.back() (fechar
+  // pelo X/Cancelar) — já cuidamos do modal na hora, nada a fazer aqui.
+  if (suprimirProximoPopstate) {
+    suprimirProximoPopstate = false;
+    return;
+  }
+  // Popstate "de verdade" (gesto/botão voltar do sistema): fecha só o
+  // modal do topo da pilha, sem deixar o navegador sair da página.
+  const id = pilhaModais.pop();
+  if (!id) return;
+  const fechar = FECHADORES_MODAL[id];
+  if (fechar) fechar();
+});
+
+// Preenchido mais abaixo, perto de cada modal (cada fecharXxx se registra
+// aqui). Fica num objeto à parte pra não precisar declarar tudo antes de usar.
+const FECHADORES_MODAL = {};
+
 async function carregarDados() {
   if (!API_URL || API_URL.includes("COLE_AQUI")) {
     setSyncState("error", "Configure a API");
@@ -199,22 +250,50 @@ function prefetchOutrasPessoas(pessoaJaCarregada) {
     });
 }
 
+// Fila de gravação por (pessoa + ação): evita que chamadas POST rápidas e
+// sequenciais pro MESMO bloco (ex: togglar "pago" em vários gastos fixos
+// seguidos) fiquem em voo ao mesmo tempo e cheguem fora de ordem — o que
+// podia fazer uma resposta mais lenta de um payload antigo "pisar" por
+// cima de um payload mais novo já salvo. Em vez de disparar um POST por
+// clique, cada chamada só guarda o payload mais recente pra aquela chave;
+// se já existe uma gravação em andamento, ela é ignorada e o POST seguinte
+// (feito quando a gravação atual termina) já sai com o estado mais atual —
+// não precisamos mandar todo payload intermediário, só o final.
+const filaSalvar = new Map(); // chave -> { emVoo: bool, pendente: payload | null }
+
 async function salvarBloco(action, payload) {
   if (isAmbos()) return; // trava de segurança: modo Ambos nunca salva
+  const chave = `${state.pessoaAtual}:${action}`;
+  let entrada = filaSalvar.get(chave);
+  if (!entrada) {
+    entrada = { emVoo: false, pendente: null };
+    filaSalvar.set(chave, entrada);
+  }
+
+  entrada.pendente = payload;
+  if (entrada.emVoo) return; // já tem um POST em andamento — ele vai pegar esse payload ao terminar
+
+  entrada.emVoo = true;
   setSyncState("saving", "Salvando…");
   try {
-    const res = await fetch(API_URL, {
-      method: "POST",
-      body: JSON.stringify({ action, payload, pessoa: state.pessoaAtual }),
-    });
-    const data = await res.json().catch(() => null);
-    if (data && data.ok === false) {
-      throw new Error(data.error || "Erro desconhecido");
+    while (entrada.pendente !== null) {
+      const payloadAtual = entrada.pendente;
+      entrada.pendente = null;
+      const res = await fetch(API_URL, {
+        method: "POST",
+        body: JSON.stringify({ action, payload: payloadAtual, pessoa: state.pessoaAtual }),
+      });
+      const data = await res.json().catch(() => null);
+      if (data && data.ok === false) {
+        throw new Error(data.error || "Erro desconhecido");
+      }
     }
     setSyncState("idle", "Salvo");
   } catch (err) {
     setSyncState("error", "Falha ao salvar");
     showToast("Não consegui salvar na planilha agora.");
+  } finally {
+    entrada.emVoo = false;
   }
 }
 
@@ -357,25 +436,56 @@ function addCaixinha(nome, valorInicial, valorObjetivo) {
   });
   salvarBloco("saveCaixinhas", state.caixinhas);
   if (valorInicial > 0) {
-    state.gastosVariaveis.push({ nome: `Guardado: ${nome}`, valor: valorInicial });
+    // já sai do saldo na hora — o lançamento nasce PAGO, igual a "guardar".
+    state.gastosVariaveis.push({ nome: `Guardado: ${nome}`, valor: valorInicial, pago: true });
     salvarBloco("saveGastosVariaveis", state.gastosVariaveis);
   }
   sincronizarCacheAtual();
   renderAll();
 }
+// Remove a caixinha. O valor que estava guardado nela não é apagado do
+// histórico de gastos (os lançamentos "Guardado: ..." continuam contando
+// como dinheiro que já saiu do saldo no passado — reescrever isso mudaria
+// saldos que já foram fechados). Mas pra não "sumir" com o dinheiro que
+// ainda estava guardado, ele volta pro saldo disponível como um ganho já
+// recebido — assim a remoção nunca reduz o patrimônio total silenciosamente.
 function removeCaixinha(index) {
   if (isAmbos()) return;
+  const cx = state.caixinhas[index];
+  if (!cx) return;
+  const guardado = Number(cx.valorGuardado) || 0;
   state.caixinhas.splice(index, 1);
+  if (guardado > 0) {
+    state.ganhos.push({ nome: `Retirado da caixinha: ${cx.nome} (removida)`, valor: guardado, recebido: true });
+    salvarBloco("saveGanhos", state.ganhos);
+  }
   sincronizarCacheAtual();
   salvarBloco("saveCaixinhas", state.caixinhas);
   renderAll();
 }
+// Editar caixinha também renomeia os lançamentos de gasto variável
+// vinculados a ela ("Guardado: nome antigo" -> "Guardado: nome novo"), pra
+// eles não ficarem "órfãos" (desconectados do nome atual da caixinha) toda
+// vez que ela é renomeada.
 function editCaixinha(index, nome, valorObjetivo) {
   if (isAmbos()) return;
   const cx = state.caixinhas[index];
   if (!cx) return;
+  const nomeAntigo = cx.nome;
   cx.nome = nome;
   cx.valorObjetivo = valorObjetivo || 0;
+  if (nomeAntigo !== nome) {
+    const rotuloAntigo = `Guardado: ${nomeAntigo}`;
+    const rotuloNovo = `Guardado: ${nome}`;
+    let mudouAlgo = false;
+    state.gastosVariaveis.forEach((item) => {
+      if (item.nome === rotuloAntigo) {
+        item.nome = rotuloNovo;
+        mudouAlgo = true;
+      }
+    });
+    if (mudouAlgo) salvarBloco("saveGastosVariaveis", state.gastosVariaveis);
+  }
   sincronizarCacheAtual();
   salvarBloco("saveCaixinhas", state.caixinhas);
   renderAll();
@@ -385,7 +495,7 @@ function guardarNaCaixinha(index, valor) {
   const cx = state.caixinhas[index];
   if (!cx) return;
   cx.valorGuardado = (Number(cx.valorGuardado) || 0) + valor;
-  state.gastosVariaveis.push({ nome: `Guardado: ${cx.nome}`, valor });
+  state.gastosVariaveis.push({ nome: `Guardado: ${cx.nome}`, valor, pago: true });
   sincronizarCacheAtual();
   salvarBloco("saveCaixinhas", state.caixinhas);
   salvarBloco("saveGastosVariaveis", state.gastosVariaveis);
@@ -396,7 +506,7 @@ function retirarDaCaixinha(index, valor) {
   const cx = state.caixinhas[index];
   if (!cx) return;
   cx.valorGuardado = Math.max((Number(cx.valorGuardado) || 0) - valor, 0);
-  state.ganhos.push({ nome: `Retirado da caixinha: ${cx.nome}`, valor });
+  state.ganhos.push({ nome: `Retirado da caixinha: ${cx.nome}`, valor, recebido: true });
   sincronizarCacheAtual();
   salvarBloco("saveCaixinhas", state.caixinhas);
   salvarBloco("saveGanhos", state.ganhos);
@@ -442,8 +552,9 @@ async function dividirCompra(nome, valorTotal, categoria) {
       obterListaLocal("gabriel", chave),
     ]);
 
-    const item = { nome, valor: metade };
-    if (categoria === "fixos") item.pago = false;
+    // Fixo dividido nasce pendente (é uma conta que ainda vai vencer);
+    // variável dividido nasce pago (representa uma compra que já aconteceu).
+    const item = { nome, valor: metade, pago: categoria !== "fixos" };
 
     listaDavi.push({ ...item });
     listaGabriel.push({ ...item });
@@ -476,11 +587,48 @@ async function dividirCompra(nome, valorTotal, categoria) {
 }
 
 // ---------------------------------------------------------------------
-// GASTOS FIXOS — status "pago" (coluna PAGO na planilha, VERDADEIRO/FALSO)
+// AÇÕES EM CONJUNTO — transferir um valor de uma pessoa pra outra.
+// Sai como gasto variável já PAGO de quem transfere, e entra como ganho já
+// RECEBIDO de quem recebe — a planilha calcula isso direto no servidor
+// (ação "transferir"), então funciona mesmo que a pessoa selecionada no
+// app não seja nenhuma das duas envolvidas.
+// ---------------------------------------------------------------------
+
+async function transferirEntrePessoas(de, para, nome, valor) {
+  if (!API_URL || API_URL.includes("COLE_AQUI")) {
+    showToast("Configure a URL do Apps Script em config.js");
+    return false;
+  }
+  try {
+    const res = await fetch(API_URL, {
+      method: "POST",
+      body: JSON.stringify({ action: "transferir", de, para, nome, valor }),
+    });
+    const data = await res.json().catch(() => null);
+    if (!data || data.ok === false) throw new Error((data && data.error) || "Erro desconhecido");
+    // Os dados de quem transferiu e de quem recebeu mudaram — descarta os
+    // caches locais dos dois (e do modo Ambos) pra não mostrar algo velho.
+    [de, para, "ambos"].forEach((p) => localStorage.removeItem(CACHE_PREFIX + p));
+    return true;
+  } catch (err) {
+    return false;
+  }
+}
+
+// ---------------------------------------------------------------------
+// STATUS — RECEBIDO (ganhos) / PAGO (fixos e variáveis), mesmo
+// comportamento nos três: um booleano por lançamento (coluna própria na
+// planilha), que só entra no saldo quando marcado.
 // ---------------------------------------------------------------------
 
 function fixoEhPago(item) {
   return item.pago === true;
+}
+function variavelEhPago(item) {
+  return item.pago === true;
+}
+function ganhoEhRecebido(item) {
+  return item.recebido === true;
 }
 
 function togglePagoFixo(index) {
@@ -492,6 +640,24 @@ function togglePagoFixo(index) {
   salvarBloco("saveGastosFixos", state.gastosFixos);
   renderAll();
 }
+function togglePagoVariavel(index) {
+  if (isAmbos()) return;
+  const item = state.gastosVariaveis[index];
+  if (!item) return;
+  item.pago = !variavelEhPago(item);
+  sincronizarCacheAtual();
+  salvarBloco("saveGastosVariaveis", state.gastosVariaveis);
+  renderAll();
+}
+function toggleRecebidoGanho(index) {
+  if (isAmbos()) return;
+  const item = state.ganhos[index];
+  if (!item) return;
+  item.recebido = !ganhoEhRecebido(item);
+  sincronizarCacheAtual();
+  salvarBloco("saveGanhos", state.ganhos);
+  renderAll();
+}
 
 // ---------------------------------------------------------------------
 // TOTAIS
@@ -501,8 +667,14 @@ function soma(lista) {
   return lista.reduce((acc, i) => acc + (Number(i.valor) || 0), 0);
 }
 
+// Soma só os itens marcados com o campo de status (ex: "recebido" ou
+// "pago") em true.
+function somaComStatus(lista, campo) {
+  return lista.reduce((acc, i) => acc + (i[campo] === true ? Number(i.valor) || 0 : 0), 0);
+}
+
 function somaFixosPagos(lista) {
-  return lista.reduce((acc, i) => acc + (fixoEhPago(i) ? Number(i.valor) || 0 : 0), 0);
+  return somaComStatus(lista, "pago");
 }
 
 function somaCampo(lista, campo) {
@@ -552,17 +724,26 @@ function popValorFlutuante(container, delta, corFixa) {
 }
 
 function renderTotais() {
-  const totalGanhos = soma(state.ganhos);
+  // Só dinheiro que já "aconteceu" de fato entra no saldo: ganhos
+  // RECEBIDOS, fixos PAGOS, variáveis PAGOS — mesmo comportamento pros três.
+  const totalGanhosGeral = soma(state.ganhos);
+  const totalGanhosRecebidos = somaComStatus(state.ganhos, "recebido");
+  const totalGanhosAReceber = totalGanhosGeral - totalGanhosRecebidos;
+
   const totalFixosGeral = soma(state.gastosFixos);
   const totalFixosPagos = somaFixosPagos(state.gastosFixos);
   const totalFixosAPagar = totalFixosGeral - totalFixosPagos;
-  const totalVariaveis = soma(state.gastosVariaveis);
+
+  const totalVariaveisGeral = soma(state.gastosVariaveis);
+  const totalVariaveisPagos = somaComStatus(state.gastosVariaveis, "pago");
+  const totalVariaveisAPagar = totalVariaveisGeral - totalVariaveisPagos;
+
   // Guardado é só informativo aqui: o valor total parado nas caixinhas.
-  // Ele NÃO entra na conta do saldo — guardar já vira um gasto variável na
-  // hora (ver guardarNaCaixinha), então já foi descontado ali. Somar de
-  // novo aqui descontaria o mesmo dinheiro duas vezes.
+  // Ele NÃO entra na conta do saldo — guardar já vira um gasto variável já
+  // pago na hora (ver guardarNaCaixinha), então já foi descontado ali.
+  // Somar de novo aqui descontaria o mesmo dinheiro duas vezes.
   const totalGuardado = somaCampo(state.caixinhas, "valorGuardado");
-  const saldo = totalGanhos - totalFixosPagos - totalVariaveis;
+  const saldo = totalGanhosRecebidos - totalFixosPagos - totalVariaveisPagos;
 
   const ganhosEl = document.getElementById("statGanhos");
   const fixosEl = document.getElementById("statFixos");
@@ -572,34 +753,38 @@ function renderTotais() {
 
   const primeiraVez = prevTotals.saldo === null;
 
-  animarNumero(ganhosEl, prevTotals.ganhos, totalGanhos);
+  animarNumero(ganhosEl, prevTotals.ganhos, totalGanhosRecebidos);
   animarNumero(fixosEl, prevTotals.fixos, totalFixosPagos);
-  animarNumero(variaveisEl, prevTotals.variaveis, totalVariaveis);
+  animarNumero(variaveisEl, prevTotals.variaveis, totalVariaveisPagos);
   animarNumero(guardadoEl, prevTotals.guardado, totalGuardado);
   animarNumero(saldoEl, prevTotals.saldo, saldo);
 
   if (!primeiraVez) {
     const heroStats = document.querySelectorAll(".hero-stat");
     popValorFlutuante(document.querySelector(".saldo-block"), saldo - prevTotals.saldo);
-    popValorFlutuante(heroStats[0], totalGanhos - prevTotals.ganhos, "income");
+    popValorFlutuante(heroStats[0], totalGanhosRecebidos - prevTotals.ganhos, "income");
     popValorFlutuante(heroStats[1], totalGuardado - prevTotals.guardado, "gold");
     popValorFlutuante(heroStats[2], totalFixosPagos - prevTotals.fixos, "expense");
-    popValorFlutuante(heroStats[3], totalVariaveis - prevTotals.variaveis, "expense");
+    popValorFlutuante(heroStats[3], totalVariaveisPagos - prevTotals.variaveis, "expense");
   }
 
   saldoEl.classList.toggle("negative", saldo < 0);
 
   const formulaEl = document.getElementById("saldoFormula");
   if (formulaEl) {
+    const pendencias = [];
+    if (totalGanhosAReceber > 0) pendencias.push(`${fmt(totalGanhosAReceber)} a receber`);
+    if (totalFixosAPagar > 0) pendencias.push(`${fmt(totalFixosAPagar)} em fixos a pagar`);
+    if (totalVariaveisAPagar > 0) pendencias.push(`${fmt(totalVariaveisAPagar)} em variáveis a pagar`);
     formulaEl.textContent =
-      totalFixosAPagar > 0
-        ? `ganhos − fixos pagos − variáveis · ${fmt(totalFixosAPagar)} em fixos a pagar`
-        : "ganhos − fixos pagos − variáveis";
+      pendencias.length > 0
+        ? `ganhos recebidos − fixos pagos − variáveis pagos · ${pendencias.join(" · ")}`
+        : "ganhos recebidos − fixos pagos − variáveis pagos";
   }
 
-  prevTotals.ganhos = totalGanhos;
+  prevTotals.ganhos = totalGanhosRecebidos;
   prevTotals.fixos = totalFixosPagos;
-  prevTotals.variaveis = totalVariaveis;
+  prevTotals.variaveis = totalVariaveisPagos;
   prevTotals.guardado = totalGuardado;
   prevTotals.saldo = saldo;
 }
@@ -616,7 +801,10 @@ function tagPessoa(item) {
 const ICONE_LAPIS = `<svg viewBox="0 0 24 24" fill="none"><path d="M12 20h9M16.5 3.5a2.12 2.12 0 0 1 3 3L7 19l-4 1 1-4 12.5-12.5Z" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/></svg>`;
 const ICONE_X = `<svg viewBox="0 0 24 24" fill="none"><path d="M6 6l12 12M18 6L6 18" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></svg>`;
 
-function renderLista(ulId, lista, tipo, ops, tipoModal) {
+// Renderiza uma lista com toggle de status (Recebido/Pago) — usada pelas
+// três listas simples (ganhos, fixos, variáveis), que agora têm todas o
+// mesmo comportamento.
+function renderListaComStatus(ulId, lista, tipo, ops, tipoModal, statusKey, toggleFn, rotuloOn, rotuloOff) {
   const ul = document.getElementById(ulId);
   ul.innerHTML = "";
   if (lista.length === 0) {
@@ -625,7 +813,9 @@ function renderLista(ulId, lista, tipo, ops, tipoModal) {
   }
   const ambos = isAmbos();
   lista.forEach((item, idx) => {
+    const on = item[statusKey] === true;
     const li = document.createElement("li");
+    li.className = on ? "" : "is-pendente";
     li.innerHTML = `
       <div class="item-info">
         <span class="item-nome">${escapeHtml(item.nome)} ${tagPessoa(item)}</span>
@@ -634,52 +824,10 @@ function renderLista(ulId, lista, tipo, ops, tipoModal) {
         <span class="item-valor ${tipo}">${fmt(item.valor)}</span>
         ${
           ambos
-            ? ""
-            : `<button class="btn-edit" aria-label="Editar" data-idx="${idx}">${ICONE_LAPIS}</button>
-              <button class="btn-remove" aria-label="Remover" data-idx="${idx}">${ICONE_X}</button>`
-        }
-      </div>
-    `;
-    if (!ambos) {
-      li.querySelector(".btn-edit").addEventListener("click", () =>
-        abrirModalEditar(tipoModal, idx, item.nome, item.valor)
-      );
-      li.querySelector(".btn-remove").addEventListener("click", () =>
-        abrirConfirmacao(`Remover "${item.nome}"? Essa ação não pode ser desfeita.`, () => ops.remove(idx))
-      );
-    }
-    ul.appendChild(li);
-  });
-}
-
-// ---------------------------------------------------------------------
-// RENDER — GASTOS FIXOS (com toggle de status "pago")
-// ---------------------------------------------------------------------
-
-function renderFixos() {
-  const ul = document.getElementById("listaFixos");
-  ul.innerHTML = "";
-  if (state.gastosFixos.length === 0) {
-    ul.innerHTML = `<p class="empty-state">Nada por aqui ainda. Adicione o primeiro item acima.</p>`;
-    return;
-  }
-  const ambos = isAmbos();
-  state.gastosFixos.forEach((item, idx) => {
-    const pago = fixoEhPago(item);
-    const li = document.createElement("li");
-    li.className = pago ? "" : "is-pendente";
-    li.innerHTML = `
-      <div class="item-info">
-        <span class="item-nome">${escapeHtml(item.nome)} ${tagPessoa(item)}</span>
-      </div>
-      <div class="item-row">
-        <span class="item-valor expense">${fmt(item.valor)}</span>
-        ${
-          ambos
-            ? `<span class="pago-toggle ${pago ? "is-pago" : ""}" aria-disabled="true"><span class="dot"></span>${pago ? "Pago" : "Pendente"}</span>`
-            : `<label class="pago-toggle ${pago ? "is-pago" : ""}">
-                <input type="checkbox" data-idx="${idx}" ${pago ? "checked" : ""} />
-                <span class="dot"></span>${pago ? "Pago" : "Pendente"}
+            ? `<span class="pago-toggle ${on ? "is-pago" : ""}" aria-disabled="true"><span class="dot"></span>${on ? rotuloOn : rotuloOff}</span>`
+            : `<label class="pago-toggle ${on ? "is-pago" : ""}">
+                <input type="checkbox" data-idx="${idx}" ${on ? "checked" : ""} />
+                <span class="dot"></span>${on ? rotuloOn : rotuloOff}
               </label>`
         }
         ${
@@ -691,10 +839,12 @@ function renderFixos() {
       </div>
     `;
     if (!ambos) {
-      li.querySelector('input[type="checkbox"]').addEventListener("change", () => togglePagoFixo(idx));
-      li.querySelector(".btn-edit").addEventListener("click", () => abrirModalEditar("fixos", idx, item.nome, item.valor));
+      li.querySelector('input[type="checkbox"]').addEventListener("change", () => toggleFn(idx));
+      li.querySelector(".btn-edit").addEventListener("click", () =>
+        abrirModalEditar(tipoModal, idx, item.nome, item.valor)
+      );
       li.querySelector(".btn-remove").addEventListener("click", () =>
-        abrirConfirmacao(`Remover "${item.nome}"? Essa ação não pode ser desfeita.`, () => opFixos.remove(idx))
+        abrirConfirmacao(`Remover "${item.nome}"? Essa ação não pode ser desfeita.`, () => ops.remove(idx))
       );
     }
     ul.appendChild(li);
@@ -792,9 +942,14 @@ function renderCaixinhas() {
           card.querySelector(".btn-caixinha-guardar").addEventListener("click", () => abrirModalCaixinha("guardar", idx));
           card.querySelector(".btn-caixinha-retirar").addEventListener("click", () => abrirModalCaixinha("retirar", idx));
           card.querySelector("[data-edit]").addEventListener("click", () => abrirModalEditar("caixinhas", idx, cx.nome, cx.valorObjetivo));
-          card.querySelector("[data-remove]").addEventListener("click", () =>
-            abrirConfirmacao(`Remover a caixinha "${cx.nome}"? Essa ação não pode ser desfeita.`, () => removeCaixinha(idx))
-          );
+          card.querySelector("[data-remove]").addEventListener("click", () => {
+            const guardado = Number(cx.valorGuardado) || 0;
+            const aviso =
+              guardado > 0
+                ? `Remover a caixinha "${cx.nome}"? Os ${fmt(guardado)} guardados nela voltam pro saldo disponível como um ganho. Essa ação não pode ser desfeita.`
+                : `Remover a caixinha "${cx.nome}"? Essa ação não pode ser desfeita.`;
+            abrirConfirmacao(aviso, () => removeCaixinha(idx));
+          });
         }
         if (cx._comemoraAoRenderizar) {
           dispararConfete();
@@ -868,14 +1023,15 @@ function renderRecentes() {
     return;
   }
   todos.forEach((item) => {
-    const pendente = item.tipo === "expense" && item.pago === false;
+    const pendente = item.tipo === "income" ? item.recebido === false : item.pago === false;
     const row = document.createElement("div");
     row.className = "ledger-item" + (pendente ? " is-pendente" : "");
+    const tagPendente = item.tipo === "income" ? "A receber" : `${item.tag} · pendente`;
     row.innerHTML = `
       <span class="ledger-icon ${item.tipo}">${item.tipo === "income" ? ICONE_GANHO : ICONE_GASTO}</span>
       <div class="ledger-info">
         <span class="ledger-nome">${escapeHtml(item.nome)} ${tagPessoa(item)}</span>
-        <span class="ledger-tag">${pendente ? "Fixo · pendente" : item.tag}</span>
+        <span class="ledger-tag">${pendente ? tagPendente : item.tag}</span>
       </div>
       <span class="ledger-valor ${item.tipo}">${item.tipo === "income" ? "+" : "−"} ${fmt(item.valor)}</span>
     `;
@@ -994,9 +1150,9 @@ function renderSplitSkeleton() {
 
 function renderAll() {
   renderTotais();
-  renderLista("listaGanhos", state.ganhos, "income", opGanhos, "ganhos");
-  renderFixos();
-  renderLista("listaVariaveis", state.gastosVariaveis, "expense", opVariaveis, "variaveis");
+  renderListaComStatus("listaGanhos", state.ganhos, "income", opGanhos, "ganhos", "recebido", toggleRecebidoGanho, "Recebido", "Pendente");
+  renderListaComStatus("listaFixos", state.gastosFixos, "expense", opFixos, "fixos", "pago", togglePagoFixo, "Pago", "Pendente");
+  renderListaComStatus("listaVariaveis", state.gastosVariaveis, "expense", opVariaveis, "variaveis", "pago", togglePagoVariavel, "Pago", "Pendente");
   renderCaixinhas();
   renderVisaoGeral();
   renderRecentes();
@@ -1018,12 +1174,12 @@ function renderVisaoGeral() {
   const legend = document.getElementById("visaoGeralLegend");
   if (!donut && !centro && !legend) return;
 
-  const totalGanhos = soma(state.ganhos);
+  const totalGanhos = somaComStatus(state.ganhos, "recebido");
   // Os lançamentos automáticos "Guardado: ..." já representam o dinheiro que
   // foi pra uma caixinha — não entram aqui de novo pra não contar em dobro
   // junto com o bloco "Guardado" do gráfico.
   const variaveisSemGuardado = state.gastosVariaveis.filter((i) => !ehLancamentoDeCaixinha(i.nome));
-  const totalGastos = somaFixosPagos(state.gastosFixos) + soma(variaveisSemGuardado);
+  const totalGastos = somaFixosPagos(state.gastosFixos) + somaComStatus(variaveisSemGuardado, "pago");
   const totalGuardado = somaCampo(state.caixinhas, "valorGuardado");
   const livre = totalGanhos - totalGastos - totalGuardado;
   const base = Math.max(totalGanhos, totalGastos + totalGuardado, 0.01);
@@ -1074,9 +1230,9 @@ function renderSplit() {
   card.classList.toggle("is-hidden", !ambos);
   if (!ambos) return;
 
-  const totalGanhos = soma(state.ganhos);
+  const totalGanhos = somaComStatus(state.ganhos, "recebido");
   const gastoPorPessoa = { davi: 0, gabriel: 0 };
-  [...state.gastosFixos.filter(fixoEhPago), ...state.gastosVariaveis].forEach((item) => {
+  [...state.gastosFixos.filter(fixoEhPago), ...state.gastosVariaveis.filter(variavelEhPago)].forEach((item) => {
     if (item.pessoa === "davi" || item.pessoa === "gabriel") {
       gastoPorPessoa[item.pessoa] += Number(item.valor) || 0;
     }
@@ -1302,7 +1458,8 @@ on("formGanhos", "submit", (e) => {
   const nome = f.nome.value.trim();
   const valor = parseValor(f.valor.value);
   if (!nome || !(valor > 0)) return;
-  opGanhos.add(nome, valor);
+  const recebido = f.recebido ? f.recebido.checked : false;
+  opGanhos.add(nome, valor, { recebido });
   f.reset();
 });
 
@@ -1325,7 +1482,8 @@ on("formVariaveis", "submit", (e) => {
   const nome = f.nome.value.trim();
   const valor = parseValor(f.valor.value);
   if (!nome || !(valor > 0)) return;
-  opVariaveis.add(nome, valor);
+  const pago = f.pago ? f.pago.checked : false;
+  opVariaveis.add(nome, valor, { pago });
   f.reset();
 });
 
@@ -1359,12 +1517,16 @@ function abrirModalValor(titulo, callback, textoBotao) {
   const botaoConfirmar = document.getElementById("modalConfirmar");
   if (botaoConfirmar) botaoConfirmar.textContent = textoBotao || "Guardar";
   modalBackdrop.classList.remove("is-hidden");
+  registrarAberturaModal("modalBackdrop");
   setTimeout(() => document.getElementById("aporteValor").focus(), 50);
 }
 function fecharModal() {
-  modalBackdrop.classList.add("is-hidden");
-  onConfirmarValor = null;
+  fecharComHistorico("modalBackdrop", () => {
+    modalBackdrop.classList.add("is-hidden");
+    onConfirmarValor = null;
+  });
 }
+FECHADORES_MODAL.modalBackdrop = fecharModal;
 on("modalCancelar", "click", fecharModal);
 if (modalBackdrop) {
   modalBackdrop.addEventListener("click", (e) => {
@@ -1422,12 +1584,16 @@ function abrirModalEditar(tipo, idx, nome, valor) {
   valorEl.value = valor;
   valorEl.placeholder = tipo === "caixinhas" ? "Objetivo, R$ (0 = sem meta)" : "0,00";
   if (editBackdrop) editBackdrop.classList.remove("is-hidden");
+  registrarAberturaModal("editBackdrop");
   setTimeout(() => document.getElementById("editNome").focus(), 50);
 }
 function fecharModalEditar() {
-  if (editBackdrop) editBackdrop.classList.add("is-hidden");
-  editContext = null;
+  fecharComHistorico("editBackdrop", () => {
+    if (editBackdrop) editBackdrop.classList.add("is-hidden");
+    editContext = null;
+  });
 }
+FECHADORES_MODAL.editBackdrop = fecharModalEditar;
 on("editCancelar", "click", fecharModalEditar);
 if (editBackdrop) {
   editBackdrop.addEventListener("click", (e) => {
@@ -1455,16 +1621,23 @@ on("formEditar", "submit", (e) => {
 const acoesBackdrop = document.getElementById("acoesBackdrop");
 const acoesMenuView = document.getElementById("acoesMenuView");
 const formDividir = document.getElementById("formDividir");
+const formTransferir = document.getElementById("formTransferir");
 let categoriaDividir = "variaveis";
+let direcaoTransferir = { de: "davi", para: "gabriel" };
 
 function abrirAcoesConjunto() {
   if (acoesMenuView) acoesMenuView.classList.remove("is-hidden");
   if (formDividir) formDividir.classList.add("is-hidden");
+  if (formTransferir) formTransferir.classList.add("is-hidden");
   if (acoesBackdrop) acoesBackdrop.classList.remove("is-hidden");
+  registrarAberturaModal("acoesBackdrop");
 }
 function fecharAcoesConjunto() {
-  if (acoesBackdrop) acoesBackdrop.classList.add("is-hidden");
+  fecharComHistorico("acoesBackdrop", () => {
+    if (acoesBackdrop) acoesBackdrop.classList.add("is-hidden");
+  });
 }
+FECHADORES_MODAL.acoesBackdrop = fecharAcoesConjunto;
 on("btnAcoesConjunto", "click", abrirAcoesConjunto);
 on("acoesFechar", "click", fecharAcoesConjunto);
 if (acoesBackdrop) {
@@ -1524,6 +1697,64 @@ on("formDividir", "submit", async (e) => {
 });
 
 // ---------------------------------------------------------------------
+// MODAL DE AÇÕES EM CONJUNTO — TRANSFERIR (Davi ⇄ Gabriel)
+// ---------------------------------------------------------------------
+
+on("btnAbrirTransferir", "click", () => {
+  if (acoesMenuView) acoesMenuView.classList.add("is-hidden");
+  if (formTransferir) formTransferir.classList.remove("is-hidden");
+  document.getElementById("transferirNome").value = "";
+  document.getElementById("transferirValor").value = "";
+  direcaoTransferir = { de: "davi", para: "gabriel" };
+  renderDirecaoTransferir();
+  setTimeout(() => document.getElementById("transferirValor").focus(), 50);
+});
+on("transferirVoltar", "click", () => {
+  if (formTransferir) formTransferir.classList.add("is-hidden");
+  if (acoesMenuView) acoesMenuView.classList.remove("is-hidden");
+});
+on("transferirInverter", "click", () => {
+  direcaoTransferir = { de: direcaoTransferir.para, para: direcaoTransferir.de };
+  renderDirecaoTransferir();
+});
+
+function renderDirecaoTransferir() {
+  const deEl = document.getElementById("transferirDe");
+  const paraEl = document.getElementById("transferirPara");
+  if (deEl) deEl.textContent = PESSOA_LABEL[direcaoTransferir.de];
+  if (paraEl) paraEl.textContent = PESSOA_LABEL[direcaoTransferir.para];
+}
+
+on("formTransferir", "submit", async (e) => {
+  e.preventDefault();
+  const nome = document.getElementById("transferirNome").value.trim() || "Transferência";
+  const valor = parseValor(document.getElementById("transferirValor").value);
+  if (!(valor > 0)) return;
+
+  const btnSubmit = document.getElementById("transferirSubmit");
+  if (btnSubmit) {
+    btnSubmit.disabled = true;
+    btnSubmit.textContent = "Transferindo…";
+  }
+
+  const { de, para } = direcaoTransferir;
+  const ok = await transferirEntrePessoas(de, para, nome, valor);
+
+  if (btnSubmit) {
+    btnSubmit.disabled = false;
+    btnSubmit.textContent = "Transferir";
+  }
+
+  if (ok) {
+    showToast(`${fmt(valor)} transferido de ${PESSOA_LABEL[de]} pra ${PESSOA_LABEL[para]}`);
+    fecharAcoesConjunto();
+    carregarDados();
+  } else {
+    showToast("Não consegui transferir agora. Tenta de novo em instantes.");
+  }
+});
+
+// ---------------------------------------------------------------------
 // FECHAR MÊS — some as pontas do mês pros dois, grava no HISTORICO e
 // já passa o saldo de cada um (sem dividir) como ganho automático do
 // próximo mês. Some com os variáveis, mantém ganhos e fixos.
@@ -1535,10 +1766,14 @@ const fecharMesBackdrop = document.getElementById("fecharMesBackdrop");
 function abrirFecharMes() {
   prepararFormFecharMes();
   if (fecharMesBackdrop) fecharMesBackdrop.classList.remove("is-hidden");
+  registrarAberturaModal("fecharMesBackdrop");
 }
 function fecharModalFecharMes() {
-  if (fecharMesBackdrop) fecharMesBackdrop.classList.add("is-hidden");
+  fecharComHistorico("fecharMesBackdrop", () => {
+    if (fecharMesBackdrop) fecharMesBackdrop.classList.add("is-hidden");
+  });
 }
+FECHADORES_MODAL.fecharMesBackdrop = fecharModalFecharMes;
 on("mesAtualBadge", "click", abrirFecharMes);
 on("fecharMesCancelar", "click", fecharModalFecharMes);
 if (fecharMesBackdrop) {
@@ -1635,11 +1870,15 @@ function abrirConfirmacao(texto, onConfirm) {
   const textoEl = document.getElementById("confirmText");
   if (textoEl) textoEl.textContent = texto;
   if (confirmBackdrop) confirmBackdrop.classList.remove("is-hidden");
+  registrarAberturaModal("confirmBackdrop");
 }
 function fecharConfirmacao() {
-  if (confirmBackdrop) confirmBackdrop.classList.add("is-hidden");
-  confirmCallback = null;
+  fecharComHistorico("confirmBackdrop", () => {
+    if (confirmBackdrop) confirmBackdrop.classList.add("is-hidden");
+    confirmCallback = null;
+  });
 }
+FECHADORES_MODAL.confirmBackdrop = fecharConfirmacao;
 on("confirmCancelar", "click", fecharConfirmacao);
 on("confirmOk", "click", () => {
   const cb = confirmCallback;
