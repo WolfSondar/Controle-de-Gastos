@@ -159,8 +159,10 @@ button, input {
 .saldo-valor.negative { color: #e08a6e; }
 .saldo-formula {
   font-size: 11.5px;
+  font-family: var(--font-mono);
   color: #8fb3a0;
 }
+.saldo-formula.negative { color: #e08a6e; }
 
 .hero-stats {
   display: grid;
@@ -190,6 +192,13 @@ button, input {
 .hero-stat-valor.income { color: #8fd4ab; }
 .hero-stat-valor.expense { color: #e8a58c; }
 .hero-stat-valor.gold { color: #e3c581; }
+.hero-stat-pendente {
+  font-family: var(--font-mono);
+  font-size: 10px;
+  color: #c9b98a;
+  letter-spacing: 0.01em;
+}
+.hero-stat-pendente:empty { display: none; }
 
 /* ============ CONTEÚDO ============ */
 
