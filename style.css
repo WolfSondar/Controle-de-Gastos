@@ -230,6 +230,56 @@ button, input {
 }
 .ledger-line:first-child { margin-top: 0; }
 
+/* ============ CABEÇALHO DE SEÇÃO COM BOTÃO DE RECOLHER ============ */
+
+.section-header-row {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 12px;
+}
+.section-header-row .section-title,
+.section-header-row .section-hint { margin-bottom: 0; }
+.section-header-row .section-hint { margin-top: 4px; }
+
+.collapse-toggle {
+  flex-shrink: 0;
+  width: 32px;
+  height: 32px;
+  margin-top: 2px;
+  border: 1px solid var(--line);
+  background: var(--paper-deep);
+  color: var(--ink-soft);
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  transition: background 0.15s ease, border-color 0.15s ease, transform 0.15s ease;
+}
+.collapse-toggle svg {
+  width: 16px;
+  height: 16px;
+  transition: transform 0.3s cubic-bezier(.4,0,.2,1);
+}
+.collapse-toggle.is-collapsed svg { transform: rotate(-90deg); }
+.collapse-toggle:hover { border-color: var(--gold); color: var(--gold-deep); }
+.collapse-toggle:active { transform: scale(0.92); }
+
+/* Gaveta animada — usa o truque do grid-template-rows pra animar até "auto"
+   sem precisar medir altura em JS, e continua funcionando mesmo se o
+   conteúdo de dentro mudar de tamanho depois. */
+.collapsible {
+  display: grid;
+  grid-template-rows: 1fr;
+  transition: grid-template-rows 0.32s cubic-bezier(.4,0,.2,1);
+}
+.collapsible.is-collapsed { grid-template-rows: 0fr; }
+.collapsible-inner {
+  overflow: hidden;
+  min-height: 0;
+}
+
 /* ============ FORMULÁRIO DE ADIÇÃO ============ */
 
 .add-form {
@@ -599,38 +649,56 @@ button, input {
   margin: 0 auto;
   background: var(--ink);
   display: flex;
-  padding: 7px 3px calc(7px + env(safe-area-inset-bottom));
+  align-items: center;
+  padding: 10px 4px calc(9px + env(safe-area-inset-bottom));
   box-shadow: 0 -6px 24px rgba(22,51,44,0.25);
   overflow-x: auto;
   -webkit-overflow-scrolling: touch;
   scrollbar-width: none;
 }
 .tabbar::-webkit-scrollbar { display: none; }
+
+/* "Note" flutuante que desliza até ficar em cima da aba ativa */
+.tab-indicator {
+  position: absolute;
+  top: 6px;
+  height: 3px;
+  width: 26px;
+  border-radius: 100px;
+  background: var(--gold);
+  opacity: 0;
+  transition: left 0.32s cubic-bezier(.4,0,.2,1), width 0.32s cubic-bezier(.4,0,.2,1), opacity 0.2s ease;
+  pointer-events: none;
+}
+.tab-indicator.is-visible { opacity: 1; }
+
 .tab-btn {
+  position: relative;
   flex: 1 0 auto;
-  min-width: 50px;
+  min-width: 56px;
   display: flex;
   flex-direction: column;
   align-items: center;
-  gap: 2px;
+  gap: 4px;
   background: none;
   border: none;
   color: #8fac9e;
-  padding: 6px 1px;
+  padding: 8px 2px 5px;
   border-radius: var(--radius-s);
   cursor: pointer;
-  font-size: 9.5px;
+  font-size: 10.5px;
+  font-weight: 500;
   font-family: var(--font-body);
   transition: color 0.15s ease;
 }
-.tab-btn svg { width: 19px; height: 19px; }
+.tab-btn svg { width: 21px; height: 21px; }
 .tab-btn span { white-space: nowrap; }
 .tab-btn.is-active { color: var(--paper); }
 .tab-btn.is-active svg { stroke: var(--gold); }
 
 @media (max-width: 400px) {
-  .tab-btn { font-size: 8.8px; }
-  .tab-btn svg { width: 18px; height: 18px; }
+  .tab-btn { font-size: 9.6px; min-width: 50px; }
+  .tab-btn svg { width: 19px; height: 19px; }
 }
 
 /* ============ MODAL DE APORTE ============ */
@@ -974,6 +1042,71 @@ button, input {
   font-size: 11px;
   color: var(--muted);
 }
+
+/* ============ VISÃO "JUNTOS" (modo Ambos): cards de conta por pessoa ============ */
+
+.juntos-secao { margin-bottom: 22px; }
+.juntos-secao-titulo { font-size: 17px; margin-bottom: 10px; }
+
+.juntos-cards {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.juntos-card {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  background: var(--paper-deep);
+  border: 1px solid var(--line);
+  border-radius: var(--radius-m);
+  padding: 12px 14px;
+}
+
+.juntos-avatar {
+  flex-shrink: 0;
+  width: 38px;
+  height: 38px;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-family: var(--font-display);
+  font-weight: 600;
+  font-size: 16px;
+}
+.juntos-avatar.avatar-davi { background: var(--income-bg); color: var(--income); }
+.juntos-avatar.avatar-gabriel { background: var(--expense-bg); color: var(--expense); }
+
+.juntos-card-info {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+}
+.juntos-card-nome {
+  font-size: 14px;
+  font-weight: 600;
+  color: var(--ink-text);
+}
+.juntos-card-projetado {
+  font-family: var(--font-mono);
+  font-size: 11px;
+  color: var(--muted);
+}
+
+.juntos-card-valor {
+  flex-shrink: 0;
+  font-family: var(--font-mono);
+  font-weight: 700;
+  font-size: 15px;
+  text-align: right;
+}
+.juntos-card-valor.income { color: var(--income); }
+.juntos-card-valor.expense { color: var(--expense); }
+.juntos-card-valor.gold { color: var(--gold-deep); }
 
 /* ============ CONFETE (meta batida) ============ */
 
