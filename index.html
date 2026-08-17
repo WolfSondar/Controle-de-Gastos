@@ -43,7 +43,7 @@
     <div class="person-switch" id="personSwitch">
       <button class="person-btn is-active" data-pessoa="davi">Davi</button>
       <button class="person-btn" data-pessoa="gabriel">Gabriel</button>
-      <button class="person-btn" data-pessoa="ambos">Ambos</button>
+      <button class="person-btn" data-pessoa="ambos">Juntos</button>
     </div>
 
     <div class="saldo-block">
@@ -107,86 +107,152 @@
         </div>
       </div>
 
-      <div class="ledger-line">
-        <h2 class="section-title">Lançamentos recentes</h2>
-      </div>
-      <div class="ledger" id="ledgerRecentes">
-        <p class="empty-state">Carregando seus lançamentos…</p>
+      <!-- JUNTOS: visão por pessoa, lado a lado -->
+      <div class="juntos-view is-hidden" id="juntosView">
+        <div class="juntos-secao">
+          <h2 class="section-title juntos-secao-titulo">Dinheiro &amp; Corrente</h2>
+          <div class="juntos-cards" id="juntosGanhos"></div>
+        </div>
+        <div class="juntos-secao">
+          <h2 class="section-title juntos-secao-titulo">Guardado</h2>
+          <div class="juntos-cards" id="juntosGuardado"></div>
+        </div>
+        <div class="juntos-secao">
+          <h2 class="section-title juntos-secao-titulo">Gastos fixos</h2>
+          <div class="juntos-cards" id="juntosFixos"></div>
+        </div>
+        <div class="juntos-secao">
+          <h2 class="section-title juntos-secao-titulo">Gastos variáveis</h2>
+          <div class="juntos-cards" id="juntosVariaveis"></div>
+        </div>
       </div>
 
-      <div class="ledger-line">
-        <h2 class="section-title">Suas caixinhas</h2>
-      </div>
-      <div class="goal-mini-list" id="resumoCaixinhas">
-        <p class="empty-state">Carregando caixinhas…</p>
+      <div class="resumo-padrao" id="resumoPadrao">
+        <div class="ledger-line">
+          <h2 class="section-title">Lançamentos recentes</h2>
+        </div>
+        <div class="ledger" id="ledgerRecentes">
+          <p class="empty-state">Carregando seus lançamentos…</p>
+        </div>
+
+        <div class="ledger-line">
+          <h2 class="section-title">Suas caixinhas</h2>
+        </div>
+        <div class="goal-mini-list" id="resumoCaixinhas">
+          <p class="empty-state">Carregando caixinhas…</p>
+        </div>
       </div>
     </section>
 
     <!-- GANHOS -->
     <section class="tab-panel is-hidden" id="tab-ganhos" data-tab="ganhos">
-      <h2 class="section-title">Ganhos</h2>
-      <p class="section-hint">Tudo que entra: salário, bônus, presentes, o que for.</p>
+      <div class="section-header-row">
+        <div>
+          <h2 class="section-title">Ganhos</h2>
+          <p class="section-hint">Tudo que entra: salário, bônus, presentes, o que for.</p>
+        </div>
+        <button type="button" class="collapse-toggle" data-collapse="ganhos" aria-expanded="true" aria-label="Recolher formulário de ganhos">
+          <svg viewBox="0 0 24 24" fill="none"><path d="M6 9l6 6 6-6" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>
+        </button>
+      </div>
 
-      <form class="add-form" id="formGanhos">
-        <input type="text" name="nome" placeholder="Descrição (ex: Salário)" required maxlength="60" />
-        <input type="number" name="valor" placeholder="0,00" step="0.01" min="0.01" inputmode="decimal" required />
-        <label class="checkbox-inline">
-          <input type="checkbox" name="recebido" />
-          Já recebi esse valor
-        </label>
-        <button type="submit" class="btn btn-income">Adicionar ganho</button>
-      </form>
+      <div class="collapsible" id="collapsible-ganhos">
+        <div class="collapsible-inner">
+          <form class="add-form" id="formGanhos">
+            <input type="text" name="nome" placeholder="Descrição (ex: Salário)" required maxlength="60" />
+            <input type="number" name="valor" placeholder="0,00" step="0.01" min="0.01" inputmode="decimal" required />
+            <label class="checkbox-inline">
+              <input type="checkbox" name="recebido" />
+              Já recebi esse valor
+            </label>
+            <button type="submit" class="btn btn-income">Adicionar ganho</button>
+          </form>
+        </div>
+      </div>
 
       <ul class="item-list" id="listaGanhos"></ul>
     </section>
 
     <!-- GASTOS FIXOS -->
     <section class="tab-panel is-hidden" id="tab-fixos" data-tab="fixos">
-      <h2 class="section-title">Gastos fixos</h2>
-      <p class="section-hint">Contas que se repetem todo mês: assinaturas, mensalidades, contas.</p>
+      <div class="section-header-row">
+        <div>
+          <h2 class="section-title">Gastos fixos</h2>
+          <p class="section-hint">Contas que se repetem todo mês: assinaturas, mensalidades, contas.</p>
+        </div>
+        <button type="button" class="collapse-toggle" data-collapse="fixos" aria-expanded="true" aria-label="Recolher formulário de gastos fixos">
+          <svg viewBox="0 0 24 24" fill="none"><path d="M6 9l6 6 6-6" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>
+        </button>
+      </div>
 
-      <form class="add-form" id="formFixos">
-        <input type="text" name="nome" placeholder="Descrição (ex: Faculdade)" required maxlength="60" />
-        <input type="number" name="valor" placeholder="0,00" step="0.01" min="0.01" inputmode="decimal" required />
-        <label class="checkbox-inline">
-          <input type="checkbox" name="pago" />
-          Já paguei essa conta
-        </label>
-        <button type="submit" class="btn btn-expense">Adicionar gasto fixo</button>
-      </form>
+      <div class="collapsible" id="collapsible-fixos">
+        <div class="collapsible-inner">
+          <form class="add-form" id="formFixos">
+            <input type="text" name="nome" placeholder="Descrição (ex: Faculdade)" required maxlength="60" />
+            <input type="number" name="valor" placeholder="0,00" step="0.01" min="0.01" inputmode="decimal" required />
+            <label class="checkbox-inline">
+              <input type="checkbox" name="pago" />
+              Já paguei essa conta
+            </label>
+            <button type="submit" class="btn btn-expense">Adicionar gasto fixo</button>
+          </form>
+        </div>
+      </div>
 
       <ul class="item-list" id="listaFixos"></ul>
     </section>
 
     <!-- GASTOS VARIÁVEIS -->
     <section class="tab-panel is-hidden" id="tab-variaveis" data-tab="variaveis">
-      <h2 class="section-title">Gastos variáveis</h2>
-      <p class="section-hint">Compras avulsas do dia a dia.</p>
+      <div class="section-header-row">
+        <div>
+          <h2 class="section-title">Gastos variáveis</h2>
+          <p class="section-hint">Compras avulsas do dia a dia.</p>
+        </div>
+        <button type="button" class="collapse-toggle" data-collapse="variaveis" aria-expanded="true" aria-label="Recolher formulário de gastos variáveis">
+          <svg viewBox="0 0 24 24" fill="none"><path d="M6 9l6 6 6-6" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>
+        </button>
+      </div>
 
-      <form class="add-form" id="formVariaveis">
-        <input type="text" name="nome" placeholder="Descrição (ex: Presente)" required maxlength="60" />
-        <input type="number" name="valor" placeholder="0,00" step="0.01" min="0.01" inputmode="decimal" required />
-        <label class="checkbox-inline">
-          <input type="checkbox" name="pago" />
-          Já paguei essa compra
-        </label>
-        <button type="submit" class="btn btn-expense">Adicionar gasto variável</button>
-      </form>
+      <div class="collapsible" id="collapsible-variaveis">
+        <div class="collapsible-inner">
+          <form class="add-form" id="formVariaveis">
+            <input type="text" name="nome" placeholder="Descrição (ex: Presente)" required maxlength="60" />
+            <input type="number" name="valor" placeholder="0,00" step="0.01" min="0.01" inputmode="decimal" required />
+            <label class="checkbox-inline">
+              <input type="checkbox" name="pago" />
+              Já paguei essa compra
+            </label>
+            <button type="submit" class="btn btn-expense">Adicionar gasto variável</button>
+          </form>
+        </div>
+      </div>
 
       <ul class="item-list" id="listaVariaveis"></ul>
     </section>
 
     <!-- CAIXINHAS (GUARDADO + METAS) -->
     <section class="tab-panel is-hidden" id="tab-guardado" data-tab="guardado">
-      <h2 class="section-title">Caixinhas</h2>
-      <p class="section-hint">Cofrinhos, investimentos e metas — cada um com seu valor guardado e um objetivo opcional. Pra criar uma meta nova, é só criar uma caixinha com um objetivo.</p>
+      <div class="section-header-row">
+        <div>
+          <h2 class="section-title">Caixinhas</h2>
+          <p class="section-hint">Cofrinhos, investimentos e metas — cada um com seu valor guardado e um objetivo opcional. Pra criar uma meta nova, é só criar uma caixinha com um objetivo.</p>
+        </div>
+        <button type="button" class="collapse-toggle" data-collapse="guardado" aria-expanded="true" aria-label="Recolher formulário de caixinhas">
+          <svg viewBox="0 0 24 24" fill="none"><path d="M6 9l6 6 6-6" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>
+        </button>
+      </div>
 
-      <form class="add-form" id="formCaixinhas">
-        <input type="text" name="nome" placeholder="Nome (ex: Reserva de emergência)" required maxlength="60" />
-        <input type="number" name="valorInicial" placeholder="Valor inicial guardado, R$" step="0.01" min="0" inputmode="decimal" required />
-        <input type="number" name="valorObjetivo" placeholder="Objetivo, R$ (opcional)" step="0.01" min="0" inputmode="decimal" />
-        <button type="submit" class="btn btn-gold">Criar caixinha</button>
-      </form>
+      <div class="collapsible" id="collapsible-guardado">
+        <div class="collapsible-inner">
+          <form class="add-form" id="formCaixinhas">
+            <input type="text" name="nome" placeholder="Nome (ex: Reserva de emergência)" required maxlength="60" />
+            <input type="number" name="valorInicial" placeholder="Valor inicial guardado, R$" step="0.01" min="0" inputmode="decimal" required />
+            <input type="number" name="valorObjetivo" placeholder="Objetivo, R$ (opcional)" step="0.01" min="0" inputmode="decimal" />
+            <button type="submit" class="btn btn-gold">Criar caixinha</button>
+          </form>
+        </div>
+      </div>
 
       <div class="goal-list" id="listaCaixinhas"></div>
     </section>
@@ -205,6 +271,7 @@
 
   <!-- NAVEGAÇÃO INFERIOR -->
   <nav class="tabbar" id="tabbar">
+    <span class="tab-indicator" id="tabIndicator" aria-hidden="true"></span>
     <button class="tab-btn is-active" data-tab="resumo" aria-label="Resumo">
       <svg viewBox="0 0 24 24" fill="none"><path d="M4 13h4v7H4v-7Zm6-9h4v16h-4V4Zm6 5h4v11h-4V9Z" stroke="currentColor" stroke-width="1.8" stroke-linejoin="round"/></svg>
       <span>Resumo</span>
