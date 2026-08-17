@@ -52,25 +52,33 @@
       <span class="saldo-formula" id="saldoFormula">Projetado: R$ 0,00</span>
     </div>
 
-    <div class="hero-stats">
-      <div class="hero-stat">
-        <span class="hero-stat-label">Ganhos</span>
-        <span class="hero-stat-valor income" id="statGanhos">R$ 0,00</span>
-        <span class="hero-stat-pendente" id="statGanhosPendente"></span>
-      </div>
-      <div class="hero-stat">
-        <span class="hero-stat-label">Guardado</span>
-        <span class="hero-stat-valor gold" id="statGuardado">R$ 0,00</span>
-      </div>
-      <div class="hero-stat">
-        <span class="hero-stat-label">Fixos</span>
-        <span class="hero-stat-valor expense" id="statFixos">R$ 0,00</span>
-        <span class="hero-stat-pendente" id="statFixosPendente"></span>
-      </div>
-      <div class="hero-stat">
-        <span class="hero-stat-label">Variáveis</span>
-        <span class="hero-stat-valor expense" id="statVariaveis">R$ 0,00</span>
-        <span class="hero-stat-pendente" id="statVariaveisPendente"></span>
+    <button type="button" class="hero-stats-toggle collapse-toggle" id="heroStatsToggle" data-collapse="heroStats" aria-expanded="true" aria-label="Recolher ganhos, guardado e gastos">
+      <svg viewBox="0 0 24 24" fill="none"><path d="M6 9l6 6 6-6" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>
+    </button>
+
+    <div class="collapsible" id="collapsible-heroStats">
+      <div class="collapsible-inner">
+        <div class="hero-stats">
+          <div class="hero-stat">
+            <span class="hero-stat-label">Ganhos</span>
+            <span class="hero-stat-valor income" id="statGanhos">R$ 0,00</span>
+            <span class="hero-stat-pendente" id="statGanhosPendente"></span>
+          </div>
+          <div class="hero-stat">
+            <span class="hero-stat-label">Guardado</span>
+            <span class="hero-stat-valor gold" id="statGuardado">R$ 0,00</span>
+          </div>
+          <div class="hero-stat">
+            <span class="hero-stat-label">Fixos</span>
+            <span class="hero-stat-valor expense" id="statFixos">R$ 0,00</span>
+            <span class="hero-stat-pendente" id="statFixosPendente"></span>
+          </div>
+          <div class="hero-stat">
+            <span class="hero-stat-label">Variáveis</span>
+            <span class="hero-stat-valor expense" id="statVariaveis">R$ 0,00</span>
+            <span class="hero-stat-pendente" id="statVariaveisPendente"></span>
+          </div>
+        </div>
       </div>
     </div>
   </header>
@@ -110,7 +118,7 @@
       <!-- JUNTOS: visão por pessoa, lado a lado -->
       <div class="juntos-view is-hidden" id="juntosView">
         <div class="juntos-secao">
-          <h2 class="section-title juntos-secao-titulo">Dinheiro &amp; Corrente</h2>
+          <h2 class="section-title juntos-secao-titulo">Saldo Disponível</h2>
           <div class="juntos-cards" id="juntosGanhos"></div>
         </div>
         <div class="juntos-secao">
