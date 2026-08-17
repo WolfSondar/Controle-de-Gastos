@@ -818,9 +818,136 @@ function tagPessoa(item) {
 const ICONE_LAPIS = `<svg viewBox="0 0 24 24" fill="none"><path d="M12 20h9M16.5 3.5a2.12 2.12 0 0 1 3 3L7 19l-4 1 1-4 12.5-12.5Z" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/></svg>`;
 const ICONE_X = `<svg viewBox="0 0 24 24" fill="none"><path d="M6 6l12 12M18 6L6 18" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></svg>`;
 
+// Formata "AAAA-MM-DD" pra "dd/mm", só pro selinho da lista — bem curto,
+// pra não competir com o nome do lançamento.
+function formatarDataCurta(iso) {
+  const m = /^(\d{4})-(\d{2})-(\d{2})/.exec(String(iso || ""));
+  if (!m) return "";
+  return `${m[3]}/${m[2]}`;
+}
+
+// Monta os selinhos de categoria/data/parcela que aparecem embaixo do nome
+// de cada lançamento (só os que o item realmente tiver).
+function metaInfoHtml(item) {
+  const partes = [];
+  if (item.tipo) partes.push(`<span class="item-tag item-tag-cat">${escapeHtml(item.tipo)}</span>`);
+  if (item.parcela && /^\d+\s*\/\s*\d+$/.test(String(item.parcela).trim())) {
+    partes.push(`<span class="item-tag item-tag-parcela">${escapeHtml(String(item.parcela).trim())}</span>`);
+  }
+  const dataCurta = formatarDataCurta(item.data);
+  if (dataCurta) partes.push(`<span class="item-tag item-tag-data">${dataCurta}</span>`);
+  return partes.length ? `<div class="item-meta">${partes.join("")}</div>` : "";
+}
+
+// Se o item é parcelado ("2/10"), mostra "Nome (2/10)" na lista — sem sujar
+// o campo "nome" salvo na planilha.
+function nomeComParcela(item) {
+  const nome = escapeHtml(item.nome);
+  if (item.parcela && /^\d+\s*\/\s*\d+$/.test(String(item.parcela).trim())) {
+    return `${nome} (${escapeHtml(String(item.parcela).trim())})`;
+  }
+  return nome;
+}
+
+// Fecha (some) as ações reveladas por swipe de um item específico.
+function fecharSwipe(li) {
+  if (!li) return;
+  li.classList.remove("is-swiped");
+  const content = li.querySelector(".swipe-content");
+  if (content) content.style.transform = "";
+}
+
+// ---------------------------------------------------------------------
+// GESTO DE SWIPE — desliza um item da lista pra esquerda pra revelar os
+// botões de Editar/Excluir (como no WhatsApp/Nubank), em vez de precisar
+// acertar botõezinhos pequenos. Um único item aberto por vez.
+// ---------------------------------------------------------------------
+
+const LARGURA_ACOES_SWIPE = 136;
+const LIMIAR_ABRIR_SWIPE = 56;
+
+function fecharTodosSwipes(ul, exceto) {
+  ul.querySelectorAll(".item-list-row.is-swiped").forEach((li) => {
+    if (li !== exceto) fecharSwipe(li);
+  });
+}
+
+function habilitarSwipe(ul) {
+  if (!ul || ul._swipeAtivado) return;
+  ul._swipeAtivado = true;
+  let ativo = null;
+
+  ul.addEventListener(
+    "touchstart",
+    (e) => {
+      const li = e.target.closest(".item-list-row");
+      if (!li || e.target.closest(".swipe-actions")) return;
+      const t = e.touches[0];
+      const jaAberto = li.classList.contains("is-swiped");
+      fecharTodosSwipes(ul, li);
+      ativo = { li, startX: t.clientX, startY: t.clientY, dragging: false, jaAberto, ultimoDelta: jaAberto ? -LARGURA_ACOES_SWIPE : 0 };
+    },
+    { passive: true }
+  );
+
+  ul.addEventListener(
+    "touchmove",
+    (e) => {
+      if (!ativo) return;
+      const t = e.touches[0];
+      const dx = t.clientX - ativo.startX;
+      const dy = t.clientY - ativo.startY;
+      if (!ativo.dragging) {
+        if (Math.abs(dx) < 8 && Math.abs(dy) < 8) return;
+        if (Math.abs(dy) > Math.abs(dx)) {
+          ativo = null; // gesto vertical — deixa a página rolar normalmente
+          return;
+        }
+        ativo.dragging = true;
+      }
+      const base = ativo.jaAberto ? -LARGURA_ACOES_SWIPE : 0;
+      const novo = Math.max(-LARGURA_ACOES_SWIPE, Math.min(0, base + dx));
+      const content = ativo.li.querySelector(".swipe-content");
+      if (content) {
+        content.style.transition = "none";
+        content.style.transform = `translateX(${novo}px)`;
+      }
+      ativo.ultimoDelta = novo;
+    },
+    { passive: true }
+  );
+
+  const finalizar = () => {
+    if (!ativo || !ativo.dragging) {
+      ativo = null;
+      return;
+    }
+    const content = ativo.li.querySelector(".swipe-content");
+    if (content) content.style.transition = "";
+    const abrir = ativo.ultimoDelta <= -LIMIAR_ABRIR_SWIPE;
+    ativo.li.classList.toggle("is-swiped", abrir);
+    if (content) content.style.transform = abrir ? `translateX(-${LARGURA_ACOES_SWIPE}px)` : "";
+    ativo = null;
+  };
+  ul.addEventListener("touchend", finalizar);
+  ul.addEventListener("touchcancel", finalizar);
+}
+
+// Toque em qualquer lugar fora de uma lista fecha o swipe aberto nela.
+document.addEventListener(
+  "touchstart",
+  (e) => {
+    document.querySelectorAll(".item-list").forEach((ul) => {
+      if (!e.target.closest(`#${ul.id}`)) fecharTodosSwipes(ul);
+    });
+  },
+  { passive: true }
+);
+
 // Renderiza uma lista com toggle de status (Recebido/Pago) — usada pelas
 // três listas simples (ganhos, fixos, variáveis), que agora têm todas o
-// mesmo comportamento.
+// mesmo comportamento. Cada item pode ser deslizado pra esquerda pra
+// revelar Editar/Excluir (ver habilitarSwipe).
 function renderListaComStatus(ulId, lista, tipo, ops, tipoModal, statusKey, toggleFn, rotuloOn, rotuloOff) {
   const ul = document.getElementById(ulId);
   ul.innerHTML = "";
@@ -832,42 +959,50 @@ function renderListaComStatus(ulId, lista, tipo, ops, tipoModal, statusKey, togg
   lista.forEach((item, idx) => {
     const on = item[statusKey] === true;
     const li = document.createElement("li");
-    li.className = on ? "" : "is-pendente";
+    li.className = "item-list-row" + (on ? "" : " is-pendente");
     li.dataset.tipo = tipo;
     li.style.animationDelay = Math.min(idx * 35, 250) + "ms";
     li.innerHTML = `
-      <div class="item-info">
-        <span class="item-nome">${escapeHtml(item.nome)} ${tagPessoa(item)}</span>
-      </div>
-      <div class="item-row">
-        <span class="item-valor ${tipo}">${fmt(item.valor)}</span>
-        ${
-          ambos
-            ? `<span class="pago-toggle ${on ? "is-pago" : ""}" aria-disabled="true"><span class="dot"></span>${on ? rotuloOn : rotuloOff}</span>`
-            : `<label class="pago-toggle ${on ? "is-pago" : ""}">
-                <input type="checkbox" data-idx="${idx}" ${on ? "checked" : ""} />
-                <span class="dot"></span>${on ? rotuloOn : rotuloOff}
-              </label>`
-        }
-        ${
-          ambos
-            ? ""
-            : `<button class="btn-edit" aria-label="Editar" data-idx="${idx}">${ICONE_LAPIS}</button>
-              <button class="btn-remove" aria-label="Remover" data-idx="${idx}">${ICONE_X}</button>`
-        }
+      ${
+        ambos
+          ? ""
+          : `<div class="swipe-actions">
+              <button class="swipe-btn swipe-edit" aria-label="Editar" data-idx="${idx}">${ICONE_LAPIS}<span>Editar</span></button>
+              <button class="swipe-btn swipe-delete" aria-label="Excluir" data-idx="${idx}">${ICONE_X}<span>Excluir</span></button>
+            </div>`
+      }
+      <div class="swipe-content">
+        <div class="item-info">
+          <span class="item-nome">${nomeComParcela(item)} ${tagPessoa(item)}</span>
+          ${metaInfoHtml(item)}
+        </div>
+        <div class="item-row">
+          <span class="item-valor ${tipo}">${fmt(item.valor)}</span>
+          ${
+            ambos
+              ? `<span class="pago-toggle ${on ? "is-pago" : ""}" aria-disabled="true"><span class="dot"></span>${on ? rotuloOn : rotuloOff}</span>`
+              : `<label class="pago-toggle ${on ? "is-pago" : ""}">
+                  <input type="checkbox" data-idx="${idx}" ${on ? "checked" : ""} />
+                  <span class="dot"></span>${on ? rotuloOn : rotuloOff}
+                </label>`
+          }
+        </div>
       </div>
     `;
     if (!ambos) {
       li.querySelector('input[type="checkbox"]').addEventListener("change", () => toggleFn(idx));
-      li.querySelector(".btn-edit").addEventListener("click", () =>
-        abrirModalEditar(tipoModal, idx, item.nome, item.valor)
-      );
-      li.querySelector(".btn-remove").addEventListener("click", () =>
-        abrirConfirmacao(`Remover "${item.nome}"? Essa ação não pode ser desfeita.`, () => ops.remove(idx))
-      );
+      li.querySelector(".swipe-edit").addEventListener("click", () => {
+        fecharSwipe(li);
+        abrirModalEditar(tipoModal, idx, item.nome, item.valor);
+      });
+      li.querySelector(".swipe-delete").addEventListener("click", () => {
+        fecharSwipe(li);
+        abrirConfirmacao(`Remover "${item.nome}"? Essa ação não pode ser desfeita.`, () => ops.remove(idx));
+      });
     }
     ul.appendChild(li);
   });
+  habilitarSwipe(ul);
 }
 
 // ---------------------------------------------------------------------
@@ -1175,9 +1310,73 @@ function renderAll() {
   renderListaComStatus("listaVariaveis", state.gastosVariaveis, "expense", opVariaveis, "variaveis", "pago", togglePagoVariavel, "Pago", "Pendente");
   renderCaixinhas();
   renderVisaoGeral();
+  renderCategorias();
   renderRecentes();
   renderSplit();
   renderJuntosView();
+}
+
+// ---------------------------------------------------------------------
+// RENDER — GASTOS POR CATEGORIA (resumo): donut com a fatia de cada
+// categoria (campo TIPO) nos gastos já pagos (fixos + variáveis, sem
+// contar os lançamentos automáticos "Guardado: ..." de caixinha).
+// ---------------------------------------------------------------------
+
+const PALETA_CATEGORIAS = [
+  "#b9862f", "#3c6e4f", "#a8482e", "#5c8aa6", "#8a6bb5",
+  "#c99a3f", "#4d9e8a", "#c46a8f", "#7a9e4d", "#a67a4d",
+];
+
+function renderCategorias() {
+  const card = document.getElementById("categoriaCard");
+  const donut = document.getElementById("categoriaDonut");
+  const centro = document.getElementById("categoriaDonutCenter");
+  const legend = document.getElementById("categoriaLegend");
+  if (!card && !donut && !centro && !legend) return;
+
+  const gastos = [
+    ...state.gastosFixos.filter(fixoEhPago),
+    ...state.gastosVariaveis.filter(variavelEhPago).filter((i) => !ehLancamentoDeCaixinha(i.nome)),
+  ];
+
+  const porCategoria = {};
+  gastos.forEach((item) => {
+    const cat = (item.tipo && String(item.tipo).trim()) || "Outros";
+    porCategoria[cat] = (porCategoria[cat] || 0) + (Number(item.valor) || 0);
+  });
+  const categorias = Object.keys(porCategoria).sort((a, b) => porCategoria[b] - porCategoria[a]);
+  const total = categorias.reduce((acc, c) => acc + porCategoria[c], 0);
+
+  if (card) card.classList.toggle("is-hidden", categorias.length === 0 || total <= 0);
+  if (categorias.length === 0 || total <= 0) return;
+
+  let acumulado = 0;
+  const partes = categorias.map((cat, idx) => {
+    const cor = PALETA_CATEGORIAS[idx % PALETA_CATEGORIAS.length];
+    const pct = (porCategoria[cat] / total) * 100;
+    const inicio = acumulado;
+    acumulado += pct;
+    return { cat, cor, pct, inicio, fim: acumulado, valor: porCategoria[cat] };
+  });
+
+  if (donut) {
+    donut.style.background = `conic-gradient(${partes.map((p) => `${p.cor} ${p.inicio}% ${p.fim}%`).join(", ")})`;
+  }
+  if (centro) {
+    centro.innerHTML = `${spanCentro(fmt(total))}<small>gasto no total</small>`;
+  }
+  if (legend) {
+    legend.innerHTML = partes
+      .map(
+        (p) => `
+        <div class="split-legend-item">
+          <span class="dot" style="background:${p.cor}"></span>
+          ${escapeHtml(p.cat)}
+          <strong>${p.pct.toFixed(0)}%</strong>
+        </div>`
+      )
+      .join("");
+  }
 }
 
 // ---------------------------------------------------------------------
@@ -1549,7 +1748,9 @@ function initGavetas() {
     const chave = btn.dataset.collapse;
     const alvo = document.getElementById("collapsible-" + chave);
     if (!alvo) return;
-    aplicarColapso(btn, alvo, !!estado[chave]);
+    // Sem preferência salva ainda: todas as gavetas começam FECHADAS.
+    const colapsado = estado[chave] === undefined ? true : !!estado[chave];
+    aplicarColapso(btn, alvo, colapsado);
     btn.addEventListener("click", () => {
       const novoColapsado = !alvo.classList.contains("is-collapsed");
       aplicarColapso(btn, alvo, novoColapsado);
@@ -1634,7 +1835,8 @@ on("formGanhos", "submit", (e) => {
   const valor = parseValor(f.valor.value);
   if (!nome || !(valor > 0)) return;
   const recebido = f.recebido ? f.recebido.checked : false;
-  opGanhos.add(nome, valor, { recebido });
+  const data = f.data ? f.data.value : "";
+  opGanhos.add(nome, valor, { recebido, data });
   f.reset();
 });
 
@@ -1646,9 +1848,19 @@ on("formFixos", "submit", (e) => {
   const valor = parseValor(f.valor.value);
   if (!nome || !(valor > 0)) return;
   const pago = f.pago ? f.pago.checked : false;
-  opFixos.add(nome, valor, { pago });
+  const tipo = f.tipo ? f.tipo.value : "";
+  const data = f.data ? f.data.value : "";
+  opFixos.add(nome, valor, { pago, tipo, data });
   f.reset();
 });
+
+// Valida "Parcela" no formato "atual/total" (ex: "2/10") — vazio é sempre
+// válido (significa "à vista", sem parcelamento).
+function parcelaValida(texto) {
+  const v = String(texto || "").trim();
+  if (!v) return true;
+  return /^\d+\s*\/\s*\d+$/.test(v);
+}
 
 on("formVariaveis", "submit", (e) => {
   e.preventDefault();
@@ -1658,7 +1870,14 @@ on("formVariaveis", "submit", (e) => {
   const valor = parseValor(f.valor.value);
   if (!nome || !(valor > 0)) return;
   const pago = f.pago ? f.pago.checked : false;
-  opVariaveis.add(nome, valor, { pago });
+  const tipo = f.tipo ? f.tipo.value : "";
+  const data = f.data ? f.data.value : "";
+  const parcela = f.parcela ? f.parcela.value.trim() : "";
+  if (!parcelaValida(parcela)) {
+    showToast('Parcela inválida — use o formato "atual/total", ex: 2/10.');
+    return;
+  }
+  opVariaveis.add(nome, valor, { pago, tipo, data, parcela });
   f.reset();
 });
 
