@@ -169,6 +169,33 @@ button, input {
   grid-template-columns: repeat(2, 1fr);
   gap: 10px;
 }
+
+/* Botão que recolhe/expande o bloco de Ganhos/Guardado/Fixos/Variáveis
+   (usa .collapse-toggle.hero-stats-toggle junto — especificidade maior
+   pra não herdar o estilo genérico de círculo claro dos formulários) */
+.hero-stats-toggle.collapse-toggle {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 34px;
+  height: 20px;
+  margin: 0 auto 10px;
+  background: rgba(255,255,255,0.08);
+  border: 1px solid rgba(255,255,255,0.16);
+  border-radius: 100px;
+  color: #a7c7b7;
+  cursor: pointer;
+  transition: background 0.15s ease, transform 0.15s ease;
+}
+.hero-stats-toggle.collapse-toggle svg {
+  width: 14px;
+  height: 14px;
+  transition: transform 0.3s cubic-bezier(.4,0,.2,1);
+}
+.hero-stats-toggle.collapse-toggle:hover { background: rgba(255,255,255,0.16); }
+.hero-stats-toggle.collapse-toggle:active { transform: scale(0.92); }
+.hero-stats-toggle.collapse-toggle.is-collapsed svg { transform: rotate(-180deg); }
+
 .hero-stat {
   background: rgba(255,255,255,0.06);
   border: 1px solid rgba(255,255,255,0.12);
@@ -237,6 +264,7 @@ button, input {
   align-items: flex-start;
   justify-content: space-between;
   gap: 12px;
+  margin-bottom: 16px;
 }
 .section-header-row .section-title,
 .section-header-row .section-hint { margin-bottom: 0; }
@@ -947,11 +975,12 @@ button, input {
   display: inline-block;
 }
 .saldo-valor.is-pulsing, .hero-stat-valor.is-pulsing {
-  animation: value-pulse 0.45s ease;
+  animation: value-pulse 0.6s cubic-bezier(.34,1.56,.64,1);
 }
 @keyframes value-pulse {
   0% { transform: scale(1); }
-  35% { transform: scale(1.08); }
+  30% { transform: scale(1.14); }
+  55% { transform: scale(0.97); }
   100% { transform: scale(1); }
 }
 
@@ -1011,7 +1040,7 @@ button, input {
 }
 .split-donut-center {
   position: absolute;
-  inset: 18px;
+  inset: 15px;
   background: var(--paper-deep);
   border-radius: 50%;
   display: flex;
@@ -1019,19 +1048,26 @@ button, input {
   align-items: center;
   justify-content: center;
   text-align: center;
-  gap: 1px;
+  gap: 2px;
+  padding: 6px;
+  box-sizing: border-box;
+  overflow: hidden;
 }
 .split-donut-center span {
   font-family: var(--font-mono);
   font-size: 13.5px;
   font-weight: 700;
   color: var(--ink-text);
+  white-space: nowrap;
+  max-width: 100%;
 }
 .split-donut-center small {
   font-size: 9px;
   text-transform: uppercase;
-  letter-spacing: 0.08em;
+  letter-spacing: 0.06em;
   color: var(--muted);
+  white-space: normal;
+  line-height: 1.25;
 }
 
 .split-legend {
