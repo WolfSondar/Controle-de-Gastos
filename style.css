@@ -19,6 +19,12 @@
   --expense-bg: #f3e3dc;
   --ink-text: #241c12;
   --muted: #7a6f58;
+  /* Fundo dos selinhos de categoria (.item-tag-cat) — precisa de mais
+     corpo que --paper-deep, que é quase idêntico ao --paper e some no
+     celular (era esse o "feio" reportado: selinho sem contraste nenhum
+     em cima do papel). Tingido a partir do --ink-text, então se adapta
+     sozinho no modo escuro (ver bloco @media abaixo). */
+  --tag-bg: rgba(36, 28, 18, 0.07);
   /* Cor fixa de "letra sobre tinta" — usada em elementos que ficam sempre
      sobre um fundo escuro (--ink), tipo o hero, a tabbar e o toast. Não
      muda no modo escuro, porque esses fundos continuam escuros nos dois
@@ -59,6 +65,7 @@
     --expense-bg: #3a241e;
     --ink-text: #f1e9d8;
     --muted: #9fae9f;
+    --tag-bg: rgba(241, 233, 216, 0.1);
 
     color-scheme: dark;
   }
@@ -593,19 +600,44 @@ button, input {
 .item-list-row.is-pendente .item-nome { color: var(--muted); }
 .item-list-row.is-pendente .item-valor { opacity: 0.65; }
 
-/* Selinhos de categoria/data/parcela embaixo do nome */
-.item-meta { display: flex; flex-wrap: wrap; gap: 5px; }
+/* Selinhos de categoria/data/parcela embaixo do nome.
+   Antes os três eram pílulas idênticas (mesmo cinza-bege, mesma borda)
+   e ficavam quase invisíveis em cima do papel — três caixinhas fracas
+   competindo entre si. Agora cada um tem seu peso: categoria é o selo
+   "de verdade" (mais escuro, é a info que mais importa pra identificar
+   o lançamento), parcela mantém o destaque dourado, e data virou texto
+   simples — é a menos importante das três, não precisa de pílula. */
+.item-meta { display: flex; flex-wrap: wrap; align-items: center; gap: 6px; }
 .item-tag {
-  font-size: 10px;
-  font-weight: 600;
-  padding: 2px 7px;
+  font-size: 10.5px;
+  font-weight: 700;
+  letter-spacing: 0.01em;
+  padding: 3px 8px;
   border-radius: 100px;
-  background: var(--paper-deep);
-  color: var(--muted);
-  border: 1px solid var(--line);
   white-space: nowrap;
+  line-height: 1.3;
 }
-.item-tag-parcela { color: var(--gold-deep); border-color: var(--gold); background: rgba(185,134,47,0.1); }
+.item-tag-cat { background: var(--tag-bg); color: var(--ink-text); }
+.item-tag-parcela { color: var(--gold-deep); background: rgba(185,134,47,0.16); }
+.item-tag-data {
+  padding: 3px 0;
+  background: transparent;
+  color: var(--muted);
+  font-weight: 600;
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+}
+/* Bolinha separadora — só aparece se vier depois de outro selinho
+   (categoria e/ou parcela); sozinha, a data não precisa de separador. */
+.item-meta .item-tag-data:not(:first-child)::before {
+  content: "";
+  width: 3px;
+  height: 3px;
+  border-radius: 50%;
+  background: var(--line);
+  flex-shrink: 0;
+}
 
 .pago-toggle {
   display: inline-flex;
