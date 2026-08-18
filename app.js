@@ -14,6 +14,110 @@ const MESES_LABEL = [
   "Julho", "Agosto", "Setembro", "Outubro", "Novembro", "Dezembro",
 ];
 
+// ---------------------------------------------------------------------
+// INDEXEDDB — armazenamento dos caches "pesados" (dados por pessoa e o
+// histórico de meses fechados), que só tendem a crescer com o tempo.
+// localStorage é síncrono e tem um teto de ~5MB; se o histórico de anos
+// crescer, ele pode travar a thread principal na hora de ler/escrever.
+// IndexedDB é assíncrono (não trava a interface) e não tem esse teto
+// apertado. Preferências pequenas e que nunca crescem (pessoa atual, mês
+// em exibição, gavetas abertas/fechadas) continuam no localStorage — são
+// poucos bytes e usadas de forma síncrona logo na primeira pintura da
+// tela, então não vale a pena complicar.
+// ---------------------------------------------------------------------
+const IDB_NOME = "caixaDB";
+const IDB_VERSAO = 1;
+const IDB_LOJA_CACHE = "cache"; // dados por pessoa + histórico
+const IDB_LOJA_FILA = "filaOffline"; // ver seção de sincronização em fila, mais abaixo
+
+let idbPromise = null;
+function abrirIdb() {
+  if (idbPromise) return idbPromise;
+  idbPromise = new Promise((resolve, reject) => {
+    if (!("indexedDB" in window)) {
+      reject(new Error("IndexedDB indisponível neste navegador"));
+      return;
+    }
+    const req = indexedDB.open(IDB_NOME, IDB_VERSAO);
+    req.onupgradeneeded = () => {
+      const db = req.result;
+      if (!db.objectStoreNames.contains(IDB_LOJA_CACHE)) db.createObjectStore(IDB_LOJA_CACHE);
+      if (!db.objectStoreNames.contains(IDB_LOJA_FILA)) db.createObjectStore(IDB_LOJA_FILA, { autoIncrement: true });
+    };
+    req.onsuccess = () => resolve(req.result);
+    req.onerror = () => reject(req.error);
+  });
+  return idbPromise;
+}
+
+async function idbGet(loja, chave) {
+  try {
+    const db = await abrirIdb();
+    return await new Promise((resolve, reject) => {
+      const tx = db.transaction(loja, "readonly");
+      const req = tx.objectStore(loja).get(chave);
+      req.onsuccess = () => resolve(req.result === undefined ? null : req.result);
+      req.onerror = () => reject(req.error);
+    });
+  } catch (err) {
+    return null; // IndexedDB indisponível/bloqueado — segue sem cache, sem quebrar o app
+  }
+}
+
+async function idbSet(loja, chave, valor) {
+  try {
+    const db = await abrirIdb();
+    await new Promise((resolve, reject) => {
+      const tx = db.transaction(loja, "readwrite");
+      tx.objectStore(loja).put(valor, chave);
+      tx.oncomplete = () => resolve();
+      tx.onerror = () => reject(tx.error);
+    });
+  } catch (err) {
+    // sem problema, só não persiste
+  }
+}
+
+async function idbDelete(loja, chave) {
+  try {
+    const db = await abrirIdb();
+    await new Promise((resolve, reject) => {
+      const tx = db.transaction(loja, "readwrite");
+      tx.objectStore(loja).delete(chave);
+      tx.oncomplete = () => resolve();
+      tx.onerror = () => reject(tx.error);
+    });
+  } catch (err) {
+    // sem problema
+  }
+}
+
+// Todas as chaves guardadas na loja "fila", em ordem de inserção, junto
+// com a chave interna do IndexedDB (precisa dela pra poder apagar depois).
+async function idbListarFila() {
+  try {
+    const db = await abrirIdb();
+    return await new Promise((resolve, reject) => {
+      const tx = db.transaction(IDB_LOJA_FILA, "readonly");
+      const store = tx.objectStore(IDB_LOJA_FILA);
+      const itens = [];
+      const req = store.openCursor();
+      req.onsuccess = () => {
+        const cursor = req.result;
+        if (cursor) {
+          itens.push({ chaveIdb: cursor.key, valor: cursor.value });
+          cursor.continue();
+        } else {
+          resolve(itens);
+        }
+      };
+      req.onerror = () => reject(req.error);
+    });
+  } catch (err) {
+    return [];
+  }
+}
+
 function getMesAtualCache() {
   try {
     const raw = localStorage.getItem(MES_ATUAL_STORAGE_KEY);
@@ -74,29 +178,21 @@ function isAmbos() {
 // em silêncio assim que a resposta da planilha chega.
 // ---------------------------------------------------------------------
 
-function getCache(pessoa) {
-  try {
-    const raw = localStorage.getItem(CACHE_PREFIX + pessoa);
-    return raw ? JSON.parse(raw) : null;
-  } catch (err) {
-    return null;
-  }
+async function getCache(pessoa) {
+  return idbGet(IDB_LOJA_CACHE, CACHE_PREFIX + pessoa);
 }
 
-function setCache(pessoa, data) {
-  try {
-    localStorage.setItem(
-      CACHE_PREFIX + pessoa,
-      JSON.stringify({
-        ganhos: data.ganhos || [],
-        gastosFixos: data.gastosFixos || [],
-        gastosVariaveis: data.gastosVariaveis || [],
-        caixinhas: data.caixinhas || [],
-      })
-    );
-  } catch (err) {
-    // localStorage cheio ou indisponível — sem problema, só não guarda o cache
-  }
+async function setCache(pessoa, data) {
+  return idbSet(IDB_LOJA_CACHE, CACHE_PREFIX + pessoa, {
+    ganhos: data.ganhos || [],
+    gastosFixos: data.gastosFixos || [],
+    gastosVariaveis: data.gastosVariaveis || [],
+    caixinhas: data.caixinhas || [],
+  });
+}
+
+async function removerCache(pessoa) {
+  return idbDelete(IDB_LOJA_CACHE, CACHE_PREFIX + pessoa);
 }
 
 // ---------------------------------------------------------------------
@@ -184,7 +280,8 @@ async function carregarDados() {
   // embaixo — assim uma resposta antiga nunca "pisa" nos dados da pessoa atual.
   const pessoaRequisitada = state.pessoaAtual;
 
-  const cache = getCache(pessoaRequisitada);
+  const cache = await getCache(pessoaRequisitada);
+  if (state.pessoaAtual !== pessoaRequisitada) return; // trocou de pessoa enquanto líamos o cache
   if (cache) {
     // Mostra o último dado conhecido na hora — sem skeleton, sem espera —
     // e atualiza discretamente assim que a resposta fresca chegar.
@@ -276,13 +373,15 @@ async function salvarBloco(action, payload) {
 
   entrada.emVoo = true;
   setSyncState("saving", "Salvando…");
+  const pessoaDoEnvio = state.pessoaAtual;
+  let ultimoPayload = null;
   try {
     while (entrada.pendente !== null) {
-      const payloadAtual = entrada.pendente;
+      ultimoPayload = entrada.pendente;
       entrada.pendente = null;
       const res = await fetch(API_URL, {
         method: "POST",
-        body: JSON.stringify({ action, payload: payloadAtual, pessoa: state.pessoaAtual }),
+        body: JSON.stringify({ action, payload: ultimoPayload, pessoa: pessoaDoEnvio }),
       });
       const data = await res.json().catch(() => null);
       if (data && data.ok === false) {
@@ -291,12 +390,103 @@ async function salvarBloco(action, payload) {
     }
     setSyncState("idle", "Salvo");
   } catch (err) {
-    setSyncState("error", "Falha ao salvar");
-    showToast("Não consegui salvar na planilha agora.");
+    if (ehErroDeRede(err) && ultimoPayload !== null) {
+      // Sem internet agora (ex: no metrô) — guarda o payload mais recente
+      // pra reenviar sozinho assim que a conexão voltar, em vez de
+      // simplesmente perder a alteração.
+      await enfileirarOffline(pessoaDoEnvio, action, ultimoPayload);
+      await atualizarIndicadorOffline();
+    } else {
+      setSyncState("error", "Falha ao salvar");
+      showToast("Não consegui salvar na planilha agora.");
+    }
   } finally {
     entrada.emVoo = false;
   }
 }
+
+// ---------------------------------------------------------------------
+// FILA OFFLINE — se o POST falhar por falta de internet, o payload não se
+// perde: fica guardado no IndexedDB e é reenviado sozinho assim que a
+// conexão voltar. Cada item da fila é identificado por "pessoa:action",
+// igual à fila em memória acima — se a pessoa mexer de novo no mesmo bloco
+// enquanto ainda está offline, só o payload mais recente fica guardado (não
+// acumula um registro por edição).
+//
+// Não usamos a Background Sync API do Service Worker de propósito: ela não
+// existe no Safari/iOS, então de nada adiantaria pro caso de uso real (uma
+// pessoa saindo de um túnel do metrô com o app aberto). Em vez disso, a
+// fila é reenviada pela própria página, no evento "online" e por um
+// polling de reforço — funciona em qualquer navegador, com o app aberto.
+// ---------------------------------------------------------------------
+let flushEmAndamento = false;
+
+// fetch() rejeita com TypeError quando não há conexão (ou é bloqueado por
+// CORS); erros que a gente mesmo lança (ex: "data.ok === false", validação
+// do Apps Script) são problemas do servidor/planilha, não de rede, e não
+// devem entrar na fila offline — reenviar não vai resolver.
+function ehErroDeRede(err) {
+  return err instanceof TypeError;
+}
+
+async function enfileirarOffline(pessoa, action, payload) {
+  const chave = `${pessoa}:${action}`;
+  await idbSet(IDB_LOJA_FILA, chave, { pessoa, action, payload, quando: Date.now() });
+}
+
+async function atualizarIndicadorOffline() {
+  const itens = await idbListarFila();
+  const n = itens.length;
+  if (n > 0) {
+    setSyncState("offline", n === 1 ? "1 alteração pendente" : `${n} alterações pendentes`);
+  }
+  return n;
+}
+
+// Tenta reenviar tudo que ficou na fila, em ordem de inserção. Para no
+// primeiro erro de rede (ainda offline) — o que já foi enviado com sucesso
+// sai da fila; o resto tenta de novo na próxima chamada.
+async function flushFilaOffline() {
+  if (flushEmAndamento) return;
+  if (!API_URL || API_URL.includes("COLE_AQUI")) return;
+  flushEmAndamento = true;
+  try {
+    const itens = await idbListarFila();
+    if (itens.length === 0) return;
+    setSyncState("saving", "Enviando pendências…");
+    for (const { chaveIdb, valor } of itens) {
+      try {
+        const res = await fetch(API_URL, {
+          method: "POST",
+          body: JSON.stringify({ action: valor.action, payload: valor.payload, pessoa: valor.pessoa }),
+        });
+        const data = await res.json().catch(() => null);
+        if (data && data.ok === false) {
+          // Erro do servidor, não de rede: reenviar de novo não vai
+          // resolver. Descarta pra não travar a fila pra sempre, mas avisa.
+          showToast(`Não consegui salvar uma alteração pendente: ${data.error || "erro desconhecido"}`);
+        }
+        await idbDelete(IDB_LOJA_FILA, chaveIdb);
+      } catch (err) {
+        if (ehErroDeRede(err)) break; // ainda offline — para por aqui e tenta de novo depois
+        await idbDelete(IDB_LOJA_FILA, chaveIdb); // erro inesperado: descarta pra não travar a fila
+      }
+    }
+  } finally {
+    flushEmAndamento = false;
+    const restante = await atualizarIndicadorOffline();
+    if (restante === 0) setSyncState("idle", "Sincronizado");
+  }
+}
+
+window.addEventListener("online", () => flushFilaOffline());
+// Reforço pra quando o evento "online" não dispara direito (comum em
+// iOS/Safari) — confere de tempos em tempos enquanto o app estiver aberto;
+// não custa nada quando não há nada pendente (só lista a fila e sai).
+setInterval(() => flushFilaOffline(), 20000);
+document.addEventListener("visibilitychange", () => {
+  if (document.visibilityState === "visible") flushFilaOffline();
+});
 
 // ---------------------------------------------------------------------
 // SELETOR DE PESSOA (Davi / Gabriel / Ambos)
@@ -531,7 +721,7 @@ async function obterListaLocal(pessoa, chave) {
   if (pessoa === state.pessoaAtual && !isAmbos()) {
     return [...state[chave]];
   }
-  const cache = getCache(pessoa);
+  const cache = await getCache(pessoa);
   if (cache) return [...(cache[chave] || [])];
   const data = await fetch(`${API_URL}?pessoa=${encodeURIComponent(pessoa)}`).then((r) => r.json());
   if (data && data.ok === false) throw new Error(data.error || "Erro ao ler dados atuais");
@@ -577,10 +767,9 @@ async function dividirCompra(nome, valorTotal, categoria) {
 
     // Atualiza os caches locais de ambos na hora, pra não repetir o
     // problema do item "fantasma" ao trocar de pessoa logo em seguida.
-    const cacheDavi = getCache("davi") || {};
-    const cacheGabriel = getCache("gabriel") || {};
-    setCache("davi", { ...cacheDavi, [chave]: listaDavi });
-    setCache("gabriel", { ...cacheGabriel, [chave]: listaGabriel });
+    const [cacheDavi, cacheGabriel] = await Promise.all([getCache("davi"), getCache("gabriel")]);
+    setCache("davi", { ...(cacheDavi || {}), [chave]: listaDavi });
+    setCache("gabriel", { ...(cacheGabriel || {}), [chave]: listaGabriel });
     if (state.pessoaAtual === "davi") state[chave] = listaDavi;
     if (state.pessoaAtual === "gabriel") state[chave] = listaGabriel;
 
@@ -612,7 +801,7 @@ async function transferirEntrePessoas(de, para, nome, valor) {
     if (!data || data.ok === false) throw new Error((data && data.error) || "Erro desconhecido");
     // Os dados de quem transferiu e de quem recebeu mudaram — descarta os
     // caches locais dos dois (e do modo Ambos) pra não mostrar algo velho.
-    [de, para, "ambos"].forEach((p) => localStorage.removeItem(CACHE_PREFIX + p));
+    [de, para, "ambos"].forEach((p) => removerCache(p));
     return true;
   } catch (err) {
     return false;
@@ -635,6 +824,47 @@ function ganhoEhRecebido(item) {
   return item.recebido === true;
 }
 
+// Atualiza SÓ a linha que teve o status trocado (classe "pendente", cor do
+// texto do toggle e o rótulo "Pago/Recebido" x "Pendente"), sem reconstruir
+// a lista inteira. Antes, todo toggle chamava renderAll(), que recriava o
+// <ul> do zero (ul.innerHTML = "") e replay-ava a animação de entrada de
+// TODOS os itens — inclusive os que nem mudaram — o que piscava/pulava na
+// tela a cada toque. Retorna true se achou a linha e conseguiu atualizar
+// no lugar; false se por algum motivo a linha não existe no DOM (aí quem
+// chamou pode cair de volta pra um render completo).
+function atualizarLinhaStatus(ulId, idx, ligado, rotuloOn, rotuloOff) {
+  const ul = document.getElementById(ulId);
+  if (!ul) return false;
+  const checkbox = ul.querySelector(`input[type="checkbox"][data-idx="${idx}"]`);
+  if (!checkbox) return false;
+  const li = checkbox.closest(".item-list-row");
+  const label = checkbox.closest(".pago-toggle");
+  if (li) li.classList.toggle("is-pendente", !ligado);
+  if (label) {
+    label.classList.toggle("is-pago", ligado);
+    // O rótulo é o texto solto que vem logo depois do <input> e do
+    // <span class="dot">, então é sempre o último nó-filho do <label>.
+    const textoNode = label.lastChild;
+    if (textoNode && textoNode.nodeType === Node.TEXT_NODE) {
+      textoNode.textContent = ligado ? rotuloOn : rotuloOff;
+    }
+  }
+  return true;
+}
+
+// Depois de um toggle de status, só os totais e os widgets derivados
+// (donuts, recentes, divisão do casal, visão "Juntos") precisam recalcular
+// — as três listas (Ganhos/Fixos/Variáveis) já foram atualizadas no lugar
+// acima, então não entram aqui.
+function renderDerivadosDeStatus() {
+  renderTotais();
+  renderVisaoGeral();
+  renderCategorias();
+  renderRecentes();
+  renderSplit();
+  renderJuntosView();
+}
+
 function togglePagoFixo(index) {
   if (isAmbos()) return;
   const item = state.gastosFixos[index];
@@ -642,7 +872,11 @@ function togglePagoFixo(index) {
   item.pago = !fixoEhPago(item);
   sincronizarCacheAtual();
   salvarBloco("saveGastosFixos", state.gastosFixos);
-  renderAll();
+  if (!atualizarLinhaStatus("listaFixos", index, item.pago, "Pago", "Pendente")) {
+    renderAll();
+    return;
+  }
+  renderDerivadosDeStatus();
 }
 function togglePagoVariavel(index) {
   if (isAmbos()) return;
@@ -651,7 +885,11 @@ function togglePagoVariavel(index) {
   item.pago = !variavelEhPago(item);
   sincronizarCacheAtual();
   salvarBloco("saveGastosVariaveis", state.gastosVariaveis);
-  renderAll();
+  if (!atualizarLinhaStatus("listaVariaveis", index, item.pago, "Pago", "Pendente")) {
+    renderAll();
+    return;
+  }
+  renderDerivadosDeStatus();
 }
 function toggleRecebidoGanho(index) {
   if (isAmbos()) return;
@@ -660,7 +898,11 @@ function toggleRecebidoGanho(index) {
   item.recebido = !ganhoEhRecebido(item);
   sincronizarCacheAtual();
   salvarBloco("saveGanhos", state.ganhos);
-  renderAll();
+  if (!atualizarLinhaStatus("listaGanhos", index, item.recebido, "Recebido", "Pendente")) {
+    renderAll();
+    return;
+  }
+  renderDerivadosDeStatus();
 }
 
 // ---------------------------------------------------------------------
@@ -1601,24 +1843,15 @@ function escapeHtml(str) {
 // HISTÓRICO — meses já fechados, com o saldo individual de cada pessoa
 // ---------------------------------------------------------------------
 
-function getCacheHistorico() {
-  try {
-    const raw = localStorage.getItem(CACHE_PREFIX + "historico");
-    return raw ? JSON.parse(raw) : null;
-  } catch (err) {
-    return null;
-  }
+async function getCacheHistorico() {
+  return idbGet(IDB_LOJA_CACHE, CACHE_PREFIX + "historico");
 }
-function setCacheHistorico(data) {
-  try {
-    localStorage.setItem(CACHE_PREFIX + "historico", JSON.stringify({ anos: data.anos || [] }));
-  } catch (err) {
-    // sem problema, só não guarda o cache
-  }
+async function setCacheHistorico(data) {
+  return idbSet(IDB_LOJA_CACHE, CACHE_PREFIX + "historico", { anos: data.anos || [] });
 }
 
 async function carregarHistorico() {
-  const cache = getCacheHistorico();
+  const cache = await getCacheHistorico();
   if (cache) {
     state.historico = cache;
     renderHistorico();
@@ -1659,6 +1892,48 @@ function renderHistoricoSkeleton() {
     .join("");
 }
 
+// Desenha uma linha do tempo em SVG puro (sem biblioteca nenhuma) com a
+// evolução do saldo combinado e do total guardado, mês a mês, dentro de um
+// ano. Recebe os meses já em ordem cronológica (crescente).
+function construirGraficoHistoricoSvg(mesesAsc) {
+  const W = 320, H = 108, padL = 6, padR = 6, padT = 12, padB = 18;
+  const pontosSaldo = mesesAsc.map((m) => (m.saldoDavi || 0) + (m.saldoGabriel || 0));
+  const pontosGuardado = mesesAsc.map((m) => (m.guardadoDavi || 0) + (m.guardadoGabriel || 0));
+  const todos = pontosSaldo.concat(pontosGuardado);
+  let min = Math.min(0, ...todos);
+  let max = Math.max(0, ...todos);
+  if (min === max) max = min + 1; // evita divisão por zero se tudo for igual
+
+  const n = mesesAsc.length;
+  const passoX = n > 1 ? (W - padL - padR) / (n - 1) : 0;
+  const x = (i) => padL + i * passoX;
+  const y = (v) => padT + (H - padT - padB) * (1 - (v - min) / (max - min));
+
+  const caminho = (pts) => pts.map((v, i) => `${i === 0 ? "M" : "L"}${x(i).toFixed(1)},${y(v).toFixed(1)}`).join(" ");
+  const pontosSvg = (pts, cor, raio) =>
+    pts.map((v, i) => `<circle cx="${x(i).toFixed(1)}" cy="${y(v).toFixed(1)}" r="${raio}" fill="${cor}" />`).join("");
+  const rotulos = mesesAsc
+    .map((m, i) => `<text x="${x(i).toFixed(1)}" y="${H - 4}" font-size="8" text-anchor="middle" fill="var(--muted)">${escapeHtml((m.nome || "").slice(0, 3))}</text>`)
+    .join("");
+  const linhaZero = y(0).toFixed(1);
+
+  return `
+    <div class="historico-grafico-wrap">
+      <svg class="historico-grafico" viewBox="0 0 ${W} ${H}" preserveAspectRatio="none" role="img" aria-label="Evolução do saldo e do total guardado ao longo do ano">
+        <line x1="${padL}" y1="${linhaZero}" x2="${W - padR}" y2="${linhaZero}" stroke="var(--line)" stroke-width="1" />
+        <path d="${caminho(pontosGuardado)}" fill="none" stroke="var(--gold)" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" stroke-dasharray="4,3" />
+        <path d="${caminho(pontosSaldo)}" fill="none" stroke="var(--ink-text)" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" />
+        ${pontosSvg(pontosGuardado, "var(--gold)", 2.3)}
+        ${pontosSvg(pontosSaldo, "var(--ink-text)", 2.6)}
+        ${rotulos}
+      </svg>
+      <div class="historico-grafico-legenda">
+        <span class="legenda-item"><span class="legenda-dot" style="background:var(--ink-text)"></span>Saldo</span>
+        <span class="legenda-item"><span class="legenda-dot" style="background:var(--gold)"></span>Guardado</span>
+      </div>
+    </div>`;
+}
+
 function renderHistorico() {
   const wrap = document.getElementById("historicoLista");
   if (!wrap) return;
@@ -1672,6 +1947,10 @@ function renderHistorico() {
   wrap.innerHTML = anosOrdenados
     .map((bloco) => {
       const mesesOrdenados = [...bloco.meses].sort((a, b) => b.mes - a.mes);
+      // O gráfico quer a linha do tempo andando pra frente (mais antigo à
+      // esquerda), o oposto da ordem dos cards (mais recente primeiro).
+      const mesesAscendentes = [...bloco.meses].sort((a, b) => a.mes - b.mes);
+      const grafico = mesesAscendentes.length >= 2 ? construirGraficoHistoricoSvg(mesesAscendentes) : "";
       const cards = mesesOrdenados
         .map((m) => {
           const saldoTotal = m.saldoDavi + m.saldoGabriel;
@@ -1708,6 +1987,7 @@ function renderHistorico() {
       return `
         <div class="historico-ano-bloco">
           <h3 class="historico-ano-titulo">${bloco.ano}</h3>
+          ${grafico}
           ${cards}
         </div>`;
     })
@@ -2239,7 +2519,7 @@ on("formFecharMes", "submit", async (e) => {
 
     // Davi e Gabriel (e Ambos e o histórico) mudaram — os caches antigos
     // ficariam desatualizados, então joga tudo fora e recarrega na hora.
-    ["davi", "gabriel", "ambos", "historico"].forEach((p) => localStorage.removeItem(CACHE_PREFIX + p));
+    ["davi", "gabriel", "ambos", "historico"].forEach((p) => removerCache(p));
 
     showToast(
       `${MESES_LABEL[f.mes - 1]}/${f.ano} fechado — Davi ${fmt(f.saldoDavi)} · Gabriel ${fmt(f.saldoGabriel)}`
@@ -2298,3 +2578,17 @@ atualizarVisibilidadeJuntosView();
 initGavetas();
 posicionarIndicadorAba();
 carregarDados();
+atualizarIndicadorOffline().then((n) => {
+  if (n > 0) flushFilaOffline(); // já tinha pendência de uma sessão offline anterior — tenta mandar já
+});
+
+// PWA: registra o Service Worker (cache do app shell + funcionamento
+// offline). Se o navegador não suportar, o app continua funcionando
+// normalmente, só sem esse reforço.
+if ("serviceWorker" in navigator) {
+  window.addEventListener("load", () => {
+    navigator.serviceWorker.register("sw.js").catch(() => {
+      // sem problema — o app funciona normalmente sem o service worker
+    });
+  });
+}
