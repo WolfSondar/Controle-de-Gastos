@@ -451,6 +451,21 @@ button, input {
 .add-form select:focus,
 .add-form input[type="date"]:focus { border-color: var(--gold); }
 
+/* O texto "dd/mm/aaaa" (e a data já escolhida) dentro do input de data é
+   desenhado pelo próprio navegador e ignora a propriedade `color` normal
+   — por isso, mesmo no tema claro, ele saía num cinza padrão do sistema
+   fraco demais em cima do nosso fundo creme, quase invisível. Essas
+   pseudo-classes (Chrome/Edge/Android; a maioria dos navegadores
+   baseados em WebKit) forçam a cor certa pro tema, clara ou escura. */
+.add-form input[type="date"]::-webkit-datetime-edit-fields-wrapper,
+.add-form input[type="date"]::-webkit-datetime-edit-text,
+.add-form input[type="date"]::-webkit-datetime-edit-day-field,
+.add-form input[type="date"]::-webkit-datetime-edit-month-field,
+.add-form input[type="date"]::-webkit-datetime-edit-year-field {
+  color: var(--ink-text);
+  opacity: 0.85;
+}
+
 @media (prefers-color-scheme: dark) {
   .add-form select,
   .add-form input[type="date"] {
