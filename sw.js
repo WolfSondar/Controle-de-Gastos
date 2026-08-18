@@ -12,7 +12,7 @@
 // perceber que precisa baixar os arquivos novos de novo.
 // =====================================================================
 
-const CACHE_VERSION = "caixa-v1";
+const CACHE_VERSION = "caixa-v2";
 const CACHE_SHELL = `${CACHE_VERSION}-shell`;
 const CACHE_RUNTIME = `${CACHE_VERSION}-runtime`;
 
@@ -58,6 +58,21 @@ self.addEventListener("activate", (event) => {
         )
       )
       .then(() => self.clients.claim())
+  );
+});
+
+// Reforço opcional via Background Sync API — só existe em Chrome/Edge/
+// Android (não no Safari/iOS, daí a fila offline de verdade viver em
+// app.js e não aqui, ver o comentário lá). Quando o navegador dispara
+// esse evento (reconectou), a gente só avisa as abas abertas: quem sabe
+// a API_URL e faz o POST de fato é a própria página, não o Service
+// Worker — assim não precisa duplicar config.js aqui dentro.
+self.addEventListener("sync", (event) => {
+  if (event.tag !== "caixa-flush-fila") return;
+  event.waitUntil(
+    self.clients.matchAll({ type: "window" }).then((clientes) => {
+      clientes.forEach((cliente) => cliente.postMessage("caixa-flush-fila"));
+    })
   );
 });
 
