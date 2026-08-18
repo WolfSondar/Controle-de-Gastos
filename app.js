@@ -1245,8 +1245,8 @@ function renderListaComStatus(ulId, lista, tipo, ops, tipoModal, statusKey, togg
         ambos
           ? ""
           : `<div class="swipe-actions">
-              <button class="swipe-btn swipe-edit" aria-label="Editar" data-idx="${idx}">${ICONE_LAPIS}<span>Editar</span></button>
-              <button class="swipe-btn swipe-delete" aria-label="Excluir" data-idx="${idx}">${ICONE_X}<span>Excluir</span></button>
+              <button class="swipe-btn swipe-edit" aria-label="Editar" data-idx="${idx}"><span class="swipe-btn-icon">${ICONE_LAPIS}</span><span>Editar</span></button>
+              <button class="swipe-btn swipe-delete" aria-label="Excluir" data-idx="${idx}"><span class="swipe-btn-icon">${ICONE_X}</span><span>Excluir</span></button>
             </div>`
       }
       <div class="swipe-content">
