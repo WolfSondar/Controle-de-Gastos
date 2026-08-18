@@ -14,6 +14,39 @@ const MESES_LABEL = [
   "Julho", "Agosto", "Setembro", "Outubro", "Novembro", "Dezembro",
 ];
 
+// Categorias disponíveis nos selects de "Gastos fixos" e "Gastos
+// variáveis" (campo .input-categoria) — fonte única: pra incluir mais
+// categorias no app inteiro, só adicionar um item nesta lista, nada
+// mais precisa mudar (é usada por popularSelectsDeCategoria() logo
+// abaixo, que preenche os dois formulários a partir daqui).
+const CATEGORIAS = [
+  "Lazer",
+  "Outro",
+  "Presente",
+  "Alimentação",
+  "Transporte",
+  "Pessoal",
+  "Educação",
+  "Financeiro",
+  "Veículo",
+  "Contas",
+  "Mercado",
+  "Bem-estar",
+];
+
+// Preenche todo <select class="input-categoria"> da página a partir de
+// CATEGORIAS, mantendo a opção "Categoria (opcional)" no topo. Assim os
+// formulários de Fixos e Variáveis nunca ficam desalinhados entre si —
+// antes cada um tinha sua própria lista de <option> copiada no HTML.
+function popularSelectsDeCategoria() {
+  document.querySelectorAll("select.input-categoria").forEach((select) => {
+    const opcaoVazia = select.querySelector('option[value=""]');
+    select.innerHTML = "";
+    select.appendChild(opcaoVazia || new Option("Categoria (opcional)", ""));
+    CATEGORIAS.forEach((cat) => select.appendChild(new Option(cat, cat)));
+  });
+}
+
 // ---------------------------------------------------------------------
 // INDEXEDDB — armazenamento dos caches "pesados" (dados por pessoa e o
 // histórico de meses fechados), que só tendem a crescer com o tempo.
@@ -2673,6 +2706,7 @@ if (confirmBackdrop) {
 
 renderPessoaSwitch();
 renderMesAtual();
+popularSelectsDeCategoria();
 atualizarVisibilidadeEdicao();
 atualizarVisibilidadeSplitCard();
 atualizarVisibilidadeVisaoGeral();
