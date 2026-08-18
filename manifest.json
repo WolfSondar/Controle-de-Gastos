@@ -1,0 +1,32 @@
+{
+  "name": "Caixa — Controle Financeiro",
+  "short_name": "Caixa",
+  "description": "Controle de ganhos, gastos e caixinhas",
+  "start_url": "./index.html",
+  "scope": "./",
+  "display": "standalone",
+  "orientation": "portrait",
+  "background_color": "#faf5e9",
+  "theme_color": "#16332c",
+  "lang": "pt-BR",
+  "icons": [
+    {
+      "src": "IMG/Icon.jpg",
+      "sizes": "192x192",
+      "type": "image/jpeg",
+      "purpose": "any"
+    },
+    {
+      "src": "IMG/Icon.jpg",
+      "sizes": "512x512",
+      "type": "image/jpeg",
+      "purpose": "any"
+    },
+    {
+      "src": "IMG/Icon.jpg",
+      "sizes": "180x180",
+      "type": "image/jpeg",
+      "purpose": "maskable"
+    }
+  ]
+}
