@@ -173,6 +173,13 @@ const fmt = (n) =>
 // pela digitação da pessoa.
 const fmtCampo = (n) => (Number(n) || 0).toLocaleString("pt-BR", { minimumFractionDigits: 2, maximumFractionDigits: 2 });
 
+// Feedback tátil curtinho pra confirmar uma ação (marcar como pago, abrir
+// o swipe de excluir...). navigator.vibrate não existe no Safari/iOS —
+// a chamada simplesmente não faz nada nesse caso, sem quebrar nada.
+function vibrar(ms = 10) {
+  if (navigator.vibrate) navigator.vibrate(ms);
+}
+
 function isAmbos() {
   return state.pessoaAtual === "ambos";
 }
@@ -902,6 +909,7 @@ function togglePagoFixo(index) {
   const item = state.gastosFixos[index];
   if (!item) return;
   item.pago = !fixoEhPago(item);
+  vibrar();
   sincronizarCacheAtual();
   salvarBloco("saveGastosFixos", state.gastosFixos);
   if (!atualizarLinhaStatus("listaFixos", index, item.pago, "Pago", "Pendente")) {
@@ -915,6 +923,7 @@ function togglePagoVariavel(index) {
   const item = state.gastosVariaveis[index];
   if (!item) return;
   item.pago = !variavelEhPago(item);
+  vibrar();
   sincronizarCacheAtual();
   salvarBloco("saveGastosVariaveis", state.gastosVariaveis);
   if (!atualizarLinhaStatus("listaVariaveis", index, item.pago, "Pago", "Pendente")) {
@@ -928,6 +937,7 @@ function toggleRecebidoGanho(index) {
   const item = state.ganhos[index];
   if (!item) return;
   item.recebido = !ganhoEhRecebido(item);
+  vibrar();
   sincronizarCacheAtual();
   salvarBloco("saveGanhos", state.ganhos);
   if (!atualizarLinhaStatus("listaGanhos", index, item.recebido, "Recebido", "Pendente")) {
@@ -1163,7 +1173,7 @@ function habilitarSwipe(ul) {
       const t = e.touches[0];
       const jaAberto = li.classList.contains("is-swiped");
       fecharTodosSwipes(ul, li);
-      ativo = { li, startX: t.clientX, startY: t.clientY, dragging: false, jaAberto, ultimoDelta: jaAberto ? -LARGURA_ACOES_SWIPE : 0 };
+      ativo = { li, startX: t.clientX, startY: t.clientY, dragging: false, jaAberto, ultimoDelta: jaAberto ? -LARGURA_ACOES_SWIPE : 0, vibrou: jaAberto };
     },
     { passive: true }
   );
@@ -1189,6 +1199,18 @@ function habilitarSwipe(ul) {
       if (content) {
         content.style.transition = "none";
         content.style.transform = `translateX(${novo}px)`;
+      }
+      // Vibra uma vez só, exatamente no instante em que o arrasto cruza o
+      // limiar de abertura — não a cada pixel. Se a pessoa arrastar de
+      // volta pra trás do limiar, "arma" de novo pra vibrar se cruzar
+      // outra vez (mesmo princípio de um "clique" físico ao passar do
+      // ponto de virada).
+      const cruzouLimiar = novo <= -LIMIAR_ABRIR_SWIPE;
+      if (cruzouLimiar && !ativo.vibrou) {
+        vibrar();
+        ativo.vibrou = true;
+      } else if (!cruzouLimiar) {
+        ativo.vibrou = false;
       }
       ativo.ultimoDelta = novo;
     },
