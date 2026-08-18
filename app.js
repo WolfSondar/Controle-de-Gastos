@@ -1272,21 +1272,17 @@ function renderListaComStatus(ulId, lista, tipo, ops, tipoModal, statusKey, togg
             </div>`
       }
       <div class="swipe-content">
-        <div class="item-info">
-          <span class="item-nome">${nomeComParcela(item)} ${tagPessoa(item)}</span>
-          ${metaInfoHtml(item)}
-        </div>
-        <div class="item-row">
-          <span class="item-valor ${tipo}">${fmt(item.valor)}</span>
-          ${
-            ambos
-              ? `<span class="pago-toggle ${on ? "is-pago" : ""}" aria-disabled="true"><span class="dot"></span>${on ? rotuloOn : rotuloOff}</span>`
-              : `<label class="pago-toggle ${on ? "is-pago" : ""}">
-                  <input type="checkbox" data-idx="${idx}" ${on ? "checked" : ""} />
-                  <span class="dot"></span>${on ? rotuloOn : rotuloOff}
-                </label>`
-          }
-        </div>
+        <span class="item-nome">${nomeComParcela(item)} ${tagPessoa(item)}</span>
+        <span class="item-valor ${tipo}">${fmt(item.valor)}</span>
+        ${metaInfoHtml(item) || `<div class="item-meta"></div>`}
+        ${
+          ambos
+            ? `<span class="pago-toggle ${on ? "is-pago" : ""}" aria-disabled="true"><span class="dot"></span>${on ? rotuloOn : rotuloOff}</span>`
+            : `<label class="pago-toggle ${on ? "is-pago" : ""}">
+                <input type="checkbox" data-idx="${idx}" ${on ? "checked" : ""} />
+                <span class="dot"></span>${on ? rotuloOn : rotuloOff}
+              </label>`
+        }
       </div>
     `;
     if (!ambos) {
