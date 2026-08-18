@@ -246,7 +246,7 @@ button, input {
   height: 14px;
   transition: transform 0.3s cubic-bezier(.4,0,.2,1);
 }
-.hero-stats-toggle.collapse-toggle:hover { background: rgba(255,255,255,0.16); }
+
 .hero-stats-toggle.collapse-toggle:active { transform: scale(0.92); }
 .hero-stats-toggle.collapse-toggle svg { transform: rotate(45deg); }
 .hero-stats-toggle.collapse-toggle.is-collapsed svg { transform: rotate(0deg); }
@@ -361,7 +361,7 @@ button, input {
 }
 .collapse-toggle svg { transform: rotate(45deg); }
 .collapse-toggle.is-collapsed svg { transform: rotate(0deg); }
-.collapse-toggle:hover { border-color: var(--gold); color: var(--gold-deep); }
+
 .collapse-toggle:active { transform: scale(0.92); }
 
 /* Gaveta animada — usa o truque do grid-template-rows pra animar até "auto"
@@ -518,19 +518,50 @@ button, input {
   flex-direction: column;
   align-items: center;
   justify-content: center;
-  gap: 3px;
+  gap: 5px;
   border: none;
   color: #fdfaf3;
-  font-size: 10.5px;
+  font-size: 10px;
   font-weight: 700;
-  letter-spacing: 0.02em;
+  letter-spacing: 0.03em;
+  text-transform: uppercase;
   cursor: pointer;
+  transition: filter 0.12s ease;
 }
-.swipe-btn svg { width: 17px; height: 17px; }
-.swipe-edit { background: var(--gold); }
+/* ícone dentro de um círculo — em vez do SVG "boiando" sozinho, fica com
+   mais peso visual e parece mais um botão de verdade */
+.swipe-btn-icon {
+  width: 30px;
+  height: 30px;
+  border-radius: 50%;
+  background: rgba(255,255,255,0.16);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+.swipe-btn svg { width: 15px; height: 15px; }
+.swipe-edit { background: var(--gold); border-right: 1px solid rgba(0,0,0,0.1); }
 .swipe-delete { background: var(--expense); }
+/* :active em vez de :hover — feedback ao toque, sem o problema do hover
+   "grudado" em tela sensível ao toque (ver bloco de hover no fim do arquivo) */
+.swipe-btn:active { filter: brightness(0.88); }
 
-.item-info { display: flex; flex-direction: column; min-width: 0; flex: 1 1 140px; gap: 3px; }
+/* Content "levanta" com uma sombra sutil enquanto desliza — reforça a
+   sensação de estar por cima dos botões, em vez de só deslizar plano. */
+.item-list-row.is-swiped .swipe-content { box-shadow: -8px 0 16px -6px rgba(0,0,0,0.28); }
+
+.item-info {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+  /* flex-basis 100% em vez de 140px: força nome/tags a sempre ocupar a
+     linha inteira, e valor+status a sempre cair pra linha de baixo — sem
+     isso, itens com nome curto (ex: "Conta Tim") tinham espaço sobrando
+     e o valor "subia" pra ficar do lado do nome, só que só nesses casos,
+     deixando o layout inconsistente entre um item e outro. */
+  flex: 1 1 100%;
+  gap: 3px;
+}
 .item-nome {
   font-size: 14.5px;
   font-weight: 500;
@@ -547,7 +578,17 @@ button, input {
 .item-valor.income { color: var(--income); }
 .item-valor.expense { color: var(--expense); }
 
-.item-row { display: flex; align-items: center; gap: 10px; flex-shrink: 0; }
+.item-row {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  flex-shrink: 0;
+  /* empurra pro lado direito mesmo sozinho na linha (agora que
+     .item-info sempre ocupa a linha inteira acima) — sem isso,
+     "justify-content: space-between" jogaria ele pro início da linha
+     por não ter mais nada pra "espaçar" ao lado. */
+  margin-left: auto;
+}
 
 .item-list-row.is-pendente .item-nome { color: var(--muted); }
 .item-list-row.is-pendente .item-valor { opacity: 0.65; }
@@ -605,7 +646,7 @@ button, input {
   flex-shrink: 0;
   transition: background 0.15s ease, color 0.15s ease;
 }
-.btn-remove:hover { background: var(--expense-bg); color: var(--expense); }
+
 .btn-remove svg { width: 16px; height: 16px; }
 
 .empty-state {
@@ -1043,9 +1084,7 @@ button, input {
   background: var(--gold);
   color: #fffaf0;
 }
-.person-btn:not(.is-active):hover {
-  color: var(--on-ink);
-}
+
 
 /* ============ BADGE DE PESSOA (modo Ambos) ============ */
 
@@ -1110,7 +1149,7 @@ button, input {
   flex-shrink: 0;
   transition: background 0.15s ease, color 0.15s ease;
 }
-.btn-edit:hover { background: var(--income-bg); color: var(--income); }
+
 .btn-edit svg { width: 15px; height: 15px; }
 
 /* ============ NÚMEROS ANIMADOS + VALOR FLUTUANTE ============ */
@@ -1384,7 +1423,7 @@ button, input {
   cursor: pointer;
   transition: background 0.15s ease;
 }
-.mes-atual-badge:hover { background: rgba(255,255,255,0.16); }
+
 .mes-atual-badge:active { transform: scale(0.96); }
 .mes-atual-badge:empty { display: none; }
 .icon-btn {
@@ -1401,7 +1440,7 @@ button, input {
   flex-shrink: 0;
   transition: background 0.15s ease;
 }
-.icon-btn:hover { background: rgba(255,255,255,0.16); }
+
 .icon-btn:active { transform: scale(0.94); }
 .icon-btn svg { width: 17px; height: 17px; }
 
@@ -1423,7 +1462,7 @@ button, input {
   font-family: inherit;
   transition: border-color 0.15s ease;
 }
-.acao-card:hover { border-color: var(--gold); }
+
 .acao-card:active { transform: scale(0.99); }
 .acao-card-icon {
   width: 38px;
@@ -1615,4 +1654,26 @@ button, input {
   background: var(--paper);
   color: var(--gold-deep);
 }
-.transferir-direcao .icon-btn:hover { background: var(--line-soft); }
+
+
+/* ============================================================
+   HOVER SÓ EM DISPOSITIVO COM MOUSE
+   Sem isso, no celular o navegador aplica o estado :hover depois do
+   toque e ele "gruda" até a pessoa tocar em outro lugar — parecia que
+   o botão continuava "marcado" mesmo depois de fechar/soltar. Isolando
+   os hovers aqui dentro de (hover: hover), eles só valem pra quem tem
+   mouse de verdade; no touch, some sozinho ao soltar o dedo.
+   ============================================================ */
+@media (hover: hover) and (pointer: fine) {
+  .hero-stats-toggle.collapse-toggle:hover { background: rgba(255,255,255,0.16); }
+  .collapse-toggle:hover { border-color: var(--gold); color: var(--gold-deep); }
+  .btn-remove:hover { background: var(--expense-bg); color: var(--expense); }
+  .person-btn:not(.is-active):hover {
+  color: var(--on-ink);
+}
+  .btn-edit:hover { background: var(--income-bg); color: var(--income); }
+  .mes-atual-badge:hover { background: rgba(255,255,255,0.16); }
+  .icon-btn:hover { background: rgba(255,255,255,0.16); }
+  .acao-card:hover { border-color: var(--gold); }
+  .transferir-direcao .icon-btn:hover { background: var(--line-soft); }
+}
