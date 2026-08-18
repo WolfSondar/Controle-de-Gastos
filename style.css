@@ -233,20 +233,23 @@ button, input {
 
 /* Botão que recolhe/expande o bloco de Ganhos/Guardado/Fixos/Variáveis
    (usa .collapse-toggle.hero-stats-toggle junto — especificidade maior
-   pra não herdar o estilo genérico de círculo claro dos formulários) */
+   pra não herdar o estilo genérico de círculo claro dos formulários).
+   Fica ABAIXO dos cards agora (não em cima) e o ícone é uma setinha:
+   apontando pra baixo = "tem mais, toque pra expandir"; apontando pra
+   cima (expandido) = "toque pra recolher". */
 .hero-stats-toggle.collapse-toggle {
   display: flex;
   align-items: center;
   justify-content: center;
   width: 34px;
   height: 20px;
-  margin: 0 auto 10px;
+  margin: 10px auto 0;
   background: rgba(255,255,255,0.08);
   border: 1px solid rgba(255,255,255,0.16);
   border-radius: 100px;
   color: #a7c7b7;
   cursor: pointer;
-  transition: background 0.15s ease, transform 0.15s ease;
+  transition: background 0.15s ease, border-color 0.15s ease, color 0.15s ease, transform 0.15s ease;
 }
 .hero-stats-toggle.collapse-toggle svg {
   width: 14px;
@@ -255,8 +258,16 @@ button, input {
 }
 
 .hero-stats-toggle.collapse-toggle:active { transform: scale(0.92); }
-.hero-stats-toggle.collapse-toggle svg { transform: rotate(45deg); }
+.hero-stats-toggle.collapse-toggle svg { transform: rotate(180deg); }
 .hero-stats-toggle.collapse-toggle.is-collapsed svg { transform: rotate(0deg); }
+
+/* Expandido = "cor bonitinha" (dourado, o acento do app); recolhido =
+   volta pro cinza-esverdeado neutro de cima. */
+.hero-stats-toggle.collapse-toggle:not(.is-collapsed) {
+  background: rgba(227,197,129,0.18);
+  border-color: rgba(227,197,129,0.5);
+  color: #e3c581;
+}
 
 .hero-stat {
   background: rgba(255,255,255,0.06);
@@ -370,6 +381,18 @@ button, input {
 .collapse-toggle.is-collapsed svg { transform: rotate(0deg); }
 
 .collapse-toggle:active { transform: scale(0.92); }
+
+/* Expandido = "cor bonitinha" (dourado, o acento do app, o mesmo do
+   selinho de parcela e de "guardado"); recolhido = volta pro cinza
+   neutro de sempre. Vale pra qualquer botão de recolher/expandir do
+   app — formulários de Ganhos/Fixos/Variáveis/Caixinhas e o toggle dos
+   cards do topo (que já tem sua própria versão desse mesmo estado,
+   pensada pro fundo escuro do hero, logo acima). */
+.collapse-toggle:not(.is-collapsed) {
+  background: rgba(185,134,47,0.14);
+  border-color: var(--gold);
+  color: var(--gold-deep);
+}
 
 /* Gaveta animada — usa o truque do grid-template-rows pra animar até "auto"
    sem precisar medir altura em JS, e continua funcionando mesmo se o
@@ -497,12 +520,19 @@ button, input {
 
 /* Conteúdo deslizável — some pra esquerda revelando os botões de
    Editar/Excluir por trás (gesto tipo WhatsApp/Nubank). */
+/* Grid de 2 colunas x 2 linhas: nome+valor emparelhados em cima,
+   tags+status emparelhados embaixo — cada par fica lado a lado, em vez
+   de nome sozinho no topo e valor+status boiando distantes lá embaixo,
+   sem nenhuma relação visual com o resto da linha. */
 .swipe-content {
-  display: flex;
+  display: grid;
+  grid-template-columns: 1fr auto;
+  grid-template-areas:
+    "nome  valor"
+    "meta  status";
   align-items: center;
-  justify-content: space-between;
-  flex-wrap: wrap;
-  gap: 6px 10px;
+  column-gap: 10px;
+  row-gap: 5px;
   padding: 13px 2px 13px 12px;
   background: var(--paper);
   position: relative;
@@ -557,26 +587,19 @@ button, input {
    sensação de estar por cima dos botões, em vez de só deslizar plano. */
 .item-list-row.is-swiped .swipe-content { box-shadow: -8px 0 16px -6px rgba(0,0,0,0.28); }
 
-.item-info {
-  display: flex;
-  flex-direction: column;
-  min-width: 0;
-  /* flex-basis 100% em vez de 140px: força nome/tags a sempre ocupar a
-     linha inteira, e valor+status a sempre cair pra linha de baixo — sem
-     isso, itens com nome curto (ex: "Conta Tim") tinham espaço sobrando
-     e o valor "subia" pra ficar do lado do nome, só que só nesses casos,
-     deixando o layout inconsistente entre um item e outro. */
-  flex: 1 1 100%;
-  gap: 3px;
-}
 .item-nome {
+  grid-area: nome;
   font-size: 14.5px;
   font-weight: 500;
   color: var(--ink-text);
   overflow-wrap: break-word;
   white-space: normal;
+  align-self: end;
 }
 .item-valor {
+  grid-area: valor;
+  justify-self: end;
+  align-self: end;
   font-family: var(--font-mono);
   font-size: 14.5px;
   font-weight: 600;
@@ -585,17 +608,10 @@ button, input {
 .item-valor.income { color: var(--income); }
 .item-valor.expense { color: var(--expense); }
 
-.item-row {
-  display: flex;
-  align-items: center;
-  gap: 10px;
-  flex-shrink: 0;
-  /* empurra pro lado direito mesmo sozinho na linha (agora que
-     .item-info sempre ocupa a linha inteira acima) — sem isso,
-     "justify-content: space-between" jogaria ele pro início da linha
-     por não ter mais nada pra "espaçar" ao lado. */
-  margin-left: auto;
-}
+/* .item-meta (categoria/data/parcela) já entra no lugar certo (grid-area:
+   meta) — ver bloco de "Selinhos" mais abaixo, onde ela é definida.
+   .pago-toggle ganha grid-area: status lá na sua própria definição,
+   mais abaixo, junto do resto do estilo dele. */
 
 .item-list-row.is-pendente .item-nome { color: var(--muted); }
 .item-list-row.is-pendente .item-valor { opacity: 0.65; }
@@ -607,7 +623,7 @@ button, input {
    "de verdade" (mais escuro, é a info que mais importa pra identificar
    o lançamento), parcela mantém o destaque dourado, e data virou texto
    simples — é a menos importante das três, não precisa de pílula. */
-.item-meta { display: flex; flex-wrap: wrap; align-items: center; gap: 6px; }
+.item-meta { grid-area: meta; display: flex; flex-wrap: wrap; align-items: center; gap: 6px; min-width: 0; }
 .item-tag {
   font-size: 10.5px;
   font-weight: 700;
@@ -640,6 +656,8 @@ button, input {
 }
 
 .pago-toggle {
+  grid-area: status;
+  justify-self: end;
   display: inline-flex;
   align-items: center;
   gap: 6px;
