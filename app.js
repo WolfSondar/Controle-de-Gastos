@@ -167,6 +167,12 @@ let primeiraRenderCaixinhas = true;
 const fmt = (n) =>
   (Number(n) || 0).toLocaleString("pt-BR", { style: "currency", currency: "BRL" });
 
+// Mesma formatação de fmt(), mas sem o "R$" — pro valor já nascer no
+// formato certo dentro de um campo com a máscara de moeda (ver
+// aplicarMascaraMoeda), como o de edição, que é populado via JS e não
+// pela digitação da pessoa.
+const fmtCampo = (n) => (Number(n) || 0).toLocaleString("pt-BR", { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+
 function isAmbos() {
   return state.pessoaAtual === "ambos";
 }
@@ -432,6 +438,32 @@ function ehErroDeRede(err) {
 async function enfileirarOffline(pessoa, action, payload) {
   const chave = `${pessoa}:${action}`;
   await idbSet(IDB_LOJA_FILA, chave, { pessoa, action, payload, quando: Date.now() });
+  registrarSyncEmSegundoPlano();
+}
+
+// Reforço opcional pro reenvio da fila: em navegadores que suportam a
+// Background Sync API (Chrome/Edge/Android — não existe no Safari/iOS,
+// por isso a fila continua não dependendo disso, ver comentário acima),
+// pede pro Service Worker avisar a página assim que a conexão voltar,
+// mesmo que o evento "online" demore ou não dispare. Falha em silêncio
+// em qualquer navegador sem suporte — o polling de 20s já cobre esse caso.
+async function registrarSyncEmSegundoPlano() {
+  try {
+    if (!("serviceWorker" in navigator)) return;
+    const reg = await navigator.serviceWorker.ready;
+    if (reg.sync) await reg.sync.register("caixa-flush-fila");
+  } catch (_err) {
+    // sem suporte ou sem permissão — sem problema, segue só com o polling
+  }
+}
+
+// Quando o Service Worker recebe o evento "sync" (ver sw.js), ele avisa
+// todas as abas abertas por postMessage — a própria página é quem sabe a
+// API_URL e faz o POST de verdade, o Service Worker só acorda o reenvio.
+if ("serviceWorker" in navigator) {
+  navigator.serviceWorker.addEventListener("message", (e) => {
+    if (e.data === "caixa-flush-fila") flushFilaOffline();
+  });
 }
 
 async function atualizarIndicadorOffline() {
@@ -965,8 +997,12 @@ function popValorFlutuante(container, delta, corFixa) {
   span.className = "value-pop " + cor;
   span.textContent = (positivo ? "+ " : "− ") + fmt(Math.abs(delta));
   container.appendChild(span);
+  // Duas fases (ver .value-pop.is-animating/.is-leaving no CSS): entra
+  // subindo e crescendo, segura um instante bem visível, depois some
+  // subindo bem mais devagar — em vez de aparecer/sumir de um jeito seco.
   requestAnimationFrame(() => requestAnimationFrame(() => span.classList.add("is-animating")));
-  setTimeout(() => span.remove(), 1100);
+  setTimeout(() => span.classList.add("is-leaving"), 750);
+  setTimeout(() => span.remove(), 1350);
 }
 
 function renderTotais() {
@@ -1809,15 +1845,19 @@ function renderJuntosView() {
 
   const fixosEl = document.getElementById("juntosFixos");
   if (fixosEl) {
+    // "atual" = só o que já foi pago; "projetado" = tudo que existe pra
+    // esse mês (pago + a pagar) — mesma lógica que já era usada em Ganhos.
     fixosEl.innerHTML = ["davi", "gabriel"]
-      .map((p) => cardJuntos(p, somaFixosPagos(fixosPorPessoa[p]), null, "expense"))
+      .map((p) => cardJuntos(p, somaFixosPagos(fixosPorPessoa[p]), soma(fixosPorPessoa[p]), "expense"))
       .join("");
   }
 
   const variaveisEl = document.getElementById("juntosVariaveis");
   if (variaveisEl) {
     variaveisEl.innerHTML = ["davi", "gabriel"]
-      .map((p) => cardJuntos(p, somaComStatus(variaveisPorPessoa[p], "pago"), null, "expense"))
+      .map((p) =>
+        cardJuntos(p, somaComStatus(variaveisPorPessoa[p], "pago"), soma(variaveisPorPessoa[p]), "expense")
+      )
       .join("");
   }
 }
@@ -2093,7 +2133,51 @@ if (personSwitchEl) {
 // ---------------------------------------------------------------------
 
 function parseValor(v) {
-  return Math.round(parseFloat(v) * 100) / 100;
+  if (v === null || v === undefined) return 0;
+  const texto = String(v).trim();
+  if (!texto) return 0;
+  // Os campos de valor usam a máscara de moeda (ver aplicarMascaraMoeda),
+  // que formata como "1.234,56" — ponto de milhar, vírgula decimal. Tira
+  // os pontos e troca a vírgula por ponto antes de converter pra número.
+  const normalizado = texto.indexOf(",") !== -1 ? texto.replace(/\./g, "").replace(",", ".") : texto;
+  const num = parseFloat(normalizado);
+  return Number.isFinite(num) ? Math.round(num * 100) / 100 : 0;
+}
+
+// ---------------------------------------------------------------------
+// MÁSCARA DE MOEDA — formata o campo enquanto a pessoa digita, tratando
+// cada dígito novo como um centavo entrando pela direita (ex: digitar
+// "15050" vira "150,50"). Funciona em <input type="text">: type="number"
+// não deixa formatar o valor exibido do jeito que a gente quer.
+// ---------------------------------------------------------------------
+function aplicarMascaraMoeda(el) {
+  if (!el) return;
+  el.addEventListener("input", () => {
+    let digitos = el.value.replace(/\D/g, "");
+    if (!digitos) {
+      el.value = "";
+      return;
+    }
+    digitos = digitos.replace(/^0+(?=\d)/, ""); // sem zeros à esquerda sobrando
+    while (digitos.length < 3) digitos = "0" + digitos; // garante ao menos "0,0X"
+    const centavos = digitos.slice(-2);
+    const inteiros = digitos.slice(0, -2).replace(/\B(?=(\d{3})+(?!\d))/g, ".");
+    el.value = `${inteiros},${centavos}`;
+  });
+}
+
+function aplicarMascaraMoedaEmTodos() {
+  ["#formGanhos [name=valor]", "#formFixos [name=valor]", "#formVariaveis [name=valor]"].forEach((sel) => {
+    document.querySelectorAll(sel).forEach(aplicarMascaraMoeda);
+  });
+  ["aporteValor", "editValor", "dividirValor", "transferirValor"].forEach((id) =>
+    aplicarMascaraMoeda(document.getElementById(id))
+  );
+  const form = document.getElementById("formCaixinhas");
+  if (form) {
+    aplicarMascaraMoeda(form.querySelector("[name=valorInicial]"));
+    aplicarMascaraMoeda(form.querySelector("[name=valorObjetivo]"));
+  }
 }
 
 // Liga um listener só se o elemento existir — evita que um elemento faltando
@@ -2255,7 +2339,7 @@ function abrirModalEditar(tipo, idx, nome, valor) {
   if (tituloEl) tituloEl.textContent = TITULOS_EDICAO[tipo] || "Editar item";
   document.getElementById("editNome").value = nome;
   const valorEl = document.getElementById("editValor");
-  valorEl.value = valor;
+  valorEl.value = valor ? fmtCampo(valor) : "";
   valorEl.placeholder = tipo === "caixinhas" ? "Objetivo, R$ (0 = sem meta)" : "0,00";
   if (editBackdrop) editBackdrop.classList.remove("is-hidden");
   registrarAberturaModal("editBackdrop");
@@ -2576,6 +2660,7 @@ atualizarVisibilidadeSplitCard();
 atualizarVisibilidadeVisaoGeral();
 atualizarVisibilidadeJuntosView();
 initGavetas();
+aplicarMascaraMoedaEmTodos();
 posicionarIndicadorAba();
 carregarDados();
 atualizarIndicadorOffline().then((n) => {
