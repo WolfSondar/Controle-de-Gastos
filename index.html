@@ -21,6 +21,7 @@
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
 <link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,400;9..144,500;9..144,600;9..144,700&family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500;600;700&display=swap" rel="stylesheet" />
 <link rel="stylesheet" href="style.css" />
+<link rel="stylesheet" href="melhorias.css" />
 </head>
 <body>
 
@@ -34,14 +35,20 @@
       </div>
       <div class="hero-top-actions">
         <button type="button" class="mes-atual-badge" id="mesAtualBadge"></button>
-        <button class="icon-btn" id="btnAcoesConjunto" aria-label="Ações em conjunto">
-          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
-            <path d="M16 3h5v5"/>
-            <path d="M8 3H3v5"/>
-            <path d="M12 22v-8.3a4 4 0 0 0-1.172-2.872L3 3"/>
-            <path d="m15 9 6-6"/>
-          </svg>
-        </button>
+        <div class="icon-btn-wrap">
+          <button class="icon-btn" id="btnAcoesConjunto" aria-label="Ações em conjunto">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
+              <path d="M16 3h5v5"/>
+              <path d="M8 3H3v5"/>
+              <path d="M12 22v-8.3a4 4 0 0 0-1.172-2.872L3 3"/>
+              <path d="m15 9 6-6"/>
+            </svg>
+          </button>
+          <div class="onboard-tip is-hidden" id="acoesConjuntoTip" role="tooltip">
+            Dividir compras e transferências ficam aqui
+            <span class="onboard-tip-seta"></span>
+          </div>
+        </div>
         <div class="sync" id="syncStatus" data-state="idle">
           <span class="sync-dot"></span>
           <span class="sync-text">Pronto</span>
@@ -99,43 +106,48 @@
     <!-- RESUMO -->
     <section class="tab-panel" id="tab-resumo" data-tab="resumo">
 
-      <div class="split-card is-hidden" id="splitCard">
-        <div class="ledger-line">
-          <h2 class="section-title">Divisão do casal</h2>
-        </div>
-        <p class="section-hint" id="splitHint">Quanto do total unificado cada um já usou.</p>
-        <div class="split-chart-wrap">
-          <div class="split-donut" id="splitDonut">
-            <div class="split-donut-center" id="splitDonutCenter"></div>
+      <div class="graficos-carousel-wrap">
+        <div class="graficos-carousel" id="graficosCarousel">
+          <div class="split-card is-hidden" id="splitCard">
+            <div class="ledger-line">
+              <h2 class="section-title">Divisão do casal</h2>
+            </div>
+            <p class="section-hint" id="splitHint">Quanto do total unificado cada um já usou.</p>
+            <div class="split-chart-wrap">
+              <div class="split-donut" id="splitDonut">
+                <div class="split-donut-center" id="splitDonutCenter"></div>
+              </div>
+              <div class="split-legend" id="splitLegend"></div>
+            </div>
           </div>
-          <div class="split-legend" id="splitLegend"></div>
-        </div>
-      </div>
 
-      <div class="split-card is-hidden" id="visaoGeralCard">
-        <div class="ledger-line">
-          <h2 class="section-title">Visão geral</h2>
-        </div>
-        <p class="section-hint">Como o que você ganhou se divide entre guardado, gasto e livre.</p>
-        <div class="split-chart-wrap">
-          <div class="split-donut" id="visaoGeralDonut">
-            <div class="split-donut-center" id="visaoGeralDonutCenter"></div>
+          <div class="split-card is-hidden" id="visaoGeralCard">
+            <div class="ledger-line">
+              <h2 class="section-title">Visão geral</h2>
+            </div>
+            <p class="section-hint">Como o que você ganhou se divide entre guardado, gasto e livre.</p>
+            <div class="split-chart-wrap">
+              <div class="split-donut" id="visaoGeralDonut">
+                <div class="split-donut-center" id="visaoGeralDonutCenter"></div>
+              </div>
+              <div class="split-legend" id="visaoGeralLegend"></div>
+            </div>
           </div>
-          <div class="split-legend" id="visaoGeralLegend"></div>
-        </div>
-      </div>
 
-      <div class="split-card is-hidden" id="categoriaCard">
-        <div class="ledger-line">
-          <h2 class="section-title">Gastos por categoria</h2>
-        </div>
-        <p class="section-hint">Pra onde o dinheiro pago está indo.</p>
-        <div class="split-chart-wrap">
-          <div class="split-donut" id="categoriaDonut">
-            <div class="split-donut-center" id="categoriaDonutCenter"></div>
+          <div class="split-card is-hidden" id="categoriaCard">
+            <div class="ledger-line">
+              <h2 class="section-title">Gastos por categoria</h2>
+            </div>
+            <p class="section-hint">Pra onde o dinheiro pago está indo.</p>
+            <div class="split-chart-wrap">
+              <div class="split-donut" id="categoriaDonut">
+                <div class="split-donut-center" id="categoriaDonutCenter"></div>
+              </div>
+              <div class="split-legend" id="categoriaLegend"></div>
+            </div>
           </div>
-          <div class="split-legend" id="categoriaLegend"></div>
         </div>
+        <div class="graficos-dots is-hidden" id="graficosDots" aria-hidden="true"></div>
       </div>
 
       <!-- JUNTOS: visão por pessoa, lado a lado -->
