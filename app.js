@@ -255,11 +255,36 @@ function setSyncState(mode, text) {
 }
 
 function showToast(msg) {
+  toastComAcao(msg, null, null);
+}
+
+// Versão do toast com um botão de ação opcional (ex: "Desfazer"), sem
+// quebrar as chamadas antigas de showToast(msg) que só mostram texto.
+function toastComAcao(msg, textoAcao, onAcao) {
   const t = document.getElementById("toast");
-  t.textContent = msg;
+  if (!t) return;
+  t.innerHTML = "";
+  const span = document.createElement("span");
+  span.className = "toast-msg";
+  span.textContent = msg;
+  t.appendChild(span);
+  if (textoAcao && onAcao) {
+    const btn = document.createElement("button");
+    btn.type = "button";
+    btn.className = "toast-acao";
+    btn.textContent = textoAcao;
+    btn.addEventListener("click", () => {
+      clearTimeout(showToast._t);
+      t.classList.remove("is-visible");
+      onAcao();
+    });
+    t.appendChild(btn);
+  }
   t.classList.add("is-visible");
   clearTimeout(showToast._t);
-  showToast._t = setTimeout(() => t.classList.remove("is-visible"), 2600);
+  // Toast com ação fica mais tempo na tela — precisa de tempo pra ler
+  // E decidir se quer desfazer, não só ler um aviso passivo.
+  showToast._t = setTimeout(() => t.classList.remove("is-visible"), textoAcao ? 5200 : 2600);
 }
 
 // ---------------------------------------------------------------------
@@ -659,6 +684,18 @@ function criarOperacoesLista(key, action) {
     remove(index) {
       if (isAmbos()) return;
       state[key].splice(index, 1);
+      sincronizarCacheAtual();
+      salvarBloco(action, state[key]);
+      renderAll();
+    },
+    // Reinsere um item removido (ver excluirComRiscoEDesfazer/"Desfazer" no
+    // toast). O índice original pode não existir mais se a lista mudou
+    // nesse meio-tempo — por isso é limitado ao tamanho atual, o item só
+    // volta pro fim da lista nesse caso raro, não se perde.
+    restore(index, item) {
+      if (isAmbos()) return;
+      const posicao = Math.min(Math.max(index, 0), state[key].length);
+      state[key].splice(posicao, 0, item);
       sincronizarCacheAtual();
       salvarBloco(action, state[key]);
       renderAll();
@@ -1164,6 +1201,18 @@ function tagPessoa(item) {
 const ICONE_LAPIS = `<svg viewBox="0 0 24 24" fill="none"><path d="M12 20h9M16.5 3.5a2.12 2.12 0 0 1 3 3L7 19l-4 1 1-4 12.5-12.5Z" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/></svg>`;
 const ICONE_X = `<svg viewBox="0 0 24 24" fill="none"><path d="M6 6l12 12M18 6L6 18" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></svg>`;
 
+// Ícones dos estados vazios (ver estadoVazio()) — mesmo traço fino em
+// currentColor dos ícones acima, pra herdar a cor (--muted) sozinhos.
+const ICONE_PENA = `<svg viewBox="0 0 24 24" fill="none"><path d="M20.5 3.5c-4 .3-9.4 2-12.7 5.3C4.8 11.8 4 15.6 4 19c0 .3.2.5.5.5 3.4 0 7.2-.8 10.2-3.8 3.3-3.3 5-8.7 5.3-12.7a.5.5 0 0 0-.5-.5Z" stroke="currentColor" stroke-width="1.6" stroke-linejoin="round"/><path d="M13 11 4.5 19.5" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"/></svg>`;
+const ICONE_COFRINHO = `<svg viewBox="0 0 24 24" fill="none"><path d="M4 11.5c0-3.6 3.4-6.5 8-6.5s8 2.9 8 6.5c0 1.5-.6 2.9-1.6 4v2.3a1.2 1.2 0 0 1-1.2 1.2h-1.6a1.2 1.2 0 0 1-1.2-1.2V17c-.7.13-1.5.2-2.4.2s-1.7-.07-2.4-.2v.8a1.2 1.2 0 0 1-1.2 1.2H7.2A1.2 1.2 0 0 1 6 17.8v-1.9C4.7 14.9 4 13.3 4 11.5Z" stroke="currentColor" stroke-width="1.5" stroke-linejoin="round"/><circle cx="16.3" cy="10.8" r=".9" fill="currentColor" stroke="none"/><path d="M4 11h-1.6M9 5.4 8 3.3" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/></svg>`;
+const ICONE_LIVRO = `<svg viewBox="0 0 24 24" fill="none"><path d="M4 5.5c2.5-1.3 5.2-1.3 8 0 2.8-1.3 5.5-1.3 8 0v13c-2.5-1.3-5.2-1.3-8 0-2.8-1.3-5.5-1.3-8 0v-13Z" stroke="currentColor" stroke-width="1.5" stroke-linejoin="round"/><path d="M12 5.5v13" stroke="currentColor" stroke-width="1.5"/></svg>`;
+
+// Estado vazio com um desenho pequeno no estilo do tema, em vez de só
+// texto sozinho — deixa a tela menos "fria" quando ainda não tem nada.
+function estadoVazio(texto, icone) {
+  return `<div class="empty-state-wrap"><span class="empty-state-icone">${icone}</span><p class="empty-state">${texto}</p></div>`;
+}
+
 // Formata "AAAA-MM-DD" pra "dd/mm", só pro selinho da lista — bem curto,
 // pra não competir com o nome do lançamento.
 function formatarDataCurta(iso) {
@@ -1232,6 +1281,18 @@ function habilitarSwipe(ul) {
       const jaAberto = li.classList.contains("is-swiped");
       fecharTodosSwipes(ul, li);
       ativo = { li, startX: t.clientX, startY: t.clientY, dragging: false, jaAberto, ultimoDelta: jaAberto ? -LARGURA_ACOES_SWIPE : 0, vibrou: jaAberto };
+      // Toque e segura: atalho pro swipe, pra quem prefere não arrastar.
+      // Só dispara se o dedo ficar parado (sem virar um arrasto de verdade
+      // — ver cancelamento no touchmove logo abaixo).
+      if (!jaAberto) {
+        ativo.longPressTimer = setTimeout(() => {
+          if (!ativo || ativo.dragging) return;
+          vibrar(16);
+          li.classList.add("is-swiped");
+          const content = li.querySelector(".swipe-content");
+          if (content) content.style.transform = `translateX(-${LARGURA_ACOES_SWIPE}px)`;
+        }, 480);
+      }
     },
     { passive: true }
   );
@@ -1245,6 +1306,7 @@ function habilitarSwipe(ul) {
       const dy = t.clientY - ativo.startY;
       if (!ativo.dragging) {
         if (Math.abs(dx) < 8 && Math.abs(dy) < 8) return;
+        clearTimeout(ativo.longPressTimer); // virou arrasto de verdade — cancela o toque-e-segura
         if (Math.abs(dy) > Math.abs(dx)) {
           ativo = null; // gesto vertical — deixa a página rolar normalmente
           return;
@@ -1276,7 +1338,9 @@ function habilitarSwipe(ul) {
   );
 
   const finalizar = () => {
-    if (!ativo || !ativo.dragging) {
+    if (!ativo) return;
+    clearTimeout(ativo.longPressTimer);
+    if (!ativo.dragging) {
       ativo = null;
       return;
     }
@@ -1310,7 +1374,7 @@ function renderListaComStatus(ulId, lista, tipo, ops, tipoModal, statusKey, togg
   const ul = document.getElementById(ulId);
   ul.innerHTML = "";
   if (lista.length === 0) {
-    ul.innerHTML = `<p class="empty-state">Nada por aqui ainda. Adicione o primeiro item acima.</p>`;
+    ul.innerHTML = estadoVazio("Nada por aqui ainda. Adicione o primeiro item acima.", ICONE_PENA);
     return;
   }
   const ambos = isAmbos();
@@ -1351,12 +1415,36 @@ function renderListaComStatus(ulId, lista, tipo, ops, tipoModal, statusKey, togg
       });
       li.querySelector(".swipe-delete").addEventListener("click", () => {
         fecharSwipe(li);
-        abrirConfirmacao(`Remover "${item.nome}"? Essa ação não pode ser desfeita.`, () => ops.remove(idx));
+        abrirConfirmacao(`Remover "${item.nome}"? Dá pra desfazer logo em seguida.`, () =>
+          excluirComRiscoEDesfazer(li, ops, idx, item)
+        );
       });
     }
     ul.appendChild(li);
   });
   habilitarSwipe(ul);
+}
+
+// Risca o lançamento (efeito de caneta passando em cima, como quando se
+// erra uma linha num livro-caixa de papel) antes de tirá-lo de verdade da
+// lista, e depois oferece "Desfazer" por alguns segundos no toast. O item
+// só sai do state DE FATO depois da animação — até lá continua contando
+// nos totais normalmente, exatamente como se ainda não tivesse sido
+// excluído (porque, até esse instante, não foi).
+function excluirComRiscoEDesfazer(li, ops, idx, item) {
+  if (!li) {
+    ops.remove(idx);
+    return;
+  }
+  li.classList.add("is-riscando");
+  vibrar(14);
+  setTimeout(() => {
+    ops.remove(idx);
+    toastComAcao(`"${item.nome}" excluído`, "Desfazer", () => {
+      ops.restore(idx, item);
+      showToast("Restaurado");
+    });
+  }, 620);
 }
 
 // ---------------------------------------------------------------------
@@ -1392,6 +1480,25 @@ function dispararConfete() {
   setTimeout(() => container.remove(), 3200);
 }
 
+// Bate um carimbo "META BATIDA" no card da caixinha, junto com o confete —
+// mesma peça visual do carimbo de Pago/Recebido (ver carimbarLinha), só
+// que maior e centralizada no card, e ficando visível por mais tempo (a
+// comemoração merece um pouco mais de destaque que um toggle comum).
+function carimbarMetaBatida(card) {
+  if (!card) return;
+  const antigo = card.querySelector(".carimbo-meta");
+  if (antigo) antigo.remove();
+
+  const selo = document.createElement("span");
+  selo.className = "carimbo carimbo-meta";
+  selo.textContent = "Meta batida";
+  card.appendChild(selo);
+
+  requestAnimationFrame(() => selo.classList.add("is-batendo"));
+  setTimeout(() => selo.classList.add("is-sumindo"), 1900);
+  setTimeout(() => selo.remove(), 2350);
+}
+
 // ---------------------------------------------------------------------
 // RENDER — CAIXINHAS (inclui as antigas "Metas": toda caixinha pode ter um
 // objetivo opcional; sem objetivo definido, ela é só um cofrinho comum)
@@ -1403,7 +1510,7 @@ function renderCaixinhas() {
   if (wrap) {
     wrap.innerHTML = "";
     if (state.caixinhas.length === 0) {
-      wrap.innerHTML = `<p class="empty-state">Nenhuma caixinha ainda. Que tal criar uma?</p>`;
+      wrap.innerHTML = estadoVazio("Nenhuma caixinha ainda. Que tal criar uma?", ICONE_COFRINHO);
     } else {
       state.caixinhas.forEach((cx, idx) => {
         const guardado = Number(cx.valorGuardado) || 0;
@@ -1462,6 +1569,7 @@ function renderCaixinhas() {
         }
         if (cx._comemoraAoRenderizar) {
           dispararConfete();
+          carimbarMetaBatida(card);
           cx._comemoraAoRenderizar = false;
         }
         wrap.appendChild(card);
@@ -1476,7 +1584,7 @@ function renderCaixinhas() {
   if (!mini) return;
   mini.innerHTML = "";
   if (state.caixinhas.length === 0) {
-    mini.innerHTML = `<p class="empty-state">Crie uma caixinha na aba "Caixinhas".</p>`;
+    mini.innerHTML = estadoVazio('Crie uma caixinha na aba "Caixinhas".', ICONE_COFRINHO);
   } else {
     state.caixinhas.forEach((cx) => {
       const guardado = Number(cx.valorGuardado) || 0;
@@ -1528,7 +1636,7 @@ function renderRecentes() {
 
   ledger.innerHTML = "";
   if (todos.length === 0) {
-    ledger.innerHTML = `<p class="empty-state">Ainda não há lançamentos. Comece pela aba "Ganhos".</p>`;
+    ledger.innerHTML = estadoVazio('Ainda não há lançamentos. Comece pela aba "Ganhos".', ICONE_PENA);
     return;
   }
   todos.forEach((item) => {
@@ -2121,7 +2229,7 @@ function renderHistorico() {
   if (!wrap) return;
   const anos = (state.historico && state.historico.anos) || [];
   if (anos.length === 0) {
-    wrap.innerHTML = `<p class="empty-state">Nenhum mês fechado ainda. Feche o primeiro mês em "Ações em conjunto".</p>`;
+    wrap.innerHTML = estadoVazio('Nenhum mês fechado ainda. Feche o primeiro mês em "Ações em conjunto".', ICONE_LIVRO);
     return;
   }
   // mais recente primeiro: ano decrescente, e dentro do ano, mês decrescente
