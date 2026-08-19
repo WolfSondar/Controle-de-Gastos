@@ -921,7 +921,31 @@ function atualizarLinhaStatus(ulId, idx, ligado, rotuloOn, rotuloOff) {
       textoNode.textContent = ligado ? rotuloOn : rotuloOff;
     }
   }
+  // Só carimba ao MARCAR (pendente -> pago/recebido) — desmarcar não
+  // teria muito sentido com um carimbo de tinta batendo.
+  if (li && ligado) carimbarLinha(li, rotuloOn);
   return true;
+}
+
+// Bate um "carimbo" de tinta (ex: "PAGO", "RECEBIDO") na linha do
+// lançamento, imitando um livro-caixa de agência antiga sendo
+// carimbado — reforça a estética do tema sem depender de som.
+// CSS em melhorias.css (.carimbo / @keyframes carimboBater/Sumir).
+function carimbarLinha(li, rotulo) {
+  if (!li || !rotulo) return;
+  // Se já tinha um carimbo rodando nessa linha (toque duplo rápido),
+  // tira o antigo antes de colocar o novo, pra não empilhar.
+  const antigo = li.querySelector(".carimbo");
+  if (antigo) antigo.remove();
+
+  const selo = document.createElement("span");
+  selo.className = "carimbo";
+  selo.textContent = rotulo;
+  li.appendChild(selo);
+
+  requestAnimationFrame(() => selo.classList.add("is-batendo"));
+  setTimeout(() => selo.classList.add("is-sumindo"), 850);
+  setTimeout(() => selo.remove(), 1300);
 }
 
 // Depois de um toggle de status, só os totais e os widgets derivados
@@ -935,6 +959,7 @@ function renderDerivadosDeStatus() {
   renderRecentes();
   renderSplit();
   renderJuntosView();
+  atualizarCarrosselGraficos();
 }
 
 function togglePagoFixo(index) {
@@ -1643,6 +1668,72 @@ function renderAll() {
   renderRecentes();
   renderSplit();
   renderJuntosView();
+  atualizarCarrosselGraficos();
+}
+
+// ---------------------------------------------------------------------
+// CARROSSEL DOS GRÁFICOS (Divisão do casal / Visão geral / Categoria)
+// Os três cards de donut moram lado a lado dentro de #graficosCarousel
+// e se arrasta (swipe) entre eles — em vez de empilhados, economizando
+// espaço vertical. As bolinhas em #graficosDots refletem só os cards
+// que estão visíveis no momento (cada um liga/desliga "is-hidden"
+// sozinho conforme os dados, ver renderSplit/renderVisaoGeral/
+// renderCategorias) — por isso essa função recalcula a cada render.
+// ---------------------------------------------------------------------
+function atualizarCarrosselGraficos() {
+  const wrap = document.getElementById("graficosCarousel");
+  const dotsEl = document.getElementById("graficosDots");
+  if (!wrap || !dotsEl) return;
+
+  const cards = Array.from(wrap.children).filter((el) => !el.classList.contains("is-hidden"));
+
+  // Com 0 ou 1 gráfico visível não faz sentido mostrar bolinhas de página.
+  if (cards.length <= 1) {
+    dotsEl.classList.add("is-hidden");
+    dotsEl.innerHTML = "";
+    return;
+  }
+
+  dotsEl.classList.remove("is-hidden");
+  // Só reconstrói as bolinhas se a quantidade mudou (evita descartar o
+  // elemento .is-active à toa a cada render).
+  if (dotsEl.children.length !== cards.length) {
+    dotsEl.innerHTML = cards.map(() => `<span class="dot-item"></span>`).join("");
+  }
+
+  if (!wrap.dataset.carrosselPronto) {
+    wrap.dataset.carrosselPronto = "1";
+    let agendado = null;
+    wrap.addEventListener(
+      "scroll",
+      () => {
+        if (agendado) return;
+        agendado = requestAnimationFrame(() => {
+          agendado = null;
+          marcarDotAtivo(wrap, dotsEl);
+        });
+      },
+      { passive: true }
+    );
+  }
+  marcarDotAtivo(wrap, dotsEl);
+}
+
+function marcarDotAtivo(wrap, dotsEl) {
+  const cards = Array.from(wrap.children).filter((el) => !el.classList.contains("is-hidden"));
+  const dots = dotsEl.querySelectorAll(".dot-item");
+  if (!cards.length || !dots.length) return;
+  const centro = wrap.scrollLeft + wrap.clientWidth / 2;
+  let ativo = 0;
+  let menorDist = Infinity;
+  cards.forEach((card, i) => {
+    const dist = Math.abs(card.offsetLeft + card.offsetWidth / 2 - centro);
+    if (dist < menorDist) {
+      menorDist = dist;
+      ativo = i;
+    }
+  });
+  dots.forEach((d, i) => d.classList.toggle("is-active", i === ativo));
 }
 
 // ---------------------------------------------------------------------
@@ -2447,8 +2538,59 @@ function fecharAcoesConjunto() {
   });
 }
 FECHADORES_MODAL.acoesBackdrop = fecharAcoesConjunto;
-on("btnAcoesConjunto", "click", abrirAcoesConjunto);
+on("btnAcoesConjunto", "click", () => {
+  esconderDicaAcoesConjunto();
+  abrirAcoesConjunto();
+});
 on("acoesFechar", "click", fecharAcoesConjunto);
+
+// ---------------------------------------------------------------------
+// DICA de primeira vez no botão "Ações em conjunto" — o ícone sozinho
+// (setas trocando) é pouco óbvio de primeira, então mostra um balãozinho
+// explicando uma vez só. Guarda em localStorage por ser só uma marquinha
+// de UI (não é dado de verdade, então não precisa da robustez do
+// IndexedDB/fila offline que os lançamentos usam).
+// ---------------------------------------------------------------------
+const CHAVE_DICA_ACOES = "caixa-dica-acoes-conjunto-vista";
+
+function jaViuDicaAcoesConjunto() {
+  try {
+    return localStorage.getItem(CHAVE_DICA_ACOES) === "1";
+  } catch {
+    return false; // sem localStorage disponível: melhor não incomodar, assume que já viu
+  }
+}
+
+function esconderDicaAcoesConjunto() {
+  const tip = document.getElementById("acoesConjuntoTip");
+  if (tip) {
+    tip.classList.remove("is-visivel");
+    setTimeout(() => tip.classList.add("is-hidden"), 250);
+  }
+  try {
+    localStorage.setItem(CHAVE_DICA_ACOES, "1");
+  } catch {
+    // sem problema — na pior das hipóteses a dica aparece de novo na próxima visita
+  }
+}
+
+function mostrarDicaAcoesConjuntoSeNecessario() {
+  if (jaViuDicaAcoesConjunto()) return;
+  const tip = document.getElementById("acoesConjuntoTip");
+  if (!tip) return;
+  tip.classList.remove("is-hidden");
+  requestAnimationFrame(() => requestAnimationFrame(() => tip.classList.add("is-visivel")));
+  // Some sozinha depois de um tempo, mesmo se o usuário não tocar em nada.
+  setTimeout(esconderDicaAcoesConjunto, 6000);
+  // Qualquer toque fora do botão também dispensa a dica.
+  document.addEventListener(
+    "pointerdown",
+    (e) => {
+      if (!e.target.closest("#btnAcoesConjunto")) esconderDicaAcoesConjunto();
+    },
+    { once: true }
+  );
+}
 if (acoesBackdrop) {
   acoesBackdrop.addEventListener("click", (e) => {
     if (e.target === acoesBackdrop) fecharAcoesConjunto();
@@ -2715,6 +2857,8 @@ initGavetas();
 aplicarMascaraMoedaEmTodos();
 posicionarIndicadorAba();
 carregarDados();
+// Espera um instante pra não competir com a animação de entrada da tela.
+setTimeout(mostrarDicaAcoesConjuntoSeNecessario, 1200);
 atualizarIndicadorOffline().then((n) => {
   if (n > 0) flushFilaOffline(); // já tinha pendência de uma sessão offline anterior — tenta mandar já
 });
