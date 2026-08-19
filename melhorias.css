@@ -196,3 +196,190 @@
   background: var(--ink, #16332c);
   transform: rotate(45deg);
 }
+
+/* ----------------------------------------------------------
+   CARIMBO "META BATIDA" — mesma peça do carimbo de Pago/
+   Recebido acima, só que maior e centralizada no card da
+   caixinha, pra acompanhar o confete quando uma meta é batida.
+   ---------------------------------------------------------- */
+.goal-card {
+  position: relative;
+}
+
+.carimbo-meta {
+  top: 50%;
+  left: 50%;
+  right: auto;
+  transform: translate(-50%, -50%) rotate(-10deg) scale(2.6);
+  font-size: 15px;
+  padding: 5px 14px 4px;
+}
+
+.carimbo-meta.is-batendo {
+  animation-name: carimboMetaBater;
+}
+
+.carimbo-meta.is-sumindo {
+  animation-name: carimboMetaSumir;
+}
+
+@keyframes carimboMetaBater {
+  0% {
+    opacity: 0;
+    transform: translate(-50%, -50%) rotate(-10deg) scale(3);
+  }
+  55% {
+    opacity: 1;
+    transform: translate(-50%, -50%) rotate(-6deg) scale(0.9);
+  }
+  72% {
+    transform: translate(-50%, -50%) rotate(-8deg) scale(1.06);
+  }
+  100% {
+    opacity: 1;
+    transform: translate(-50%, -50%) rotate(-7deg) scale(1);
+  }
+}
+
+@keyframes carimboMetaSumir {
+  from {
+    opacity: 1;
+    transform: translate(-50%, -50%) rotate(-7deg) scale(1);
+  }
+  to {
+    opacity: 0;
+    transform: translate(-50%, -50%) rotate(-7deg) scale(1);
+  }
+}
+
+/* ----------------------------------------------------------
+   RISCO DE CANETA ao excluir — a linha do lançamento ganha um
+   traço atravessando o texto (feito com uma pseudo-borda que
+   "cresce" da esquerda pra direita) antes de sumir de vez,
+   como riscar uma linha errada num livro-caixa de papel.
+   ---------------------------------------------------------- */
+.item-list-row.is-riscando {
+  pointer-events: none;
+}
+
+.item-list-row.is-riscando .item-nome,
+.item-list-row.is-riscando .item-valor {
+  position: relative;
+  color: var(--muted, #7a6f58);
+  transition: color 0.5s ease;
+}
+
+.item-list-row.is-riscando .item-nome::after,
+.item-list-row.is-riscando .item-valor::after {
+  content: "";
+  position: absolute;
+  left: 0;
+  top: 50%;
+  height: 1.5px;
+  width: 0%;
+  background: var(--expense, #a8482e);
+  animation: riscarCaneta 0.5s ease forwards;
+}
+
+.item-list-row.is-riscando .swipe-content {
+  animation: riscarSumir 0.22s ease forwards;
+  animation-delay: 0.4s;
+}
+
+@keyframes riscarCaneta {
+  from {
+    width: 0%;
+  }
+  to {
+    width: 100%;
+  }
+}
+
+@keyframes riscarSumir {
+  from {
+    opacity: 1;
+  }
+  to {
+    opacity: 0;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .item-list-row.is-riscando .item-nome::after,
+  .item-list-row.is-riscando .item-valor::after {
+    animation: none;
+    width: 100%;
+  }
+  .item-list-row.is-riscando .swipe-content {
+    animation: none;
+    opacity: 0.4;
+  }
+}
+
+/* ----------------------------------------------------------
+   TOAST com botão de ação (ex: "Desfazer") — o #toast original
+   só tinha texto; isso adiciona o layout pro botão sem mudar o
+   comportamento das chamadas simples de showToast(msg).
+   ---------------------------------------------------------- */
+.toast {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.toast-msg {
+  flex: 1;
+  min-width: 0;
+}
+
+.toast-acao {
+  flex: none;
+  background: none;
+  border: none;
+  color: var(--gold, #b9862f);
+  font-family: var(--font-body, sans-serif);
+  font-weight: 700;
+  font-size: 13px;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  padding: 4px 2px;
+  cursor: pointer;
+}
+
+.toast-acao:active {
+  opacity: 0.7;
+}
+
+/* ----------------------------------------------------------
+   ESTADOS VAZIOS ILUSTRADOS — um desenho pequeno no estilo do
+   tema (pena de escrever / cofrinho / livro) acompanhando o
+   texto, em vez de só texto sozinho.
+   ---------------------------------------------------------- */
+.empty-state-wrap {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  text-align: center;
+  gap: 10px;
+  padding: 22px 12px;
+}
+
+.empty-state-wrap .empty-state {
+  margin: 0;
+}
+
+.empty-state-icone {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 44px;
+  height: 44px;
+  border-radius: 50%;
+  background: var(--tag-bg, rgba(36, 28, 18, 0.07));
+  color: var(--muted, #7a6f58);
+}
+
+.empty-state-icone svg {
+  width: 22px;
+  height: 22px;
+}
