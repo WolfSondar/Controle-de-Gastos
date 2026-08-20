@@ -311,10 +311,20 @@
       <div class="goal-list" id="listaCaixinhas"></div>
     </section>
 
-    <!-- HISTÓRICO -->
+   <!-- HISTÓRICO -->
     <section class="tab-panel is-hidden" id="tab-historico" data-tab="historico">
-      <h2 class="section-title">Histórico</h2>
-      <p class="section-hint">Meses já fechados, com o saldo de cada um.</p>
+      <div class="section-header-row">
+        <div>
+          <h2 class="section-title">Histórico</h2>
+          <p class="section-hint">Comparativo de gastos por ano e meses já fechados.</p>
+        </div>
+      </div>
+
+      <div id="historicoGraficoComparativo"></div>
+
+      <div class="historico-controles" id="historicoControles" style="display: none;">
+        <select id="historicoAnoSelect" aria-label="Ano do histórico"></select>
+      </div>
 
       <div class="historico-lista" id="historicoLista">
         <p class="empty-state">Carregando histórico…</p>
