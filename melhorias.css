@@ -119,6 +119,12 @@
   scroll-snap-align: center;
   scroll-snap-stop: always;
   min-width: 0;
+  transform-origin: center;
+  /* opacity/transform são atualizados a cada frame durante o arrasto (ver
+     marcarDotAtivo em app.js); essa transição curta só suaviza o
+     "acerto final" quando o scroll-snap termina de encaixar o card. */
+  transition: transform 0.18s ease, opacity 0.18s ease;
+  will-change: transform, opacity;
 }
 
 .graficos-carousel > .split-card.is-hidden {
@@ -148,6 +154,14 @@
 .graficos-dots .dot-item.is-active {
   background: var(--gold, #b9862f);
   transform: scale(1.4);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .graficos-carousel > .split-card {
+    transition: none;
+    opacity: 1 !important;
+    transform: none !important;
+  }
 }
 
 /* ----------------------------------------------------------
@@ -313,6 +327,36 @@
   .item-list-row.is-riscando .swipe-content {
     animation: none;
     opacity: 0.4;
+  }
+}
+
+/* ----------------------------------------------------------
+   ENCOLHER antes de remover — depois do risco de caneta, a
+   linha encolhe de altura suavemente até sumir de vez, em vez
+   de só desaparecer de repente quando a lista é reconstruída.
+   Ver recolherERemover() em app.js.
+   ---------------------------------------------------------- */
+.item-list-row.is-recolhendo {
+  transition: height 0.26s cubic-bezier(0.4, 0, 0.2, 1), border-color 0.26s ease;
+  border-bottom-color: transparent;
+}
+.item-list-row.is-recolhendo .swipe-content,
+.item-list-row.is-recolhendo .swipe-actions {
+  transition: none; /* já tinham suas próprias transições/animações; aqui só queremos travar como estão */
+}
+
+/* Suprime a animação de entrada (item-entrar, em style.css) das linhas
+   que já estavam na tela — usada só no render que vem logo depois de uma
+   exclusão, pra elas não "piscarem" de novo por causa da reconstrução da
+   lista, já que só a linha excluída de fato mudou. Ver
+   suprimirEntradaNoProximoRenderAll em app.js. */
+body.sem-entrada-listas .item-list-row {
+  animation: none !important;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .item-list-row.is-recolhendo {
+    transition: none;
   }
 }
 
