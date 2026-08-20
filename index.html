@@ -374,6 +374,11 @@
     <form id="formEditar">
       <input type="text" id="editNome" placeholder="Descrição" required maxlength="60" />
       <input type="text" id="editValor" placeholder="0,00" inputmode="decimal" autocomplete="off" required />
+      <select id="editCategoria" class="input-categoria is-hidden" aria-label="Categoria">
+        <option value="">Categoria (opcional)</option>
+      </select>
+      <input type="date" id="editData" class="is-hidden" aria-label="Data" />
+      <input type="text" id="editParcela" class="input-parcela is-hidden" placeholder="Parcela (ex: 2/10) — deixe vazio se à vista" maxlength="10" />
       <div class="modal-actions">
         <button type="button" class="btn btn-ghost" id="editCancelar">Cancelar</button>
         <button type="submit" class="btn btn-gold">Salvar</button>
