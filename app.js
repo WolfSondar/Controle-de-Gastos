@@ -1686,9 +1686,10 @@ function renderHistoricoSkeleton() {
       </div>`).join("");
 }
 
-// Novo Gráfico comparativo de Ganhos x Gastos x Guardado no histórico
+// Novo Gráfico comparativo com LINHAS CURVAS SUAVES
 function construirGraficoHistoricoMultiSvg(mesesAsc, pessoa) {
-  const W = 320, H = 150, padL = 10, padR = 10, padT = 16, padB = 24;
+  // Ajustes de altura e padding para evitar o "esmagamento" dos textos
+  const W = 320, H = 160, padL = 14, padR = 14, padT = 16, padB = 28;
 
   const getVal = (m, campo) => {
     if (pessoa === 'ambos') return (m[`${campo}Davi`] || 0) + (m[`${campo}Gabriel`] || 0);
@@ -1703,28 +1704,51 @@ function construirGraficoHistoricoMultiSvg(mesesAsc, pessoa) {
   const todos = [...ptsGanhos, ...ptsDebitos, ...ptsGuardado];
   let min = Math.min(0, ...todos);
   let max = Math.max(0, ...todos);
-  if (min === max) max = min + 1;
+  if (min === max) max = min + 1; // evita divisão por 0 se tudo for igual
+
+  // Adiciona 5% de margem no topo e no fundo para os picos e vales não baterem nas bordas
+  const amplitude = max - min;
+  min -= amplitude * 0.05;
+  max += amplitude * 0.15; // Mais espaço no topo pro gráfico respirar
 
   const n = mesesAsc.length;
   const passoX = n > 1 ? (W - padL - padR) / (n - 1) : 0;
   const x = (i) => n === 1 ? W / 2 : padL + i * passoX;
   const y = (v) => padT + (H - padT - padB) * (1 - (v - min) / (max - min));
 
-  const caminho = (pts) => pts.map((v, i) => `${i === 0 ? "M" : "L"}${x(i).toFixed(1)},${y(v).toFixed(1)}`).join(" ");
-  const pontosSvg = (pts, cor) => pts.map((v, i) => `<circle cx="${x(i).toFixed(1)}" cy="${y(v).toFixed(1)}" r="3" fill="${cor}" stroke="var(--paper-deep)" stroke-width="1.5" />`).join("");
-  const rotulos = mesesAsc.map((m, i) => `<text x="${x(i).toFixed(1)}" y="${H - 6}" font-size="9.5" text-anchor="middle" fill="var(--muted)">${escapeHtml((m.nome || "").slice(0, 3))}</text>`).join("");
+  // A mágica que transforma linhas retas zigue-zague em curvas suaves perfeitas
+  const caminhoSuave = (pts) => {
+    if (pts.length === 0) return "";
+    if (pts.length === 1) return `M${x(0).toFixed(1)},${y(pts[0]).toFixed(1)}`;
+    let d = `M${x(0).toFixed(1)},${y(pts[0]).toFixed(1)}`;
+    for (let i = 0; i < pts.length - 1; i++) {
+      const cpX = (x(i) + x(i + 1)) / 2; // Ponto de controle central
+      d += ` C${cpX.toFixed(1)},${y(pts[i]).toFixed(1)} ${cpX.toFixed(1)},${y(pts[i + 1]).toFixed(1)} ${x(i + 1).toFixed(1)},${y(pts[i + 1]).toFixed(1)}`;
+    }
+    return d;
+  };
+
+  const pontosSvg = (pts, cor) => pts.map((v, i) => `<circle cx="${x(i).toFixed(1)}" cy="${y(v).toFixed(1)}" r="3.5" fill="${cor}" stroke="var(--paper-deep)" stroke-width="2" />`).join("");
+  const rotulos = mesesAsc.map((m, i) => `<text x="${x(i).toFixed(1)}" y="${H - 8}" font-size="9" text-anchor="middle" font-family="var(--font-mono)" font-weight="600" fill="var(--muted)">${escapeHtml((m.nome || "").slice(0, 3).toUpperCase())}</text>`).join("");
   const linhaZero = y(0).toFixed(1);
 
   return `
     <div class="historico-grafico-wrap">
       <svg class="historico-grafico" viewBox="0 0 ${W} ${H}" preserveAspectRatio="none" role="img" aria-label="Evolução de ganhos, gastos e guardado">
-        <line x1="${padL}" y1="${linhaZero}" x2="${W - padR}" y2="${linhaZero}" stroke="var(--line)" stroke-width="1" stroke-dasharray="4,4" />
-        <path d="${caminho(ptsGanhos)}" fill="none" stroke="var(--income)" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" />
-        <path d="${caminho(ptsDebitos)}" fill="none" stroke="var(--expense)" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" />
-        <path d="${caminho(ptsGuardado)}" fill="none" stroke="var(--gold)" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" stroke-dasharray="4,4" />
+        <!-- Linha base pontilhada indicando o eixo zero (ou a base visual) -->
+        <line x1="${padL}" y1="${linhaZero}" x2="${W - padR}" y2="${linhaZero}" stroke="var(--line)" stroke-width="1.5" stroke-dasharray="4,4" />
+        
+        <!-- Curvas SVG -->
+        <path d="${caminhoSuave(ptsGanhos)}" fill="none" stroke="var(--income)" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" />
+        <path d="${caminhoSuave(ptsDebitos)}" fill="none" stroke="var(--expense)" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" />
+        <path d="${caminhoSuave(ptsGuardado)}" fill="none" stroke="var(--gold)" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" stroke-dasharray="6,4" />
+        
+        <!-- Pontos em cima das curvas -->
         ${pontosSvg(ptsGanhos, "var(--income)")}
         ${pontosSvg(ptsDebitos, "var(--expense)")}
         ${pontosSvg(ptsGuardado, "var(--gold)")}
+        
+        <!-- Rótulos (JAN, FEV...) -->
         ${rotulos}
       </svg>
       <div class="historico-grafico-legenda">
