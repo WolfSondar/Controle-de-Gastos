@@ -565,3 +565,40 @@ body.sem-entrada-listas .item-list-row { animation: none !important; }
   .acao-card:hover { border-color: var(--gold); }
   .transferir-direcao .icon-btn:hover { background: var(--line-soft); }
 }
+
+/* ==========================================================
+   CORREÇÃO DA LEGENDA E HOVER NO GRÁFICO
+   ========================================================== */
+
+/* Arruma os itens da legenda e centraliza */
+.legenda-item { 
+  display: inline-flex; 
+  align-items: center; 
+  gap: 6px; 
+  font-size: 13.5px; 
+  font-weight: 500; 
+  color: var(--ink-text); 
+}
+
+/* Cria fisicamente a bolinha de cor da legenda */
+.legenda-dot { 
+  width: 10px; 
+  height: 10px; 
+  border-radius: 50%; 
+  display: inline-block; 
+  flex-shrink: 0;
+}
+
+/* Efeito de hover (mouse em cima) das bolinhas no gráfico SVG */
+.grafico-ponto-group { 
+  cursor: pointer; 
+}
+.grafico-ponto-group circle { 
+  transition: r 0.15s ease, stroke-width 0.15s ease; 
+}
+
+/* Aumenta a bolinha quando passa o mouse por cima */
+.grafico-ponto-group:hover circle { 
+  r: 6.5px; 
+  stroke-width: 3px; 
+}
