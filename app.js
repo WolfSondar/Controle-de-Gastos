@@ -2229,6 +2229,40 @@ function escapeHtml(str) {
 // HISTÓRICO — meses já fechados, com o saldo individual de cada pessoa
 // ---------------------------------------------------------------------
 
+async function getCacheHistorico() {
+  return idbGet(IDB_LOJA_CACHE, CACHE_PREFIX + "historico");
+}
+async function setCacheHistorico(data) {
+  return idbSet(IDB_LOJA_CACHE, CACHE_PREFIX + "historico", { anos: data.anos || [] });
+}
+
+async function carregarHistorico() {
+  const cache = await getCacheHistorico();
+  if (cache) {
+    state.historico = cache;
+    renderHistorico();
+  } else {
+    renderHistoricoSkeleton();
+  }
+  if (!API_URL || API_URL.includes("COLE_AQUI")) return;
+  try {
+    const res = await fetch(`${API_URL}?pessoa=historico`);
+    const data = await res.json();
+    if (data && data.ok === false) throw new Error(data.error || "Erro desconhecido");
+    state.historico = data;
+    if (data.mesAtual) state.mesAtual = data.mesAtual;
+    if (data.anoAtual) state.anoAtual = data.anoAtual;
+    renderMesAtual();
+    setCacheHistorico(data);
+    renderHistorico();
+  } catch (err) {
+    if (!cache) {
+      const wrap = document.getElementById("historicoLista");
+      if (wrap) wrap.innerHTML = `<p class="empty-state">Não consegui carregar o histórico agora.</p>`;
+    }
+  }
+}
+
 function getValoresMes(m) {
   if (state.pessoaAtual === "davi") {
     return { ganhos: m.ganhosDavi, debitos: m.debitosDavi, guardado: m.guardadoDavi, saldo: m.saldoDavi };
