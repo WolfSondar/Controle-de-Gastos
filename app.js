@@ -2516,7 +2516,7 @@ if ("serviceWorker" in navigator) {
 }
 
 // =====================================================================
-// LÓGICA DO TOOLTIP CONSOLIDADO POR MÊS
+// LÓGICA DO TOOLTIP CONSOLIDADO (BORDAS INTELIGENTES E EFEITO DESLIZAR)
 // =====================================================================
 let chartTooltip = null;
 
@@ -2533,13 +2533,11 @@ function initChartTooltip() {
   };
 
   const mostrarTooltip = (grupo) => {
-    // Pega os dados que guardamos na tag <g>
     const mes = grupo.dataset.mes;
     const ganhos = grupo.dataset.ganhos;
     const gastos = grupo.dataset.gastos;
     const guardado = grupo.dataset.guardado;
 
-    // Monta o visual interno do balão
     chartTooltip.innerHTML = `
       <div class="tooltip-titulo">${mes}</div>
       <div class="tooltip-linha"><span style="color: #8fd4ab">Ganhos</span> <span class="valor">${ganhos}</span></div>
@@ -2547,19 +2545,35 @@ function initChartTooltip() {
       <div class="tooltip-linha"><span style="color: #e3c581">Guardado</span> <span class="valor">${guardado}</span></div>
     `;
 
-    // Calcula a posição (fica fixo na altura do gráfico pra não pular)
+    // Deixa visível primeiro para o navegador calcular a largura da caixinha
+    chartTooltip.classList.add("is-visible");
+
     const rect = grupo.querySelector('.hover-area').getBoundingClientRect();
     const svgRect = grupo.closest('svg').getBoundingClientRect();
     
-    chartTooltip.style.left = (rect.left + rect.width / 2 + window.scrollX) + "px";
-    chartTooltip.style.top = (svgRect.top + window.scrollY - 10) + "px"; // Flutuando no topo do gráfico
+    // Mede a largura real do tooltip na tela
+    const tooltipWidth = chartTooltip.offsetWidth;
     
-    // Marca o grupo atual como ativo
+    // Calcula o centro perfeito onde o tooltip DEVERIA ficar
+    let centerLeft = rect.left + (rect.width / 2);
+    
+    // LÓGICA ANTI-BORDA: Define limites mínimos e máximos com 14px de margem de respiro
+    const margin = 14;
+    const minCenter = (tooltipWidth / 2) + margin;
+    const maxCenter = window.innerWidth - (tooltipWidth / 2) - margin;
+    
+    // Prende o valor de centro dentro dos limites da tela
+    centerLeft = Math.max(minCenter, Math.min(centerLeft, maxCenter));
+    
+    // Aplica a posição protegida
+    chartTooltip.style.left = (centerLeft + window.scrollX) + "px";
+    chartTooltip.style.top = (svgRect.top + window.scrollY - 10) + "px";
+    
     document.querySelectorAll(".mes-hover-group.is-active").forEach(el => el.classList.remove("is-active"));
     grupo.classList.add("is-active");
-    chartTooltip.classList.add("is-visible");
   };
 
+  // 1. Mouse (Computador)
   document.body.addEventListener("mouseover", (e) => {
     const grupo = e.target.closest(".mes-hover-group");
     if (grupo) mostrarTooltip(grupo);
@@ -2569,15 +2583,34 @@ function initChartTooltip() {
     if (e.target.closest(".mes-hover-group")) esconderTooltip();
   });
 
+  // 2. Toque no Celular (Fica fixo até tocar em outro lugar)
   document.body.addEventListener("touchstart", (e) => {
     const grupo = e.target.closest(".mes-hover-group");
     if (grupo) {
       mostrarTooltip(grupo);
-      setTimeout(esconderTooltip, 3000);
-    } else {
+    } else if (!e.target.closest(".grafico-tooltip")) {
+      // Se tocar no fundo do site (fora do gráfico), esconde
       esconderTooltip(); 
+    }
+  }, { passive: true });
+
+  // 3. Deslizar o Dedo no Celular (Scrubbing Mágico)
+  document.body.addEventListener("touchmove", (e) => {
+    const wrap = e.target.closest(".historico-grafico-wrap");
+    if (wrap) {
+      const touch = e.touches[0];
+      // Escaneia a tela em tempo real pra ver qual mês está embaixo do dedo agora
+      const el = document.elementFromPoint(touch.clientX, touch.clientY);
+      const grupo = el ? el.closest(".mes-hover-group") : null;
+      if (grupo) {
+        mostrarTooltip(grupo);
+      }
     }
   }, { passive: true });
 }
 
-initChartTooltip();
+// Inicializa! (Limpando execuções duplicadas caso você recarregue a página)
+if (!document.body.dataset.tooltipInit) {
+  initChartTooltip();
+  document.body.dataset.tooltipInit = "1";
+}
