@@ -1937,8 +1937,11 @@ function marcarDotAtivo(wrap, dotsEl) {
 
 // ---------------------------------------------------------------------
 // RENDER — GASTOS POR CATEGORIA (resumo): donut com a fatia de cada
-// categoria (campo TIPO) nos gastos já pagos (fixos + variáveis, sem
-// contar os lançamentos automáticos "Guardado: ..." de caixinha).
+// categoria (campo TIPO) nos gastos já pagos (fixos + variáveis) —
+// inclui os lançamentos automáticos "Guardado: ..." de caixinha, que
+// nascem com tipo "Metas" (ver guardarNaCaixinha) exatamente pra
+// aparecer aqui. Diferente da Visão Geral, aqui não há risco de contar
+// em dobro, porque este gráfico não tem uma fatia "Guardado" à parte.
 // ---------------------------------------------------------------------
 
 const PALETA_CATEGORIAS = [
@@ -1955,7 +1958,7 @@ function renderCategorias() {
 
   const gastos = [
     ...state.gastosFixos.filter(fixoEhPago),
-    ...state.gastosVariaveis.filter(variavelEhPago).filter((i) => !ehLancamentoDeCaixinha(i.nome)),
+    ...state.gastosVariaveis.filter(variavelEhPago),
   ];
 
   const porCategoria = {};
