@@ -940,61 +940,84 @@ function fecharTodosSwipes(ul, exceto) {
   });
 }
 
+// Lógica de "Arrastar" reformulada para suportar Touch (Celular) e Mouse (PC)
 function habilitarSwipe(ul) {
   if (!ul || ul._swipeAtivado) return;
   ul._swipeAtivado = true;
   let ativo = null;
 
-  ul.addEventListener("touchstart", (e) => {
-      const li = e.target.closest(".item-list-row");
-      if (!li || e.target.closest(".swipe-actions")) return;
-      const t = e.touches[0];
-      const jaAberto = li.classList.contains("is-swiped");
-      fecharTodosSwipes(ul, li);
-      ativo = { li, startX: t.clientX, startY: t.clientY, dragging: false, jaAberto, ultimoDelta: jaAberto ? -LARGURA_ACOES_SWIPE : 0, vibrou: jaAberto };
-      if (!jaAberto) {
-        ativo.longPressTimer = setTimeout(() => {
-          if (!ativo || ativo.dragging) return;
-          vibrar(16);
-          li.classList.add("is-swiped");
-          const content = li.querySelector(".swipe-content");
-          if (content) content.style.transform = `translateX(-${LARGURA_ACOES_SWIPE}px)`;
-        }, 480);
-      }
-    }, { passive: true }
-  );
+  const iniciar = (e) => {
+    const li = e.target.closest(".item-list-row");
+    // Ignora se estiver clicando nos botões ou checkboxes
+    if (!li || e.target.closest(".swipe-actions") || e.target.tagName === 'INPUT' || e.target.tagName === 'BUTTON') return;
+    
+    // Captura a posição seja pelo Mouse ou Dedo
+    const clientX = e.type.includes('mouse') ? e.clientX : e.touches[0].clientX;
+    const clientY = e.type.includes('mouse') ? e.clientY : e.touches[0].clientY;
+    
+    const jaAberto = li.classList.contains("is-swiped");
+    fecharTodosSwipes(ul, li);
+    
+    ativo = { 
+      li, 
+      startX: clientX, 
+      startY: clientY, 
+      dragging: false, 
+      jaAberto, 
+      ultimoDelta: jaAberto ? -LARGURA_ACOES_SWIPE : 0, 
+      vibrou: jaAberto 
+    };
+    
+    if (!jaAberto) {
+      ativo.longPressTimer = setTimeout(() => {
+        if (!ativo || ativo.dragging) return;
+        vibrar(16);
+        li.classList.add("is-swiped");
+        const content = li.querySelector(".swipe-content");
+        if (content) content.style.transform = `translateX(-${LARGURA_ACOES_SWIPE}px)`;
+      }, 480);
+    }
+  };
 
-  ul.addEventListener("touchmove", (e) => {
-      if (!ativo) return;
-      const t = e.touches[0];
-      const dx = t.clientX - ativo.startX;
-      const dy = t.clientY - ativo.startY;
-      if (!ativo.dragging) {
-        if (Math.abs(dx) < 8 && Math.abs(dy) < 8) return;
-        clearTimeout(ativo.longPressTimer); 
-        if (Math.abs(dy) > Math.abs(dx)) {
-          ativo = null; 
-          return;
-        }
-        ativo.dragging = true;
+  const mover = (e) => {
+    if (!ativo) return;
+    const clientX = e.type.includes('mouse') ? e.clientX : e.touches[0].clientX;
+    const clientY = e.type.includes('mouse') ? e.clientY : e.touches[0].clientY;
+    
+    const dx = clientX - ativo.startX;
+    const dy = clientY - ativo.startY;
+    
+    if (!ativo.dragging) {
+      // Pequena margem pra evitar ativar o arrasto atoa
+      if (Math.abs(dx) < 8 && Math.abs(dy) < 8) return;
+      clearTimeout(ativo.longPressTimer); 
+      if (Math.abs(dy) > Math.abs(dx)) {
+        ativo = null; // Scrollando para baixo, cancela o swipe
+        return;
       }
-      const base = ativo.jaAberto ? -LARGURA_ACOES_SWIPE : 0;
-      const novo = Math.max(-LARGURA_ACOES_SWIPE, Math.min(0, base + dx));
-      const content = ativo.li.querySelector(".swipe-content");
-      if (content) {
-        content.style.transition = "none";
-        content.style.transform = `translateX(${novo}px)`;
-      }
-      const cruzouLimiar = novo <= -LIMIAR_ABRIR_SWIPE;
-      if (cruzouLimiar && !ativo.vibrou) {
-        vibrar();
-        ativo.vibrou = true;
-      } else if (!cruzouLimiar) {
-        ativo.vibrou = false;
-      }
-      ativo.ultimoDelta = novo;
-    }, { passive: true }
-  );
+      ativo.dragging = true;
+    }
+    
+    // Evita selecionar o texto da página ao arrastar com o mouse
+    if (ativo.dragging && e.cancelable) e.preventDefault(); 
+    
+    const base = ativo.jaAberto ? -LARGURA_ACOES_SWIPE : 0;
+    const novo = Math.max(-LARGURA_ACOES_SWIPE, Math.min(0, base + dx));
+    const content = ativo.li.querySelector(".swipe-content");
+    if (content) {
+      content.style.transition = "none";
+      content.style.transform = `translateX(${novo}px)`;
+    }
+    
+    const cruzouLimiar = novo <= -LIMIAR_ABRIR_SWIPE;
+    if (cruzouLimiar && !ativo.vibrou) {
+      vibrar();
+      ativo.vibrou = true;
+    } else if (!cruzouLimiar) {
+      ativo.vibrou = false;
+    }
+    ativo.ultimoDelta = novo;
+  };
 
   const finalizar = () => {
     if (!ativo) return;
@@ -1010,8 +1033,17 @@ function habilitarSwipe(ul) {
     if (content) content.style.transform = abrir ? `translateX(-${LARGURA_ACOES_SWIPE}px)` : "";
     ativo = null;
   };
+
+  // Eventos de Touch (Celular)
+  ul.addEventListener("touchstart", iniciar, { passive: true });
+  ul.addEventListener("touchmove", mover, { passive: false });
   ul.addEventListener("touchend", finalizar);
   ul.addEventListener("touchcancel", finalizar);
+
+  // Eventos de Mouse (PC)
+  ul.addEventListener("mousedown", iniciar);
+  ul.addEventListener("mousemove", mover);
+  window.addEventListener("mouseup", finalizar); // No window para não bugar se soltar fora
 }
 
 document.addEventListener("touchstart", (e) => {
@@ -1020,6 +1052,13 @@ document.addEventListener("touchstart", (e) => {
     });
   }, { passive: true }
 );
+
+// Adicione este bloco para fazer o mesmo com o clique no PC:
+document.addEventListener("mousedown", (e) => {
+  document.querySelectorAll(".item-list").forEach((ul) => {
+    if (!e.target.closest(`#${ul.id}`)) fecharTodosSwipes(ul);
+  });
+});
 
 function renderListaComStatus(ulId, lista, tipo, ops, tipoModal, statusKey, toggleFn, rotuloOn, rotuloOff) {
   const ul = document.getElementById(ulId);
@@ -1370,6 +1409,7 @@ function renderAll() {
   if (suprimirEntrada) requestAnimationFrame(() => document.body.classList.remove("sem-entrada-listas"));
 }
 
+// Função atualizada para suportar clique e arrasto no PC
 function atualizarCarrosselGraficos() {
   const wrap = document.getElementById("graficosCarousel");
   const dotsEl = document.getElementById("graficosDots");
@@ -1384,12 +1424,26 @@ function atualizarCarrosselGraficos() {
   }
 
   dotsEl.classList.remove("is-hidden");
+  
+  // Cria os pontos e adiciona evento de clique para o PC
   if (dotsEl.children.length !== cards.length) {
-    dotsEl.innerHTML = cards.map(() => `<span class="dot-item"></span>`).join("");
+    dotsEl.innerHTML = cards.map((_, i) => `<span class="dot-item" style="cursor:pointer;" data-index="${i}"></span>`).join("");
+    
+    dotsEl.querySelectorAll('.dot-item').forEach((dot, index) => {
+      dot.addEventListener('click', () => {
+        const targetCard = cards[index];
+        wrap.scrollTo({
+          left: targetCard.offsetLeft - wrap.offsetLeft,
+          behavior: 'smooth'
+        });
+      });
+    });
   }
 
   if (!wrap.dataset.carrosselPronto) {
     wrap.dataset.carrosselPronto = "1";
+    
+    // Sincroniza a bolinha ativa ao rolar
     let agendado = null;
     wrap.addEventListener("scroll", () => {
         if (agendado) return;
@@ -1399,7 +1453,35 @@ function atualizarCarrosselGraficos() {
         });
       }, { passive: true }
     );
+
+    // Permite "Arrastar e Soltar" (Drag-to-scroll) com o mouse no PC
+    let isDown = false;
+    let startX;
+    let scrollLeft;
+    
+    wrap.addEventListener('mousedown', (e) => {
+      isDown = true;
+      startX = e.pageX - wrap.offsetLeft;
+      scrollLeft = wrap.scrollLeft;
+      wrap.style.cursor = 'grabbing'; // Muda o ponteiro do mouse
+    });
+    wrap.addEventListener('mouseleave', () => {
+      isDown = false;
+      wrap.style.cursor = 'auto';
+    });
+    wrap.addEventListener('mouseup', () => {
+      isDown = false;
+      wrap.style.cursor = 'auto';
+    });
+    wrap.addEventListener('mousemove', (e) => {
+      if (!isDown) return;
+      e.preventDefault();
+      const x = e.pageX - wrap.offsetLeft;
+      const walk = (x - startX) * 1.5; // Velocidade do arrasto
+      wrap.scrollLeft = scrollLeft - walk;
+    });
   }
+  
   marcarDotAtivo(wrap, dotsEl);
 }
 
@@ -1503,7 +1585,8 @@ function renderVisaoGeral() {
     donut.style.background = `conic-gradient(var(--gold) 0% ${corte1}%, var(--expense) ${corte1}% ${corte2}%, var(--income) ${corte2}% 100%)`;
   }
   if (centro) {
-    centro.innerHTML = `${spanCentro(fmt(totalGanhos))}<small>${livre < 0 ? "ganho · estourou" : "ganho no total"}</small>`;
+    // Texto alterado para exibir apenas o valor e a palavra "GANHO"
+    centro.innerHTML = `${spanCentro(fmt(totalGanhos))}<small>GANHO</small>`;
   }
   if (legend) {
     legend.innerHTML = `
