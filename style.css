@@ -602,3 +602,34 @@ body.sem-entrada-listas .item-list-row { animation: none !important; }
   r: 6.5px; 
   stroke-width: 3px; 
 }
+
+/* ==========================================================
+   TOOLTIP CUSTOMIZADO DO GRÁFICO (MOUSE E TOUCH)
+   ========================================================== */
+.grafico-tooltip {
+  position: absolute;
+  background: var(--ink);
+  color: var(--on-ink);
+  font-size: 11.5px;
+  font-weight: 600;
+  padding: 6px 10px;
+  border-radius: var(--radius-s);
+  pointer-events: none; /* Para não bloquear o clique/toque */
+  opacity: 0;
+  transform: translate(-50%, -10px);
+  transition: opacity 0.2s ease, transform 0.2s ease;
+  z-index: 200;
+  box-shadow: 0 4px 12px rgba(0,0,0,0.25);
+  white-space: nowrap;
+}
+
+.grafico-tooltip.is-visible {
+  opacity: 1;
+  transform: translate(-50%, -24px);
+}
+
+/* Melhora a área de captura de toque no celular */
+.grafico-ponto-group {
+  cursor: pointer;
+  pointer-events: all; 
+}
