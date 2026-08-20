@@ -238,6 +238,7 @@
               <option value="">Categoria (opcional)</option>
             </select>
             <input type="date" name="data" class="input-data" aria-label="Data do gasto fixo" />
+            <input type="text" name="parcela" class="input-parcela" placeholder="Parcela (ex: 2/48) — deixe vazio se não tiver prazo pra acabar" maxlength="10" />
             <label class="checkbox-inline">
               <input type="checkbox" name="pago" />
               Já paguei essa conta
@@ -271,7 +272,6 @@
               <option value="">Categoria (opcional)</option>
             </select>
             <input type="date" name="data" class="input-data" aria-label="Data do gasto variável" />
-            <input type="text" name="parcela" class="input-parcela" placeholder="Parcela (ex: 2/10) — deixe vazio se à vista" maxlength="10" />
             <label class="checkbox-inline">
               <input type="checkbox" name="pago" />
               Já paguei essa compra
@@ -283,6 +283,7 @@
 
       <ul class="item-list" id="listaVariaveis"></ul>
     </section>
+
 
     <!-- CAIXINHAS (GUARDADO + METAS) -->
     <section class="tab-panel is-hidden" id="tab-guardado" data-tab="guardado">
@@ -378,7 +379,7 @@
         <option value="">Categoria (opcional)</option>
       </select>
       <input type="date" id="editData" class="is-hidden" aria-label="Data" />
-      <input type="text" id="editParcela" class="input-parcela is-hidden" placeholder="Parcela (ex: 2/10) — deixe vazio se à vista" maxlength="10" />
+      <input type="text" id="editParcela" class="input-parcela is-hidden" placeholder="Parcela (ex: 2/48) — deixe vazio se não tiver prazo pra acabar" maxlength="10" />
       <div class="modal-actions">
         <button type="button" class="btn btn-ghost" id="editCancelar">Cancelar</button>
         <button type="submit" class="btn btn-gold">Salvar</button>
