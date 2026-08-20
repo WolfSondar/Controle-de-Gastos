@@ -1762,6 +1762,7 @@ function construirGraficoHistoricoMultiSvg(mesesAsc, pessoa) {
       </div>
     </div>`;
 }
+
 function renderHistorico() {
   const wrap = document.getElementById("historicoLista");
   const controles = document.getElementById("historicoControles");
