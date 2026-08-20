@@ -1870,7 +1870,7 @@ function renderHistorico() {
   const anos = (state.historico && state.historico.anos) || [];
   if (anos.length === 0) {
     if (controles) controles.style.display = "none";
-    wrap.innerHTML = estadoVazio('Nenhum mês fechado ainda. Feche o primeiro mês em "Ações em conjunto".', ICONE_LIVRO);
+    wrap.innerHTML = estadoVazio('Nenhum mês fechado ainda.', ICONE_LIVRO);
     return;
   }
 
