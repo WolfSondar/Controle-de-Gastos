@@ -1686,7 +1686,7 @@ function renderHistoricoSkeleton() {
       </div>`).join("");
 }
 
-// Novo Gráfico comparativo com LINHAS CURVAS SUAVES e TOOLTIPS (Hover)
+// Novo Gráfico com Faixas Verticais (Resolve sobreposição de pontos)
 function construirGraficoHistoricoMultiSvg(mesesAsc, pessoa) {
   const W = 320, H = 160, padL = 14, padR = 14, padT = 16, padB = 28;
 
@@ -1716,7 +1716,6 @@ function construirGraficoHistoricoMultiSvg(mesesAsc, pessoa) {
 
   const caminhoSuave = (pts) => {
     if (pts.length === 0) return "";
-    if (pts.length === 1) return `M${x(0).toFixed(1)},${y(pts[0]).toFixed(1)}`;
     let d = `M${x(0).toFixed(1)},${y(pts[0]).toFixed(1)}`;
     for (let i = 0; i < pts.length - 1; i++) {
       const cpX = (x(i) + x(i + 1)) / 2;
@@ -1725,14 +1724,32 @@ function construirGraficoHistoricoMultiSvg(mesesAsc, pessoa) {
     return d;
   };
 
-  // Função atualizada para usar data-tooltip em vez de <title>
-  const pontosSvg = (pts, cor, label) => pts.map((v, i) => {
-    const nomeMes = mesesAsc[i].nome.charAt(0).toUpperCase() + mesesAsc[i].nome.slice(1).toLowerCase();
+  // Largura da área de toque/hover de cada mês
+  const larguraFaixa = passoX > 0 ? passoX : W;
+
+  // Cria as faixas verticais e agrupa os 3 pontos de cada mês juntos
+  const gruposMes = mesesAsc.map((m, i) => {
+    const nomeMes = m.nome.charAt(0).toUpperCase() + m.nome.slice(1).toLowerCase();
+    const vGanhos = getVal(m, 'ganhos');
+    const vGastos = getVal(m, 'debitos');
+    const vGuardado = getVal(m, 'guardado');
+    const cx = x(i).toFixed(1);
+    
+    // Calcula o início do retângulo invisível para centralizar no ponto
+    const rx = (x(i) - larguraFaixa / 2).toFixed(1);
+
     return `
-      <g class="grafico-ponto-group" data-tooltip="${nomeMes} | ${label}: ${fmt(v)}">
-        <circle cx="${x(i).toFixed(1)}" cy="${y(v).toFixed(1)}" r="4.2" fill="${cor}" stroke="var(--paper-deep)" stroke-width="2" />
-        <!-- Um círculo maior invisível só para facilitar o toque com o dedo -->
-        <circle cx="${x(i).toFixed(1)}" cy="${y(v).toFixed(1)}" r="15" fill="transparent" stroke="none" />
+      <g class="mes-hover-group" data-mes="${nomeMes}" data-ganhos="${fmt(vGanhos)}" data-gastos="${fmt(vGastos)}" data-guardado="${fmt(vGuardado)}">
+        <!-- Área gigante e invisível para capturar o dedo/mouse -->
+        <rect x="${rx}" y="0" width="${larguraFaixa}" height="${H}" fill="transparent" class="hover-area" />
+        
+        <!-- Linha guia vertical charmosa -->
+        <line x1="${cx}" y1="${padT}" x2="${cx}" y2="${H - padB - 4}" stroke="var(--line)" stroke-dasharray="4,4" class="guia-vertical" />
+        
+        <!-- Os 3 pontos sobrepostos -->
+        <circle cx="${cx}" cy="${y(vGanhos).toFixed(1)}" r="4.2" fill="var(--income)" stroke="var(--paper-deep)" stroke-width="2" class="ponto-dot" />
+        <circle cx="${cx}" cy="${y(vGastos).toFixed(1)}" r="4.2" fill="var(--expense)" stroke="var(--paper-deep)" stroke-width="2" class="ponto-dot" />
+        <circle cx="${cx}" cy="${y(vGuardado).toFixed(1)}" r="4.2" fill="var(--gold)" stroke="var(--paper-deep)" stroke-width="2" class="ponto-dot" />
       </g>
     `;
   }).join("");
@@ -1742,18 +1759,15 @@ function construirGraficoHistoricoMultiSvg(mesesAsc, pessoa) {
 
   return `
     <div class="historico-grafico-wrap">
-      <svg class="historico-grafico" viewBox="0 0 ${W} ${H}" preserveAspectRatio="none" role="img" aria-label="Evolução de ganhos, gastos e guardado">
+      <svg class="historico-grafico" viewBox="0 0 ${W} ${H}" preserveAspectRatio="none">
         <line x1="${padL}" y1="${linhaZero}" x2="${W - padR}" y2="${linhaZero}" stroke="var(--line)" stroke-width="1.5" stroke-dasharray="4,4" />
         
         <path d="${caminhoSuave(ptsGanhos)}" fill="none" stroke="var(--income)" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" />
         <path d="${caminhoSuave(ptsDebitos)}" fill="none" stroke="var(--expense)" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" />
         <path d="${caminhoSuave(ptsGuardado)}" fill="none" stroke="var(--gold)" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" stroke-dasharray="6,4" />
         
-        <!-- Passamos o rótulo ("Ganhos", "Gastos", etc) para o Tooltip mostrar direitinho -->
-        ${pontosSvg(ptsGanhos, "var(--income)", "Ganhos")}
-        ${pontosSvg(ptsDebitos, "var(--expense)", "Gastos")}
-        ${pontosSvg(ptsGuardado, "var(--gold)", "Guardado")}
-        
+        <!-- Renderiza as áreas de interação POR CIMA das linhas -->
+        ${gruposMes}
         ${rotulos}
       </svg>
       <div class="historico-grafico-legenda">
@@ -2502,12 +2516,11 @@ if ("serviceWorker" in navigator) {
 }
 
 // =====================================================================
-// LÓGICA DO TOOLTIP DO GRÁFICO (HOVER E TOUCH)
+// LÓGICA DO TOOLTIP CONSOLIDADO POR MÊS
 // =====================================================================
 let chartTooltip = null;
 
 function initChartTooltip() {
-  // Cria o elemento visual apenas uma vez
   if (!chartTooltip) {
     chartTooltip = document.createElement("div");
     chartTooltip.className = "grafico-tooltip";
@@ -2516,41 +2529,55 @@ function initChartTooltip() {
 
   const esconderTooltip = () => {
     chartTooltip.classList.remove("is-visible");
+    document.querySelectorAll(".mes-hover-group.is-active").forEach(el => el.classList.remove("is-active"));
   };
 
-  const mostrarTooltip = (alvo) => {
-    const rect = alvo.getBoundingClientRect();
-    chartTooltip.textContent = alvo.dataset.tooltip;
+  const mostrarTooltip = (grupo) => {
+    // Pega os dados que guardamos na tag <g>
+    const mes = grupo.dataset.mes;
+    const ganhos = grupo.dataset.ganhos;
+    const gastos = grupo.dataset.gastos;
+    const guardado = grupo.dataset.guardado;
+
+    // Monta o visual interno do balão
+    chartTooltip.innerHTML = `
+      <div class="tooltip-titulo">${mes}</div>
+      <div class="tooltip-linha"><span style="color: #8fd4ab">Ganhos</span> <span class="valor">${ganhos}</span></div>
+      <div class="tooltip-linha"><span style="color: #e8a58c">Gastos</span> <span class="valor">${gastos}</span></div>
+      <div class="tooltip-linha"><span style="color: #e3c581">Guardado</span> <span class="valor">${guardado}</span></div>
+    `;
+
+    // Calcula a posição (fica fixo na altura do gráfico pra não pular)
+    const rect = grupo.querySelector('.hover-area').getBoundingClientRect();
+    const svgRect = grupo.closest('svg').getBoundingClientRect();
     
-    // Posiciona exatamente acima do ponto
     chartTooltip.style.left = (rect.left + rect.width / 2 + window.scrollX) + "px";
-    chartTooltip.style.top = (rect.top + window.scrollY) + "px";
+    chartTooltip.style.top = (svgRect.top + window.scrollY - 10) + "px"; // Flutuando no topo do gráfico
+    
+    // Marca o grupo atual como ativo
+    document.querySelectorAll(".mes-hover-group.is-active").forEach(el => el.classList.remove("is-active"));
+    grupo.classList.add("is-active");
     chartTooltip.classList.add("is-visible");
   };
 
-  // 1. Interação com o Mouse (Desktop)
   document.body.addEventListener("mouseover", (e) => {
-    const grupo = e.target.closest(".grafico-ponto-group");
+    const grupo = e.target.closest(".mes-hover-group");
     if (grupo) mostrarTooltip(grupo);
   });
 
   document.body.addEventListener("mouseout", (e) => {
-    if (e.target.closest(".grafico-ponto-group")) esconderTooltip();
+    if (e.target.closest(".mes-hover-group")) esconderTooltip();
   });
 
-  // 2. Interação com o Toque (Celular)
   document.body.addEventListener("touchstart", (e) => {
-    const grupo = e.target.closest(".grafico-ponto-group");
+    const grupo = e.target.closest(".mes-hover-group");
     if (grupo) {
       mostrarTooltip(grupo);
-      // Esconde o tooltip automaticamente após 2.5 segundos no celular
-      setTimeout(esconderTooltip, 2500);
+      setTimeout(esconderTooltip, 3000);
     } else {
-      // Se tocar em qualquer outro lugar da tela, esconde o tooltip
       esconderTooltip(); 
     }
   }, { passive: true });
 }
 
-// Inicializa o sistema de tooltips
 initChartTooltip();
