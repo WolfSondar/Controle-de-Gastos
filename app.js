@@ -1725,13 +1725,14 @@ function construirGraficoHistoricoMultiSvg(mesesAsc, pessoa) {
     return d;
   };
 
-  // Função atualizada para gerar os pontos com interatividade (Hover e Tooltip)
+  // Função atualizada para usar data-tooltip em vez de <title>
   const pontosSvg = (pts, cor, label) => pts.map((v, i) => {
     const nomeMes = mesesAsc[i].nome.charAt(0).toUpperCase() + mesesAsc[i].nome.slice(1).toLowerCase();
     return `
-      <g class="grafico-ponto-group">
+      <g class="grafico-ponto-group" data-tooltip="${nomeMes} | ${label}: ${fmt(v)}">
         <circle cx="${x(i).toFixed(1)}" cy="${y(v).toFixed(1)}" r="4.2" fill="${cor}" stroke="var(--paper-deep)" stroke-width="2" />
-        <title>${nomeMes} | ${label}: ${fmt(v)}</title>
+        <!-- Um círculo maior invisível só para facilitar o toque com o dedo -->
+        <circle cx="${x(i).toFixed(1)}" cy="${y(v).toFixed(1)}" r="15" fill="transparent" stroke="none" />
       </g>
     `;
   }).join("");
@@ -2499,3 +2500,57 @@ if ("serviceWorker" in navigator) {
     navigator.serviceWorker.register("sw.js").catch(() => {});
   });
 }
+
+// =====================================================================
+// LÓGICA DO TOOLTIP DO GRÁFICO (HOVER E TOUCH)
+// =====================================================================
+let chartTooltip = null;
+
+function initChartTooltip() {
+  // Cria o elemento visual apenas uma vez
+  if (!chartTooltip) {
+    chartTooltip = document.createElement("div");
+    chartTooltip.className = "grafico-tooltip";
+    document.body.appendChild(chartTooltip);
+  }
+
+  const esconderTooltip = () => {
+    chartTooltip.classList.remove("is-visible");
+  };
+
+  const mostrarTooltip = (alvo) => {
+    const rect = alvo.getBoundingClientRect();
+    chartTooltip.textContent = alvo.dataset.tooltip;
+    
+    // Posiciona exatamente acima do ponto
+    chartTooltip.style.left = (rect.left + rect.width / 2 + window.scrollX) + "px";
+    chartTooltip.style.top = (rect.top + window.scrollY) + "px";
+    chartTooltip.classList.add("is-visible");
+  };
+
+  // 1. Interação com o Mouse (Desktop)
+  document.body.addEventListener("mouseover", (e) => {
+    const grupo = e.target.closest(".grafico-ponto-group");
+    if (grupo) mostrarTooltip(grupo);
+  });
+
+  document.body.addEventListener("mouseout", (e) => {
+    if (e.target.closest(".grafico-ponto-group")) esconderTooltip();
+  });
+
+  // 2. Interação com o Toque (Celular)
+  document.body.addEventListener("touchstart", (e) => {
+    const grupo = e.target.closest(".grafico-ponto-group");
+    if (grupo) {
+      mostrarTooltip(grupo);
+      // Esconde o tooltip automaticamente após 2.5 segundos no celular
+      setTimeout(esconderTooltip, 2500);
+    } else {
+      // Se tocar em qualquer outro lugar da tela, esconde o tooltip
+      esconderTooltip(); 
+    }
+  }, { passive: true });
+}
+
+// Inicializa o sistema de tooltips
+initChartTooltip();
