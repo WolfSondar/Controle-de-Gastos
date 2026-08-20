@@ -660,6 +660,13 @@ body.sem-entrada-listas .item-list-row { animation: none !important; }
   cursor: pointer; 
   pointer-events: all; 
 }
+
+/* Remove o retângulo azul/cinza nativo de clique no celular */
+.mes-hover-group, 
+.historico-grafico-wrap,
+.historico-grafico-wrap * {
+  -webkit-tap-highlight-color: transparent;
+}
 .guia-vertical { 
   opacity: 0; 
   transition: opacity 0.2s ease; 
