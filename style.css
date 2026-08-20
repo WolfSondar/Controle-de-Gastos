@@ -482,6 +482,8 @@ button, input { font-family: inherit; }
   padding: 20px 14px 14px; 
   margin-bottom: 24px; 
   box-shadow: 0 3px 12px rgba(22,51,44,0.04); 
+  /* Adicione a linha abaixo: Permite rolar a tela pra baixo, mas trava o deslize pros lados */
+  touch-action: pan-y; 
 }
 .historico-grafico { 
   width: 100%; 
