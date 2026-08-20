@@ -1842,6 +1842,8 @@ let suprimirEntradaNoProximoRenderAll = false;
 function renderAll() {
   const suprimirEntrada = suprimirEntradaNoProximoRenderAll;
   suprimirEntradaNoProximoRenderAll = false;
+  atualizarCarrosselGraficos();
+  if (state.historico) renderHistorico(); // <-- Adicione esta linha!
   if (suprimirEntrada) document.body.classList.add("sem-entrada-listas");
 
   renderTotais();
@@ -2227,53 +2229,184 @@ function escapeHtml(str) {
 // HISTÓRICO — meses já fechados, com o saldo individual de cada pessoa
 // ---------------------------------------------------------------------
 
-async function getCacheHistorico() {
-  return idbGet(IDB_LOJA_CACHE, CACHE_PREFIX + "historico");
-}
-async function setCacheHistorico(data) {
-  return idbSet(IDB_LOJA_CACHE, CACHE_PREFIX + "historico", { anos: data.anos || [] });
-}
-
-async function carregarHistorico() {
-  const cache = await getCacheHistorico();
-  if (cache) {
-    state.historico = cache;
-    renderHistorico();
+function getValoresMes(m) {
+  if (state.pessoaAtual === "davi") {
+    return { ganhos: m.ganhosDavi, debitos: m.debitosDavi, guardado: m.guardadoDavi, saldo: m.saldoDavi };
+  } else if (state.pessoaAtual === "gabriel") {
+    return { ganhos: m.ganhosGabriel, debitos: m.debitosGabriel, guardado: m.guardadoGabriel, saldo: m.saldoGabriel };
   } else {
-    renderHistoricoSkeleton();
-  }
-  if (!API_URL || API_URL.includes("COLE_AQUI")) return;
-  try {
-    const res = await fetch(`${API_URL}?pessoa=historico`);
-    const data = await res.json();
-    if (data && data.ok === false) throw new Error(data.error || "Erro desconhecido");
-    state.historico = data;
-    if (data.mesAtual) state.mesAtual = data.mesAtual;
-    if (data.anoAtual) state.anoAtual = data.anoAtual;
-    renderMesAtual();
-    setCacheHistorico(data);
-    renderHistorico();
-  } catch (err) {
-    if (!cache) {
-      const wrap = document.getElementById("historicoLista");
-      if (wrap) wrap.innerHTML = `<p class="empty-state">Não consegui carregar o histórico agora.</p>`;
-    }
+    return {
+      ganhos: (m.ganhosDavi || 0) + (m.ganhosGabriel || 0),
+      debitos: (m.debitosDavi || 0) + (m.debitosGabriel || 0),
+      guardado: (m.guardadoDavi || 0) + (m.guardadoGabriel || 0),
+      saldo: (m.saldoDavi || 0) + (m.saldoGabriel || 0),
+    };
   }
 }
 
 function renderHistoricoSkeleton() {
   const wrap = document.getElementById("historicoLista");
-  if (!wrap) return;
-  wrap.innerHTML = Array.from({ length: 2 })
-    .map(
-      () => `
-      <div class="historico-mes-card">
-        <div class="skeleton" style="width:40%;height:16px;margin-bottom:12px;">.</div>
-        <div class="skeleton" style="width:100%;height:13px;margin-bottom:8px;">.</div>
-        <div class="skeleton" style="width:100%;height:13px;">.</div>
-      </div>`
-    )
-    .join("");
+  const graphWrap = document.getElementById("historicoGraficoComparativo");
+  if (graphWrap) {
+    graphWrap.innerHTML = `<div class="skeleton" style="width:100%;height:150px;border-radius:14px;margin-bottom:16px;">.</div>`;
+  }
+  if (wrap) {
+    wrap.innerHTML = Array.from({ length: 3 })
+      .map(
+        () => `
+        <div class="historico-mes-card" style="margin-bottom: 12px;">
+          <div class="skeleton" style="width:40%;height:16px;margin-bottom:12px;">.</div>
+          <div class="skeleton" style="width:100%;height:13px;margin-bottom:8px;">.</div>
+          <div class="skeleton" style="width:100%;height:13px;">.</div>
+        </div>`
+      )
+      .join("");
+  }
+}
+
+function construirGraficoComparativoSvg(anosData) {
+  if (!anosData || anosData.length === 0) return "";
+  // Limita aos 4 anos mais recentes para não poluir visualmente
+  const anosParaPlotar = [...anosData].sort((a, b) => b.ano - a.ano).slice(0, 4);
+  const CORES_ANOS = ["#b9862f", "#5c8aa6", "#a8482e", "#3c6e4f"]; // Dourado, Azul, Vermelho, Verde
+  const W = 320, H = 140, padL = 10, padR = 10, padT = 18, padB = 22;
+  const mesesLabels = ["J", "F", "M", "A", "M", "J", "J", "A", "S", "O", "N", "D"];
+
+  let maxVal = 0;
+  const linhas = anosParaPlotar.map((bloco, idx) => {
+    const valoresPorMes = Array(12).fill(null);
+    bloco.meses.forEach(m => {
+      const v = getValoresMes(m);
+      const gasto = Math.abs(v.debitos);
+      valoresPorMes[m.mes - 1] = gasto;
+      if (gasto > maxVal) maxVal = gasto;
+    });
+    return { ano: bloco.ano, valores: valoresPorMes, cor: CORES_ANOS[idx % CORES_ANOS.length] };
+  });
+
+  if (maxVal === 0) maxVal = 1;
+
+  const passoX = (W - padL - padR) / 11;
+  const x = (i) => padL + i * passoX;
+  const y = (v) => padT + (H - padT - padB) * (1 - v / maxVal);
+
+  let paths = "";
+  let dots = "";
+  let legend = "";
+
+  linhas.forEach(linha => {
+    let pts = [];
+    linha.valores.forEach((val, i) => {
+      if (val !== null) pts.push(`${pts.length === 0 ? "M" : "L"}${x(i).toFixed(1)},${y(val).toFixed(1)}`);
+    });
+    if (pts.length > 0) {
+      paths += `<path d="${pts.join(" ")}" fill="none" stroke="${linha.cor}" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" />`;
+      linha.valores.forEach((val, i) => {
+        if (val !== null) {
+          dots += `<circle cx="${x(i).toFixed(1)}" cy="${y(val).toFixed(1)}" r="2.8" fill="${linha.cor}" stroke="var(--paper-deep)" stroke-width="1.5" />`;
+        }
+      });
+    }
+    legend += `<span class="legenda-item"><span class="legenda-dot" style="background:${linha.cor}"></span>${linha.ano}</span>`;
+  });
+
+  const rotulosX = mesesLabels.map((lbl, i) => `<text x="${x(i).toFixed(1)}" y="${H - 4}" font-size="9" text-anchor="middle" fill="var(--muted)">${lbl}</text>`).join("");
+  const linhaZero = y(0).toFixed(1);
+
+  return `
+    <div class="historico-grafico-wrap" style="margin-bottom: 16px;">
+      <svg class="historico-grafico" viewBox="0 0 ${W} ${H}" preserveAspectRatio="none">
+        <line x1="${padL}" y1="${linhaZero}" x2="${W - padR}" y2="${linhaZero}" stroke="var(--line)" stroke-width="1" />
+        ${paths}
+        ${dots}
+        ${rotulosX}
+      </svg>
+      <div class="historico-grafico-legenda" style="justify-content: center; flex-wrap: wrap; margin-top: 10px;">${legend}</div>
+    </div>`;
+}
+
+function renderHistorico() {
+  const wrap = document.getElementById("historicoLista");
+  const graphWrap = document.getElementById("historicoGraficoComparativo");
+  const controles = document.getElementById("historicoControles");
+  const select = document.getElementById("historicoAnoSelect");
+
+  if (!wrap || !graphWrap || !select || !controles) return;
+
+  const anos = (state.historico && state.historico.anos) || [];
+  if (anos.length === 0) {
+    wrap.innerHTML = estadoVazio('Nenhum mês fechado ainda. Feche o primeiro mês em "Ações em conjunto".', ICONE_LIVRO);
+    graphWrap.innerHTML = "";
+    controles.style.display = "none";
+    return;
+  }
+
+  controles.style.display = "block";
+
+  const anosOrdenados = [...anos].sort((a, b) => b.ano - a.ano);
+  const anosOptionsStr = anosOrdenados.map(a => a.ano).join(',');
+  
+  // Atualiza as opções do select apenas se houve alteração na lista de anos
+  if (select.dataset.anos !== anosOptionsStr) {
+    select.innerHTML = anosOrdenados.map(a => `<option value="${a.ano}">Ver ano: ${a.ano}</option>`).join('');
+    select.dataset.anos = anosOptionsStr;
+    
+    const currentYear = state.anoAtual || new Date().getFullYear();
+    if (anosOrdenados.find(a => a.ano === currentYear)) {
+      select.value = currentYear;
+    } else {
+      select.value = anosOrdenados[0].ano;
+    }
+  }
+
+  // Renderiza o gráfico comparativo
+  graphWrap.innerHTML = construirGraficoComparativoSvg(anos);
+
+  // Renderiza a lista de cartões com base no ano selecionado
+  const selectedYear = parseInt(select.value, 10);
+  const blocoAno = anos.find(a => a.ano === selectedYear);
+
+  if (!blocoAno || !blocoAno.meses || blocoAno.meses.length === 0) {
+    wrap.innerHTML = estadoVazio('Nenhum dado para este ano.', ICONE_LIVRO);
+    return;
+  }
+
+  const mesesOrdenados = [...blocoAno.meses].sort((a, b) => b.mes - a.mes);
+  const ambos = isAmbos();
+
+  wrap.innerHTML = mesesOrdenados.map(m => {
+    const v = getValoresMes(m);
+    const nomeMes = m.nome.charAt(0).toUpperCase() + m.nome.slice(1).toLowerCase();
+
+    return `
+    <div class="historico-mes-card" style="margin-bottom: 12px;">
+      <div class="historico-mes-head">
+        <span class="historico-mes-nome">${nomeMes}</span>
+        <span class="historico-mes-saldo ${v.saldo < 0 ? "negative" : ""}">${fmt(v.saldo)}</span>
+      </div>
+      <div class="historico-mes-linha">
+        <span>Ganhos</span><span class="income">${fmt(v.ganhos)}</span>
+      </div>
+      <div class="historico-mes-linha">
+        <span>Gastos</span><span class="expense">${fmt(Math.abs(v.debitos))}</span>
+      </div>
+      ${
+        v.guardado > 0
+          ? `<div class="historico-mes-linha">
+              <span>Guardado</span><span class="gold">${fmt(v.guardado)}</span>
+            </div>`
+          : ""
+      }
+      ${
+        ambos
+          ? `<div class="historico-mes-pessoas">
+              <span class="pessoa-tag pessoa-davi">Davi ${fmt(m.saldoDavi)}</span>
+              <span class="pessoa-tag pessoa-gabriel">Gabriel ${fmt(m.saldoGabriel)}</span>
+            </div>`
+          : ""
+      }
+    </div>`;
+  }).join('');
 }
 
 // Desenha uma linha do tempo em SVG puro (sem biblioteca nenhuma) com a
@@ -3112,6 +3245,10 @@ if (confirmBackdrop) {
     if (e.target === confirmBackdrop) fecharConfirmacao();
   });
 }
+
+on("historicoAnoSelect", "change", () => {
+  renderHistorico();
+});
 
 // ---------------------------------------------------------------------
 // INÍCIO
