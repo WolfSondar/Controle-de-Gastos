@@ -1686,9 +1686,8 @@ function renderHistoricoSkeleton() {
       </div>`).join("");
 }
 
-// Novo Gráfico comparativo com LINHAS CURVAS SUAVES
+// Novo Gráfico comparativo com LINHAS CURVAS SUAVES e TOOLTIPS (Hover)
 function construirGraficoHistoricoMultiSvg(mesesAsc, pessoa) {
-  // Ajustes de altura e padding para evitar o "esmagamento" dos textos
   const W = 320, H = 160, padL = 14, padR = 14, padT = 16, padB = 28;
 
   const getVal = (m, campo) => {
@@ -1704,51 +1703,56 @@ function construirGraficoHistoricoMultiSvg(mesesAsc, pessoa) {
   const todos = [...ptsGanhos, ...ptsDebitos, ...ptsGuardado];
   let min = Math.min(0, ...todos);
   let max = Math.max(0, ...todos);
-  if (min === max) max = min + 1; // evita divisão por 0 se tudo for igual
+  if (min === max) max = min + 1;
 
-  // Adiciona 5% de margem no topo e no fundo para os picos e vales não baterem nas bordas
   const amplitude = max - min;
   min -= amplitude * 0.05;
-  max += amplitude * 0.15; // Mais espaço no topo pro gráfico respirar
+  max += amplitude * 0.15; 
 
   const n = mesesAsc.length;
   const passoX = n > 1 ? (W - padL - padR) / (n - 1) : 0;
   const x = (i) => n === 1 ? W / 2 : padL + i * passoX;
   const y = (v) => padT + (H - padT - padB) * (1 - (v - min) / (max - min));
 
-  // A mágica que transforma linhas retas zigue-zague em curvas suaves perfeitas
   const caminhoSuave = (pts) => {
     if (pts.length === 0) return "";
     if (pts.length === 1) return `M${x(0).toFixed(1)},${y(pts[0]).toFixed(1)}`;
     let d = `M${x(0).toFixed(1)},${y(pts[0]).toFixed(1)}`;
     for (let i = 0; i < pts.length - 1; i++) {
-      const cpX = (x(i) + x(i + 1)) / 2; // Ponto de controle central
+      const cpX = (x(i) + x(i + 1)) / 2;
       d += ` C${cpX.toFixed(1)},${y(pts[i]).toFixed(1)} ${cpX.toFixed(1)},${y(pts[i + 1]).toFixed(1)} ${x(i + 1).toFixed(1)},${y(pts[i + 1]).toFixed(1)}`;
     }
     return d;
   };
 
-  const pontosSvg = (pts, cor) => pts.map((v, i) => `<circle cx="${x(i).toFixed(1)}" cy="${y(v).toFixed(1)}" r="3.5" fill="${cor}" stroke="var(--paper-deep)" stroke-width="2" />`).join("");
+  // Função atualizada para gerar os pontos com interatividade (Hover e Tooltip)
+  const pontosSvg = (pts, cor, label) => pts.map((v, i) => {
+    const nomeMes = mesesAsc[i].nome.charAt(0).toUpperCase() + mesesAsc[i].nome.slice(1).toLowerCase();
+    return `
+      <g class="grafico-ponto-group">
+        <circle cx="${x(i).toFixed(1)}" cy="${y(v).toFixed(1)}" r="4.2" fill="${cor}" stroke="var(--paper-deep)" stroke-width="2" />
+        <title>${nomeMes} | ${label}: ${fmt(v)}</title>
+      </g>
+    `;
+  }).join("");
+
   const rotulos = mesesAsc.map((m, i) => `<text x="${x(i).toFixed(1)}" y="${H - 8}" font-size="9" text-anchor="middle" font-family="var(--font-mono)" font-weight="600" fill="var(--muted)">${escapeHtml((m.nome || "").slice(0, 3).toUpperCase())}</text>`).join("");
   const linhaZero = y(0).toFixed(1);
 
   return `
     <div class="historico-grafico-wrap">
       <svg class="historico-grafico" viewBox="0 0 ${W} ${H}" preserveAspectRatio="none" role="img" aria-label="Evolução de ganhos, gastos e guardado">
-        <!-- Linha base pontilhada indicando o eixo zero (ou a base visual) -->
         <line x1="${padL}" y1="${linhaZero}" x2="${W - padR}" y2="${linhaZero}" stroke="var(--line)" stroke-width="1.5" stroke-dasharray="4,4" />
         
-        <!-- Curvas SVG -->
         <path d="${caminhoSuave(ptsGanhos)}" fill="none" stroke="var(--income)" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" />
         <path d="${caminhoSuave(ptsDebitos)}" fill="none" stroke="var(--expense)" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" />
         <path d="${caminhoSuave(ptsGuardado)}" fill="none" stroke="var(--gold)" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" stroke-dasharray="6,4" />
         
-        <!-- Pontos em cima das curvas -->
-        ${pontosSvg(ptsGanhos, "var(--income)")}
-        ${pontosSvg(ptsDebitos, "var(--expense)")}
-        ${pontosSvg(ptsGuardado, "var(--gold)")}
+        <!-- Passamos o rótulo ("Ganhos", "Gastos", etc) para o Tooltip mostrar direitinho -->
+        ${pontosSvg(ptsGanhos, "var(--income)", "Ganhos")}
+        ${pontosSvg(ptsDebitos, "var(--expense)", "Gastos")}
+        ${pontosSvg(ptsGuardado, "var(--gold)", "Guardado")}
         
-        <!-- Rótulos (JAN, FEV...) -->
         ${rotulos}
       </svg>
       <div class="historico-grafico-legenda">
@@ -1758,7 +1762,6 @@ function construirGraficoHistoricoMultiSvg(mesesAsc, pessoa) {
       </div>
     </div>`;
 }
-
 function renderHistorico() {
   const wrap = document.getElementById("historicoLista");
   const controles = document.getElementById("historicoControles");
