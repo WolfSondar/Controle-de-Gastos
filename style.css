@@ -604,32 +604,80 @@ body.sem-entrada-listas .item-list-row { animation: none !important; }
 }
 
 /* ==========================================================
-   TOOLTIP CUSTOMIZADO DO GRÁFICO (MOUSE E TOUCH)
+   TOOLTIP CONSOLIDADO E LINHAS GUIAS
    ========================================================== */
 .grafico-tooltip {
   position: absolute;
   background: var(--ink);
   color: var(--on-ink);
   font-size: 11.5px;
-  font-weight: 600;
-  padding: 6px 10px;
-  border-radius: var(--radius-s);
-  pointer-events: none; /* Para não bloquear o clique/toque */
+  padding: 10px 12px;
+  border-radius: var(--radius-m);
+  pointer-events: none; 
   opacity: 0;
-  transform: translate(-50%, -10px);
+  transform: translate(-50%, 0);
   transition: opacity 0.2s ease, transform 0.2s ease;
   z-index: 200;
-  box-shadow: 0 4px 12px rgba(0,0,0,0.25);
-  white-space: nowrap;
+  box-shadow: 0 6px 16px rgba(0,0,0,0.3);
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  min-width: 140px;
 }
 
 .grafico-tooltip.is-visible {
   opacity: 1;
-  transform: translate(-50%, -24px);
+  transform: translate(-50%, -15px);
 }
 
-/* Melhora a área de captura de toque no celular */
-.grafico-ponto-group {
-  cursor: pointer;
+/* Textos dentro do balão */
+.tooltip-titulo { 
+  font-size: 10px; 
+  text-transform: uppercase; 
+  letter-spacing: 0.08em; 
+  color: #a7c7b7; 
+  border-bottom: 1px solid rgba(255,255,255,0.1); 
+  padding-bottom: 5px; 
+  margin-bottom: 2px;
+  font-weight: 700;
+}
+.tooltip-linha { 
+  display: flex; 
+  justify-content: space-between; 
+  align-items: center; 
+  gap: 16px; 
+  font-weight: 600;
+}
+.tooltip-linha .valor { 
+  font-family: var(--font-mono); 
+  color: var(--on-ink);
+}
+
+/* Área interativa e animações SVG */
+.mes-hover-group { 
+  cursor: pointer; 
   pointer-events: all; 
 }
+.guia-vertical { 
+  opacity: 0; 
+  transition: opacity 0.2s ease; 
+}
+.ponto-dot { 
+  transition: r 0.15s ease, stroke-width 0.15s ease; 
+  pointer-events: none; 
+}
+
+/* Efeito ao passar o mouse ou tocar */
+.mes-hover-group:hover .guia-vertical, 
+.mes-hover-group.is-active .guia-vertical { 
+  opacity: 0.7; 
+}
+.mes-hover-group:hover .ponto-dot, 
+.mes-hover-group.is-active .ponto-dot { 
+  r: 6.5px; 
+  stroke-width: 3px; 
+}
+
+/* Legenda base */
+.legenda-item { display: inline-flex; align-items: center; gap: 6px; font-size: 13.5px; font-weight: 500; color: var(--ink-text); }
+.legenda-dot { width: 10px; height: 10px; border-radius: 50%; display: inline-block; flex-shrink: 0;}
