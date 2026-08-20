@@ -2563,30 +2563,15 @@ on("formGanhos", "submit", (e) => {
   preencherDatasComHoje();
 });
 
-on("formFixos", "submit", (e) => {
-  e.preventDefault();
-  if (isAmbos()) return;
-  const f = e.target;
-  const nome = f.nome.value.trim();
-  const valor = parseValor(f.valor.value);
-  if (!nome || !(valor > 0)) return;
-  const pago = f.pago ? f.pago.checked : false;
-  const tipo = f.tipo ? f.tipo.value : "";
-  const data = f.data ? f.data.value : "";
-  opFixos.add(nome, valor, { pago, tipo, data });
-  f.reset();
-  preencherDatasComHoje();
-});
-
-// Valida "Parcela" no formato "atual/total" (ex: "2/10") — vazio é sempre
-// válido (significa "à vista", sem parcelamento).
+// Valida "Parcela" no formato "atual/total" (ex: "2/48") — vazio é sempre
+// válido (significa "fixo comum, sem prazo pra acabar").
 function parcelaValida(texto) {
   const v = String(texto || "").trim();
   if (!v) return true;
   return /^\d+\s*\/\s*\d+$/.test(v);
 }
 
-on("formVariaveis", "submit", (e) => {
+on("formFixos", "submit", (e) => {
   e.preventDefault();
   if (isAmbos()) return;
   const f = e.target;
@@ -2598,10 +2583,25 @@ on("formVariaveis", "submit", (e) => {
   const data = f.data ? f.data.value : "";
   const parcela = f.parcela ? f.parcela.value.trim() : "";
   if (!parcelaValida(parcela)) {
-    showToast('Parcela inválida — use o formato "atual/total", ex: 2/10.');
+    showToast('Parcela inválida — use o formato "atual/total", ex: 2/48.');
     return;
   }
-  opVariaveis.add(nome, valor, { pago, tipo, data, parcela });
+  opFixos.add(nome, valor, { pago, tipo, data, parcela });
+  f.reset();
+  preencherDatasComHoje();
+});
+
+on("formVariaveis", "submit", (e) => {
+  e.preventDefault();
+  if (isAmbos()) return;
+  const f = e.target;
+  const nome = f.nome.value.trim();
+  const valor = parseValor(f.valor.value);
+  if (!nome || !(valor > 0)) return;
+  const pago = f.pago ? f.pago.checked : false;
+  const tipo = f.tipo ? f.tipo.value : "";
+  const data = f.data ? f.data.value : "";
+  opVariaveis.add(nome, valor, { pago, tipo, data });
   f.reset();
   preencherDatasComHoje();
 });
@@ -2697,12 +2697,12 @@ const TITULOS_EDICAO = {
 };
 
 // Ganhos/fixos/variáveis têm campos além de nome/valor — mas nem todo
-// tipo tem todos eles (só fixos/variáveis têm categoria, só variáveis tem
+// tipo tem todos eles (só fixos/variáveis têm categoria, só fixos tem
 // parcela, caixinhas não tem nenhum dos três). Essas listas decidem o que
 // aparece no modal pra cada tipo.
 const EDICAO_TEM_CATEGORIA = { fixos: true, variaveis: true };
 const EDICAO_TEM_DATA = { ganhos: true, fixos: true, variaveis: true };
-const EDICAO_TEM_PARCELA = { variaveis: true };
+const EDICAO_TEM_PARCELA = { fixos: true };
 
 function abrirModalEditar(tipo, idx, item) {
   if (isAmbos()) return;
@@ -2759,10 +2759,10 @@ on("formEditar", "submit", (e) => {
   const { tipo, idx } = editContext;
   if (!nome || (tipo !== "caixinhas" && !(valor > 0))) return;
 
-  if (tipo === "variaveis") {
+  if (tipo === "fixos") {
     const parcela = document.getElementById("editParcela").value.trim();
     if (!parcelaValida(parcela)) {
-      showToast('Parcela inválida — use o formato "atual/total", ex: 2/10.');
+      showToast('Parcela inválida — use o formato "atual/total", ex: 2/48.');
       return;
     }
   }
@@ -2773,12 +2773,12 @@ on("formEditar", "submit", (e) => {
   } else if (tipo === "fixos") {
     const categoria = document.getElementById("editCategoria").value;
     const data = document.getElementById("editData").value;
-    opFixos.edit(idx, nome, valor, { tipo: categoria, data });
+    const parcela = document.getElementById("editParcela").value.trim();
+    opFixos.edit(idx, nome, valor, { tipo: categoria, data, parcela });
   } else if (tipo === "variaveis") {
     const categoria = document.getElementById("editCategoria").value;
     const data = document.getElementById("editData").value;
-    const parcela = document.getElementById("editParcela").value.trim();
-    opVariaveis.edit(idx, nome, valor, { tipo: categoria, data, parcela });
+    opVariaveis.edit(idx, nome, valor, { tipo: categoria, data });
   } else if (tipo === "caixinhas") {
     editCaixinha(idx, nome, valor);
   }
