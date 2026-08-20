@@ -815,6 +815,20 @@ function retirarDaCaixinha(index, valor) {
   salvarBloco("saveGanhos", state.ganhos);
   renderAll();
 }
+// Rendimento (ex: o "rende sozinho" de uma caixinha do Nubank): diferente
+// de guardar, esse dinheiro nunca esteve no saldo disponível pra começo de
+// conversa — ele nasce direto dentro da caixinha. Por isso, ao contrário de
+// guardarNaCaixinha, NÃO lança nenhum gasto variável (isso descontaria do
+// saldo um valor que nunca saiu de lá). Só soma no valor guardado mesmo.
+function informarRendimentoCaixinha(index, valor) {
+  if (isAmbos()) return;
+  const cx = state.caixinhas[index];
+  if (!cx) return;
+  cx.valorGuardado = (Number(cx.valorGuardado) || 0) + valor;
+  sincronizarCacheAtual();
+  salvarBloco("saveCaixinhas", state.caixinhas);
+  renderAll();
+}
 
 // ---------------------------------------------------------------------
 // AÇÕES EM CONJUNTO — dividir uma compra entre Davi e Gabriel
@@ -1415,7 +1429,7 @@ function renderListaComStatus(ulId, lista, tipo, ops, tipoModal, statusKey, togg
       });
       li.querySelector(".swipe-delete").addEventListener("click", () => {
         fecharSwipe(li);
-        abrirConfirmacao(`Remover "${item.nome}"? Dá pra desfazer logo em seguida.`, () =>
+        abrirConfirmacao(`Remover "${item.nome}"?`, () =>
           excluirComRiscoEDesfazer(li, ops, idx, item)
         );
       });
@@ -1439,12 +1453,44 @@ function excluirComRiscoEDesfazer(li, ops, idx, item) {
   li.classList.add("is-riscando");
   vibrar(14);
   setTimeout(() => {
-    ops.remove(idx);
-    toastComAcao(`"${item.nome}" excluído`, "Desfazer", () => {
-      ops.restore(idx, item);
-      showToast("Restaurado");
+    // Antes de mexer no state (o que dispara um renderAll cheio, com o
+    // <ul> inteiro sendo recriado do zero), encolhe a altura dessa linha
+    // suavemente até 0. Assim, quando o renderAll acontecer um instante
+    // depois, o espaço dela já não existe mais — sem isso, a lista toda
+    // "pulava" de uma vez porque o corte de altura acontecia junto com a
+    // reconstrução inteira do DOM, sem nenhuma transição no meio.
+    recolherERemover(li, () => {
+      suprimirEntradaNoProximoRenderAll = true;
+      ops.remove(idx);
+      toastComAcao(`"${item.nome}" excluído`, "Desfazer", () => {
+        ops.restore(idx, item);
+        showToast("Restaurado");
+      });
     });
   }, 620);
+}
+
+// Encolhe a altura de uma linha até 0 antes de chamar `aoTerminar` — usada
+// só pra dar tempo da transição visual acontecer antes do renderAll cheio
+// que vem em seguida (ver excluirComRiscoEDesfazer acima).
+function recolherERemover(li, aoTerminar) {
+  const altura = li.getBoundingClientRect().height;
+  li.style.height = altura + "px";
+  li.style.overflow = "hidden";
+  void li.offsetHeight; // força o navegador a fixar a altura antes de animar pra 0
+  li.classList.add("is-recolhendo");
+  requestAnimationFrame(() => {
+    li.style.height = "0px";
+  });
+  let terminou = false;
+  const finalizar = () => {
+    if (terminou) return;
+    terminou = true;
+    li.removeEventListener("transitionend", finalizar);
+    aoTerminar();
+  };
+  li.addEventListener("transitionend", finalizar);
+  setTimeout(finalizar, 360); // rede de segurança se o transitionend não disparar
 }
 
 // ---------------------------------------------------------------------
@@ -1549,6 +1595,7 @@ function renderCaixinhas() {
               : `<div class="caixinha-actions">
                   <button class="btn btn-caixinha-guardar" data-idx="${idx}">+ guardar</button>
                   <button class="btn btn-caixinha-retirar" data-idx="${idx}">− retirar</button>
+                  <button class="btn btn-caixinha-rendimento" data-idx="${idx}" aria-label="Informar rendimento" title="Rendimento — não sai do saldo disponível">% rendeu</button>
                   <button class="btn-edit" aria-label="Editar caixinha" data-edit="${idx}">${ICONE_LAPIS}</button>
                   <button class="btn-remove" aria-label="Remover caixinha" data-remove="${idx}">${ICONE_X}</button>
                 </div>`
@@ -1557,6 +1604,7 @@ function renderCaixinhas() {
         if (!ambos) {
           card.querySelector(".btn-caixinha-guardar").addEventListener("click", () => abrirModalCaixinha("guardar", idx));
           card.querySelector(".btn-caixinha-retirar").addEventListener("click", () => abrirModalCaixinha("retirar", idx));
+          card.querySelector(".btn-caixinha-rendimento").addEventListener("click", () => abrirModalCaixinha("rendimento", idx));
           card.querySelector("[data-edit]").addEventListener("click", () => abrirModalEditar("caixinhas", idx, cx.nome, cx.valorObjetivo));
           card.querySelector("[data-remove]").addEventListener("click", () => {
             const guardado = Number(cx.valorGuardado) || 0;
@@ -1765,7 +1813,17 @@ function renderSplitSkeleton() {
 // RENDER GERAL
 // ---------------------------------------------------------------------
 
+// true por um único renderAll() — usada logo depois de excluir um
+// lançamento (ver excluirComRiscoEDesfazer/recolherERemover) pra essa
+// reconstrução específica não replay-ar a animação de entrada em cima
+// das linhas que nem mudaram, o que piscava na tela junto com o corte.
+let suprimirEntradaNoProximoRenderAll = false;
+
 function renderAll() {
+  const suprimirEntrada = suprimirEntradaNoProximoRenderAll;
+  suprimirEntradaNoProximoRenderAll = false;
+  if (suprimirEntrada) document.body.classList.add("sem-entrada-listas");
+
   renderTotais();
   renderListaComStatus("listaGanhos", state.ganhos, "income", opGanhos, "ganhos", "recebido", toggleRecebidoGanho, "Recebido", "Pendente");
   renderListaComStatus("listaFixos", state.gastosFixos, "expense", opFixos, "fixos", "pago", togglePagoFixo, "Pago", "Pendente");
@@ -1777,6 +1835,8 @@ function renderAll() {
   renderSplit();
   renderJuntosView();
   atualizarCarrosselGraficos();
+
+  if (suprimirEntrada) requestAnimationFrame(() => document.body.classList.remove("sem-entrada-listas"));
 }
 
 // ---------------------------------------------------------------------
@@ -1830,18 +1890,29 @@ function atualizarCarrosselGraficos() {
 function marcarDotAtivo(wrap, dotsEl) {
   const cards = Array.from(wrap.children).filter((el) => !el.classList.contains("is-hidden"));
   const dots = dotsEl.querySelectorAll(".dot-item");
-  if (!cards.length || !dots.length) return;
+  if (!cards.length) return;
   const centro = wrap.scrollLeft + wrap.clientWidth / 2;
   let ativo = 0;
   let menorDist = Infinity;
+
+  // Além de achar o card mais perto do centro (pra marcar a bolinha certa),
+  // aproveita a mesma distância pra dar um leve efeito de profundidade
+  // durante o arrasto: o card que está saindo de cena encolhe e esmaece
+  // um pouco, o que tá entrando cresce até o tamanho normal — em vez do
+  // "corte seco" de um card sumindo e outro aparecendo do nada.
   cards.forEach((card, i) => {
-    const dist = Math.abs(card.offsetLeft + card.offsetWidth / 2 - centro);
+    const distCentro = card.offsetLeft + card.offsetWidth / 2 - centro;
+    const dist = Math.abs(distCentro);
     if (dist < menorDist) {
       menorDist = dist;
       ativo = i;
     }
+    const proporcao = Math.min(dist / wrap.clientWidth, 1);
+    card.style.opacity = String(1 - proporcao * 0.6);
+    card.style.transform = `scale(${1 - proporcao * 0.08})`;
   });
-  dots.forEach((d, i) => d.classList.toggle("is-active", i === ativo));
+
+  if (dots.length) dots.forEach((d, i) => d.classList.toggle("is-active", i === ativo));
 }
 
 // ---------------------------------------------------------------------
@@ -2318,9 +2389,23 @@ function initGavetas() {
     const chave = btn.dataset.collapse;
     const alvo = document.getElementById("collapsible-" + chave);
     if (!alvo) return;
-    // Sem preferência salva ainda: todas as gavetas começam FECHADAS.
+    // O HTML já nasce com a classe "is-collapsed" (ver index.html) —
+    // assim a gaveta já pinta fechada de cara, sem esperar esse script
+    // rodar. Sem preferência salva ainda, é isso mesmo que a gente quer
+    // (todas começam FECHADAS) e não precisa mexer em mais nada. Só se a
+    // pessoa tiver deixado alguma ABERTA da última vez que usou o app é
+    // que precisamos abrir ela aqui — e fazemos isso com a transição de
+    // CSS desligada, senão essa abertura "sozinha" apareceria animando
+    // na tela assim que o app carrega, que é o outro jeito de ficar feio.
     const colapsado = estado[chave] === undefined ? true : !!estado[chave];
+    alvo.classList.add("sem-transicao-inicial");
+    btn.classList.add("sem-transicao-inicial");
     aplicarColapso(btn, alvo, colapsado);
+    void alvo.offsetHeight; // força aplicar o estado antes de reativar a transição
+    requestAnimationFrame(() => {
+      alvo.classList.remove("sem-transicao-inicial");
+      btn.classList.remove("sem-transicao-inicial");
+    });
     btn.addEventListener("click", () => {
       const novoColapsado = !alvo.classList.contains("is-collapsed");
       aplicarColapso(btn, alvo, novoColapsado);
@@ -2553,10 +2638,12 @@ on("formAporte", "submit", (e) => {
 const TITULOS_CAIXINHA = {
   guardar: (nome) => `Guardar em — ${nome}`,
   retirar: (nome) => `Retirar de — ${nome}`,
+  rendimento: (nome) => `Rendimento em — ${nome}`,
 };
 const BOTOES_CAIXINHA = {
   guardar: "Guardar",
   retirar: "Retirar",
+  rendimento: "Adicionar",
 };
 function abrirModalCaixinha(acao, idx) {
   const cx = state.caixinhas[idx];
@@ -2565,6 +2652,7 @@ function abrirModalCaixinha(acao, idx) {
   const acoes = {
     guardar: (valor) => guardarNaCaixinha(idx, valor),
     retirar: (valor) => retirarDaCaixinha(idx, valor),
+    rendimento: (valor) => informarRendimentoCaixinha(idx, valor),
   };
   abrirModalValor(titulo, acoes[acao], BOTOES_CAIXINHA[acao]);
 }
