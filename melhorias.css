@@ -427,3 +427,29 @@ body.sem-entrada-listas .item-list-row {
   width: 22px;
   height: 22px;
 }
+
+/* ============ HISTÓRICO — CONTROLES E SELETOR ============ */
+.historico-controles {
+  margin-bottom: 16px;
+}
+#historicoAnoSelect {
+  width: 100%;
+  border: 1px solid var(--line);
+  background: var(--paper-deep);
+  border-radius: var(--radius-s);
+  padding: 12px;
+  font-size: 15px;
+  color: var(--ink-text);
+  font-family: inherit;
+  font-weight: 600;
+  appearance: none;
+  -webkit-appearance: none;
+  background-image: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%237a6f58' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'><path d='m6 9 6 6 6-6'/></svg>");
+  background-repeat: no-repeat;
+  background-position: right 12px center;
+  background-size: 16px;
+  cursor: pointer;
+}
+#historicoAnoSelect:focus {
+  border-color: var(--gold);
+}
