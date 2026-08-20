@@ -407,6 +407,14 @@ button, input {
   overflow: hidden;
   min-height: 0;
 }
+/* Usada só no instante em que a página carrega, pra aplicar o estado
+   salvo da gaveta (aberta/fechada) sem deixar a transição acima animar
+   essa primeira aplicação — ver initGavetas() em app.js. */
+.collapsible.sem-transicao-inicial,
+.collapse-toggle.sem-transicao-inicial,
+.collapse-toggle.sem-transicao-inicial svg {
+  transition: none !important;
+}
 
 /* ============ FORMULÁRIO DE ADIÇÃO ============ */
 
@@ -918,6 +926,7 @@ button, input {
 }
 .btn-caixinha-guardar { background: var(--income); color: #f2f8f0; }
 .btn-caixinha-retirar { background: var(--paper); color: var(--expense); border: 1px solid var(--expense); }
+.btn-caixinha-rendimento { background: var(--paper); color: var(--gold-deep); border: 1px solid var(--gold); }
 .caixinha-actions .btn-edit,
 .caixinha-actions .btn-remove {
   flex: 0 0 auto;
