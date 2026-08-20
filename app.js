@@ -32,7 +32,21 @@ const CATEGORIAS = [
   "Contas",
   "Mercado",
   "Bem-estar",
+  "Metas",
 ];
+
+// Data de hoje no mesmo formato "aaaa-mm-dd" que um <input type="date">
+// produz — usada nos lançamentos automáticos (guardar/retirar de
+// caixinha), pra eles nascerem com a data do dia em que a ação foi feita
+// em vez de sem nenhuma data. Monta a partir dos componentes locais (não
+// toISOString, que usa UTC e pode voltar um dia dependendo do fuso).
+function dataHojeISO() {
+  const d = new Date();
+  const ano = d.getFullYear();
+  const mes = String(d.getMonth() + 1).padStart(2, "0");
+  const dia = String(d.getDate()).padStart(2, "0");
+  return `${ano}-${mes}-${dia}`;
+}
 
 // Preenche todo <select class="input-categoria"> da página a partir de
 // CATEGORIAS, mantendo a opção "Categoria (opcional)" no topo. Assim os
@@ -739,8 +753,9 @@ function addCaixinha(nome, valorInicial, valorObjetivo) {
   });
   salvarBloco("saveCaixinhas", state.caixinhas);
   if (valorInicial > 0) {
-    // já sai do saldo na hora — o lançamento nasce PAGO, igual a "guardar".
-    state.gastosVariaveis.push({ nome: `Guardado: ${nome}`, valor: valorInicial, pago: true });
+    // já sai do saldo na hora — o lançamento nasce PAGO, igual a "guardar",
+    // com a data de hoje e categoria "Metas" (ver guardarNaCaixinha).
+    state.gastosVariaveis.push({ nome: `Guardado: ${nome}`, valor: valorInicial, pago: true, tipo: "Metas", data: dataHojeISO() });
     salvarBloco("saveGastosVariaveis", state.gastosVariaveis);
   }
   sincronizarCacheAtual();
@@ -759,7 +774,7 @@ function removeCaixinha(index) {
   const guardado = Number(cx.valorGuardado) || 0;
   state.caixinhas.splice(index, 1);
   if (guardado > 0) {
-    state.ganhos.push({ nome: `Retirado da caixinha: ${cx.nome} (removida)`, valor: guardado, recebido: true });
+    state.ganhos.push({ nome: `Retirado da caixinha: ${cx.nome} (removida)`, valor: guardado, recebido: true, data: dataHojeISO() });
     salvarBloco("saveGanhos", state.ganhos);
   }
   sincronizarCacheAtual();
@@ -798,7 +813,10 @@ function guardarNaCaixinha(index, valor) {
   const cx = state.caixinhas[index];
   if (!cx) return;
   cx.valorGuardado = (Number(cx.valorGuardado) || 0) + valor;
-  state.gastosVariaveis.push({ nome: `Guardado: ${cx.nome}`, valor, pago: true });
+  // Nasce PAGO, com a data de hoje (dia em que o valor foi guardado de
+  // fato) e categoria "Metas", pra aparecer certinho nos gráficos por
+  // categoria e no histórico em vez de ficar sem data/sem categoria.
+  state.gastosVariaveis.push({ nome: `Guardado: ${cx.nome}`, valor, pago: true, tipo: "Metas", data: dataHojeISO() });
   sincronizarCacheAtual();
   salvarBloco("saveCaixinhas", state.caixinhas);
   salvarBloco("saveGastosVariaveis", state.gastosVariaveis);
@@ -809,7 +827,8 @@ function retirarDaCaixinha(index, valor) {
   const cx = state.caixinhas[index];
   if (!cx) return;
   cx.valorGuardado = Math.max((Number(cx.valorGuardado) || 0) - valor, 0);
-  state.ganhos.push({ nome: `Retirado da caixinha: ${cx.nome}`, valor, recebido: true });
+  // Mesma ideia do guardar: nasce RECEBIDO, com a data de hoje.
+  state.ganhos.push({ nome: `Retirado da caixinha: ${cx.nome}`, valor, recebido: true, data: dataHojeISO() });
   sincronizarCacheAtual();
   salvarBloco("saveCaixinhas", state.caixinhas);
   salvarBloco("saveGanhos", state.ganhos);
