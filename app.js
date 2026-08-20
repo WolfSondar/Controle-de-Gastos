@@ -48,6 +48,18 @@ function dataHojeISO() {
   return `${ano}-${mes}-${dia}`;
 }
 
+// Preenche os campos de data dos formulários de novo lançamento (Ganhos/
+// Fixos/Variáveis) com a data de hoje por padrão — a grande maioria dos
+// lançamentos é feita no mesmo dia, então poupa o toque de abrir o
+// calendário quase toda vez. O campo continua editável normalmente; só
+// preenche se estiver vazio, pra nunca sobrescrever uma data que a pessoa
+// já tenha escolhido.
+function preencherDatasComHoje() {
+  document.querySelectorAll('.add-form input[type="date"].input-data').forEach((el) => {
+    if (!el.value) el.value = dataHojeISO();
+  });
+}
+
 // Preenche todo <select class="input-categoria"> da página a partir de
 // CATEGORIAS, mantendo a opção "Categoria (opcional)" no topo. Assim os
 // formulários de Fixos e Variáveis nunca ficam desalinhados entre si —
@@ -702,24 +714,17 @@ function criarOperacoesLista(key, action) {
       salvarBloco(action, state[key]);
       renderAll();
     },
-    // Reinsere um item removido (ver excluirComRiscoEDesfazer/"Desfazer" no
-    // toast). O índice original pode não existir mais se a lista mudou
-    // nesse meio-tempo — por isso é limitado ao tamanho atual, o item só
-    // volta pro fim da lista nesse caso raro, não se perde.
-    restore(index, item) {
-      if (isAmbos()) return;
-      const posicao = Math.min(Math.max(index, 0), state[key].length);
-      state[key].splice(posicao, 0, item);
-      sincronizarCacheAtual();
-      salvarBloco(action, state[key]);
-      renderAll();
-    },
-    edit(index, nome, valor) {
+    // `extra` recebe os campos além de nome/valor (categoria, data,
+    // parcela — ver abrirModalEditar/formEditar), fundidos no item
+    // existente sem apagar o que não veio nesse edit (ex: status pago/
+    // recebido, vínculo de meta).
+    edit(index, nome, valor, extra = {}) {
       if (isAmbos()) return;
       const item = state[key][index];
       if (!item) return;
       item.nome = nome;
       item.valor = valor;
+      Object.assign(item, extra);
       sincronizarCacheAtual();
       salvarBloco(action, state[key]);
       renderAll();
@@ -1444,12 +1449,12 @@ function renderListaComStatus(ulId, lista, tipo, ops, tipoModal, statusKey, togg
       li.querySelector('input[type="checkbox"]').addEventListener("change", () => toggleFn(idx));
       li.querySelector(".swipe-edit").addEventListener("click", () => {
         fecharSwipe(li);
-        abrirModalEditar(tipoModal, idx, item.nome, item.valor);
+        abrirModalEditar(tipoModal, idx, item);
       });
       li.querySelector(".swipe-delete").addEventListener("click", () => {
         fecharSwipe(li);
         abrirConfirmacao(`Remover "${item.nome}"?`, () =>
-          excluirComRiscoEDesfazer(li, ops, idx, item)
+          excluirComRisco(li, ops, idx, item)
         );
       });
     }
@@ -1460,11 +1465,10 @@ function renderListaComStatus(ulId, lista, tipo, ops, tipoModal, statusKey, togg
 
 // Risca o lançamento (efeito de caneta passando em cima, como quando se
 // erra uma linha num livro-caixa de papel) antes de tirá-lo de verdade da
-// lista, e depois oferece "Desfazer" por alguns segundos no toast. O item
-// só sai do state DE FATO depois da animação — até lá continua contando
-// nos totais normalmente, exatamente como se ainda não tivesse sido
-// excluído (porque, até esse instante, não foi).
-function excluirComRiscoEDesfazer(li, ops, idx, item) {
+// lista. O item só sai do state DE FATO depois da animação — até lá
+// continua contando nos totais normalmente, exatamente como se ainda não
+// tivesse sido excluído (porque, até esse instante, não foi).
+function excluirComRisco(li, ops, idx, item) {
   if (!li) {
     ops.remove(idx);
     return;
@@ -1481,17 +1485,14 @@ function excluirComRiscoEDesfazer(li, ops, idx, item) {
     recolherERemover(li, () => {
       suprimirEntradaNoProximoRenderAll = true;
       ops.remove(idx);
-      toastComAcao(`"${item.nome}" excluído`, "Desfazer", () => {
-        ops.restore(idx, item);
-        showToast("Restaurado");
-      });
+      showToast(`"${item.nome}" excluído`);
     });
   }, 620);
 }
 
 // Encolhe a altura de uma linha até 0 antes de chamar `aoTerminar` — usada
 // só pra dar tempo da transição visual acontecer antes do renderAll cheio
-// que vem em seguida (ver excluirComRiscoEDesfazer acima).
+// que vem em seguida (ver excluirComRisco acima).
 function recolherERemover(li, aoTerminar) {
   const altura = li.getBoundingClientRect().height;
   li.style.height = altura + "px";
@@ -1624,7 +1625,7 @@ function renderCaixinhas() {
           card.querySelector(".btn-caixinha-guardar").addEventListener("click", () => abrirModalCaixinha("guardar", idx));
           card.querySelector(".btn-caixinha-retirar").addEventListener("click", () => abrirModalCaixinha("retirar", idx));
           card.querySelector(".btn-caixinha-rendimento").addEventListener("click", () => abrirModalCaixinha("rendimento", idx));
-          card.querySelector("[data-edit]").addEventListener("click", () => abrirModalEditar("caixinhas", idx, cx.nome, cx.valorObjetivo));
+          card.querySelector("[data-edit]").addEventListener("click", () => abrirModalEditar("caixinhas", idx, { nome: cx.nome, valor: cx.valorObjetivo }));
           card.querySelector("[data-remove]").addEventListener("click", () => {
             const guardado = Number(cx.valorGuardado) || 0;
             const aviso =
@@ -1833,7 +1834,7 @@ function renderSplitSkeleton() {
 // ---------------------------------------------------------------------
 
 // true por um único renderAll() — usada logo depois de excluir um
-// lançamento (ver excluirComRiscoEDesfazer/recolherERemover) pra essa
+// lançamento (ver excluirComRisco/recolherERemover) pra essa
 // reconstrução específica não replay-ar a animação de entrada em cima
 // das linhas que nem mudaram, o que piscava na tela junto com o corte.
 let suprimirEntradaNoProximoRenderAll = false;
@@ -2556,6 +2557,7 @@ on("formGanhos", "submit", (e) => {
   const data = f.data ? f.data.value : "";
   opGanhos.add(nome, valor, { recebido, data });
   f.reset();
+  preencherDatasComHoje();
 });
 
 on("formFixos", "submit", (e) => {
@@ -2570,6 +2572,7 @@ on("formFixos", "submit", (e) => {
   const data = f.data ? f.data.value : "";
   opFixos.add(nome, valor, { pago, tipo, data });
   f.reset();
+  preencherDatasComHoje();
 });
 
 // Valida "Parcela" no formato "atual/total" (ex: "2/10") — vazio é sempre
@@ -2597,6 +2600,7 @@ on("formVariaveis", "submit", (e) => {
   }
   opVariaveis.add(nome, valor, { pago, tipo, data, parcela });
   f.reset();
+  preencherDatasComHoje();
 });
 
 on("formCaixinhas", "submit", (e) => {
@@ -2689,15 +2693,44 @@ const TITULOS_EDICAO = {
   caixinhas: "Editar caixinha",
 };
 
-function abrirModalEditar(tipo, idx, nome, valor) {
+// Ganhos/fixos/variáveis têm campos além de nome/valor — mas nem todo
+// tipo tem todos eles (só fixos/variáveis têm categoria, só variáveis tem
+// parcela, caixinhas não tem nenhum dos três). Essas listas decidem o que
+// aparece no modal pra cada tipo.
+const EDICAO_TEM_CATEGORIA = { fixos: true, variaveis: true };
+const EDICAO_TEM_DATA = { ganhos: true, fixos: true, variaveis: true };
+const EDICAO_TEM_PARCELA = { variaveis: true };
+
+function abrirModalEditar(tipo, idx, item) {
   if (isAmbos()) return;
   editContext = { tipo, idx };
   const tituloEl = document.getElementById("editTitle");
   if (tituloEl) tituloEl.textContent = TITULOS_EDICAO[tipo] || "Editar item";
-  document.getElementById("editNome").value = nome;
+  document.getElementById("editNome").value = item.nome;
   const valorEl = document.getElementById("editValor");
-  valorEl.value = valor ? fmtCampo(valor) : "";
+  valorEl.value = item.valor ? fmtCampo(item.valor) : "";
   valorEl.placeholder = tipo === "caixinhas" ? "Objetivo, R$ (0 = sem meta)" : "0,00";
+
+  const categoriaEl = document.getElementById("editCategoria");
+  const dataEl = document.getElementById("editData");
+  const parcelaEl = document.getElementById("editParcela");
+  const temCategoria = !!EDICAO_TEM_CATEGORIA[tipo];
+  const temData = !!EDICAO_TEM_DATA[tipo];
+  const temParcela = !!EDICAO_TEM_PARCELA[tipo];
+
+  if (categoriaEl) {
+    categoriaEl.classList.toggle("is-hidden", !temCategoria);
+    categoriaEl.value = temCategoria ? item.tipo || "" : "";
+  }
+  if (dataEl) {
+    dataEl.classList.toggle("is-hidden", !temData);
+    dataEl.value = temData ? item.data || "" : "";
+  }
+  if (parcelaEl) {
+    parcelaEl.classList.toggle("is-hidden", !temParcela);
+    parcelaEl.value = temParcela ? item.parcela || "" : "";
+  }
+
   if (editBackdrop) editBackdrop.classList.remove("is-hidden");
   registrarAberturaModal("editBackdrop");
   setTimeout(() => document.getElementById("editNome").focus(), 50);
@@ -2722,10 +2755,30 @@ on("formEditar", "submit", (e) => {
   const valor = parseValor(document.getElementById("editValor").value) || 0;
   const { tipo, idx } = editContext;
   if (!nome || (tipo !== "caixinhas" && !(valor > 0))) return;
-  if (tipo === "ganhos") opGanhos.edit(idx, nome, valor);
-  else if (tipo === "fixos") opFixos.edit(idx, nome, valor);
-  else if (tipo === "variaveis") opVariaveis.edit(idx, nome, valor);
-  else if (tipo === "caixinhas") editCaixinha(idx, nome, valor);
+
+  if (tipo === "variaveis") {
+    const parcela = document.getElementById("editParcela").value.trim();
+    if (!parcelaValida(parcela)) {
+      showToast('Parcela inválida — use o formato "atual/total", ex: 2/10.');
+      return;
+    }
+  }
+
+  if (tipo === "ganhos") {
+    const data = document.getElementById("editData").value;
+    opGanhos.edit(idx, nome, valor, { data });
+  } else if (tipo === "fixos") {
+    const categoria = document.getElementById("editCategoria").value;
+    const data = document.getElementById("editData").value;
+    opFixos.edit(idx, nome, valor, { tipo: categoria, data });
+  } else if (tipo === "variaveis") {
+    const categoria = document.getElementById("editCategoria").value;
+    const data = document.getElementById("editData").value;
+    const parcela = document.getElementById("editParcela").value.trim();
+    opVariaveis.edit(idx, nome, valor, { tipo: categoria, data, parcela });
+  } else if (tipo === "caixinhas") {
+    editCaixinha(idx, nome, valor);
+  }
   fecharModalEditar();
 });
 
@@ -3064,6 +3117,7 @@ if (confirmBackdrop) {
 renderPessoaSwitch();
 renderMesAtual();
 popularSelectsDeCategoria();
+preencherDatasComHoje();
 atualizarVisibilidadeEdicao();
 atualizarVisibilidadeSplitCard();
 atualizarVisibilidadeVisaoGeral();
