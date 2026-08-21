@@ -490,8 +490,14 @@ button, input { font-family: inherit; }
   padding: 20px 14px 14px; 
   margin-bottom: 24px; 
   box-shadow: 0 3px 12px rgba(22,51,44,0.04); 
-  /* Adicione a linha abaixo: Permite rolar a tela pra baixo, mas trava o deslize pros lados */
-  touch-action: pan-y; 
+  /* pan-x + pan-y (não "pan-y" sozinho): precisa liberar o eixo horizontal
+     pro dedo conseguir arrastar o carrossel pra página de categorias.
+     O "pan-y" sozinho travava exatamente essa página, já que ela ocupa a
+     tela toda. O scrub do tooltip (touchmove em .historico-grafico-wrap,
+     lá no final do app.js) continua funcionando do mesmo jeito — ele só
+     lê a posição do dedo, não faz preventDefault, então roda em paralelo
+     com o scroll nativo do carrossel. */
+  touch-action: pan-x pan-y; 
 }
 .historico-grafico { 
   width: 100%; 
@@ -539,10 +545,31 @@ button, input { font-family: inherit; }
 @keyframes carimboMetaSumir { from { opacity: 1; transform: translate(-50%, -50%) rotate(-7deg) scale(1); } to { opacity: 0; transform: translate(-50%, -50%) rotate(-7deg) scale(1); } }
 
 .graficos-carousel-wrap { margin-bottom: 4px; }
-.graficos-carousel { display: flex; gap: 14px; overflow-x: auto; scroll-snap-type: x mandatory; -webkit-overflow-scrolling: touch; scrollbar-width: none; }
+/* align-items: flex-start (em vez do "stretch" padrão do flex) — sem isso,
+   toda página do carrossel é esticada pra bater a altura da página mais
+   alta (ex: categoria com muitos tipos de gasto), o que deixava o
+   gráfico de linhas com um espaço vazio enorme embaixo. A altura do
+   carrossel em si (quanto ele "respira" pra cada página) é ajustada aos
+   poucos em JS, em atualizarAlturaCarrossel(), pra sempre bater com a
+   página que está ativa no momento — dá pra ver a transição suave ao
+   arrastar de uma página pra outra. */
+.graficos-carousel { display: flex; align-items: flex-start; gap: 14px; overflow-x: auto; scroll-snap-type: x mandatory; -webkit-overflow-scrolling: touch; scrollbar-width: none; transition: height 0.28s cubic-bezier(.4,0,.2,1); }
 .graficos-carousel::-webkit-scrollbar { display: none; }
 .graficos-carousel > .split-card { flex: 0 0 100%; scroll-snap-align: center; scroll-snap-stop: always; min-width: 0; transform-origin: center; transition: transform 0.18s ease, opacity 0.18s ease; will-change: transform, opacity; }
 .graficos-carousel > .split-card.is-hidden { display: none; }
+
+/* Legenda em 2 colunas pra categorias — usada só nos cards de "Gastos por
+   categoria" (Resumo e Histórico), que podem ter bem mais itens que os
+   outros gráficos do carrossel (Divisão do casal, Visão geral, no máximo
+   3 linhas cada). Em coluna única, 9 categorias empurravam a altura do
+   card muito além da dos outros, e era isso que fazia o gráfico de
+   linhas parecer "esticado" sem necessidade. */
+.split-legend-categorias { display: grid; grid-template-columns: 1fr 1fr; column-gap: 14px; row-gap: 8px; }
+.split-legend-categorias .split-legend-item { font-size: 12px; }
+.split-legend-categorias .split-legend-item strong { padding-left: 6px; }
+@media (max-width: 360px) {
+  .split-legend-categorias { grid-template-columns: 1fr; }
+}
 .graficos-dots { display: flex; justify-content: center; align-items: center; gap: 7px; margin: 8px 0 16px; }
 .graficos-dots.is-hidden { display: none; }
 .graficos-dots .dot-item { width: 6px; height: 6px; border-radius: 50%; background: var(--line); transition: background 0.2s ease, transform 0.2s ease; }
