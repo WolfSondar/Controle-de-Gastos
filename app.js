@@ -1512,7 +1512,11 @@ function marcarDotAtivo(wrap, dotsEl) {
   // Altura do carrossel acompanha só a página ativa (ver comentário no
   // CSS, .graficos-carousel) — sem isso, uma página com bem mais conteúdo
   // (categoria com muitos tipos de gasto) esticava as outras junto.
-  const alturaAlvo = cards[ativo].scrollHeight;
+  // offsetHeight (não scrollHeight): scrollHeight não conta a borda de 1px
+  // do card (.historico-grafico-wrap tem border: 1px solid), só conteúdo +
+  // padding. Com a altura do wrap fixada 2px menor que o card de verdade e
+  // "overflow-y: hidden" no carrossel, a borda de baixo ficava cortada.
+  const alturaAlvo = cards[ativo].offsetHeight;
   if (alturaAlvo > 0 && wrap.dataset.alturaAtual !== String(alturaAlvo)) {
     wrap.dataset.alturaAtual = String(alturaAlvo);
     wrap.style.height = alturaAlvo + "px";
@@ -1632,6 +1636,9 @@ function agregarCategoriasDoAno(meses, pessoa) {
 }
 
 function construirPaginaCategoriasHistorico(meses, pessoa, ano) {
+  // "todos" é o valor especial do select de ano (ver renderHistorico) —
+  // aqui só ajusta o texto pra fazer sentido gramatical no plural.
+  const modoTodos = ano === "todos";
   const porCategoria = agregarCategoriasDoAno(meses, pessoa);
   const categorias = Object.keys(porCategoria).sort((a, b) => porCategoria[b] - porCategoria[a]);
   const total = categorias.reduce((acc, c) => acc + porCategoria[c], 0);
@@ -1640,7 +1647,7 @@ function construirPaginaCategoriasHistorico(meses, pessoa, ano) {
     return `
       <div class="split-card historico-categoria-page">
         <div class="ledger-line"><h2 class="section-title">Gastos por categoria</h2></div>
-        <p class="empty-state">Sem gastos com categoria fechados em ${ano} ainda.</p>
+        <p class="empty-state">Sem gastos com categoria fechados ${modoTodos ? "ainda" : `em ${ano} ainda`}.</p>
       </div>`;
   }
 
@@ -1668,10 +1675,10 @@ function construirPaginaCategoriasHistorico(meses, pessoa, ano) {
   return `
     <div class="split-card historico-categoria-page">
       <div class="ledger-line"><h2 class="section-title">Gastos por categoria</h2></div>
-      <p class="section-hint">Soma do ano de ${ano}, pra onde o dinheiro foi.</p>
+      <p class="section-hint">${modoTodos ? "Soma de todos os anos" : `Soma do ano de ${ano}`}, pra onde o dinheiro foi.</p>
       <div class="split-chart-wrap">
         <div class="split-donut" style="background: conic-gradient(${gradiente})">
-          <div class="split-donut-center">${spanCentro(fmt(total))}<small>gasto no ano</small></div>
+          <div class="split-donut-center">${spanCentro(fmt(total))}<small>${modoTodos ? "gasto no total" : "gasto no ano"}</small></div>
         </div>
         <div class="split-legend split-legend-categorias">${legendaHtml}</div>
       </div>
@@ -1957,7 +1964,14 @@ function construirGraficoHistoricoMultiSvg(mesesAsc, pessoa) {
     `;
   }).join("");
 
-  const rotulos = mesesAsc.map((m, i) => `<text x="${x(i).toFixed(1)}" y="${H - 8}" font-size="9" text-anchor="middle" font-family="var(--font-mono)" font-weight="600" fill="var(--muted)">${escapeHtml((m.nome || "").slice(0, 3).toUpperCase())}</text>`).join("");
+  // No modo "Todos os anos" cada ponto é um ano (ex: "2025"), não um mês —
+  // nesse caso mostra o ano inteiro no eixo, sem truncar pros 3 primeiros
+  // caracteres como faz com o nome do mês (senão "2025" virava "202").
+  const rotulos = mesesAsc.map((m, i) => {
+    const nomeCru = m.nome || "";
+    const rotulo = /^\d{4}$/.test(nomeCru) ? nomeCru : nomeCru.slice(0, 3).toUpperCase();
+    return `<text x="${x(i).toFixed(1)}" y="${H - 8}" font-size="9" text-anchor="middle" font-family="var(--font-mono)" font-weight="600" fill="var(--muted)">${escapeHtml(rotulo)}</text>`;
+  }).join("");
   const linhaZero = y(0).toFixed(1);
 
   return `
@@ -1996,8 +2010,13 @@ function renderHistorico() {
 
   if (controles) controles.style.display = "block";
 
-  if (selectAno && selectAno.options.length !== anos.length) {
+  // +1 pela opção "Todos os anos", que fica sempre no topo do select.
+  if (selectAno && selectAno.options.length !== anos.length + 1) {
     selectAno.innerHTML = "";
+    const optTodos = document.createElement("option");
+    optTodos.value = "todos";
+    optTodos.textContent = "Todos os anos";
+    selectAno.appendChild(optTodos);
     [...anos].sort((a, b) => b.ano - a.ano).forEach(bloco => {
       const opt = document.createElement("option");
       opt.value = bloco.ano;
@@ -2007,14 +2026,14 @@ function renderHistorico() {
   }
 
   let anoAlvo = state.historicoAnoSelecionado;
-  if (!anos.find(a => a.ano === anoAlvo)) {
+  if (anoAlvo !== "todos" && !anos.find(a => a.ano === anoAlvo)) {
     anoAlvo = anos[0].ano;
     state.historicoAnoSelecionado = anoAlvo;
   }
   if (selectAno) selectAno.value = anoAlvo;
 
-  const bloco = anos.find(a => a.ano === anoAlvo);
-  if (!bloco) return;
+  const modoTodos = anoAlvo === "todos";
+  if (!modoTodos && !anos.find(a => a.ano === anoAlvo)) return;
 
   const pessoa = state.pessoaAtual;
   const getVal = (m, campo) => {
@@ -2029,17 +2048,40 @@ function renderHistorico() {
   // carrossel "pulava" de volta pra 1ª página no meio do uso.
   const paginaAnterior = paginaCarrosselAtiva("historicoGraficosCarousel");
 
-  const mesesAscendentes = [...bloco.meses].sort((a, b) => a.mes - b.mes);
-  const grafico = construirGraficoHistoricoMultiSvg(mesesAscendentes, pessoa);
-  const paginaCategorias = construirPaginaCategoriasHistorico(bloco.meses, pessoa, anoAlvo);
+  // Campos que somamos pra virar UM registro por ano só, no modo "Todos" —
+  // mesmo formato dos meses individuais (ganhosDavi, saldoGabriel etc.),
+  // então o gráfico de linhas e os cards de baixo funcionam sem precisar
+  // de nenhuma lógica extra, só trocam "mês" por "ano".
+  const camposSoma = ["ganhosDavi", "ganhosGabriel", "debitosDavi", "debitosGabriel", "guardadoDavi", "guardadoGabriel", "saldoDavi", "saldoGabriel"];
+  const agregarAnoComoRegistro = (bloco) => {
+    const registro = { nome: String(bloco.ano), mes: bloco.ano };
+    camposSoma.forEach((c) => { registro[c] = 0; });
+    bloco.meses.forEach((m) => camposSoma.forEach((c) => { registro[c] += (m[c] || 0); }));
+    return registro;
+  };
 
-  const mesesOrdenados = [...bloco.meses].sort((a, b) => b.mes - a.mes);
+  let mesesAscendentes, mesesOrdenados, mesesParaCategorias;
+  if (modoTodos) {
+    const registrosPorAno = [...anos].sort((a, b) => a.ano - b.ano).map(agregarAnoComoRegistro);
+    mesesAscendentes = registrosPorAno;
+    mesesOrdenados = [...registrosPorAno].sort((a, b) => b.mes - a.mes);
+    mesesParaCategorias = anos.flatMap((a) => a.meses);
+  } else {
+    const bloco = anos.find(a => a.ano === anoAlvo);
+    mesesAscendentes = [...bloco.meses].sort((a, b) => a.mes - b.mes);
+    mesesOrdenados = [...bloco.meses].sort((a, b) => b.mes - a.mes);
+    mesesParaCategorias = bloco.meses;
+  }
+
+  const grafico = construirGraficoHistoricoMultiSvg(mesesAscendentes, pessoa);
+  const paginaCategorias = construirPaginaCategoriasHistorico(mesesParaCategorias, pessoa, modoTodos ? "todos" : anoAlvo);
+
   const cards = mesesOrdenados.map((m) => {
     const ganhos = getVal(m, 'ganhos');
     const debitos = getVal(m, 'debitos');
     const guardado = getVal(m, 'guardado');
     const saldo = getVal(m, 'saldo');
-    const nomeMes = m.nome.charAt(0) + m.nome.slice(1).toLowerCase();
+    const nomeMes = modoTodos ? `Ano ${m.nome}` : (m.nome.charAt(0) + m.nome.slice(1).toLowerCase());
 
     return `
     <div class="historico-mes-card">
@@ -2719,7 +2761,7 @@ setTimeout(mostrarDicaAcoesConjuntoSeNecessario, 1200);
 const selectAno = document.getElementById("historicoAnoSelect");
 if (selectAno) {
   selectAno.addEventListener("change", (e) => {
-    state.historicoAnoSelecionado = parseInt(e.target.value);
+    state.historicoAnoSelecionado = e.target.value === "todos" ? "todos" : parseInt(e.target.value);
     renderHistorico();
   });
 }
