@@ -15,8 +15,12 @@ const MESES_LABEL = [
 
 const CATEGORIAS = [
   "Lazer", "Outro", "Presente", "Alimentação", "Transporte",
-  "Pessoal", "Educação", "Financeiro", "Veículo", "Contas",
-  "Mercado", "Bem-estar", "Metas",
+  "Pessoal", "Educação", "Financiamento", "Contas",
+  "Mercado", "Bem-estar", "Metas", 
+  "Delivery & Restaurantes", "Viagens", "Pets", "Tech & Equipamentos",
+  "Assinaturas & Serviços", "Reparação Histórica", 
+  "Saúde & Farmácia", "Vestuário & Acessórios", "Casa & Decoração",
+  "Beleza & Cuidados", "Games"
 ];
 
 function dataHojeISO() {
@@ -1561,6 +1565,9 @@ function restaurarPaginaCarrossel(wrapId, dotsId, indice) {
 const PALETA_CATEGORIAS = [
   "#b9862f", "#3c6e4f", "#a8482e", "#5c8aa6", "#8a6bb5",
   "#c99a3f", "#4d9e8a", "#c46a8f", "#7a9e4d", "#a67a4d",
+  "#d96a53", "#6c8c77", "#b59b52", "#5b778c", "#9678a3", 
+  "#80705a", "#a15a4b", "#4a7866", "#c2a36b", "#6a5c78", 
+  "#8b7e66", "#588f82", "#b5725c"
 ];
 
 function renderCategorias() {
@@ -2104,10 +2111,18 @@ function renderHistorico() {
     </div>`;
   }).join("");
 
+  let alturaFixa = "";
+  const carrosselAtual = document.getElementById("historicoGraficosCarousel");
+  if (carrosselAtual && carrosselAtual.style.height) {
+    alturaFixa = `height: ${carrosselAtual.style.height};`;
+  }
+  // ------------------------------------
+
   wrap.innerHTML = `
     <div class="historico-ano-bloco">
       <div class="graficos-carousel-wrap">
-        <div class="graficos-carousel" id="historicoGraficosCarousel">
+        <!-- Injetamos o style com a alturaFixa aqui: -->
+        <div class="graficos-carousel" id="historicoGraficosCarousel" style="${alturaFixa}">
           ${grafico}
           ${paginaCategorias}
         </div>
