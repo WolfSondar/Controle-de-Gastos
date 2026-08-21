@@ -553,7 +553,12 @@ button, input { font-family: inherit; }
    poucos em JS, em atualizarAlturaCarrossel(), pra sempre bater com a
    página que está ativa no momento — dá pra ver a transição suave ao
    arrastar de uma página pra outra. */
-.graficos-carousel { display: flex; align-items: flex-start; gap: 14px; overflow-x: auto; scroll-snap-type: x mandatory; -webkit-overflow-scrolling: touch; scrollbar-width: none; transition: height 0.28s cubic-bezier(.4,0,.2,1); }
+/* overflow-y: hidden é o que faltava — com só o overflow-x definido, o
+   navegador liga rolagem vertical sozinho por baixo dos panos (efeito
+   colateral de ter a altura fixada em JS agora). O carrossel não deve
+   rolar verticalmente por dentro dele mesmo; quem rola pra cima/baixo é
+   a página toda, normalmente. */
+.graficos-carousel { display: flex; align-items: flex-start; gap: 14px; overflow-x: auto; overflow-y: hidden; scroll-snap-type: x mandatory; -webkit-overflow-scrolling: touch; scrollbar-width: none; transition: height 0.28s cubic-bezier(.4,0,.2,1); }
 .graficos-carousel::-webkit-scrollbar { display: none; }
 .graficos-carousel > .split-card { flex: 0 0 100%; scroll-snap-align: center; scroll-snap-stop: always; min-width: 0; transform-origin: center; transition: transform 0.18s ease, opacity 0.18s ease; will-change: transform, opacity; }
 .graficos-carousel > .split-card.is-hidden { display: none; }
