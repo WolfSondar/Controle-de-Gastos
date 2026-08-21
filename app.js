@@ -1409,10 +1409,12 @@ function renderAll() {
   if (suprimirEntrada) requestAnimationFrame(() => document.body.classList.remove("sem-entrada-listas"));
 }
 
-// Função atualizada para suportar clique e arrasto no PC
-function atualizarCarrosselGraficos() {
-  const wrap = document.getElementById("graficosCarousel");
-  const dotsEl = document.getElementById("graficosDots");
+// Função atualizada para suportar clique e arrasto no PC. Recebe os ids do
+// wrap/dots pra poder tocar mais de um carrossel na página com o mesmo
+// código (o do Resumo e, agora, o novo de 2 páginas do Histórico).
+function atualizarCarrosselGraficos(wrapId = "graficosCarousel", dotsId = "graficosDots") {
+  const wrap = document.getElementById(wrapId);
+  const dotsEl = document.getElementById(dotsId);
   if (!wrap || !dotsEl) return;
 
   const cards = Array.from(wrap.children).filter((el) => !el.classList.contains("is-hidden"));
@@ -1556,6 +1558,80 @@ function renderCategorias() {
           <strong>${p.pct.toFixed(0)}%</strong>
         </div>`).join("");
   }
+}
+
+// ---------------------------------------------------------------------
+// HISTÓRICO — página 2 do carrossel: "Gastos por categoria" do ano
+// selecionado, somando o texto "Categoria:Valor,Categoria:Valor" que o GS
+// grava em cada mês fechado (ver categoriasDavi/categoriasGabriel, vindos
+// já parseados do backend). Mesmo visual do card de categoria do Resumo,
+// só que olhando pro ano inteiro em vez do mês corrente — por isso é uma
+// pizza (o que importa aqui é a fatia de cada categoria no total do ano,
+// não a variação mês a mês, que já tem sua própria linha do tempo na
+// primeira página do carrossel).
+// ---------------------------------------------------------------------
+
+function agregarCategoriasDoAno(meses, pessoa) {
+  const total = {};
+  meses.forEach((m) => {
+    const mapas =
+      pessoa === "ambos"
+        ? [m.categoriasDavi || {}, m.categoriasGabriel || {}]
+        : [pessoa === "gabriel" ? m.categoriasGabriel || {} : m.categoriasDavi || {}];
+    mapas.forEach((mapa) => {
+      Object.keys(mapa).forEach((cat) => {
+        total[cat] = (total[cat] || 0) + (Number(mapa[cat]) || 0);
+      });
+    });
+  });
+  return total;
+}
+
+function construirPaginaCategoriasHistorico(meses, pessoa, ano) {
+  const porCategoria = agregarCategoriasDoAno(meses, pessoa);
+  const categorias = Object.keys(porCategoria).sort((a, b) => porCategoria[b] - porCategoria[a]);
+  const total = categorias.reduce((acc, c) => acc + porCategoria[c], 0);
+
+  if (categorias.length === 0 || total <= 0) {
+    return `
+      <div class="split-card historico-categoria-page">
+        <div class="ledger-line"><h2 class="section-title">Gastos por categoria</h2></div>
+        <p class="empty-state">Sem gastos com categoria fechados em ${ano} ainda.</p>
+      </div>`;
+  }
+
+  let acumulado = 0;
+  const partes = categorias.map((cat, idx) => {
+    const cor = PALETA_CATEGORIAS[idx % PALETA_CATEGORIAS.length];
+    const pct = (porCategoria[cat] / total) * 100;
+    const inicio = acumulado;
+    acumulado += pct;
+    return { cat, cor, pct, valor: porCategoria[cat], inicio, fim: acumulado };
+  });
+
+  const gradiente = partes.map((p) => `${p.cor} ${p.inicio}% ${p.fim}%`).join(", ");
+  const legendaHtml = partes
+    .map(
+      (p) => `
+        <div class="split-legend-item">
+          <span class="dot" style="background:${p.cor}"></span>
+          ${escapeHtml(p.cat)}
+          <strong>${p.pct.toFixed(0)}%</strong>
+        </div>`
+    )
+    .join("");
+
+  return `
+    <div class="split-card historico-categoria-page">
+      <div class="ledger-line"><h2 class="section-title">Gastos por categoria</h2></div>
+      <p class="section-hint">Soma do ano de ${ano}, pra onde o dinheiro foi.</p>
+      <div class="split-chart-wrap">
+        <div class="split-donut" style="background: conic-gradient(${gradiente})">
+          <div class="split-donut-center">${spanCentro(fmt(total))}<small>gasto no ano</small></div>
+        </div>
+        <div class="split-legend">${legendaHtml}</div>
+      </div>
+    </div>`;
 }
 
 function renderVisaoGeral() {
@@ -1905,6 +1981,7 @@ function renderHistorico() {
 
   const mesesAscendentes = [...bloco.meses].sort((a, b) => a.mes - b.mes);
   const grafico = construirGraficoHistoricoMultiSvg(mesesAscendentes, pessoa);
+  const paginaCategorias = construirPaginaCategoriasHistorico(bloco.meses, pessoa, anoAlvo);
 
   const mesesOrdenados = [...bloco.meses].sort((a, b) => b.mes - a.mes);
   const cards = mesesOrdenados.map((m) => {
@@ -1937,9 +2014,17 @@ function renderHistorico() {
 
   wrap.innerHTML = `
     <div class="historico-ano-bloco">
-      ${grafico}
+      <div class="graficos-carousel-wrap">
+        <div class="graficos-carousel" id="historicoGraficosCarousel">
+          ${grafico}
+          ${paginaCategorias}
+        </div>
+        <div class="graficos-dots is-hidden" id="historicoGraficosDots" aria-hidden="true"></div>
+      </div>
       ${cards}
     </div>`;
+
+  atualizarCarrosselGraficos("historicoGraficosCarousel", "historicoGraficosDots");
 }
 
 function getColapsoState() {
