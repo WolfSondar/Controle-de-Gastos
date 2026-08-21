@@ -474,6 +474,14 @@ button, input { font-family: inherit; }
 .historico-ano-bloco:last-child { margin-bottom: 0; }
 .historico-ano-titulo { font-family: var(--font-display); font-size: 16px; font-weight: 600; color: var(--muted); margin: 0; }
 
+/* Carrossel de 2 páginas do Histórico (comparativo entre meses + pizza de
+   categorias do ano) — mesma mecânica (arrastar/bolinhas) do carrossel do
+   Resumo, ver .graficos-carousel/.graficos-dots mais abaixo. A 1ª página
+   é o .historico-grafico-wrap (self-contained, com seu próprio fundo); a
+   2ª é um .split-card comum (mesmo card do "Gastos por categoria" do
+   Resumo) — por isso precisa da regra de flex específica pro primeiro. */
+.graficos-carousel > .historico-grafico-wrap { flex: 0 0 100%; scroll-snap-align: center; scroll-snap-stop: always; min-width: 0; }
+
 /* Margens, fundos e respiros pro novo Gráfico de Linhas */
 .historico-grafico-wrap { 
   background: var(--paper-deep); 
