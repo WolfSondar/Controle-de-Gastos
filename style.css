@@ -386,7 +386,14 @@ button, input { font-family: inherit; }
 .split-legend { display: flex; flex-direction: column; gap: 10px; flex: 1; min-width: 0; }
 .split-legend-item { display: flex; align-items: center; gap: 8px; font-size: 12.5px; color: var(--ink-text); }
 .split-legend-item .dot { width: 10px; height: 10px; border-radius: 50%; flex-shrink: 0; }
-.split-legend-item strong { font-family: var(--font-mono); margin-left: auto; padding-left: 8px; }
+.split-legend-item strong { font-family: var(--font-mono); margin-left: auto; padding-left: 8px; flex-shrink: 0; }
+/* .legend-label existe pra dar ao nome da categoria um item de flex de
+   verdade (o texto sozinho, solto dentro de .split-legend-item, vira um
+   item "anônimo" que o navegador nunca deixa encolher abaixo da palavra
+   mais larga sem quebrar — min-width:0 + overflow-wrap aqui é o que
+   permite ele encolher/quebrar em vez de forçar a linha toda a ficar
+   larga demais e estourar a tela no mobile). */
+.split-legend-item .legend-label { flex: 1 1 auto; min-width: 0; overflow-wrap: break-word; word-break: break-word; }
 
 .juntos-secao { margin-bottom: 22px; }
 .juntos-secao-titulo { font-size: 17px; margin-bottom: 10px; }
@@ -572,6 +579,17 @@ button, input { font-family: inherit; }
 .split-legend-categorias { display: grid; grid-template-columns: 1fr 1fr; column-gap: 14px; row-gap: 8px; }
 .split-legend-categorias .split-legend-item { font-size: 12px; }
 .split-legend-categorias .split-legend-item strong { padding-left: 6px; }
+/* No mobile, o donut (128px fixo) + gap + legenda em 2 colunas lado a
+   lado não cabem — a legenda ficava espremida a ponto de "vazar" pra
+   fora da tela pela direita (nunca quebrava porque não sobrava largura
+   nem pra uma palavra). Empilhando (donut em cima, legenda embaixo em
+   largura total) a legenda passa a ter a tela inteira pra se organizar
+   em 2 colunas, sem estourar. Card de "Divisão do casal"/"Visão geral"
+   (poucos itens, sem essa classe extra) continuam lado a lado. */
+@media (max-width: 520px) {
+  .split-chart-wrap-categorias { flex-direction: column; align-items: center; gap: 14px; }
+  .split-chart-wrap-categorias .split-legend-categorias { width: 100%; }
+}
 @media (max-width: 360px) {
   .split-legend-categorias { grid-template-columns: 1fr; }
 }
