@@ -20,7 +20,7 @@ const CATEGORIAS = [
   "Delivery & Restaurantes", "Viagens", "Pets", "Tech & Equipamentos",
   "Assinaturas & Serviços", "Reparação Histórica", 
   "Saúde & Farmácia", "Vestuário & Acessórios", "Casa & Decoração",
-  "Beleza & Cuidados", "Games"
+  "Beleza & Cuidados", "Games", "Combustível"
 ];
 
 function dataHojeISO() {
@@ -1567,7 +1567,7 @@ const PALETA_CATEGORIAS = [
   "#c99a3f", "#4d9e8a", "#c46a8f", "#7a9e4d", "#a67a4d",
   "#d96a53", "#6c8c77", "#b59b52", "#5b778c", "#9678a3", 
   "#80705a", "#a15a4b", "#4a7866", "#c2a36b", "#6a5c78", 
-  "#8b7e66", "#588f82", "#b5725c"
+  "#8b7e66", "#588f82", "#b5725c", "#7d8c85" 
 ];
 
 function renderCategorias() {
