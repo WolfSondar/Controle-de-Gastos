@@ -1609,7 +1609,7 @@ function renderCategorias() {
     legend.innerHTML = partes.map((p) => `
         <div class="split-legend-item">
           <span class="dot" style="background:${p.cor}"></span>
-          ${escapeHtml(p.cat)}
+          <span class="legend-label">${escapeHtml(p.cat)}</span>
           <strong>${p.pct.toFixed(0)}%</strong>
         </div>`).join("");
   }
@@ -1673,7 +1673,7 @@ function construirPaginaCategoriasHistorico(meses, pessoa, ano) {
       (p) => `
         <div class="split-legend-item">
           <span class="dot" style="background:${p.cor}"></span>
-          ${escapeHtml(p.cat)}
+          <span class="legend-label">${escapeHtml(p.cat)}</span>
           <strong>${p.pct.toFixed(0)}%</strong>
         </div>`
     )
@@ -1683,7 +1683,7 @@ function construirPaginaCategoriasHistorico(meses, pessoa, ano) {
     <div class="split-card historico-categoria-page">
       <div class="ledger-line"><h2 class="section-title">Gastos por categoria</h2></div>
       <p class="section-hint">${modoTodos ? "Soma de todos os anos" : `Soma do ano de ${ano}`}, pra onde o dinheiro foi.</p>
-      <div class="split-chart-wrap">
+      <div class="split-chart-wrap split-chart-wrap-categorias">
         <div class="split-donut" style="background: conic-gradient(${gradiente})">
           <div class="split-donut-center">${spanCentro(fmt(total))}<small>${modoTodos ? "gasto no total" : "gasto no ano"}</small></div>
         </div>
