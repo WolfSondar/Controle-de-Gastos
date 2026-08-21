@@ -1508,6 +1508,50 @@ function marcarDotAtivo(wrap, dotsEl) {
   });
 
   if (dots.length) dots.forEach((d, i) => d.classList.toggle("is-active", i === ativo));
+
+  // Altura do carrossel acompanha só a página ativa (ver comentário no
+  // CSS, .graficos-carousel) — sem isso, uma página com bem mais conteúdo
+  // (categoria com muitos tipos de gasto) esticava as outras junto.
+  const alturaAlvo = cards[ativo].scrollHeight;
+  if (alturaAlvo > 0 && wrap.dataset.alturaAtual !== String(alturaAlvo)) {
+    wrap.dataset.alturaAtual = String(alturaAlvo);
+    wrap.style.height = alturaAlvo + "px";
+  }
+}
+
+// Descobre em qual página do carrossel o usuário está no momento (pelo
+// card mais próximo do centro), pra dar pra restaurar depois de um
+// re-render que reconstrói o HTML do zero (ex: renderHistorico ao
+// terminar de buscar dados novos da rede).
+function paginaCarrosselAtiva(wrapId) {
+  const wrap = document.getElementById(wrapId);
+  if (!wrap) return 0;
+  const cards = Array.from(wrap.children).filter((el) => !el.classList.contains("is-hidden"));
+  if (!cards.length) return 0;
+  const centro = wrap.scrollLeft + wrap.clientWidth / 2;
+  let ativo = 0;
+  let menorDist = Infinity;
+  cards.forEach((card, i) => {
+    const dist = Math.abs(card.offsetLeft + card.offsetWidth / 2 - centro);
+    if (dist < menorDist) { menorDist = dist; ativo = i; }
+  });
+  return ativo;
+}
+
+// Reposiciona o carrossel na página que o usuário já estava vendo (sem
+// animação — é instantâneo, o conteúdo já "nasce" na página certa) e
+// atualiza bolinha/altura na hora, sem esperar o evento de scroll (que é
+// assíncrono e deixaria um flash de um frame com a página errada).
+function restaurarPaginaCarrossel(wrapId, dotsId, indice) {
+  const wrap = document.getElementById(wrapId);
+  const dotsEl = document.getElementById(dotsId);
+  if (!wrap) return;
+  if (indice) {
+    const cards = Array.from(wrap.children).filter((el) => !el.classList.contains("is-hidden"));
+    const alvo = cards[indice];
+    if (alvo) wrap.scrollLeft = alvo.offsetLeft - wrap.offsetLeft;
+  }
+  if (dotsEl) marcarDotAtivo(wrap, dotsEl);
 }
 
 const PALETA_CATEGORIAS = [
@@ -1629,7 +1673,7 @@ function construirPaginaCategoriasHistorico(meses, pessoa, ano) {
         <div class="split-donut" style="background: conic-gradient(${gradiente})">
           <div class="split-donut-center">${spanCentro(fmt(total))}<small>gasto no ano</small></div>
         </div>
-        <div class="split-legend">${legendaHtml}</div>
+        <div class="split-legend split-legend-categorias">${legendaHtml}</div>
       </div>
     </div>`;
 }
@@ -1979,6 +2023,12 @@ function renderHistorico() {
     return m[`${campo}${sufixo}`] || 0;
   };
 
+  // Guarda em qual página do carrossel (linhas x categoria) o usuário
+  // estava antes de reconstruir o HTML — esse render roda de novo quando
+  // a busca na rede termina depois do cache local, e sem isso o
+  // carrossel "pulava" de volta pra 1ª página no meio do uso.
+  const paginaAnterior = paginaCarrosselAtiva("historicoGraficosCarousel");
+
   const mesesAscendentes = [...bloco.meses].sort((a, b) => a.mes - b.mes);
   const grafico = construirGraficoHistoricoMultiSvg(mesesAscendentes, pessoa);
   const paginaCategorias = construirPaginaCategoriasHistorico(bloco.meses, pessoa, anoAlvo);
@@ -2025,6 +2075,7 @@ function renderHistorico() {
     </div>`;
 
   atualizarCarrosselGraficos("historicoGraficosCarousel", "historicoGraficosDots");
+  restaurarPaginaCarrossel("historicoGraficosCarousel", "historicoGraficosDots", paginaAnterior);
 }
 
 function getColapsoState() {
