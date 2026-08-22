@@ -1064,6 +1064,18 @@ document.addEventListener("mousedown", (e) => {
   });
 });
 
+// Compara duas datas "AAAA-MM-DD" (string) da mais antiga pra mais nova.
+// Item sem data (string vazia) vai sempre pro final da lista, já que não dá
+// pra saber onde ele entraria na ordem cronológica.
+function compararDataAscendente(dataA, dataB) {
+  const a = dataA || "";
+  const b = dataB || "";
+  if (!a && !b) return 0;
+  if (!a) return 1;
+  if (!b) return -1;
+  return a < b ? -1 : a > b ? 1 : 0;
+}
+
 function renderListaComStatus(ulId, lista, tipo, ops, tipoModal, statusKey, toggleFn, rotuloOn, rotuloOff) {
   const ul = document.getElementById(ulId);
   ul.innerHTML = "";
@@ -1072,12 +1084,20 @@ function renderListaComStatus(ulId, lista, tipo, ops, tipoModal, statusKey, togg
     return;
   }
   const ambos = isAmbos();
-  lista.forEach((item, idx) => {
+  // Guarda o índice original (idx) de cada item antes de ordenar — é esse
+  // índice que precisa continuar batendo com state.ganhos/gastosFixos/
+  // gastosVariaveis pra editar, excluir e marcar como pago funcionarem certo;
+  // só a ORDEM DE EXIBIÇÃO muda, os dados por trás continuam nos mesmos
+  // índices de sempre.
+  const ordenados = lista
+    .map((item, idx) => ({ item, idx }))
+    .sort((a, b) => compararDataAscendente(a.item.data, b.item.data));
+  ordenados.forEach(({ item, idx }, posicao) => {
     const on = item[statusKey] === true;
     const li = document.createElement("li");
     li.className = "item-list-row" + (on ? "" : " is-pendente");
     li.dataset.tipo = tipo;
-    li.style.animationDelay = Math.min(idx * 35, 250) + "ms";
+    li.style.animationDelay = Math.min(posicao * 35, 250) + "ms";
     li.innerHTML = `
       ${ambos ? "" : `<div class="swipe-actions">
               <button class="swipe-btn swipe-edit" aria-label="Editar" data-idx="${idx}"><span class="swipe-btn-icon">${ICONE_LAPIS}</span><span>Editar</span></button>
