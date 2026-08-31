@@ -1615,8 +1615,11 @@ const PALETA_CATEGORIAS = [
 // depois do toFixed(0) — parecendo que não teve gasto nenhum, quando na
 // verdade teve (foi o que o Davi notou no filtro "Juntos": uma categoria
 // dava 1% pra ele e nada pro Gabriel, mas a soma junta virava "0%").
+// Abaixo de 1%, mostra uma casa decimal (ex: "0,3%") em vez do genérico
+// "<1%" — assim dá pra diferenciar um item que é quase 1% de um que é
+// bem menor mesmo (ex: Estacionamento a 0,3% vs. outra categoria a 0,9%).
 function formatarPctCategoria(pct) {
-  if (pct > 0 && pct < 0.5) return "<1%";
+  if (pct > 0 && pct < 1) return `${pct.toFixed(1).replace(".", ",")}%`;
   return `${pct.toFixed(0)}%`;
 }
 
