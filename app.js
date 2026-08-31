@@ -668,11 +668,18 @@ function retirarDaCaixinha(index, valor) {
   salvarBloco("saveGanhos", state.ganhos);
   renderAll();
 }
-function informarRendimentoCaixinha(index, valor) {
+// O usuário informa o valor ATUALIZADO da caixinha (o que está mostrando
+// hoje no banco/investimento), não o quanto rendeu — o app calcula a
+// diferença sozinho (sempre positiva, mesmo se o valor tiver caído) e
+// acumula em rendimentoTotal, que vai pra coluna S na planilha (RENDIMENTO).
+function informarRendimentoCaixinha(index, valorAtualizado) {
   if (isAmbos()) return;
   const cx = state.caixinhas[index];
   if (!cx) return;
-  cx.valorGuardado = (Number(cx.valorGuardado) || 0) + valor;
+  const valorAntigo = Number(cx.valorGuardado) || 0;
+  const diferenca = Math.abs(valorAtualizado - valorAntigo);
+  cx.valorGuardado = valorAtualizado;
+  cx.rendimentoTotal = (Number(cx.rendimentoTotal) || 0) + diferenca;
   sincronizarCacheAtual();
   salvarBloco("saveCaixinhas", state.caixinhas);
   renderAll();
@@ -1331,6 +1338,7 @@ function renderCaixinhas() {
           ${temObjetivo ? `<div class="goal-bar-track"><div class="goal-bar-fill ${completo ? "completo" : ""}" style="width:${pct}%"></div></div>` : ""}
           <div class="caixinha-valores">
             <span class="caixinha-guardado"><strong>${fmt(guardado)}</strong>${temObjetivo ? ` de ${fmt(objetivo)}` : " guardados"}</span>
+            ${Number(cx.rendimentoTotal) > 0 ? `<span class="item-tag item-tag-rendimento">rendeu ${fmt(cx.rendimentoTotal)}</span>` : ""}
           </div>
           ${ambos ? "" : `<div class="caixinha-actions">
                   <button class="btn btn-caixinha-guardar" data-idx="${idx}">+ guardar</button>
@@ -2452,16 +2460,20 @@ on("formCaixinhas", "submit", (e) => {
 let onConfirmarValor = null;
 const modalBackdrop = document.getElementById("modalBackdrop");
 
-function abrirModalValor(titulo, callback, textoBotao) {
+function abrirModalValor(titulo, callback, textoBotao, valorInicial) {
   if (isAmbos()) return;
   onConfirmarValor = callback;
   document.getElementById("modalTitle").textContent = titulo;
-  document.getElementById("aporteValor").value = "";
+  const inputValor = document.getElementById("aporteValor");
+  inputValor.value = valorInicial ? fmtCampo(valorInicial) : "";
   const botaoConfirmar = document.getElementById("modalConfirmar");
   if (botaoConfirmar) botaoConfirmar.textContent = textoBotao || "Guardar";
   modalBackdrop.classList.remove("is-hidden");
   registrarAberturaModal("modalBackdrop");
-  setTimeout(() => document.getElementById("aporteValor").focus(), 50);
+  setTimeout(() => {
+    inputValor.focus();
+    inputValor.select();
+  }, 50);
 }
 function fecharModal() {
   fecharComHistorico("modalBackdrop", () => {
@@ -2488,12 +2500,12 @@ on("formAporte", "submit", (e) => {
 const TITULOS_CAIXINHA = {
   guardar: (nome) => `Guardar em — ${nome}`,
   retirar: (nome) => `Retirar de — ${nome}`,
-  rendimento: (nome) => `Rendimento em — ${nome}`,
+  rendimento: (nome) => `Valor atualizado — ${nome}`,
 };
 const BOTOES_CAIXINHA = {
   guardar: "Guardar",
   retirar: "Retirar",
-  rendimento: "Adicionar",
+  rendimento: "Confirmar",
 };
 function abrirModalCaixinha(acao, idx) {
   const cx = state.caixinhas[idx];
@@ -2504,7 +2516,10 @@ function abrirModalCaixinha(acao, idx) {
     retirar: (valor) => retirarDaCaixinha(idx, valor),
     rendimento: (valor) => informarRendimentoCaixinha(idx, valor),
   };
-  abrirModalValor(titulo, acoes[acao], BOTOES_CAIXINHA[acao]);
+  // No rendimento, já abre com o valor atual preenchido — a pessoa só
+  // edita pro novo total, sem precisar calcular a diferença de cabeça.
+  const valorInicial = acao === "rendimento" ? cx.valorGuardado : null;
+  abrirModalValor(titulo, acoes[acao], BOTOES_CAIXINHA[acao], valorInicial);
 }
 
 let editContext = null; 
