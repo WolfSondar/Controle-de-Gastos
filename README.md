@@ -136,3 +136,11 @@ na pasta do site e acesse `http://localhost:8000`.
      (ou estiver vazia), o app usa a lista em `CATEGORIAS_PADRAO`, em
      `app.js`, com cores tiradas da paleta `PALETA_CATEGORIAS` logo
      abaixo, por ordem.
+- Ganhos recorrentes (o que volta sozinho pro mês seguinte ao Fechar Mês,
+  em vez de ser descartado): coluna `TERMO GANHO RECORRENTE` na mesma aba
+  `CONFIGS` (coluna C) — um termo por linha (ex: `salario`, `refeicao`,
+  `13o`). Não precisa estar alinhado com as linhas de categoria, são
+  colunas independentes. Um ganho é considerado recorrente se o nome dele
+  contiver qualquer um desses termos (sem diferenciar acento/maiúscula —
+  "Salário" bate com o termo `salario`). Se a coluna C estiver vazia, usa
+  o fallback fixo (`salario`, `refeicao`, `beneficio`) do `Code.gs`.
