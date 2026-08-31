@@ -677,6 +677,7 @@ function informarRendimentoCaixinha(index, rendimento) {
   const cx = state.caixinhas[index];
   if (!cx) return;
   
+  // Soma o rendimento tanto no valor total guardado quanto no acumulado de rendimentos
   cx.valorGuardado = (Number(cx.valorGuardado) || 0) + rendimento;
   cx.rendimentoTotal = (Number(cx.rendimentoTotal) || 0) + rendimento;
   
