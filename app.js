@@ -1330,6 +1330,10 @@ function renderCaixinhas() {
         const card = document.createElement("div");
         card.className = "goal-card caixinha-card" + (cx._comemoraAoRenderizar ? " is-celebrando" : "");
         card.style.animationDelay = Math.min(idx * 40, 250) + "ms";
+        
+        // Novo ícone de rendimento em SVG
+        const iconeRendimento = `<svg style="width:12px;height:12px;" viewBox="0 0 24 24" fill="none"><path d="M23 6l-9.5 9.5-5-5L1 18" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"/><path d="M17 6h6v6" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"/></svg>`;
+
         card.innerHTML = `
           <div class="goal-head">
             <span class="goal-nome">${escapeHtml(cx.nome)} ${tagPessoa(cx)}</span>
@@ -1338,7 +1342,7 @@ function renderCaixinhas() {
           ${temObjetivo ? `<div class="goal-bar-track"><div class="goal-bar-fill ${completo ? "completo" : ""}" style="width:${pct}%"></div></div>` : ""}
           <div class="caixinha-valores">
             <span class="caixinha-guardado"><strong>${fmt(guardado)}</strong>${temObjetivo ? ` de ${fmt(objetivo)}` : " guardados"}</span>
-            ${Number(cx.rendimentoTotal) > 0 ? `<span class="item-tag item-tag-rendimento">rendeu ${fmt(cx.rendimentoTotal)}</span>` : ""}
+            ${Number(cx.rendimentoTotal) > 0 ? `<span class="item-tag item-tag-rendimento" style="display:inline-flex;align-items:center;gap:4px;" title="Rendimento">${iconeRendimento}${fmt(cx.rendimentoTotal)}</span>` : ""}
           </div>
           ${ambos ? "" : `<div class="caixinha-actions">
                   <button class="btn btn-caixinha-guardar" data-idx="${idx}">+ guardar</button>
@@ -1370,6 +1374,33 @@ function renderCaixinhas() {
       });
     }
   }
+  primeiraRenderCaixinhas = false;
+  // O código do mini-resumo continua abaixo...
+  const mini = document.getElementById("resumoCaixinhas");
+  if (!mini) return;
+  mini.innerHTML = "";
+  if (state.caixinhas.length === 0) {
+    mini.innerHTML = estadoVazio('Crie uma caixinha na aba "Caixinhas".', ICONE_COFRINHO);
+  } else {
+    state.caixinhas.forEach((cx) => {
+      const guardado = Number(cx.valorGuardado) || 0;
+      const objetivo = Number(cx.valorObjetivo) || 0;
+      const temObjetivo = objetivo > 0;
+      const pct = temObjetivo ? Math.min((guardado / objetivo) * 100, 100) : 0;
+      const row = document.createElement("div");
+      row.className = "mini-goal";
+      row.innerHTML = temObjetivo
+        ? `<div class="mini-goal-info">
+          <div class="mini-goal-nome">${escapeHtml(cx.nome)} ${tagPessoa(cx)}</div>
+          <div class="goal-bar-track"><div class="goal-bar-fill ${pct >= 100 ? "completo" : ""}" style="width:${pct}%"></div></div>
+        </div><span class="mini-goal-pct">${fmt(guardado)}</span>`
+        : `<div class="mini-goal-info">
+          <div class="mini-goal-nome">${escapeHtml(cx.nome)} ${tagPessoa(cx)}</div>
+        </div><span class="mini-goal-pct">${fmt(guardado)}</span>`;
+      mini.appendChild(row);
+    });
+  }
+}
 
   primeiraRenderCaixinhas = false;
 
@@ -2150,7 +2181,6 @@ function renderHistorico() {
 
   if (controles) controles.style.display = "block";
 
-  // +1 pela opção "Todos os anos", que fica sempre no topo do select.
   if (selectAno && selectAno.options.length !== anos.length + 1) {
     selectAno.innerHTML = "";
     const optTodos = document.createElement("option");
@@ -2182,17 +2212,11 @@ function renderHistorico() {
     return m[`${campo}${sufixo}`] || 0;
   };
 
-  // Guarda em qual página do carrossel (linhas x categoria) o usuário
-  // estava antes de reconstruir o HTML — esse render roda de novo quando
-  // a busca na rede termina depois do cache local, e sem isso o
-  // carrossel "pulava" de volta pra 1ª página no meio do uso.
   const paginaAnterior = paginaCarrosselAtiva("historicoGraficosCarousel");
 
-  // Campos que somamos pra virar UM registro por ano só, no modo "Todos" —
-  // mesmo formato dos meses individuais (ganhosDavi, saldoGabriel etc.),
-  // então o gráfico de linhas e os cards de baixo funcionam sem precisar
-  // de nenhuma lógica extra, só trocam "mês" por "ano".
-  const camposSoma = ["ganhosDavi", "ganhosGabriel", "debitosDavi", "debitosGabriel", "guardadoDavi", "guardadoGabriel", "saldoDavi", "saldoGabriel"];
+  // Novo: Inclusão dos campos de rendimento para calcular "Todos os anos" perfeitamente
+  const camposSoma = ["ganhosDavi", "ganhosGabriel", "debitosDavi", "debitosGabriel", "guardadoDavi", "guardadoGabriel", "saldoDavi", "saldoGabriel", "rendimentoDavi", "rendimentoGabriel"];
+  
   const agregarAnoComoRegistro = (bloco) => {
     const registro = { nome: String(bloco.ano), mes: bloco.ano };
     camposSoma.forEach((c) => { registro[c] = 0; });
@@ -2220,6 +2244,7 @@ function renderHistorico() {
     const ganhos = getVal(m, 'ganhos');
     const debitos = getVal(m, 'debitos');
     const guardado = getVal(m, 'guardado');
+    const rendimento = getVal(m, 'rendimento'); // Busca o novo rendimento
     const saldo = getVal(m, 'saldo');
     const nomeMes = modoTodos ? `Ano ${m.nome}` : (m.nome.charAt(0) + m.nome.slice(1).toLowerCase());
 
@@ -2236,6 +2261,7 @@ function renderHistorico() {
         <span>Débitos</span><span class="expense">${fmt(Math.abs(debitos))}</span>
       </div>
       ${guardado > 0 ? `<div class="historico-mes-linha"><span>Guardado</span><span class="gold">${fmt(guardado)}</span></div>` : ""}
+      ${rendimento > 0 ? `<div class="historico-mes-linha"><span>Rendeu no mês</span><span class="income">+ ${fmt(rendimento)}</span></div>` : ""}
       ${pessoa === 'ambos' ? `
       <div class="historico-mes-pessoas">
         <span class="pessoa-tag pessoa-davi">Davi ${fmt(m.saldoDavi)}</span>
@@ -2249,12 +2275,10 @@ function renderHistorico() {
   if (carrosselAtual && carrosselAtual.style.height) {
     alturaFixa = `height: ${carrosselAtual.style.height};`;
   }
-  // ------------------------------------
 
   wrap.innerHTML = `
     <div class="historico-ano-bloco">
       <div class="graficos-carousel-wrap">
-        <!-- Injetamos o style com a alturaFixa aqui: -->
         <div class="graficos-carousel" id="historicoGraficosCarousel" style="${alturaFixa}">
           ${grafico}
           ${paginaCategorias}
