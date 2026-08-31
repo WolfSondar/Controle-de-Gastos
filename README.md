@@ -124,7 +124,15 @@ na pasta do site e acesse `http://localhost:8000`.
 
 - Cores e fontes: tudo centralizado no topo do `style.css`, nas variáveis
   `:root` (verde-tinta, dourado dos objetivos, vermelho dos gastos).
-- Categorias de gasto: lista em ordem alfabética na constante
-  `CATEGORIAS`, em `app.js`. As cores de cada fatia do gráfico vêm da
-  paleta `PALETA_CATEGORIAS` logo abaixo, aplicada automaticamente por
-  ordem — não precisa mexer em mais nada pra adicionar uma categoria nova.
+- Categorias de gasto — **duas formas**:
+  1. **Aba CONFIGS na planilha (recomendado):** crie uma aba chamada
+     `CONFIGS` com cabeçalho `CATEGORIA` na coluna A e `COR` na coluna B
+     (cor em hex, ex: `#b9862f`). A partir da primeira linha com dado,
+     cada linha vira uma categoria disponível nos formulários e no
+     gráfico, na cor que você escolher. Pra adicionar, editar ou remover
+     uma categoria, basta editar essa aba — não precisa mexer em código
+     nem reimplantar nada.
+  2. **Lista fixa no código (fallback):** se a aba CONFIGS não existir
+     (ou estiver vazia), o app usa a lista em `CATEGORIAS_PADRAO`, em
+     `app.js`, com cores tiradas da paleta `PALETA_CATEGORIAS` logo
+     abaixo, por ordem.
