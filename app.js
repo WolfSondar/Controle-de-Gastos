@@ -224,19 +224,18 @@ async function removerCache(pessoa) { return idbDelete(IDB_LOJA_CACHE, CACHE_PRE
 
 const syncEl = document.getElementById("syncStatus");
 let syncModeAnterior = null;
-function setSyncState(mode, text) {
+
+function setSyncState(mode) {
   if (!syncEl) return;
   // Voltou de "sem internet" pra qualquer outro estado: dá o solavanco
   // suave no ícone de wifi (ver .is-reconectando no style.css) em vez de
   // só trocar o ícone seco.
-  if (syncModeAnterior === "offline" && mode !== "offline") {
+  if (syncModeAnterior === "offline" && mode !== "offline" && mode !== "error") {
     syncEl.classList.add("is-reconectando");
     setTimeout(() => syncEl.classList.remove("is-reconectando"), 700);
   }
   syncModeAnterior = mode;
   syncEl.dataset.state = mode;
-  const label = syncEl.querySelector(".sync-text");
-  if (label) label.textContent = text;
 }
 
 // Atualiza só o numerozinho de alterações pendentes (badge ao lado do ícone
@@ -309,7 +308,7 @@ const FECHADORES_MODAL = {};
 
 async function carregarDados() {
   if (!API_URL || API_URL.includes("COLE_AQUI")) {
-    setSyncState("error", "Configure a API");
+    setSyncState("error");
     showToast("Configure a URL do Apps Script em config.js");
     renderAll();
     return;
@@ -326,10 +325,10 @@ async function carregarDados() {
     state.categoriasConfig = cache.categorias || null;
     state.loaded = true;
     popularSelectsDeCategoria();
-    setSyncState("saving", "Atualizando…");
+    setSyncState("saving");
     renderAll();
   } else {
-    setSyncState("saving", "Carregando…");
+    setSyncState("saving");
     renderSkeletons();
   }
 
@@ -351,12 +350,12 @@ async function carregarDados() {
     renderMesAtual();
     popularSelectsDeCategoria();
     setCache(pessoaRequisitada, data);
-    setSyncState("idle", "Sincronizado");
+    setSyncState("idle");
     renderAll();
     prefetchOutrasPessoas(pessoaRequisitada);
   } catch (err) {
     if (state.pessoaAtual !== pessoaRequisitada) return;
-    setSyncState("error", "Erro ao carregar");
+    setSyncState("error");
     if (!cache) {
       showToast("Não consegui carregar a planilha. Confira a API_URL.");
       renderAll();
@@ -390,7 +389,7 @@ async function salvarBloco(action, payload) {
   if (entrada.emVoo) return; 
 
   entrada.emVoo = true;
-  setSyncState("saving", "Salvando…");
+  setSyncState("saving");
   const pessoaDoEnvio = state.pessoaAtual;
   let ultimoPayload = null;
   try {
@@ -404,13 +403,13 @@ async function salvarBloco(action, payload) {
       const data = await res.json().catch(() => null);
       if (data && data.ok === false) throw new Error(data.error || "Erro desconhecido");
     }
-    setSyncState("idle", "Salvo");
+    setSyncState("idle");
   } catch (err) {
     if (ehErroDeRede(err) && ultimoPayload !== null) {
       await enfileirarOffline(pessoaDoEnvio, action, ultimoPayload);
       await atualizarIndicadorOffline();
     } else {
-      setSyncState("error", "Falha ao salvar");
+      setSyncState("error");
       showToast("Não consegui salvar na planilha agora.");
     }
   } finally {
@@ -447,7 +446,7 @@ async function atualizarIndicadorOffline() {
   const n = itens.length;
   atualizarBadgeOffline(n);
   if (n > 0) {
-    setSyncState("offline", "Sem internet");
+    setSyncState("offline");
   }
   return n;
 }
@@ -459,7 +458,7 @@ async function flushFilaOffline() {
   try {
     const itens = await idbListarFila();
     if (itens.length === 0) return;
-    setSyncState("saving", ""); // sem texto — o ícone de wifi carregando + o numerozinho já dizem tudo
+    setSyncState("saving");
     let restantes = itens.length;
     atualizarBadgeOffline(restantes);
     for (const { chaveIdb, valor } of itens) {
@@ -483,7 +482,7 @@ async function flushFilaOffline() {
   } finally {
     flushEmAndamento = false;
     const restante = await atualizarIndicadorOffline();
-    if (restante === 0) setSyncState("idle", "Sincronizado");
+    if (restante === 0) setSyncState("idle");
   }
 }
 
