@@ -13,7 +13,11 @@ const MESES_LABEL = [
   "Julho", "Agosto", "Setembro", "Outubro", "Novembro", "Dezembro",
 ];
 
-const CATEGORIAS = [
+// Lista/cores padrão — usada só como fallback enquanto a planilha não
+// responde ainda, ou se a aba CONFIGS não existir/estiver vazia. Assim que
+// os dados chegam da planilha (ver carregarDados), state.categoriasConfig
+// passa a mandar de verdade: ver categoriasAtuais()/corDaCategoria() abaixo.
+const CATEGORIAS_PADRAO = [
   "Alimentação", "Assinaturas & Serviços", "Beleza & Cuidados", "Bem-estar",
   "Carro", "Casa & Manutenção", "Celular & Internet", "Combustível", "Contas", "Delivery & Restaurantes",
   "Educação", "Estacionamento", "Financiamento", "Jogos", "Lazer",
@@ -22,6 +26,24 @@ const CATEGORIAS = [
   "Taxas & Tarifas", "Tech & Equipamentos", "Transporte",
   "Vestuário & Acessórios", "Viagens"
 ];
+
+// Nomes de categoria em ordem (o que os <select> mostram) — vem da aba
+// CONFIGS quando ela existe e tem linhas, senão cai na lista padrão acima.
+function categoriasAtuais() {
+  return (state.categoriasConfig && state.categoriasConfig.length)
+    ? state.categoriasConfig.map((c) => c.nome)
+    : CATEGORIAS_PADRAO;
+}
+
+// Cor de uma categoria: usa a cor cadastrada na aba CONFIGS se existir;
+// senão cai na paleta fixa por posição (idxFallback), como sempre foi.
+function corDaCategoria(nome, idxFallback) {
+  if (state.categoriasConfig) {
+    const achado = state.categoriasConfig.find((c) => c.nome === nome);
+    if (achado && achado.cor) return achado.cor;
+  }
+  return PALETA_CATEGORIAS[idxFallback % PALETA_CATEGORIAS.length];
+}
 
 function dataHojeISO() {
   const d = new Date();
@@ -42,7 +64,7 @@ function popularSelectsDeCategoria() {
     const opcaoVazia = select.querySelector('option[value=""]');
     select.innerHTML = "";
     select.appendChild(opcaoVazia || new Option("Categoria (opcional)", ""));
-    CATEGORIAS.forEach((cat) => select.appendChild(new Option(cat, cat)));
+    categoriasAtuais().forEach((cat) => select.appendChild(new Option(cat, cat)));
   });
 }
 
@@ -158,6 +180,7 @@ const state = {
   anoAtual: mesAtualCache ? mesAtualCache.ano : null,
   historico: null, 
   historicoAnoSelecionado: new Date().getFullYear(),
+  categoriasConfig: null, // [{nome, cor}] vindo da aba CONFIGS, ou null pra usar a lista padrão
 };
 
 function renderMesAtual() {
@@ -194,6 +217,7 @@ async function setCache(pessoa, data) {
     gastosFixos: data.gastosFixos || [],
     gastosVariaveis: data.gastosVariaveis || [],
     caixinhas: data.caixinhas || [],
+    categorias: data.categorias || null,
   });
 }
 async function removerCache(pessoa) { return idbDelete(IDB_LOJA_CACHE, CACHE_PREFIX + pessoa); }
@@ -278,7 +302,9 @@ async function carregarDados() {
     state.gastosFixos = cache.gastosFixos;
     state.gastosVariaveis = cache.gastosVariaveis;
     state.caixinhas = cache.caixinhas || [];
+    state.categoriasConfig = cache.categorias || null;
     state.loaded = true;
+    popularSelectsDeCategoria();
     setSyncState("saving", "Atualizando…");
     renderAll();
   } else {
@@ -297,10 +323,12 @@ async function carregarDados() {
     state.gastosFixos = data.gastosFixos || [];
     state.gastosVariaveis = data.gastosVariaveis || [];
     state.caixinhas = data.caixinhas || [];
+    state.categoriasConfig = data.categorias || null;
     state.loaded = true;
     if (data.mesAtual) state.mesAtual = data.mesAtual;
     if (data.anoAtual) state.anoAtual = data.anoAtual;
     renderMesAtual();
+    popularSelectsDeCategoria();
     setCache(pessoaRequisitada, data);
     setSyncState("idle", "Sincronizado");
     renderAll();
@@ -924,10 +952,28 @@ function formatarDataCurta(iso) {
   return `${m[3]}/${m[2]}`;
 }
 
+// Verdadeiro se a DATA do item cair no mês seguinte ao mês atual do app
+// (state.mesAtual/anoAtual) — só pra dar um destaque visual (ex: uma conta
+// fixa que já foi lançada agora mas só vence mês que vem). Não muda em nada
+// o cálculo do saldo nem o comportamento de Fechar Mês, é só um aviso.
+function ehDoProximoMes(item) {
+  if (!state.mesAtual || !state.anoAtual) return false;
+  const m = /^(\d{4})-(\d{2})/.exec(String(item.data || ""));
+  if (!m) return false;
+  const ano = Number(m[1]);
+  const mes = Number(m[2]);
+  let proxMes = state.mesAtual + 1;
+  let proxAno = state.anoAtual;
+  if (proxMes > 12) { proxMes = 1; proxAno += 1; }
+  return ano === proxAno && mes === proxMes;
+}
+
 function metaInfoHtml(item) {
   const partes = [];
   if (item.lembrete) {
     partes.push(`<span class="item-tag item-tag-lembrete" title="Pago no mês anterior, adiantado — não conta no saldo deste mês">Pago adiantado</span>`);
+  } else if (ehDoProximoMes(item)) {
+    partes.push(`<span class="item-tag item-tag-proximo" title="A data desse lançamento é do mês que vem">Mês que vem</span>`);
   }
   if (item.tipo) partes.push(`<span class="item-tag item-tag-cat">${escapeHtml(item.tipo)}</span>`);
   if (item.parcela && /^\d+\s*\/\s*\d+$/.test(String(item.parcela).trim())) {
@@ -1645,7 +1691,7 @@ function renderCategorias() {
 
   let acumulado = 0;
   const partes = categorias.map((cat, idx) => {
-    const cor = PALETA_CATEGORIAS[idx % PALETA_CATEGORIAS.length];
+    const cor = corDaCategoria(cat, idx);
     const pct = (porCategoria[cat] / total) * 100;
     const inicio = acumulado;
     acumulado += pct;
@@ -1713,7 +1759,7 @@ function construirPaginaCategoriasHistorico(meses, pessoa, ano) {
 
   let acumulado = 0;
   const partes = categorias.map((cat, idx) => {
-    const cor = PALETA_CATEGORIAS[idx % PALETA_CATEGORIAS.length];
+    const cor = corDaCategoria(cat, idx);
     const pct = (porCategoria[cat] / total) * 100;
     const inicio = acumulado;
     acumulado += pct;
