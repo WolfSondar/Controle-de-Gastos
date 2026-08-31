@@ -234,6 +234,21 @@ function setSyncState(mode) {
     syncEl.classList.add("is-reconectando");
     setTimeout(() => syncEl.classList.remove("is-reconectando"), 700);
   }
+  // Acabou de salvar/sincronizar com sucesso (saving -> idle): pisca o
+  // ícone de "enviado" (nuvem com seta pra cima, ver .sync-icone-upload no
+  // style.css) por um instante antes de assentar no wifi parado — um
+  // "confirmado" rápido, em vez de pular direto pro idle sem feedback.
+  if (syncModeAnterior === "saving" && mode === "idle") {
+    syncModeAnterior = "saved";
+    syncEl.dataset.state = "saved";
+    setTimeout(() => {
+      if (syncEl.dataset.state === "saved") {
+        syncModeAnterior = "idle";
+        syncEl.dataset.state = "idle";
+      }
+    }, 900);
+    return;
+  }
   syncModeAnterior = mode;
   syncEl.dataset.state = mode;
 }
@@ -667,11 +682,14 @@ function retirarDaCaixinha(index, valor) {
   salvarBloco("saveGanhos", state.ganhos);
   renderAll();
 }
-// O usuário informa o valor ATUALIZADO da caixinha (o que está mostrando
-// hoje no banco/investimento), não o quanto rendeu — o app calcula a
-// diferença sozinho (sempre positiva, mesmo se o valor tiver caído) e
-// acumula em rendimentoTotal, que vai pra coluna S na planilha (RENDIMENTO).
-// Agora ela recebe o 'rendimento' e soma ao valor guardado, em vez de substituir
+// O usuário informa o valor TOTAL ATUALIZADO da caixinha (o que está
+// mostrando hoje no banco/investimento) — não quanto rendeu. O app calcula
+// a diferença sozinho (positiva = rendeu, negativa = essa caixinha perdeu
+// valor no período) e acumula em rendimentoTotal, que vai pra coluna S na
+// planilha (RENDIMENTO). Ver o badge em renderCaixinhas(): mostra em verde
+// quando é ganho e em vermelho quando é perda, em vez de só sumir quando
+// negativo (perda também é informação — esconder isso seria mascarar que a
+// caixinha desvalorizou).
 function informarRendimentoCaixinha(index, novoMontanteTotal) {
   if (isAmbos()) return;
   const cx = state.caixinhas[index];
@@ -1344,8 +1362,12 @@ function renderCaixinhas() {
         card.className = "goal-card caixinha-card" + (cx._comemoraAoRenderizar ? " is-celebrando" : "");
         card.style.animationDelay = Math.min(idx * 40, 250) + "ms";
         
-        // Novo ícone de rendimento em SVG
-        const iconeRendimento = `<svg style="width:12px;height:12px;" viewBox="0 0 24 24" fill="none"><path d="M23 6l-9.5 9.5-5-5L1 18" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"/><path d="M17 6h6v6" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"/></svg>`;
+        // Ícone de rendimento em SVG: seta pra cima (ganho) ou pra baixo (perda),
+        // decidido na hora de montar o card abaixo.
+        const iconeRendimentoUp = `<svg style="width:12px;height:12px;" viewBox="0 0 24 24" fill="none"><path d="M23 6l-9.5 9.5-5-5L1 18" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"/><path d="M17 6h6v6" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"/></svg>`;
+        const iconeRendimentoDown = `<svg style="width:12px;height:12px;" viewBox="0 0 24 24" fill="none"><path d="M23 18l-9.5-9.5-5 5L1 6" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"/><path d="M17 18h6v-6" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"/></svg>`;
+        const temRendimento = rendimentoTotal !== 0;
+        const rendimentoEhGanho = rendimentoTotal > 0;
 
         card.innerHTML = `
           <div class="goal-head">
@@ -1355,7 +1377,7 @@ function renderCaixinhas() {
           ${temObjetivo ? `<div class="goal-bar-track"><div class="goal-bar-fill ${completo ? "completo" : ""}" style="width:${pct}%"></div></div>` : ""}
           <div class="caixinha-valores">
             <span class="caixinha-guardado"><strong>${fmt(guardado)}</strong>${temObjetivo ? ` de ${fmt(objetivo)}` : " guardados"}</span>
-            ${Number(cx.rendimentoTotal) > 0 ? `<span class="item-tag item-tag-rendimento" style="display:inline-flex;align-items:center;gap:4px;" title="Rendimento">${iconeRendimento}${fmt(cx.rendimentoTotal)}</span>` : ""}
+            ${temRendimento ? `<span class="item-tag ${rendimentoEhGanho ? "item-tag-rendimento" : "item-tag-perda"}" style="display:inline-flex;align-items:center;gap:4px;" title="${rendimentoEhGanho ? "Rendimento" : "Perda"}">${rendimentoEhGanho ? iconeRendimentoUp : iconeRendimentoDown}${fmt(Math.abs(rendimentoTotal))}</span>` : ""}
           </div>
           ${ambos ? "" : `<div class="caixinha-actions">
                   <button class="btn btn-caixinha-guardar" data-idx="${idx}">+ guardar</button>
@@ -2470,12 +2492,17 @@ on("formCaixinhas", "submit", (e) => {
 let onConfirmarValor = null;
 const modalBackdrop = document.getElementById("modalBackdrop");
 
-function abrirModalValor(titulo, callback, textoBotao, valorInicial) {
+function abrirModalValor(titulo, callback, textoBotao, valorInicial, dica) {
   if (isAmbos()) return;
   onConfirmarValor = callback;
   document.getElementById("modalTitle").textContent = titulo;
   const inputValor = document.getElementById("aporteValor");
   inputValor.value = valorInicial ? fmtCampo(valorInicial) : "";
+  const elHint = document.getElementById("modalHint");
+  if (elHint) {
+    elHint.textContent = dica || "";
+    elHint.classList.toggle("is-hidden", !dica);
+  }
   const botaoConfirmar = document.getElementById("modalConfirmar");
   if (botaoConfirmar) botaoConfirmar.textContent = textoBotao || "Guardar";
   modalBackdrop.classList.remove("is-hidden");
@@ -2526,10 +2553,18 @@ function abrirModalCaixinha(acao, idx) {
     retirar: (valor) => retirarDaCaixinha(idx, valor),
     rendimento: (valor) => informarRendimentoCaixinha(idx, valor),
   };
-  
-  // Agora o input virá sempre em branco, para o usuário digitar apenas o lucro
-  const valorInicial = null; 
-  abrirModalValor(titulo, acoes[acao], BOTOES_CAIXINHA[acao], valorInicial);
+
+  // Rendimento pede o TOTAL atualizado da caixinha (não quanto rendeu) — por
+  // isso vem PRÉ-PREENCHIDO com o total de hoje (guardado + rendimento já
+  // acumulado): a pessoa só edita pro número novo, em vez de ter que
+  // calcular/lembrar o total de cabeça. Guardar/retirar continuam em branco,
+  // porque ali o número digitado já é o valor da própria ação.
+  const totalAtualCaixinha = (Number(cx.valorGuardado) || 0) + (Number(cx.rendimentoTotal) || 0);
+  const valorInicial = acao === "rendimento" ? totalAtualCaixinha : null;
+  const dica = acao === "rendimento"
+    ? "Digite o valor TOTAL que a caixinha tem hoje (não só o quanto rendeu) — o app calcula a diferença sozinho."
+    : null;
+  abrirModalValor(titulo, acoes[acao], BOTOES_CAIXINHA[acao], valorInicial, dica);
 }
 
 let editContext = null; 
