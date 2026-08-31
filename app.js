@@ -672,14 +672,15 @@ function retirarDaCaixinha(index, valor) {
 // hoje no banco/investimento), não o quanto rendeu — o app calcula a
 // diferença sozinho (sempre positiva, mesmo se o valor tiver caído) e
 // acumula em rendimentoTotal, que vai pra coluna S na planilha (RENDIMENTO).
-function informarRendimentoCaixinha(index, valorAtualizado) {
+// Agora ela recebe o 'rendimento' e soma ao valor guardado, em vez de substituir
+function informarRendimentoCaixinha(index, rendimento) {
   if (isAmbos()) return;
   const cx = state.caixinhas[index];
   if (!cx) return;
-  const valorAntigo = Number(cx.valorGuardado) || 0;
-  const diferenca = Math.abs(valorAtualizado - valorAntigo);
-  cx.valorGuardado = valorAtualizado;
-  cx.rendimentoTotal = (Number(cx.rendimentoTotal) || 0) + diferenca;
+  
+  cx.valorGuardado = (Number(cx.valorGuardado) || 0) + rendimento;
+  cx.rendimentoTotal = (Number(cx.rendimentoTotal) || 0) + rendimento;
+  
   sincronizarCacheAtual();
   salvarBloco("saveCaixinhas", state.caixinhas);
   renderAll();
@@ -2497,7 +2498,7 @@ on("formAporte", "submit", (e) => {
 const TITULOS_CAIXINHA = {
   guardar: (nome) => `Guardar em — ${nome}`,
   retirar: (nome) => `Retirar de — ${nome}`,
-  rendimento: (nome) => `Valor atualizado — ${nome}`,
+  rendimento: (nome) => `Rendimento ganho — ${nome}`, // Texto ajustado
 };
 const BOTOES_CAIXINHA = {
   guardar: "Guardar",
@@ -2513,9 +2514,9 @@ function abrirModalCaixinha(acao, idx) {
     retirar: (valor) => retirarDaCaixinha(idx, valor),
     rendimento: (valor) => informarRendimentoCaixinha(idx, valor),
   };
-  // No rendimento, já abre com o valor atual preenchido — a pessoa só
-  // edita pro novo total, sem precisar calcular a diferença de cabeça.
-  const valorInicial = acao === "rendimento" ? cx.valorGuardado : null;
+  
+  // Agora o input virá sempre em branco, para o usuário digitar apenas o lucro
+  const valorInicial = null; 
   abrirModalValor(titulo, acoes[acao], BOTOES_CAIXINHA[acao], valorInicial);
 }
 
