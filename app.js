@@ -15,8 +15,8 @@ const MESES_LABEL = [
 
 const CATEGORIAS = [
   "Alimentação", "Assinaturas & Serviços", "Beleza & Cuidados", "Bem-estar",
-  "Casa & Manutenção", "Combustível", "Contas", "Delivery & Restaurantes",
-  "Educação", "Estacionamento", "Financiamento", "Imprevistos e Carro", "Jogos", "Lazer",
+  "Carro", "Casa & Manutenção", "Celular & Internet", "Combustível", "Contas", "Delivery & Restaurantes",
+  "Educação", "Estacionamento", "Financiamento", "Jogos", "Lazer",
   "Mercado", "Metas", "Outro", "Pessoal", "Pets", "Presente",
   "Reparação Histórica", "Saídas & Confraternizações", "Saúde & Farmácia",
   "Taxas & Tarifas", "Tech & Equipamentos", "Transporte",
@@ -1607,7 +1607,7 @@ const PALETA_CATEGORIAS = [
   "#80705a", "#a15a4b", "#4a7866", "#c2a36b", "#6a5c78", 
   "#8b7e66", "#588f82", "#b5725c", "#7d8c85", "#6e7580",
   "#4f5d8a", "#9e5a3f", "#5a8a5e", "#8a4f7a", "#c9885c",
-  "#d35400", "#34495e"
+  "#d35400", "#34495e", "#4b6584", "#eb3b5a", "#20bf6b"
 ];
 
 // Formata a % de uma categoria pro legend. Sem isso, uma categoria com
