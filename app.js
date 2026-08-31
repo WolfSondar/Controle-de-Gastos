@@ -223,11 +223,32 @@ async function setCache(pessoa, data) {
 async function removerCache(pessoa) { return idbDelete(IDB_LOJA_CACHE, CACHE_PREFIX + pessoa); }
 
 const syncEl = document.getElementById("syncStatus");
+let syncModeAnterior = null;
 function setSyncState(mode, text) {
   if (!syncEl) return;
+  // Voltou de "sem internet" pra qualquer outro estado: dá o solavanco
+  // suave no ícone de wifi (ver .is-reconectando no style.css) em vez de
+  // só trocar o ícone seco.
+  if (syncModeAnterior === "offline" && mode !== "offline") {
+    syncEl.classList.add("is-reconectando");
+    setTimeout(() => syncEl.classList.remove("is-reconectando"), 700);
+  }
+  syncModeAnterior = mode;
   syncEl.dataset.state = mode;
   const label = syncEl.querySelector(".sync-text");
   if (label) label.textContent = text;
+}
+
+// Atualiza só o numerozinho de alterações pendentes (badge ao lado do ícone
+// de wifi), sem mexer no estado geral do indicador — usado durante o envio
+// da fila offline pra ir encolhendo o número item por item.
+function atualizarBadgeOffline(n) {
+  const badge = document.getElementById("syncBadge");
+  if (badge) badge.textContent = n > 0 ? String(n) : "";
+  if (syncEl) {
+    if (n > 0) syncEl.setAttribute("aria-label", n === 1 ? "1 alteração pendente" : `${n} alterações pendentes`);
+    else syncEl.removeAttribute("aria-label");
+  }
 }
 
 function showToast(msg) { toastComAcao(msg, null, null); }
@@ -424,8 +445,9 @@ if ("serviceWorker" in navigator) {
 async function atualizarIndicadorOffline() {
   const itens = await idbListarFila();
   const n = itens.length;
+  atualizarBadgeOffline(n);
   if (n > 0) {
-    setSyncState("offline", n === 1 ? "1 alteração pendente" : `${n} alterações pendentes`);
+    setSyncState("offline", "Sem internet");
   }
   return n;
 }
@@ -437,7 +459,9 @@ async function flushFilaOffline() {
   try {
     const itens = await idbListarFila();
     if (itens.length === 0) return;
-    setSyncState("saving", "Enviando pendências…");
+    setSyncState("saving", ""); // sem texto — o ícone de wifi carregando + o numerozinho já dizem tudo
+    let restantes = itens.length;
+    atualizarBadgeOffline(restantes);
     for (const { chaveIdb, valor } of itens) {
       try {
         const res = await fetch(API_URL, {
@@ -453,6 +477,8 @@ async function flushFilaOffline() {
         if (ehErroDeRede(err)) break; 
         await idbDelete(IDB_LOJA_FILA, chaveIdb); 
       }
+      restantes -= 1;
+      atualizarBadgeOffline(restantes); // encolhe o numerozinho a cada alteração sincronizada
     }
   } finally {
     flushEmAndamento = false;
