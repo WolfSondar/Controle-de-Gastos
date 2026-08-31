@@ -12,7 +12,7 @@
 // perceber que precisa baixar os arquivos novos de novo.
 // =====================================================================
 
-const CACHE_VERSION = "caixa-v18";
+const CACHE_VERSION = "caixa-v15";
 const CACHE_SHELL = `${CACHE_VERSION}-shell`;
 const CACHE_RUNTIME = `${CACHE_VERSION}-runtime`;
 
@@ -24,7 +24,6 @@ const APP_SHELL = [
   "./",
   "./index.html",
   "./style.css",
-  "./melhorias.css",
   "./app.js",
   "./config.js",
   "./manifest.json",
