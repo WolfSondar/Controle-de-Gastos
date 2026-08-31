@@ -677,16 +677,14 @@ function informarRendimentoCaixinha(index, novoMontanteTotal) {
   const cx = state.caixinhas[index];
   if (!cx) return;
   
-  // O valor total atual é a base que já estava lá + os rendimentos anteriores acumulados
   const valorBaseAtual = Number(cx.valorGuardado) || 0;
   const rendimentoAnterior = Number(cx.rendimentoTotal) || 0;
   const totalAtualNaTela = valorBaseAtual + rendimentoAnterior;
   
-  // Descobre quanto rendeu a mais comparado ao que é exibido hoje na tela
+  // O valor novo menos o total atual da tela dá o rendimento positivo (ex: 219 - 200 = 19)
   const diferencaRendimento = novoMontanteTotal - totalAtualNaTela;
   
   if (diferencaRendimento !== 0) {
-    // Acumula o novo rendimento no total de rendimentos (que vai para a outra coluna da planilha)
     cx.rendimentoTotal = rendimentoAnterior + diferencaRendimento;
   }
   
