@@ -698,6 +698,10 @@ async function transferirEntrePessoas(de, para, nome, valor) {
 function fixoEhPago(item) { return item.pago === true; }
 function variavelEhPago(item) { return item.pago === true; }
 function ganhoEhRecebido(item) { return item.recebido === true; }
+// Um "lembrete" (compra do mês que vem, paga adiantada) aparece na lista
+// como pago, mas não deve contar de novo no saldo nem nos gastos por
+// categoria deste mês — já foi debitado no mês em que a compra foi paga.
+function variavelContaNoSaldo(item) { return item.pago === true && item.lembrete !== true; }
 
 function atualizarLinhaStatus(ulId, idx, ligado, rotuloOn, rotuloOff) {
   const ul = document.getElementById(ulId);
@@ -761,6 +765,10 @@ function togglePagoVariavel(index) {
   const item = state.gastosVariaveis[index];
   if (!item) return;
   item.pago = !variavelEhPago(item);
+  // Mexer manualmente no status tira o item do modo "lembrete" (compra
+  // adiantada) — a partir daqui ele volta a ser um lançamento comum, que
+  // entra ou sai do saldo normalmente conforme o novo status.
+  if (item.lembrete) item.lembrete = false;
   vibrar();
   sincronizarCacheAtual();
   salvarBloco("saveGastosVariaveis", state.gastosVariaveis);
@@ -789,6 +797,13 @@ function soma(lista) { return lista.reduce((acc, i) => acc + (Number(i.valor) ||
 function somaComStatus(lista, campo) { return lista.reduce((acc, i) => acc + (i[campo] === true ? Number(i.valor) || 0 : 0), 0); }
 function somaFixosPagos(lista) { return somaComStatus(lista, "pago"); }
 function somaCampo(lista, campo) { return lista.reduce((acc, i) => acc + (Number(i[campo]) || 0), 0); }
+// Soma dos Gastos Variáveis pagos que contam no saldo — exclui os marcados
+// como "lembrete" (compra do mês que vem, paga adiantada: já foi debitada
+// no mês em que foi paga, então não conta de novo aqui). Ver fecharMes() no
+// Code.gs e o comentário em variavelContaNoSaldo().
+function somaVariaveisPagas(lista) {
+  return lista.reduce((acc, i) => acc + (i.pago === true && i.lembrete !== true ? Number(i.valor) || 0 : 0), 0);
+}
 
 function ehLancamentoDeCaixinha(nome) { return typeof nome === "string" && nome.indexOf("Guardado: ") === 0; }
 
@@ -835,7 +850,7 @@ function renderTotais() {
   const totalFixosAPagar = totalFixosGeral - totalFixosPagos;
 
   const totalVariaveisGeral = soma(state.gastosVariaveis);
-  const totalVariaveisPagos = somaComStatus(state.gastosVariaveis, "pago");
+  const totalVariaveisPagos = somaVariaveisPagas(state.gastosVariaveis);
   const totalVariaveisAPagar = totalVariaveisGeral - totalVariaveisPagos;
 
   const totalGuardado = somaCampo(state.caixinhas, "valorGuardado");
@@ -910,6 +925,9 @@ function formatarDataCurta(iso) {
 
 function metaInfoHtml(item) {
   const partes = [];
+  if (item.lembrete) {
+    partes.push(`<span class="item-tag item-tag-lembrete" title="Pago no mês anterior, adiantado — não conta no saldo deste mês">Pago adiantado</span>`);
+  }
   if (item.tipo) partes.push(`<span class="item-tag item-tag-cat">${escapeHtml(item.tipo)}</span>`);
   if (item.parcela && /^\d+\s*\/\s*\d+$/.test(String(item.parcela).trim())) {
     partes.push(`<span class="item-tag item-tag-parcela">${escapeHtml(String(item.parcela).trim())}</span>`);
@@ -1606,7 +1624,7 @@ function renderCategorias() {
   const legend = document.getElementById("categoriaLegend");
   if (!card && !donut && !centro && !legend) return;
 
-  const gastos = [...state.gastosFixos.filter(fixoEhPago), ...state.gastosVariaveis.filter(variavelEhPago)];
+  const gastos = [...state.gastosFixos.filter(fixoEhPago), ...state.gastosVariaveis.filter(variavelContaNoSaldo)];
 
   const porCategoria = {};
   gastos.forEach((item) => {
@@ -1732,7 +1750,7 @@ function renderVisaoGeral() {
 
   const totalGanhos = somaComStatus(state.ganhos, "recebido");
   const variaveisSemGuardado = state.gastosVariaveis.filter((i) => !ehLancamentoDeCaixinha(i.nome));
-  const totalGastos = somaFixosPagos(state.gastosFixos) + somaComStatus(variaveisSemGuardado, "pago");
+  const totalGastos = somaFixosPagos(state.gastosFixos) + somaVariaveisPagas(variaveisSemGuardado);
   const totalGuardado = somaCampo(state.caixinhas, "valorGuardado");
   const livre = totalGanhos - totalGastos - totalGuardado;
   const base = Math.max(totalGanhos, totalGastos + totalGuardado, 0.01);
@@ -1778,7 +1796,7 @@ function renderSplit() {
 
   const totalGanhos = somaComStatus(state.ganhos, "recebido");
   const gastoPorPessoa = { davi: 0, gabriel: 0 };
-  [...state.gastosFixos.filter(fixoEhPago), ...state.gastosVariaveis.filter(variavelEhPago)].forEach((item) => {
+  [...state.gastosFixos.filter(fixoEhPago), ...state.gastosVariaveis.filter(variavelContaNoSaldo)].forEach((item) => {
     if (item.pessoa === "davi" || item.pessoa === "gabriel") {
       gastoPorPessoa[item.pessoa] += Number(item.valor) || 0;
     }
@@ -1870,7 +1888,7 @@ function renderJuntosView() {
   if (fixosEl) fixosEl.innerHTML = ["davi", "gabriel"].map((p) => cardJuntos(p, somaFixosPagos(fixosPorPessoa[p]), soma(fixosPorPessoa[p]), "expense")).join("");
 
   const variaveisEl = document.getElementById("juntosVariaveis");
-  if (variaveisEl) variaveisEl.innerHTML = ["davi", "gabriel"].map((p) => cardJuntos(p, somaComStatus(variaveisPorPessoa[p], "pago"), soma(variaveisPorPessoa[p]), "expense")).join("");
+  if (variaveisEl) variaveisEl.innerHTML = ["davi", "gabriel"].map((p) => cardJuntos(p, somaVariaveisPagas(variaveisPorPessoa[p]), soma(variaveisPorPessoa[p]), "expense")).join("");
 }
 
 function spanCentro(valorFormatado) {
@@ -2497,7 +2515,10 @@ on("formEditar", "submit", (e) => {
   } else if (tipo === "variaveis") {
     const categoria = document.getElementById("editCategoria").value;
     const data = document.getElementById("editData").value;
-    opVariaveis.edit(idx, nome, valor, { tipo: categoria, data });
+    // Editar manualmente tira o item do modo "lembrete" (compra adiantada) —
+    // a partir daqui ele volta a contar normalmente no saldo, com a nova
+    // data/categoria que a pessoa escolheu.
+    opVariaveis.edit(idx, nome, valor, { tipo: categoria, data, lembrete: false });
   } else if (tipo === "caixinhas") {
     editCaixinha(idx, nome, valor);
   }
