@@ -15,11 +15,12 @@ const MESES_LABEL = [
 
 const CATEGORIAS = [
   "Alimentação", "Assinaturas & Serviços", "Beleza & Cuidados", "Bem-estar",
-  "Casa & Decoração", "Combustível", "Contas", "Delivery & Restaurantes",
+  "Casa & Manutenção", "Combustível", "Contas", "Delivery & Restaurantes",
   "Educação", "Estacionamento", "Financiamento", "Jogos", "Lazer",
   "Mercado", "Metas", "Outro", "Pessoal", "Pets", "Presente",
-  "Reparação Histórica", "Saúde & Farmácia", "Tech & Equipamentos",
-  "Transporte", "Vestuário & Acessórios", "Viagens"
+  "Reparação Histórica", "Saídas & Confraternizações", "Saúde & Farmácia",
+  "Taxas & Tarifas", "Tech & Equipamentos", "Transporte",
+  "Vestuário & Acessórios", "Viagens"
 ];
 
 function dataHojeISO() {
@@ -676,7 +677,7 @@ async function dividirCompra(nome, valorTotal, categoria) {
   }
 }
 
-async function transferirEntrePessoas(de, para, nome, valor) {
+async function transferirEntrePessoas(de, para, nome, valor, tipo) {
   if (!API_URL || API_URL.includes("COLE_AQUI")) {
     showToast("Configure a URL do Apps Script em config.js");
     return false;
@@ -684,7 +685,7 @@ async function transferirEntrePessoas(de, para, nome, valor) {
   try {
     const res = await fetch(API_URL, {
       method: "POST",
-      body: JSON.stringify({ action: "transferir", de, para, nome, valor }),
+      body: JSON.stringify({ action: "transferir", de, para, nome, valor, tipo }),
     });
     const data = await res.json().catch(() => null);
     if (!data || data.ok === false) throw new Error((data && data.error) || "Erro desconhecido");
@@ -1604,7 +1605,8 @@ const PALETA_CATEGORIAS = [
   "#c99a3f", "#4d9e8a", "#c46a8f", "#7a9e4d", "#a67a4d",
   "#d96a53", "#6c8c77", "#b59b52", "#5b778c", "#9678a3", 
   "#80705a", "#a15a4b", "#4a7866", "#c2a36b", "#6a5c78", 
-  "#8b7e66", "#588f82", "#b5725c", "#7d8c85", "#6e7580"
+  "#8b7e66", "#588f82", "#b5725c", "#7d8c85", "#6e7580",
+  "#4f5d8a", "#9e5a3f", "#5a8a5e", "#8a4f7a", "#c9885c"
 ];
 
 // Formata a % de uma categoria pro legend. Sem isso, uma categoria com
@@ -2635,6 +2637,8 @@ on("btnAbrirTransferir", "click", () => {
   if (formTransferir) formTransferir.classList.remove("is-hidden");
   document.getElementById("transferirNome").value = "";
   document.getElementById("transferirValor").value = "";
+  const categoriaEl = document.getElementById("transferirCategoria");
+  if (categoriaEl) categoriaEl.value = "";
   direcaoTransferir = { de: "davi", para: "gabriel" };
   renderDirecaoTransferir();
   setTimeout(() => document.getElementById("transferirValor").focus(), 50);
@@ -2660,6 +2664,8 @@ on("formTransferir", "submit", async (e) => {
   const nome = document.getElementById("transferirNome").value.trim() || "Transferência";
   const valor = parseValor(document.getElementById("transferirValor").value);
   if (!(valor > 0)) return;
+  const categoriaEl = document.getElementById("transferirCategoria");
+  const tipo = categoriaEl ? categoriaEl.value : "";
 
   const btnSubmit = document.getElementById("transferirSubmit");
   if (btnSubmit) {
@@ -2668,7 +2674,7 @@ on("formTransferir", "submit", async (e) => {
   }
 
   const { de, para } = direcaoTransferir;
-  const ok = await transferirEntrePessoas(de, para, nome, valor);
+  const ok = await transferirEntrePessoas(de, para, nome, valor, tipo);
 
   if (btnSubmit) {
     btnSubmit.disabled = false;
