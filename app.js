@@ -234,10 +234,12 @@ function setSyncState(mode) {
     syncEl.classList.add("is-reconectando");
     setTimeout(() => syncEl.classList.remove("is-reconectando"), 700);
   }
-  // Acabou de salvar/sincronizar com sucesso (saving -> idle): pisca o
-  // ícone de "enviado" (nuvem com seta pra cima, ver .sync-icone-upload no
-  // style.css) por um instante antes de assentar no wifi parado — um
-  // "confirmado" rápido, em vez de pular direto pro idle sem feedback.
+  // Acabou de salvar com sucesso (saving -> idle, ou seja, uma alteração
+  // enviada pra planilha, não só uma busca): pisca o check (ver
+  // .sync-icone-check no style.css) por um instante antes de assentar no
+  // wifi parado — um "confirmado" rápido, em vez de pular direto pro idle
+  // sem feedback. Uma simples busca de dados (syncing -> idle) não passa
+  // por aqui, então não mostra o check.
   if (syncModeAnterior === "saving" && mode === "idle") {
     syncModeAnterior = "saved";
     syncEl.dataset.state = "saved";
@@ -340,10 +342,10 @@ async function carregarDados() {
     state.categoriasConfig = cache.categorias || null;
     state.loaded = true;
     popularSelectsDeCategoria();
-    setSyncState("saving");
+    setSyncState("syncing");
     renderAll();
   } else {
-    setSyncState("saving");
+    setSyncState("syncing");
     renderSkeletons();
   }
 
@@ -2490,14 +2492,19 @@ on("formCaixinhas", "submit", (e) => {
 });
 
 let onConfirmarValor = null;
+// Valor mínimo aceito no modal (usado no rendimento: não pode informar um
+// total menor do que a caixinha já tem hoje). null = sem mínimo, só exige > 0.
+let valorMinimoModal = null;
 const modalBackdrop = document.getElementById("modalBackdrop");
 
-function abrirModalValor(titulo, callback, textoBotao, valorInicial, dica) {
+function abrirModalValor(titulo, callback, textoBotao, valorInicial, dica, minimo) {
   if (isAmbos()) return;
   onConfirmarValor = callback;
+  valorMinimoModal = typeof minimo === "number" ? minimo : null;
   document.getElementById("modalTitle").textContent = titulo;
   const inputValor = document.getElementById("aporteValor");
   inputValor.value = valorInicial ? fmtCampo(valorInicial) : "";
+  inputValor.classList.remove("input-erro");
   const elHint = document.getElementById("modalHint");
   if (elHint) {
     elHint.textContent = dica || "";
@@ -2516,6 +2523,8 @@ function fecharModal() {
   fecharComHistorico("modalBackdrop", () => {
     modalBackdrop.classList.add("is-hidden");
     onConfirmarValor = null;
+    valorMinimoModal = null;
+    document.getElementById("aporteValor").classList.remove("input-erro");
   });
 }
 FECHADORES_MODAL.modalBackdrop = fecharModal;
@@ -2525,11 +2534,29 @@ if (modalBackdrop) {
     if (e.target === modalBackdrop) fecharModal();
   });
 }
+
+// Enquanto digita, já avisa visualmente se o valor ficou abaixo do mínimo
+// permitido (sem travar a digitação — a trava mesmo é no submit).
+on("aporteValor", "input", (e) => {
+  if (valorMinimoModal == null) return;
+  const valor = parseValor(e.target.value);
+  e.target.classList.toggle("input-erro", e.target.value !== "" && valor < valorMinimoModal);
+});
+
 on("formAporte", "submit", (e) => {
   e.preventDefault();
   if (isAmbos()) return;
-  const valor = parseValor(document.getElementById("aporteValor").value);
+  const inputValor = document.getElementById("aporteValor");
+  const valor = parseValor(inputValor.value);
   if (!(valor > 0) || !onConfirmarValor) return;
+  if (valorMinimoModal != null && valor < valorMinimoModal) {
+    inputValor.classList.add("input-erro");
+    inputValor.classList.remove("input-tremer");
+    void inputValor.offsetWidth; // reinicia a animação se já tremeu antes
+    inputValor.classList.add("input-tremer");
+    showToast(`O valor não pode ser menor que o que já está guardado (${fmt(valorMinimoModal)})`);
+    return;
+  }
   onConfirmarValor(valor);
   fecharModal();
 });
@@ -2564,7 +2591,11 @@ function abrirModalCaixinha(acao, idx) {
   const dica = acao === "rendimento"
     ? "Digite o valor TOTAL que a caixinha tem hoje (não só o quanto rendeu) — o app calcula a diferença sozinho."
     : null;
-  abrirModalValor(titulo, acoes[acao], BOTOES_CAIXINHA[acao], valorInicial, dica);
+  // Rendimento não pode ser um valor menor do que a caixinha já tem — isso
+  // seria uma perda, não um rendimento (pra registrar perda, dá pra editar
+  // a caixinha direto).
+  const minimo = acao === "rendimento" ? totalAtualCaixinha : null;
+  abrirModalValor(titulo, acoes[acao], BOTOES_CAIXINHA[acao], valorInicial, dica, minimo);
 }
 
 let editContext = null; 
