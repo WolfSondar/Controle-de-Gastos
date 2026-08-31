@@ -240,6 +240,7 @@ button, input { font-family: inherit; }
 .item-tag { font-size: 10.5px; font-weight: 700; letter-spacing: 0.01em; padding: 3px 8px; border-radius: 100px; white-space: nowrap; line-height: 1.3; }
 .item-tag-cat { background: var(--tag-bg); color: var(--ink-text); }
 .item-tag-parcela { color: var(--gold-deep); background: rgba(185,134,47,0.16); }
+.item-tag-lembrete { color: var(--income); background: var(--income-bg); }
 .item-tag-data { padding: 3px 0; background: transparent; color: var(--muted); font-weight: 600; display: inline-flex; align-items: center; gap: 5px; }
 .item-meta .item-tag-data:not(:first-child)::before { content: ""; width: 3px; height: 3px; border-radius: 50%; background: var(--line); flex-shrink: 0; }
 
