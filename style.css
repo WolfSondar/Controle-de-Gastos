@@ -129,11 +129,56 @@ button, input { font-family: inherit; }
 .brand-mark { font-family: var(--font-display); font-size: 26px; font-weight: 600; letter-spacing: 0.01em; }
 
 .sync { display: flex; align-items: center; gap: 6px; font-size: 11.5px; color: #cfe3d8; padding: 5px 10px; border: 1px solid rgba(255,255,255,0.18); border-radius: 100px; white-space: nowrap; }
-.sync-dot { width: 6px; height: 6px; border-radius: 50%; background: #7fb894; flex-shrink: 0; }
-.sync[data-state="saving"] .sync-dot { background: var(--gold); animation: pulse 0.9s infinite ease-in-out; }
-.sync[data-state="error"] .sync-dot { background: #d97757; }
-.sync[data-state="offline"] .sync-dot { background: #c99a3f; animation: pulse 1.4s infinite ease-in-out; }
-@keyframes pulse { 0%,100% { opacity: 1; } 50% { opacity: 0.35; } }
+
+/* Ícone: dot simples de sempre (só usado no estado de erro) + os dois
+   SVGs de wifi, empilhados um em cima do outro e alternados por opacidade
+   — assim trocar entre "conectado" e "sem internet" é um crossfade suave,
+   em vez de trocar o ícone seco de uma vez. */
+.sync-icon-wrap { position: relative; width: 14px; height: 14px; flex-shrink: 0; display: inline-flex; align-items: center; justify-content: center; }
+.sync-dot { display: none; width: 6px; height: 6px; border-radius: 50%; background: #d97757; flex-shrink: 0; }
+.sync[data-state="error"] .sync-dot { display: block; }
+.sync[data-state="error"] .sync-icon-wrap { display: none; }
+
+.sync-icone { position: absolute; inset: 0; width: 100%; height: 100%; opacity: 0; transform: scale(0.7); transition: opacity 0.35s ease, transform 0.35s ease; }
+.sync-icone-on { color: #8fd4ab; }
+.sync-icone-off { color: #e3c581; }
+
+.sync[data-state="idle"] .sync-icone-on,
+.sync[data-state="saving"] .sync-icone-on { opacity: 1; transform: scale(1); }
+.sync[data-state="offline"] .sync-icone-off { opacity: 1; transform: scale(1); }
+
+/* Reconectou: dá um "solavanco" suave no ícone de wifi acendendo de novo,
+   em vez de simplesmente aparecer — disparado via JS (classe .is-reconectando)
+   sempre que o estado sai de "offline" pra qualquer outro. */
+.sync.is-reconectando .sync-icone-on { animation: wifiReconectou 0.7s ease; }
+@keyframes wifiReconectou {
+  0% { opacity: 0; transform: scale(0.55) rotate(-8deg); }
+  55% { opacity: 1; transform: scale(1.12) rotate(3deg); }
+  100% { opacity: 1; transform: scale(1) rotate(0deg); }
+}
+
+/* Enviando (fila offline sincronizando ou salvamento em andamento): as três
+   "ondas" do sinal acendem em sequência, de fora pra dentro, em loop — a
+   cara de um wifi procurando conexão. */
+.sync[data-state="saving"] .onda { animation: wifiCarregando 1.1s infinite ease-in-out; }
+.sync[data-state="saving"] .onda-2 { animation-delay: 0.15s; }
+.sync[data-state="saving"] .onda-3 { animation-delay: 0.3s; }
+@keyframes wifiCarregando { 0%, 100% { opacity: 0.25; } 50% { opacity: 1; } }
+
+/* Numerozinho de alterações pendentes — substitui o texto comprido
+   ("3 alterações pendentes") que vazava pra fora do card no mobile. Só
+   aparece quando tem número (fica :empty o resto do tempo), do lado do
+   ícone de wifi cortado ou, durante o envio, do wifi carregando — e vai
+   encolhendo sozinho conforme cada alteração é sincronizada. */
+.sync-badge:empty { display: none; }
+.sync-badge:not(:empty) {
+  display: inline-flex; align-items: center; justify-content: center;
+  min-width: 15px; height: 15px; padding: 0 4px;
+  border-radius: 100px; background: var(--gold); color: #241c12;
+  font-size: 10px; font-weight: 800; line-height: 1;
+}
+
+.sync-text:empty { display: none; }
 
 .saldo-block { display: flex; flex-direction: column; gap: 4px; margin-bottom: 20px; }
 .saldo-label { font-size: 12.5px; text-transform: uppercase; letter-spacing: 0.12em; color: #a7c7b7; }
