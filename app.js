@@ -14,13 +14,12 @@ const MESES_LABEL = [
 ];
 
 const CATEGORIAS = [
-  "Lazer", "Outro", "Presente", "Alimentação", "Transporte",
-  "Pessoal", "Educação", "Financiamento", "Contas",
-  "Mercado", "Bem-estar", "Metas", 
-  "Delivery & Restaurantes", "Viagens", "Pets", "Tech & Equipamentos",
-  "Assinaturas & Serviços", "Reparação Histórica", 
-  "Saúde & Farmácia", "Vestuário & Acessórios", "Casa & Decoração",
-  "Beleza & Cuidados", "Games", "Combustível"
+  "Alimentação", "Assinaturas & Serviços", "Beleza & Cuidados", "Bem-estar",
+  "Casa & Decoração", "Combustível", "Contas", "Delivery & Restaurantes",
+  "Educação", "Estacionamento", "Financiamento", "Jogos", "Lazer",
+  "Mercado", "Metas", "Outro", "Pessoal", "Pets", "Presente",
+  "Reparação Histórica", "Saúde & Farmácia", "Tech & Equipamentos",
+  "Transporte", "Vestuário & Acessórios", "Viagens"
 ];
 
 function dataHojeISO() {
@@ -1587,8 +1586,18 @@ const PALETA_CATEGORIAS = [
   "#c99a3f", "#4d9e8a", "#c46a8f", "#7a9e4d", "#a67a4d",
   "#d96a53", "#6c8c77", "#b59b52", "#5b778c", "#9678a3", 
   "#80705a", "#a15a4b", "#4a7866", "#c2a36b", "#6a5c78", 
-  "#8b7e66", "#588f82", "#b5725c", "#7d8c85" 
+  "#8b7e66", "#588f82", "#b5725c", "#7d8c85", "#6e7580"
 ];
+
+// Formata a % de uma categoria pro legend. Sem isso, uma categoria com
+// gasto real mas fatia pequena (ex: 0,3% do total) aparecia como "0%"
+// depois do toFixed(0) — parecendo que não teve gasto nenhum, quando na
+// verdade teve (foi o que o Davi notou no filtro "Juntos": uma categoria
+// dava 1% pra ele e nada pro Gabriel, mas a soma junta virava "0%").
+function formatarPctCategoria(pct) {
+  if (pct > 0 && pct < 0.5) return "<1%";
+  return `${pct.toFixed(0)}%`;
+}
 
 function renderCategorias() {
   const card = document.getElementById("categoriaCard");
@@ -1630,7 +1639,7 @@ function renderCategorias() {
         <div class="split-legend-item">
           <span class="dot" style="background:${p.cor}"></span>
           <span class="legend-label">${escapeHtml(p.cat)}</span>
-          <strong>${p.pct.toFixed(0)}%</strong>
+          <strong>${formatarPctCategoria(p.pct)}</strong>
         </div>`).join("");
   }
 }
@@ -1694,7 +1703,7 @@ function construirPaginaCategoriasHistorico(meses, pessoa, ano) {
         <div class="split-legend-item">
           <span class="dot" style="background:${p.cor}"></span>
           <span class="legend-label">${escapeHtml(p.cat)}</span>
-          <strong>${p.pct.toFixed(0)}%</strong>
+          <strong>${formatarPctCategoria(p.pct)}</strong>
         </div>`
     )
     .join("");
