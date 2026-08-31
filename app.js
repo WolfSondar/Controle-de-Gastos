@@ -495,11 +495,18 @@ async function flushFilaOffline() {
   // só pra falhar em seguida. Fica parado no ícone de sem internet até o
   // navegador avisar que voltou (evento "online", ver abaixo).
   if (!navigator.onLine) return;
+
+  // Confere ANTES de mexer em qualquer estado de sync: se não tem nada pra
+  // enviar, sai sem tocar no ícone — senão essa checagem (que é rápida,
+  // porque só olha o IndexedDB local) ficava sempre "ganhando a corrida" e
+  // resetando pra "idle" por cima da animação de sincronizando que
+  // carregarDados() acabara de ligar (ver tentarSincronizarAgora).
+  const itens = await idbListarFila();
+  if (itens.length === 0) return;
+
   flushEmAndamento = true;
+  setSyncState("saving");
   try {
-    const itens = await idbListarFila();
-    if (itens.length === 0) return;
-    setSyncState("saving");
     let restantes = itens.length;
     atualizarBadgeOffline(restantes);
     for (const { chaveIdb, valor } of itens) {
@@ -545,10 +552,13 @@ if (syncEl) {
   syncEl.setAttribute("role", "button");
   syncEl.setAttribute("tabindex", "0");
   syncEl.setAttribute("aria-label", "Sincronizar agora");
-  const tentarSincronizarAgora = () => {
+  const tentarSincronizarAgora = async () => {
     if (syncEl.dataset.state === "saving" || syncEl.dataset.state === "syncing") return;
     vibrar(8);
-    flushFilaOffline();
+    // Espera a fila offline terminar (ou não fazer nada, se estiver vazia)
+    // antes de buscar os dados — assim os dois nunca disputam o ícone ao
+    // mesmo tempo.
+    await flushFilaOffline();
     carregarDados();
   };
   syncEl.addEventListener("click", tentarSincronizarAgora);
