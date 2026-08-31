@@ -130,26 +130,42 @@ button, input { font-family: inherit; }
 
 .sync { display: flex; align-items: center; gap: 6px; font-size: 11.5px; color: #cfe3d8; padding: 5px 10px; border: 1px solid rgba(255,255,255,0.18); border-radius: 100px; white-space: nowrap; }
 
-/* Ícone: dot simples de sempre (só usado no estado de erro) + os dois
-   SVGs de wifi, empilhados um em cima do outro e alternados por opacidade
-   — assim trocar entre "conectado" e "sem internet" é um crossfade suave,
-   em vez de trocar o ícone seco de uma vez. */
-.sync-icon-wrap { position: relative; width: 14px; height: 14px; flex-shrink: 0; display: inline-flex; align-items: center; justify-content: center; }
-.sync-dot { display: none; width: 6px; height: 6px; border-radius: 50%; background: #d97757; flex-shrink: 0; }
-.sync[data-state="error"] .sync-dot { display: block; }
-.sync[data-state="error"] .sync-icon-wrap { display: none; }
+/* ==========================================
+   NOVO STATUS DE CONEXÃO (APENAS ÍCONES)
+   ========================================== */
+/* Oculta o texto do status permanentemente */
+.sync-text { display: none !important; }
 
+.sync-icon-wrap { position: relative; width: 14px; height: 14px; flex-shrink: 0; display: inline-flex; align-items: center; justify-content: center; }
+
+/* Base dos ícones */
 .sync-icone { position: absolute; inset: 0; width: 100%; height: 100%; opacity: 0; transform: scale(0.7); transition: opacity 0.35s ease, transform 0.35s ease; }
 .sync-icone-on { color: #8fd4ab; }
-.sync-icone-off { color: #e3c581; }
+.sync-icone-upload { color: #8fd4ab; }
+.sync-icone-off { color: #e08a6e; }
 
-.sync[data-state="idle"] .sync-icone-on,
+/* 1. ATUALIZANDO (ondas animadas) */
 .sync[data-state="saving"] .sync-icone-on { opacity: 1; transform: scale(1); }
-.sync[data-state="offline"] .sync-icone-off { opacity: 1; transform: scale(1); }
+.sync[data-state="saving"] .onda { animation: wifiCarregando 1.1s infinite ease-in-out; }
+.sync[data-state="saving"] .onda-2 { animation-delay: 0.15s; }
+.sync[data-state="saving"] .onda-3 { animation-delay: 0.3s; }
 
-/* Reconectou: dá um "solavanco" suave no ícone de wifi acendendo de novo,
-   em vez de simplesmente aparecer — disparado via JS (classe .is-reconectando)
-   sempre que o estado sai de "offline" pra qualquer outro. */
+/* 2. SINCRONIZADO (ondas fixas) */
+.sync[data-state="idle"] .sync-icone-on { opacity: 1; transform: scale(1); }
+.sync[data-state="idle"] .onda { animation: none; opacity: 1; }
+
+/* 3. SALVO (ícone de upload) */
+.sync[data-state="saved"] .sync-icone-upload { opacity: 1; transform: scale(1); }
+
+/* 4. SEM INTERNET ou ERRO (ícone cortado) */
+.sync[data-state="offline"] .sync-icone-off,
+.sync[data-state="error"] .sync-icone-off { opacity: 1; transform: scale(1); }
+
+/* Removemos a bolinha antiga de erro e garantimos a exibição do ícone */
+.sync-dot { display: none !important; }
+.sync[data-state="error"] .sync-icon-wrap { display: inline-flex; }
+
+/* Reconectou: dá um "solavanco" suave no ícone de wifi acendendo de novo */
 .sync.is-reconectando .sync-icone-on { animation: wifiReconectou 0.7s ease; }
 @keyframes wifiReconectou {
   0% { opacity: 0; transform: scale(0.55) rotate(-8deg); }
@@ -157,19 +173,9 @@ button, input { font-family: inherit; }
   100% { opacity: 1; transform: scale(1) rotate(0deg); }
 }
 
-/* Enviando (fila offline sincronizando ou salvamento em andamento): as três
-   "ondas" do sinal acendem em sequência, de fora pra dentro, em loop — a
-   cara de um wifi procurando conexão. */
-.sync[data-state="saving"] .onda { animation: wifiCarregando 1.1s infinite ease-in-out; }
-.sync[data-state="saving"] .onda-2 { animation-delay: 0.15s; }
-.sync[data-state="saving"] .onda-3 { animation-delay: 0.3s; }
 @keyframes wifiCarregando { 0%, 100% { opacity: 0.25; } 50% { opacity: 1; } }
 
-/* Numerozinho de alterações pendentes — substitui o texto comprido
-   ("3 alterações pendentes") que vazava pra fora do card no mobile. Só
-   aparece quando tem número (fica :empty o resto do tempo), do lado do
-   ícone de wifi cortado ou, durante o envio, do wifi carregando — e vai
-   encolhendo sozinho conforme cada alteração é sincronizada. */
+/* Numerozinho de alterações pendentes */
 .sync-badge:empty { display: none; }
 .sync-badge:not(:empty) {
   display: inline-flex; align-items: center; justify-content: center;
@@ -177,8 +183,6 @@ button, input { font-family: inherit; }
   border-radius: 100px; background: var(--gold); color: #241c12;
   font-size: 10px; font-weight: 800; line-height: 1;
 }
-
-.sync-text:empty { display: none; }
 
 .saldo-block { display: flex; flex-direction: column; gap: 4px; margin-bottom: 20px; }
 .saldo-label { font-size: 12.5px; text-transform: uppercase; letter-spacing: 0.12em; color: #a7c7b7; }
@@ -435,12 +439,6 @@ button, input { font-family: inherit; }
 .split-legend-item { display: flex; align-items: center; gap: 8px; font-size: 12.5px; color: var(--ink-text); }
 .split-legend-item .dot { width: 10px; height: 10px; border-radius: 50%; flex-shrink: 0; }
 .split-legend-item strong { font-family: var(--font-mono); margin-left: auto; padding-left: 8px; flex-shrink: 0; }
-/* .legend-label existe pra dar ao nome da categoria um item de flex de
-   verdade (o texto sozinho, solto dentro de .split-legend-item, vira um
-   item "anônimo" que o navegador nunca deixa encolher abaixo da palavra
-   mais larga sem quebrar — min-width:0 + overflow-wrap aqui é o que
-   permite ele encolher/quebrar em vez de forçar a linha toda a ficar
-   larga demais e estourar a tela no mobile). */
 .split-legend-item .legend-label { flex: 1 1 auto; min-width: 0; overflow-wrap: break-word; word-break: break-word; }
 
 .juntos-secao { margin-bottom: 22px; }
@@ -491,11 +489,9 @@ button, input { font-family: inherit; }
 /* ==========================================================
    REFORMA DO HISTÓRICO: SELECT, GRÁFICOS E MARGENS
    ========================================================== */
-
-/* Novo visual pro Seletor de Ano (Pílula moderna e compacta) */
 .historico-controles { 
   display: flex; 
-  justify-content: flex-end; /* Alinha à direita pro layout ficar mais limpo */
+  justify-content: flex-end; 
   margin-bottom: 16px; 
   display: none; 
 }
@@ -506,7 +502,7 @@ button, input { font-family: inherit; }
   -moz-appearance: none; 
   background-color: var(--paper-deep); 
   border: 1px solid var(--line); 
-  border-radius: 100px; /* Formato pílula */
+  border-radius: 100px; 
   padding: 8px 36px 8px 16px; 
   font-size: 13.5px; 
   font-weight: 600; 
@@ -529,15 +525,8 @@ button, input { font-family: inherit; }
 .historico-ano-bloco:last-child { margin-bottom: 0; }
 .historico-ano-titulo { font-family: var(--font-display); font-size: 16px; font-weight: 600; color: var(--muted); margin: 0; }
 
-/* Carrossel de 2 páginas do Histórico (comparativo entre meses + pizza de
-   categorias do ano) — mesma mecânica (arrastar/bolinhas) do carrossel do
-   Resumo, ver .graficos-carousel/.graficos-dots mais abaixo. A 1ª página
-   é o .historico-grafico-wrap (self-contained, com seu próprio fundo); a
-   2ª é um .split-card comum (mesmo card do "Gastos por categoria" do
-   Resumo) — por isso precisa da regra de flex específica pro primeiro. */
 .graficos-carousel > .historico-grafico-wrap { flex: 0 0 100%; scroll-snap-align: center; scroll-snap-stop: always; min-width: 0; }
 
-/* Margens, fundos e respiros pro novo Gráfico de Linhas */
 .historico-grafico-wrap { 
   background: var(--paper-deep); 
   border: 1px solid var(--line); 
@@ -545,20 +534,13 @@ button, input { font-family: inherit; }
   padding: 20px 14px 14px; 
   margin-bottom: 24px; 
   box-shadow: 0 3px 12px rgba(22,51,44,0.04); 
-  /* pan-x + pan-y (não "pan-y" sozinho): precisa liberar o eixo horizontal
-     pro dedo conseguir arrastar o carrossel pra página de categorias.
-     O "pan-y" sozinho travava exatamente essa página, já que ela ocupa a
-     tela toda. O scrub do tooltip (touchmove em .historico-grafico-wrap,
-     lá no final do app.js) continua funcionando do mesmo jeito — ele só
-     lê a posição do dedo, não faz preventDefault, então roda em paralelo
-     com o scroll nativo do carrossel. */
   touch-action: pan-x pan-y; 
 }
 .historico-grafico { 
   width: 100%; 
-  height: 160px; /* Altura maior para acomodar melhor a curva do gráfico */
+  height: 160px; 
   display: block; 
-  overflow: visible; /* Garante que os pontos nos cantos não cortem */
+  overflow: visible; 
 }
 .historico-grafico-legenda { 
   display: flex; 
@@ -566,7 +548,7 @@ button, input { font-family: inherit; }
   gap: 16px; 
   margin-top: 20px; 
   padding-top: 14px; 
-  border-top: 1px dashed var(--line); /* Linha sutil separando os meses da legenda */
+  border-top: 1px dashed var(--line);
 }
 
 .historico-mes-card { background: var(--paper-deep); border: 1px solid var(--line); border-radius: var(--radius-m); padding: 16px; }
@@ -586,7 +568,6 @@ button, input { font-family: inherit; }
 .transferir-direcao span { font-family: var(--font-display); font-weight: 600; font-size: 16px; color: var(--ink-text); min-width: 64px; text-align: center; }
 .transferir-direcao .icon-btn { border-color: var(--line); background: var(--paper); color: var(--gold-deep); }
 
-/* Melhorias (Carimbos, Confete, etc) */
 .carimbo { position: absolute; top: 50%; right: 14px; z-index: 6; pointer-events: none; opacity: 0; transform: translateY(-50%) rotate(-14deg) scale(2.4); font-family: var(--font-display); font-weight: 700; font-size: 12px; letter-spacing: 0.16em; text-transform: uppercase; white-space: nowrap; color: var(--income); border: 2px solid var(--income); border-radius: 5px; padding: 3px 10px 2px; background: color-mix(in srgb, var(--income) 8%, transparent); mix-blend-mode: multiply; }
 @media (prefers-color-scheme: dark) { .carimbo { mix-blend-mode: screen; } }
 .carimbo.is-batendo { animation: carimboBater 480ms cubic-bezier(0.16, 1.6, 0.4, 1) forwards; }
@@ -600,40 +581,14 @@ button, input { font-family: inherit; }
 @keyframes carimboMetaSumir { from { opacity: 1; transform: translate(-50%, -50%) rotate(-7deg) scale(1); } to { opacity: 0; transform: translate(-50%, -50%) rotate(-7deg) scale(1); } }
 
 .graficos-carousel-wrap { margin-bottom: 4px; }
-/* align-items: flex-start (em vez do "stretch" padrão do flex) — sem isso,
-   toda página do carrossel é esticada pra bater a altura da página mais
-   alta (ex: categoria com muitos tipos de gasto), o que deixava o
-   gráfico de linhas com um espaço vazio enorme embaixo. A altura do
-   carrossel em si (quanto ele "respira" pra cada página) é ajustada aos
-   poucos em JS, em atualizarAlturaCarrossel(), pra sempre bater com a
-   página que está ativa no momento — dá pra ver a transição suave ao
-   arrastar de uma página pra outra. */
-/* overflow-y: hidden é o que faltava — com só o overflow-x definido, o
-   navegador liga rolagem vertical sozinho por baixo dos panos (efeito
-   colateral de ter a altura fixada em JS agora). O carrossel não deve
-   rolar verticalmente por dentro dele mesmo; quem rola pra cima/baixo é
-   a página toda, normalmente. */
 .graficos-carousel { display: flex; align-items: flex-start; gap: 14px; overflow-x: auto; overflow-y: hidden; scroll-snap-type: x mandatory; -webkit-overflow-scrolling: touch; scrollbar-width: none; transition: height 0.28s cubic-bezier(.4,0,.2,1); }
 .graficos-carousel::-webkit-scrollbar { display: none; }
 .graficos-carousel > .split-card { flex: 0 0 100%; scroll-snap-align: center; scroll-snap-stop: always; min-width: 0; transform-origin: center; transition: transform 0.18s ease, opacity 0.18s ease; will-change: transform, opacity; }
 .graficos-carousel > .split-card.is-hidden { display: none; }
 
-/* Legenda em 2 colunas pra categorias — usada só nos cards de "Gastos por
-   categoria" (Resumo e Histórico), que podem ter bem mais itens que os
-   outros gráficos do carrossel (Divisão do casal, Visão geral, no máximo
-   3 linhas cada). Em coluna única, 9 categorias empurravam a altura do
-   card muito além da dos outros, e era isso que fazia o gráfico de
-   linhas parecer "esticado" sem necessidade. */
 .split-legend-categorias { display: grid; grid-template-columns: 1fr 1fr; column-gap: 14px; row-gap: 8px; }
 .split-legend-categorias .split-legend-item { font-size: 12px; }
 .split-legend-categorias .split-legend-item strong { padding-left: 6px; }
-/* No mobile, o donut (128px fixo) + gap + legenda em 2 colunas lado a
-   lado não cabem — a legenda ficava espremida a ponto de "vazar" pra
-   fora da tela pela direita (nunca quebrava porque não sobrava largura
-   nem pra uma palavra). Empilhando (donut em cima, legenda embaixo em
-   largura total) a legenda passa a ter a tela inteira pra se organizar
-   em 2 colunas, sem estourar. Card de "Divisão do casal"/"Visão geral"
-   (poucos itens, sem essa classe extra) continuam lado a lado. */
 @media (max-width: 520px) {
   .split-chart-wrap-categorias { flex-direction: column; align-items: center; gap: 14px; }
   .split-chart-wrap-categorias .split-legend-categorias { width: 100%; }
@@ -677,8 +632,6 @@ body.sem-entrada-listas .item-list-row { animation: none !important; }
 /* ==========================================================
    CORREÇÃO DA LEGENDA E HOVER NO GRÁFICO
    ========================================================== */
-
-/* Arruma os itens da legenda e centraliza */
 .legenda-item { 
   display: inline-flex; 
   align-items: center; 
@@ -688,7 +641,6 @@ body.sem-entrada-listas .item-list-row { animation: none !important; }
   color: var(--ink-text); 
 }
 
-/* Cria fisicamente a bolinha de cor da legenda */
 .legenda-dot { 
   width: 10px; 
   height: 10px; 
@@ -697,7 +649,6 @@ body.sem-entrada-listas .item-list-row { animation: none !important; }
   flex-shrink: 0;
 }
 
-/* Efeito de hover (mouse em cima) das bolinhas no gráfico SVG */
 .grafico-ponto-group { 
   cursor: pointer; 
 }
@@ -705,7 +656,6 @@ body.sem-entrada-listas .item-list-row { animation: none !important; }
   transition: r 0.15s ease, stroke-width 0.15s ease; 
 }
 
-/* Aumenta a bolinha quando passa o mouse por cima */
 .grafico-ponto-group:hover circle { 
   r: 6.5px; 
   stroke-width: 3px; 
@@ -738,7 +688,6 @@ body.sem-entrada-listas .item-list-row { animation: none !important; }
   transform: translate(-50%, -15px);
 }
 
-/* Textos dentro do balão */
 .tooltip-titulo { 
   font-size: 10px; 
   text-transform: uppercase; 
@@ -761,13 +710,11 @@ body.sem-entrada-listas .item-list-row { animation: none !important; }
   color: var(--on-ink);
 }
 
-/* Área interativa e animações SVG */
 .mes-hover-group { 
   cursor: pointer; 
   pointer-events: all; 
 }
 
-/* Remove o retângulo azul/cinza nativo de clique no celular */
 .mes-hover-group, 
 .historico-grafico-wrap,
 .historico-grafico-wrap * {
@@ -782,7 +729,6 @@ body.sem-entrada-listas .item-list-row { animation: none !important; }
   pointer-events: none; 
 }
 
-/* Efeito ao passar o mouse ou tocar */
 .mes-hover-group:hover .guia-vertical, 
 .mes-hover-group.is-active .guia-vertical { 
   opacity: 0.7; 
@@ -792,7 +738,3 @@ body.sem-entrada-listas .item-list-row { animation: none !important; }
   r: 6.5px; 
   stroke-width: 3px; 
 }
-
-/* Legenda base */
-.legenda-item { display: inline-flex; align-items: center; gap: 6px; font-size: 13.5px; font-weight: 500; color: var(--ink-text); }
-.legenda-dot { width: 10px; height: 10px; border-radius: 50%; display: inline-block; flex-shrink: 0;}
