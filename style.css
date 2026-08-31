@@ -136,7 +136,10 @@ button, input { font-family: inherit; }
   border: 1px solid rgba(255,255,255,0.18);
   background: rgba(255,255,255,0.06);
   color: #cfe3d8;
+  cursor: pointer;
+  transition: background 0.15s ease;
 }
+.sync:active { transform: scale(0.94); }
 
 /* ==========================================
    STATUS DE CONEXÃO (APENAS ÍCONES)
@@ -662,6 +665,7 @@ body.sem-entrada-listas .item-list-row { animation: none !important; }
   .btn-edit:hover { background: var(--income-bg); color: var(--income); }
   .mes-atual-badge:hover { background: rgba(255,255,255,0.16); }
   .icon-btn:hover { background: rgba(255,255,255,0.16); }
+  .sync:hover { background: rgba(255,255,255,0.16); }
   .acao-card:hover { border-color: var(--gold); }
   .transferir-direcao .icon-btn:hover { background: var(--line-soft); }
 }
