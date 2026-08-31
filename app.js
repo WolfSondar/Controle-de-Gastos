@@ -342,13 +342,20 @@ async function carregarDados() {
     state.categoriasConfig = cache.categorias || null;
     state.loaded = true;
     popularSelectsDeCategoria();
-    setSyncState("syncing");
     renderAll();
   } else {
-    setSyncState("syncing");
     renderSkeletons();
   }
 
+  // Sem internet: nem tenta buscar — fica só no ícone de sem internet
+  // (sem nenhuma animação de "tentando"), mostrando o que já tem em cache.
+  if (!navigator.onLine) {
+    setSyncState("offline");
+    if (!cache) showToast("Sem internet. Assim que conectar eu atualizo sozinho.");
+    return;
+  }
+
+  setSyncState("syncing");
   try {
     const url = `${API_URL}?pessoa=${encodeURIComponent(pessoaRequisitada)}`;
     const res = await fetch(url, { method: "GET" });
@@ -372,7 +379,9 @@ async function carregarDados() {
     prefetchOutrasPessoas(pessoaRequisitada);
   } catch (err) {
     if (state.pessoaAtual !== pessoaRequisitada) return;
-    setSyncState("error");
+    // Caiu a conexão no meio da busca: mesmo tratamento calmo do offline
+    // (sem ícone de erro em vermelho, que é pra falha de verdade).
+    setSyncState(ehErroDeRede(err) || !navigator.onLine ? "offline" : "error");
     if (!cache) {
       showToast("Não consegui carregar a planilha. Confira a API_URL.");
       renderAll();
@@ -404,6 +413,17 @@ async function salvarBloco(action, payload) {
 
   entrada.pendente = payload;
   if (entrada.emVoo) return; 
+
+  // Sem internet: nem tenta — manda direto pra fila offline, sem passar
+  // pela animação de "salvando" (que só ia demorar e falhar mesmo).
+  if (!navigator.onLine) {
+    const pessoaOffline = state.pessoaAtual;
+    const payloadOffline = entrada.pendente;
+    entrada.pendente = null;
+    await enfileirarOffline(pessoaOffline, action, payloadOffline);
+    await atualizarIndicadorOffline();
+    return;
+  }
 
   entrada.emVoo = true;
   setSyncState("saving");
@@ -471,6 +491,10 @@ async function atualizarIndicadorOffline() {
 async function flushFilaOffline() {
   if (flushEmAndamento) return;
   if (!API_URL || API_URL.includes("COLE_AQUI")) return;
+  // Sem internet: nem tenta — evita ficar piscando a animação de "enviando"
+  // só pra falhar em seguida. Fica parado no ícone de sem internet até o
+  // navegador avisar que voltou (evento "online", ver abaixo).
+  if (!navigator.onLine) return;
   flushEmAndamento = true;
   try {
     const itens = await idbListarFila();
@@ -504,10 +528,37 @@ async function flushFilaOffline() {
 }
 
 window.addEventListener("online", () => flushFilaOffline());
+window.addEventListener("offline", () => {
+  // Reflete na hora — não espera uma tentativa falhar pra só então mostrar
+  // o ícone de sem internet.
+  setSyncState("offline");
+  atualizarIndicadorOffline();
+});
 setInterval(() => flushFilaOffline(), 20000);
 document.addEventListener("visibilitychange", () => {
   if (document.visibilityState === "visible") flushFilaOffline();
 });
+
+// Tocar no ícone de status tenta sincronizar na hora (busca os dados de
+// novo e, se tiver alteração pendente na fila offline, tenta enviar).
+if (syncEl) {
+  syncEl.setAttribute("role", "button");
+  syncEl.setAttribute("tabindex", "0");
+  syncEl.setAttribute("aria-label", "Sincronizar agora");
+  const tentarSincronizarAgora = () => {
+    if (syncEl.dataset.state === "saving" || syncEl.dataset.state === "syncing") return;
+    vibrar(8);
+    flushFilaOffline();
+    carregarDados();
+  };
+  syncEl.addEventListener("click", tentarSincronizarAgora);
+  syncEl.addEventListener("keydown", (e) => {
+    if (e.key === "Enter" || e.key === " ") {
+      e.preventDefault();
+      tentarSincronizarAgora();
+    }
+  });
+}
 
 // ---------------------------------------------------------------------
 // SELETOR DE PESSOA
@@ -759,6 +810,7 @@ async function dividirCompra(nome, valorTotal, categoria) {
     setCache("gabriel", { ...(cacheGabriel || {}), [chave]: listaGabriel });
     if (state.pessoaAtual === "davi") state[chave] = listaDavi;
     if (state.pessoaAtual === "gabriel") state[chave] = listaGabriel;
+    removerCache("ambos"); // visão "Juntos" combina os dois — só invalida, recalcula quando for aberta
 
     return true;
   } catch (err) {
@@ -766,11 +818,18 @@ async function dividirCompra(nome, valorTotal, categoria) {
   }
 }
 
+// Espelha o que o backend (transferirEntrePessoas em Code.gs) faz: lança um
+// gasto variável já pago de quem transfere e um ganho já recebido de quem
+// recebe. Atualizando local/cache direto (em vez de invalidar e ter que
+// buscar tudo de novo na planilha com carregarDados()), a tela responde na
+// hora — igual já era feito em dividirCompra.
 async function transferirEntrePessoas(de, para, nome, valor, tipo) {
   if (!API_URL || API_URL.includes("COLE_AQUI")) {
     showToast("Configure a URL do Apps Script em config.js");
     return false;
   }
+  const descricao = (nome || "").trim() || "Transferência";
+  const hoje = dataHojeISO();
   try {
     const res = await fetch(API_URL, {
       method: "POST",
@@ -778,7 +837,27 @@ async function transferirEntrePessoas(de, para, nome, valor, tipo) {
     });
     const data = await res.json().catch(() => null);
     if (!data || data.ok === false) throw new Error((data && data.error) || "Erro desconhecido");
-    [de, para, "ambos"].forEach((p) => removerCache(p));
+
+    const [listaVariaveisDe, listaGanhosPara] = await Promise.all([
+      obterListaLocal(de, "gastosVariaveis"),
+      obterListaLocal(para, "ganhos"),
+    ]);
+    listaVariaveisDe.push({
+      nome: `Transferência p/ ${PESSOA_LABEL[para]}: ${descricao}`,
+      valor, tipo: tipo || "", data: hoje, pago: true,
+    });
+    listaGanhosPara.push({
+      nome: `Transferência de ${PESSOA_LABEL[de]}: ${descricao}`,
+      valor, data: hoje, recebido: true,
+    });
+
+    const [cacheDe, cachePara] = await Promise.all([getCache(de), getCache(para)]);
+    setCache(de, { ...(cacheDe || {}), gastosVariaveis: listaVariaveisDe });
+    setCache(para, { ...(cachePara || {}), ganhos: listaGanhosPara });
+    if (state.pessoaAtual === de) state.gastosVariaveis = listaVariaveisDe;
+    if (state.pessoaAtual === para) state.ganhos = listaGanhosPara;
+    removerCache("ambos");
+
     return true;
   } catch (err) {
     return false;
@@ -2793,7 +2872,7 @@ on("formDividir", "submit", async (e) => {
   if (ok) {
     showToast(`"${nome}" dividido — metade pra cada um`);
     fecharAcoesConjunto();
-    carregarDados();
+    renderAll();
   } else {
     showToast("Não consegui dividir agora. Tenta de novo em instantes.");
   }
@@ -2851,7 +2930,7 @@ on("formTransferir", "submit", async (e) => {
   if (ok) {
     showToast(`${fmt(valor)} transferido de ${PESSOA_LABEL[de]} pra ${PESSOA_LABEL[para]}`);
     fecharAcoesConjunto();
-    carregarDados();
+    renderAll();
   } else {
     showToast("Não consegui transferir agora. Tenta de novo em instantes.");
   }
