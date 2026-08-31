@@ -672,14 +672,23 @@ function retirarDaCaixinha(index, valor) {
 // diferença sozinho (sempre positiva, mesmo se o valor tiver caído) e
 // acumula em rendimentoTotal, que vai pra coluna S na planilha (RENDIMENTO).
 // Agora ela recebe o 'rendimento' e soma ao valor guardado, em vez de substituir
-function informarRendimentoCaixinha(index, rendimento) {
+function informarRendimentoCaixinha(index, novoValorTotal) {
   if (isAmbos()) return;
   const cx = state.caixinhas[index];
   if (!cx) return;
   
-  // Soma o rendimento tanto no valor total guardado quanto no acumulado de rendimentos
-  cx.valorGuardado = (Number(cx.valorGuardado) || 0) + rendimento;
-  cx.rendimentoTotal = (Number(cx.rendimentoTotal) || 0) + rendimento;
+  const valorAnterior = Number(cx.valorGuardado) || 0;
+  
+  // Calcula apenas a diferença (rendimento) entre o novo valor total informado e o que estava lá
+  const rendimentoCalculado = novoValorTotal - valorAnterior;
+  
+  // Atualiza o valor guardado da caixinha para o montante total novo
+  cx.valorGuardado = novoValorTotal;
+  
+  // Soma apenas a diferença ao total histórico de rendimentos da caixinha
+  if (rendimentoCalculado > 0) {
+    cx.rendimentoTotal = (Number(cx.rendimentoTotal) || 0) + rendimentoCalculado;
+  }
   
   sincronizarCacheAtual();
   salvarBloco("saveCaixinhas", state.caixinhas);
