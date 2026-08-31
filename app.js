@@ -1374,36 +1374,9 @@ function renderCaixinhas() {
       });
     }
   }
+  
   primeiraRenderCaixinhas = false;
-  // O código do mini-resumo continua abaixo...
-  const mini = document.getElementById("resumoCaixinhas");
-  if (!mini) return;
-  mini.innerHTML = "";
-  if (state.caixinhas.length === 0) {
-    mini.innerHTML = estadoVazio('Crie uma caixinha na aba "Caixinhas".', ICONE_COFRINHO);
-  } else {
-    state.caixinhas.forEach((cx) => {
-      const guardado = Number(cx.valorGuardado) || 0;
-      const objetivo = Number(cx.valorObjetivo) || 0;
-      const temObjetivo = objetivo > 0;
-      const pct = temObjetivo ? Math.min((guardado / objetivo) * 100, 100) : 0;
-      const row = document.createElement("div");
-      row.className = "mini-goal";
-      row.innerHTML = temObjetivo
-        ? `<div class="mini-goal-info">
-          <div class="mini-goal-nome">${escapeHtml(cx.nome)} ${tagPessoa(cx)}</div>
-          <div class="goal-bar-track"><div class="goal-bar-fill ${pct >= 100 ? "completo" : ""}" style="width:${pct}%"></div></div>
-        </div><span class="mini-goal-pct">${fmt(guardado)}</span>`
-        : `<div class="mini-goal-info">
-          <div class="mini-goal-nome">${escapeHtml(cx.nome)} ${tagPessoa(cx)}</div>
-        </div><span class="mini-goal-pct">${fmt(guardado)}</span>`;
-      mini.appendChild(row);
-    });
-  }
-}
-
-  primeiraRenderCaixinhas = false;
-
+  
   const mini = document.getElementById("resumoCaixinhas");
   if (!mini) return;
   mini.innerHTML = "";
