@@ -50,21 +50,29 @@
         </div>
         <div class="sync" id="syncStatus" data-state="idle">
           <span class="sync-icon-wrap">
-            <span class="sync-dot"></span>
-            <svg class="sync-icone sync-icone-on" viewBox="0 0 24 24" fill="none" aria-hidden="true">
-              <path class="onda onda-1" d="M2 8.5c5.5-5 14.5-5 20 0" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/>
-              <path class="onda onda-2" d="M5.5 12.5c3.6-3.2 9.4-3.2 13 0" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/>
-              <path class="onda onda-3" d="M9 16.3c2-1.7 4-1.7 6 0" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/>
-              <circle cx="12" cy="19.3" r="1.15" fill="currentColor"/>
-            </svg>
-            <svg class="sync-icone sync-icone-off" viewBox="0 0 24 24" fill="none" aria-hidden="true">
-              <path d="M2 8.5c2.2-2 4.7-3.3 7.4-3.9M22 8.5a17 17 0 0 0-4.4-2.9" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/>
-              <path d="M5.5 12.5c1.7-1.5 3.7-2.4 5.8-2.8M18.5 12.5a12.9 12.9 0 0 0-2-1.6" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/>
-              <path d="M9 16.3c2-1.7 4-1.7 6 0" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" opacity="0.5"/>
-              <circle cx="12" cy="19.3" r="1.15" fill="currentColor"/>
-              <path d="M3 3l18 18" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/>
-            </svg>
-          </span>
+  <span class="sync-dot"></span>
+  <!-- Ícone Sincronizado/Atualizando -->
+  <svg class="sync-icone sync-icone-on" viewBox="0 0 24 24" fill="none" aria-hidden="true">
+    <path class="onda onda-1" d="M2 8.5c5.5-5 14.5-5 20 0" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/>
+    <path class="onda onda-2" d="M5.5 12.5c3.6-3.2 9.4-3.2 13 0" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/>
+    <path class="onda onda-3" d="M9 16.3c2-1.7 4-1.7 6 0" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/>
+    <circle cx="12" cy="19.3" r="1.15" fill="currentColor"/>
+  </svg>
+  
+  <!-- NOVO: Ícone de Salvo (Upload) -->
+  <svg class="sync-icone sync-icone-upload" viewBox="0 0 24 24" fill="none" aria-hidden="true">
+    <path d="M12 15V3m0 0L8 7m4-4l4 4M2 17l.62 1.24A2 2 0 0 0 4.41 19.5h15.18a2 2 0 0 0 1.79-1.26L22 17" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+  </svg>
+
+  <!-- Ícone Sem Internet / Erro -->
+  <svg class="sync-icone sync-icone-off" viewBox="0 0 24 24" fill="none" aria-hidden="true">
+    <path d="M2 8.5c2.2-2 4.7-3.3 7.4-3.9M22 8.5a17 17 0 0 0-4.4-2.9" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/>
+    <path d="M5.5 12.5c1.7-1.5 3.7-2.4 5.8-2.8M18.5 12.5a12.9 12.9 0 0 0-2-1.6" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/>
+    <path d="M9 16.3c2-1.7 4-1.7 6 0" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" opacity="0.5"/>
+    <circle cx="12" cy="19.3" r="1.15" fill="currentColor"/>
+    <path d="M3 3l18 18" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/>
+  </svg>
+</span>
           <span class="sync-text">Pronto</span>
           <span class="sync-badge" id="syncBadge"></span>
         </div>
