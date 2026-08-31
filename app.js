@@ -672,22 +672,22 @@ function retirarDaCaixinha(index, valor) {
 // diferença sozinho (sempre positiva, mesmo se o valor tiver caído) e
 // acumula em rendimentoTotal, que vai pra coluna S na planilha (RENDIMENTO).
 // Agora ela recebe o 'rendimento' e soma ao valor guardado, em vez de substituir
-function informarRendimentoCaixinha(index, novoValorTotal) {
+function informarRendimentoCaixinha(index, novoMontanteTotal) {
   if (isAmbos()) return;
   const cx = state.caixinhas[index];
   if (!cx) return;
   
-  const valorAnterior = Number(cx.valorGuardado) || 0;
+  // O valor total atual é a base que já estava lá + os rendimentos anteriores acumulados
+  const valorBaseAtual = Number(cx.valorGuardado) || 0;
+  const rendimentoAnterior = Number(cx.rendimentoTotal) || 0;
+  const totalAtualNaTela = valorBaseAtual + rendimentoAnterior;
   
-  // Calcula apenas a diferença (rendimento) entre o novo valor total informado e o que estava lá
-  const rendimentoCalculado = novoValorTotal - valorAnterior;
+  // Descobre quanto rendeu a mais comparado ao que é exibido hoje na tela
+  const diferencaRendimento = novoMontanteTotal - totalAtualNaTela;
   
-  // Atualiza o valor guardado da caixinha para o montante total novo
-  cx.valorGuardado = novoValorTotal;
-  
-  // Soma apenas a diferença ao total histórico de rendimentos da caixinha
-  if (rendimentoCalculado > 0) {
-    cx.rendimentoTotal = (Number(cx.rendimentoTotal) || 0) + rendimentoCalculado;
+  if (diferencaRendimento !== 0) {
+    // Acumula o novo rendimento no total de rendimentos (que vai para a outra coluna da planilha)
+    cx.rendimentoTotal = rendimentoAnterior + diferencaRendimento;
   }
   
   sincronizarCacheAtual();
@@ -1323,12 +1323,17 @@ function renderCaixinhas() {
       wrap.innerHTML = estadoVazio("Nenhuma caixinha ainda. Que tal criar uma?", ICONE_COFRINHO);
     } else {
       state.caixinhas.forEach((cx, idx) => {
-        const guardado = Number(cx.valorGuardado) || 0;
-        const objetivo = Number(cx.valorObjetivo) || 0;
-        const temObjetivo = objetivo > 0;
-        const falta = Math.max(objetivo - guardado, 0);
-        const pct = temObjetivo ? Math.min((guardado / objetivo) * 100, 100) : 0;
-        const completo = temObjetivo && falta <= 0;
+  const valorBase = Number(cx.valorGuardado) || 0;
+  const rendimentoTotal = Number(cx.rendimentoTotal) || 0;
+  
+  // O valor total considerado é a soma do que está na caixinha + os rendimentos
+  const guardado = valorBase + rendimentoTotal; 
+  
+  const objetivo = Number(cx.valorObjetivo) || 0;
+  const temObjetivo = objetivo > 0;
+  const falta = Math.max(objetivo - guardado, 0);
+  const pct = temObjetivo ? Math.min((guardado / objetivo) * 100, 100) : 0;
+  const completo = temObjetivo && falta <= 0;
 
         if (completo && !cx._comemorado) {
           if (!primeiraRenderCaixinhas) cx._comemoraAoRenderizar = true;
