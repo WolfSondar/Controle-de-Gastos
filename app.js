@@ -1118,12 +1118,36 @@ function ehDoProximoMes(item) {
   return ano === proxAno && mes === proxMes;
 }
 
+// Verdadeiro se a DATA do item cair antes do mês atual do app (ficou pra
+// trás — ex: um gasto variável do mês passado que não foi pago e por isso
+// repetiu/rolou pro mês atual).
+function ehDoMesAnterior(item) {
+  if (!state.mesAtual || !state.anoAtual) return false;
+  const m = /^(\d{4})-(\d{2})/.exec(String(item.data || ""));
+  if (!m) return false;
+  const ano = Number(m[1]);
+  const mes = Number(m[2]);
+  if (ano < state.anoAtual) return true;
+  return ano === state.anoAtual && mes < state.mesAtual;
+}
+
+// Verdadeiro se o item ainda estiver pendente (não pago/recebido),
+// funciona tanto pra ganhos (campo "recebido") quanto pra fixos/variáveis
+// (campo "pago").
+function estaPendente(item) {
+  if (typeof item.pago === "boolean") return !item.pago;
+  if (typeof item.recebido === "boolean") return !item.recebido;
+  return false;
+}
+
 function metaInfoHtml(item) {
   const partes = [];
   if (item.lembrete) {
     partes.push(`<span class="item-tag item-tag-lembrete" title="Pago no mês anterior, adiantado — não conta no saldo deste mês">Pago adiantado</span>`);
   } else if (ehDoProximoMes(item)) {
     partes.push(`<span class="item-tag item-tag-proximo" title="A data desse lançamento é do mês que vem">Mês que vem</span>`);
+  } else if (estaPendente(item) && ehDoMesAnterior(item)) {
+    partes.push(`<span class="item-tag item-tag-atrasado" title="Venceu no mês passado e ainda não foi pago">Atrasado</span>`);
   }
   if (item.tipo) partes.push(`<span class="item-tag item-tag-cat">${escapeHtml(item.tipo)}</span>`);
   if (item.parcela && /^\d+\s*\/\s*\d+$/.test(String(item.parcela).trim())) {
@@ -2915,6 +2939,15 @@ function renderDirecaoTransferir() {
   if (paraEl) paraEl.textContent = PESSOA_LABEL[direcaoTransferir.para];
 }
 
+function mostrarProcessando(id) {
+  const overlay = document.getElementById(id);
+  if (overlay) overlay.classList.remove("is-hidden");
+}
+function esconderProcessando(id) {
+  const overlay = document.getElementById(id);
+  if (overlay) overlay.classList.add("is-hidden");
+}
+
 on("formTransferir", "submit", async (e) => {
   e.preventDefault();
   const nome = document.getElementById("transferirNome").value.trim() || "Transferência";
@@ -2928,10 +2961,12 @@ on("formTransferir", "submit", async (e) => {
     btnSubmit.disabled = true;
     btnSubmit.textContent = "Transferindo…";
   }
+  mostrarProcessando("transferirOverlay");
 
   const { de, para } = direcaoTransferir;
   const ok = await transferirEntrePessoas(de, para, nome, valor, tipo);
 
+  esconderProcessando("transferirOverlay");
   if (btnSubmit) {
     btnSubmit.disabled = false;
     btnSubmit.textContent = "Transferir";
@@ -3012,9 +3047,11 @@ on("formFecharMes", "submit", async (e) => {
     btnSubmit.disabled = true;
     btnSubmit.textContent = "Fechando…";
   }
+  mostrarProcessando("fecharMesOverlay");
 
   const resultado = await fecharMesRequisicao(mes, ano);
 
+  esconderProcessando("fecharMesOverlay");
   if (btnSubmit) {
     btnSubmit.disabled = false;
     btnSubmit.textContent = "Fechar mês";
