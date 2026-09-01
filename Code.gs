@@ -328,14 +328,14 @@ function fecharMes(mes, ano) {
   const ganhosProximoDavi = [];
   dadosDavi.ganhos.forEach(function (g) {
     if (g.recebido === false || ehGanhoRecorrente(g.nome)) {
-      ganhosProximoDavi.push({ nome: g.nome, valor: g.valor, data: g.data || "", recebido: false });
+      ganhosProximoDavi.push({ nome: g.nome, valor: g.valor, data: proximaDataMesmoDia(g.data), recebido: false });
     }
   });
 
   const ganhosProximoGabriel = [];
   dadosGabriel.ganhos.forEach(function (g) {
     if (g.recebido === false || ehGanhoRecorrente(g.nome)) {
-      ganhosProximoGabriel.push({ nome: g.nome, valor: g.valor, data: g.data || "", recebido: false });
+      ganhosProximoGabriel.push({ nome: g.nome, valor: g.valor, data: proximaDataMesmoDia(g.data), recebido: false });
     }
   });
 
@@ -363,12 +363,15 @@ function fecharMes(mes, ano) {
   saveGastosVariaveis(sheetDavi, variaveisPendentesDavi);
   saveGastosVariaveis(sheetGabriel, variaveisPendentesGabriel);
 
-  // 5) CAIXINHAS: mantêm o guardado mas ZERAM o rendimento que já foi registrado para o histórico
+  // 5) CAIXINHAS: mantêm o guardado E o rendimento acumulado como estão.
+  // O rendimento já foi lido acima (rendimentoDavi/rendimentoGabriel) e
+  // gravado no HISTORICO deste mês, mas continua na planilha normalmente —
+  // ele NÃO é somado ao valorGuardado nem zerado, os dois seguem separados.
   const caixinhasProximoDavi = dadosDavi.caixinhas.map(function(c) {
-    return { nome: c.nome, valorObjetivo: c.valorObjetivo, valorGuardado: c.valorGuardado, rendimentoTotal: 0 };
+    return { nome: c.nome, valorObjetivo: c.valorObjetivo, valorGuardado: c.valorGuardado, rendimentoTotal: c.rendimentoTotal };
   });
   const caixinhasProximoGabriel = dadosGabriel.caixinhas.map(function(c) {
-    return { nome: c.nome, valorObjetivo: c.valorObjetivo, valorGuardado: c.valorGuardado, rendimentoTotal: 0 };
+    return { nome: c.nome, valorObjetivo: c.valorObjetivo, valorGuardado: c.valorGuardado, rendimentoTotal: c.rendimentoTotal };
   });
   saveCaixinhasBlock(sheetDavi, caixinhasProximoDavi);
   saveCaixinhasBlock(sheetGabriel, caixinhasProximoGabriel);
@@ -422,12 +425,14 @@ function proximoFixo(item) {
   const bruto = String(item.parcela || "").trim();
   const m = bruto.match(/^(\d+)\s*\/\s*(\d+)$/);
   if (!m) {
-    return { nome: item.nome, valor: item.valor, tipo: item.tipo || "", data: item.data || "", parcela: "", pago: false };
+    // Fixo sem parcela (ex: aluguel, internet) — é recorrente mensal, então
+    // a data também avança pro mesmo dia do mês seguinte.
+    return { nome: item.nome, valor: item.valor, tipo: item.tipo || "", data: proximaDataMesmoDia(item.data), parcela: "", pago: false };
   }
   const atual = Number(m[1]);
   const total = Number(m[2]);
   if (!total || total <= 1 || !atual) {
-    return { nome: item.nome, valor: item.valor, tipo: item.tipo || "", data: item.data || "", parcela: "", pago: false };
+    return { nome: item.nome, valor: item.valor, tipo: item.tipo || "", data: proximaDataMesmoDia(item.data), parcela: "", pago: false };
   }
   if (atual >= total) return null; 
   return {
