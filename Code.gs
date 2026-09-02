@@ -12,22 +12,26 @@
  *   K = GASTOS VARIÁVEIS    L = VALOR VARIÁVEL      M = TIPO        N = DATA        O = PAGO (VERDADEIRO/FALSO)
  *   P = GUARDADO (nome da caixinha/investimento/meta)
  *   Q = META (objetivo opcional da caixinha; 0 ou vazio = sem meta)
- *   R = VALOR GUARDADO (quanto está guardado agora nessa caixinha)
+ *   R = VALOR GUARDADO (quanto está guardado agora nessa caixinha, total acumulado)
  *   S = RENDIMENTO TOTAL (rendimento que a caixinha teve no mês atual)
+ *   T = VALOR GUARDADO NO MES (quanto foi depositado nessa caixinha no mês atual)
+ *   U = LEMBRETE (anotação livre, não é lido pelo app)
  *
- * LAYOUT DA ABA "HISTORICO" (um bloco de 15 linhas por ano, a partir da linha 1):
+ * LAYOUT DA ABA "HISTORICO" (um bloco de 17 linhas por ano, a partir da linha 1):
  *   Linha do ano:               B = ano (ex: 2026)
  *   Linha dos meses:            B..M = JANEIRO..DEZEMBRO
  *   Linha GANHOS DAVI:          B..M = total RECEBIDO no mês
  *   Linha DEBITOS DAVI:         B..M = total PAGO no mês em NEGATIVO
  *   Linha SALDO DAVI:           B..M = saldo do Davi naquele mês
- *   Linha GUARDADO DAVI:        B..M = soma do valor guardado em todas as caixinhas
+ *   Linha GUARDADO DAVI:        B..M = soma do valor guardado (total acumulado) em todas as caixinhas
+ *   Linha GUARDADO DAVI MES:    B..M = soma do que foi depositado nas caixinhas naquele mês
  *   Linha GASTOS POR CATEGORIA: B..M = texto "Categoria:Valor,Categoria:Valor,..."
  *   Linha RENDIMENTO DAVI:      B..M = rendimento das caixinhas naquele mês
  *   Linha GANHOS GABRIEL:       B..M 
  *   Linha DEBITOS GABRIEL:      B..M
  *   Linha SALDO GABRIEL:        B..M
  *   Linha GUARDADO GABRIEL:     B..M
+ *   Linha GUARDADO GABRIEL MES: B..M
  *   Linha GASTOS POR CATEGORIA: B..M 
  *   Linha RENDIMENTO GABRIEL:   B..M 
  *   (linha em branco antes do próximo bloco de ano)
@@ -79,6 +83,7 @@ const COL_GUARDADO = 16; // P
 const COL_META = 17; // Q
 const COL_VALOR_GUARDADO = 18; // R
 const COL_RENDIMENTO = 19; // S
+const COL_VALOR_GUARDADO_MES = 20; // T
 
 // ---------------------------------------------------------------------
 // HISTÓRICO — constantes de layout
@@ -86,7 +91,7 @@ const COL_RENDIMENTO = 19; // S
 
 const HISTORICO_SHEET_NAME = "HISTORICO";
 const HISTORICO_ANO_BASE = 2026; // ano do primeiro bloco (linha 1)
-const HISTORICO_LINHAS_POR_BLOCO = 15; // 14 linhas de dados + 1 em branco separando os anos
+const HISTORICO_LINHAS_POR_BLOCO = 17; // 16 linhas de dados + 1 em branco separando os anos
 const HISTORICO_NOME_MESES = [
   "JANEIRO", "FEVEREIRO", "MARÇO", "ABRIL", "MAIO", "JUNHO",
   "JULHO", "AGOSTO", "SETEMBRO", "OUTUBRO", "NOVEMBRO", "DEZEMBRO",
@@ -101,14 +106,16 @@ const OFFSET_GANHOS_DAVI = 2;
 const OFFSET_DEBITOS_DAVI = 3;
 const OFFSET_SALDO_DAVI = 4;
 const OFFSET_GUARDADO_DAVI = 5;
-const OFFSET_CATEGORIAS_DAVI = 6;
-const OFFSET_RENDIMENTO_DAVI = 7;
-const OFFSET_GANHOS_GABRIEL = 8;
-const OFFSET_DEBITOS_GABRIEL = 9;
-const OFFSET_SALDO_GABRIEL = 10;
-const OFFSET_GUARDADO_GABRIEL = 11;
-const OFFSET_CATEGORIAS_GABRIEL = 12;
-const OFFSET_RENDIMENTO_GABRIEL = 13;
+const OFFSET_GUARDADO_DAVI_MES = 6;
+const OFFSET_CATEGORIAS_DAVI = 7;
+const OFFSET_RENDIMENTO_DAVI = 8;
+const OFFSET_GANHOS_GABRIEL = 9;
+const OFFSET_DEBITOS_GABRIEL = 10;
+const OFFSET_SALDO_GABRIEL = 11;
+const OFFSET_GUARDADO_GABRIEL = 12;
+const OFFSET_GUARDADO_GABRIEL_MES = 13;
+const OFFSET_CATEGORIAS_GABRIEL = 14;
+const OFFSET_RENDIMENTO_GABRIEL = 15;
 
 // células de configuração (fora da tabela visual, à direita dela)
 const CONFIG_CEL_LABEL = "P1";
@@ -293,8 +300,13 @@ function fecharMes(mes, ano) {
   const saldoDavi = ganhosDavi - debitosDavi;
   const saldoGabriel = ganhosGabriel - debitosGabriel;
 
-  const guardadoDavi = somaCampo(dadosDavi.caixinhas, "valorGuardado");
-  const guardadoGabriel = somaCampo(dadosGabriel.caixinhas, "valorGuardado");
+  // GUARDADO DAVI/GABRIEL no HISTORICO agora é o total de verdade (base + rendimento +
+  // o que foi guardado nesse mês) — é exatamente o valor que vira a nova base das
+  // caixinhas quando o mês fecha (ver seção 5 abaixo).
+  const guardadoDavi = somaTotalCaixinhas(dadosDavi.caixinhas);
+  const guardadoGabriel = somaTotalCaixinhas(dadosGabriel.caixinhas);
+  const guardadoDaviMes = somaCampo(dadosDavi.caixinhas, "valorGuardadoMes");
+  const guardadoGabrielMes = somaCampo(dadosGabriel.caixinhas, "valorGuardadoMes");
 
   const categoriasDavi = categoriasDoMes(dadosDavi);
   const categoriasGabriel = categoriasDoMes(dadosGabriel);
@@ -311,6 +323,7 @@ function fecharMes(mes, ano) {
   historico.getRange(yearRow + OFFSET_DEBITOS_DAVI, col).setValue(-debitosDavi);
   historico.getRange(yearRow + OFFSET_SALDO_DAVI, col).setValue(saldoDavi);
   historico.getRange(yearRow + OFFSET_GUARDADO_DAVI, col).setValue(guardadoDavi);
+  historico.getRange(yearRow + OFFSET_GUARDADO_DAVI_MES, col).setValue(guardadoDaviMes);
   historico.getRange(yearRow + OFFSET_CATEGORIAS_DAVI, col).setValue(serializarCategorias(categoriasDavi));
   historico.getRange(yearRow + OFFSET_RENDIMENTO_DAVI, col).setValue(rendimentoDavi); 
   
@@ -318,6 +331,7 @@ function fecharMes(mes, ano) {
   historico.getRange(yearRow + OFFSET_DEBITOS_GABRIEL, col).setValue(-debitosGabriel);
   historico.getRange(yearRow + OFFSET_SALDO_GABRIEL, col).setValue(saldoGabriel);
   historico.getRange(yearRow + OFFSET_GUARDADO_GABRIEL, col).setValue(guardadoGabriel);
+  historico.getRange(yearRow + OFFSET_GUARDADO_GABRIEL_MES, col).setValue(guardadoGabrielMes);
   historico.getRange(yearRow + OFFSET_CATEGORIAS_GABRIEL, col).setValue(serializarCategorias(categoriasGabriel));
   historico.getRange(yearRow + OFFSET_RENDIMENTO_GABRIEL, col).setValue(rendimentoGabriel); 
 
@@ -351,12 +365,8 @@ function fecharMes(mes, ano) {
   saveGanhos(sheetGabriel, ganhosProximoGabriel);
 
   // 3) GASTOS FIXOS
-  const proximosFixosDavi = dadosDavi.gastosFixos
-    .map(function (item) { return proximoFixo(item, mes, ano); })
-    .filter(Boolean);
-  const proximosFixosGabriel = dadosGabriel.gastosFixos
-    .map(function (item) { return proximoFixo(item, mes, ano); })
-    .filter(Boolean);
+  const proximosFixosDavi = dadosDavi.gastosFixos.map(proximoFixo).filter(Boolean);
+  const proximosFixosGabriel = dadosGabriel.gastosFixos.map(proximoFixo).filter(Boolean);
   saveGastosFixos(sheetDavi, proximosFixosDavi);
   saveGastosFixos(sheetGabriel, proximosFixosGabriel);
 
@@ -367,15 +377,16 @@ function fecharMes(mes, ano) {
   saveGastosVariaveis(sheetDavi, variaveisPendentesDavi);
   saveGastosVariaveis(sheetGabriel, variaveisPendentesGabriel);
 
-  // 5) CAIXINHAS: mantêm o guardado E o rendimento acumulado como estão.
-  // O rendimento já foi lido acima (rendimentoDavi/rendimentoGabriel) e
-  // gravado no HISTORICO deste mês, mas continua na planilha normalmente —
-  // ele NÃO é somado ao valorGuardado nem zerado, os dois seguem separados.
+  // 5) CAIXINHAS: fecham o mês consolidando tudo numa base só. O valor guardado
+  // (valorGuardado) NÃO é resetado — ele vira valorGuardado + rendimentoTotal +
+  // valorGuardadoMes, ou seja, passa a representar o total real acumulado até aqui.
+  // rendimentoTotal e valorGuardadoMes é que zeram, pra começar a contar o mês novo
+  // (o rendimento e o quanto foi guardado já foram lidos acima e gravados no HISTORICO).
   const caixinhasProximoDavi = dadosDavi.caixinhas.map(function(c) {
-    return { nome: c.nome, valorObjetivo: c.valorObjetivo, valorGuardado: c.valorGuardado, rendimentoTotal: c.rendimentoTotal };
+    return { nome: c.nome, valorObjetivo: c.valorObjetivo, valorGuardado: valorTotalCaixinha(c), rendimentoTotal: 0, valorGuardadoMes: 0 };
   });
   const caixinhasProximoGabriel = dadosGabriel.caixinhas.map(function(c) {
-    return { nome: c.nome, valorObjetivo: c.valorObjetivo, valorGuardado: c.valorGuardado, rendimentoTotal: c.rendimentoTotal };
+    return { nome: c.nome, valorObjetivo: c.valorObjetivo, valorGuardado: valorTotalCaixinha(c), rendimentoTotal: 0, valorGuardadoMes: 0 };
   });
   saveCaixinhasBlock(sheetDavi, caixinhasProximoDavi);
   saveCaixinhasBlock(sheetGabriel, caixinhasProximoGabriel);
@@ -399,11 +410,13 @@ function fecharMes(mes, ano) {
       debitosDavi: debitosDavi,
       saldoDavi: saldoDavi,
       guardadoDavi: guardadoDavi,
+      guardadoDaviMes: guardadoDaviMes,
       rendimentoDavi: rendimentoDavi,
       ganhosGabriel: ganhosGabriel,
       debitosGabriel: debitosGabriel,
       saldoGabriel: saldoGabriel,
       guardadoGabriel: guardadoGabriel,
+      guardadoGabrielMes: guardadoGabrielMes,
       rendimentoGabriel: rendimentoGabriel,
     },
     mesAtual: proximoMes,
@@ -425,29 +438,7 @@ function ehGanhoRecorrente(nome) {
   });
 }
 
-// Extrai { ano, mes } da data ("AAAA-MM-DD") de um item, ou null se não
-// houver data válida.
-function mesAnoDoItem(dataStr) {
-  const bruto = String(dataStr || "").trim();
-  const m = bruto.match(/^(\d{4})-(\d{2})-(\d{2})/);
-  if (!m) return null;
-  return { ano: Number(m[1]), mes: Number(m[2]) };
-}
-
-function proximoFixo(item, mesFechado, anoFechado) {
-  // Uma conta fixa já lançada com antecedência pro mês que vem (a tag
-  // "Mês que vem" no app) ainda não venceu — ela só é transportada como
-  // está, sem avançar a data nem a parcela. Se avançássemos aqui, ela
-  // pularia uma parcela e ficaria com a data errada quando o mês em que
-  // ela REALMENTE vence fosse fechado.
-  const dataItem = mesAnoDoItem(item.data);
-  const jaEhFuturo = !!dataItem && (
-    dataItem.ano > anoFechado || (dataItem.ano === anoFechado && dataItem.mes > mesFechado)
-  );
-  if (jaEhFuturo) {
-    return { nome: item.nome, valor: item.valor, tipo: item.tipo || "", data: item.data, parcela: item.parcela || "", pago: false };
-  }
-
+function proximoFixo(item) {
   const bruto = String(item.parcela || "").trim();
   const m = bruto.match(/^(\d+)\s*\/\s*(\d+)$/);
   if (!m) {
@@ -498,6 +489,15 @@ function somaCampo(lista, campo) {
   return (lista || []).reduce(function (acc, item) {
     return acc + (Number(item[campo]) || 0);
   }, 0);
+}
+
+// Total "de verdade" guardado numa caixinha: base + rendimento acumulado + o que foi
+// depositado neste mês (que só é somado à base no fechamento do mês).
+function valorTotalCaixinha(c) {
+  return (Number(c.valorGuardado) || 0) + (Number(c.rendimentoTotal) || 0) + (Number(c.valorGuardadoMes) || 0);
+}
+function somaTotalCaixinhas(lista) {
+  return (lista || []).reduce(function (acc, c) { return acc + valorTotalCaixinha(c); }, 0);
 }
 
 function somaFixosPagos(lista) {
@@ -568,12 +568,14 @@ function garantirBlocoDoAno(sheet, ano) {
     [OFFSET_DEBITOS_DAVI, "DEBITOS DAVI"],
     [OFFSET_SALDO_DAVI, "SALDO DAVI"],
     [OFFSET_GUARDADO_DAVI, "GUARDADO DAVI"],
+    [OFFSET_GUARDADO_DAVI_MES, "GUARDADO DAVI MES"],
     [OFFSET_CATEGORIAS_DAVI, HISTORICO_LABEL_CATEGORIAS],
     [OFFSET_RENDIMENTO_DAVI, "RENDIMENTO DAVI"],
     [OFFSET_GANHOS_GABRIEL, "GANHOS GABRIEL"],
     [OFFSET_DEBITOS_GABRIEL, "DEBITOS GABRIEL"],
     [OFFSET_SALDO_GABRIEL, "SALDO GABRIEL"],
     [OFFSET_GUARDADO_GABRIEL, "GUARDADO GABRIEL"],
+    [OFFSET_GUARDADO_GABRIEL_MES, "GUARDADO GABRIEL MES"],
     [OFFSET_CATEGORIAS_GABRIEL, HISTORICO_LABEL_CATEGORIAS],
     [OFFSET_RENDIMENTO_GABRIEL, "RENDIMENTO GABRIEL"],
   ];
@@ -581,9 +583,10 @@ function garantirBlocoDoAno(sheet, ano) {
     sheet.getRange(yearRow + r[0], 1).setValue(r[1]);
   });
 
-  sheet.getRange(yearRow + OFFSET_GANHOS_DAVI, 2, 4, 12).setNumberFormat(HISTORICO_FORMATO_MOEDA);
+  // 5 linhas: GANHOS, DEBITOS, SALDO, GUARDADO, GUARDADO MES
+  sheet.getRange(yearRow + OFFSET_GANHOS_DAVI, 2, 5, 12).setNumberFormat(HISTORICO_FORMATO_MOEDA);
   sheet.getRange(yearRow + OFFSET_RENDIMENTO_DAVI, 2, 1, 12).setNumberFormat(HISTORICO_FORMATO_MOEDA);
-  sheet.getRange(yearRow + OFFSET_GANHOS_GABRIEL, 2, 4, 12).setNumberFormat(HISTORICO_FORMATO_MOEDA);
+  sheet.getRange(yearRow + OFFSET_GANHOS_GABRIEL, 2, 5, 12).setNumberFormat(HISTORICO_FORMATO_MOEDA);
   sheet.getRange(yearRow + OFFSET_RENDIMENTO_GABRIEL, 2, 1, 12).setNumberFormat(HISTORICO_FORMATO_MOEDA);
 
   return yearRow;
@@ -612,6 +615,7 @@ function lerHistoricoCompleto(sheet) {
     const debitosDaviVals = linha(OFFSET_DEBITOS_DAVI);
     const saldoDaviVals = linha(OFFSET_SALDO_DAVI);
     const guardadoDaviVals = linha(OFFSET_GUARDADO_DAVI);
+    const guardadoDaviMesVals = linha(OFFSET_GUARDADO_DAVI_MES);
     const categoriasDaviVals = linha(OFFSET_CATEGORIAS_DAVI);
     const rendimentoDaviVals = linha(OFFSET_RENDIMENTO_DAVI);
     
@@ -619,6 +623,7 @@ function lerHistoricoCompleto(sheet) {
     const debitosGabrielVals = linha(OFFSET_DEBITOS_GABRIEL);
     const saldoGabrielVals = linha(OFFSET_SALDO_GABRIEL);
     const guardadoGabrielVals = linha(OFFSET_GUARDADO_GABRIEL);
+    const guardadoGabrielMesVals = linha(OFFSET_GUARDADO_GABRIEL_MES);
     const categoriasGabrielVals = linha(OFFSET_CATEGORIAS_GABRIEL);
     const rendimentoGabrielVals = linha(OFFSET_RENDIMENTO_GABRIEL);
 
@@ -633,12 +638,14 @@ function lerHistoricoCompleto(sheet) {
         debitosDavi: Number(debitosDaviVals[m]) || 0,
         saldoDavi: Number(saldoDaviVals[m]) || 0,
         guardadoDavi: Number(guardadoDaviVals[m]) || 0,
+        guardadoMesDavi: Number(guardadoDaviMesVals[m]) || 0,
         categoriasDavi: parseCategorias(categoriasDaviVals[m]),
         rendimentoDavi: Number(rendimentoDaviVals[m]) || 0,
         ganhosGabriel: Number(ganhosGabrielVals[m]) || 0,
         debitosGabriel: Number(debitosGabrielVals[m]) || 0,
         saldoGabriel: Number(saldoGabrielVals[m]) || 0,
         guardadoGabriel: Number(guardadoGabrielVals[m]) || 0,
+        guardadoMesGabriel: Number(guardadoGabrielMesVals[m]) || 0,
         categoriasGabriel: parseCategorias(categoriasGabrielVals[m]),
         rendimentoGabriel: Number(rendimentoGabrielVals[m]) || 0,
       });
@@ -781,8 +788,8 @@ function formatarDataCelula(valor) {
 function readCaixinhas(sheet) {
   const lastRow = sheet.getLastRow();
   if (lastRow < 2) return [];
-  // Agora lê 4 colunas: P, Q, R, S
-  const values = sheet.getRange(2, COL_GUARDADO, lastRow - 1, 4).getValues(); 
+  // Agora lê 5 colunas: P, Q, R, S, T
+  const values = sheet.getRange(2, COL_GUARDADO, lastRow - 1, 5).getValues(); 
   const result = [];
   values.forEach(function (row) {
     if (row[0] !== "" && row[0] !== null) {
@@ -790,7 +797,8 @@ function readCaixinhas(sheet) {
         nome: String(row[0]),
         valorObjetivo: Number(row[1]) || 0,
         valorGuardado: Number(row[2]) || 0,
-        rendimentoTotal: Number(row[3]) || 0 // Coluna S salva
+        rendimentoTotal: Number(row[3]) || 0, // Coluna S
+        valorGuardadoMes: Number(row[4]) || 0 // Coluna T
       });
     }
   });
@@ -814,12 +822,12 @@ function linhasParaLimpar(sheet, novasLinhas) {
 
 function saveCaixinhasBlock(sheet, rows) {
   const rowsToClear = linhasParaLimpar(sheet, rows);
-  sheet.getRange(2, COL_GUARDADO, rowsToClear, 4).clearContent(); // Limpa as 4 colunas (P, Q, R, S)
+  sheet.getRange(2, COL_GUARDADO, rowsToClear, 5).clearContent(); // Limpa as 5 colunas (P, Q, R, S, T)
   if (!rows || rows.length === 0) return;
   const values = rows.map(function (r) {
-    return [r.nome, r.valorObjetivo, r.valorGuardado, r.rendimentoTotal || 0];
+    return [r.nome, r.valorObjetivo, r.valorGuardado, r.rendimentoTotal || 0, r.valorGuardadoMes || 0];
   });
-  sheet.getRange(2, COL_GUARDADO, values.length, 4).setValues(values);
+  sheet.getRange(2, COL_GUARDADO, values.length, 5).setValues(values);
 }
 
 function respond(obj) {
