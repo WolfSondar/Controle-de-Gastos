@@ -675,7 +675,7 @@ function addCaixinha(nome, valorInicial, valorObjetivo) {
   if (isAmbos()) return;
   state.caixinhas.push({
     nome,
-    valorGuardado: valorInicial || 0,
+    valorGuardado: 0,
     valorObjetivo: valorObjetivo || 0,
     valorGuardadoMes: valorInicial || 0,
   });
@@ -691,7 +691,7 @@ function removeCaixinha(index) {
   if (isAmbos()) return;
   const cx = state.caixinhas[index];
   if (!cx) return;
-  const guardado = Number(cx.valorGuardado) || 0;
+  const guardado = totalCaixinha(cx);
   state.caixinhas.splice(index, 1);
   if (guardado > 0) {
     state.ganhos.push({ nome: `Retirado da caixinha: ${cx.nome} (removida)`, valor: guardado, recebido: true, data: dataHojeISO() });
@@ -728,7 +728,9 @@ function guardarNaCaixinha(index, valor) {
   if (isAmbos()) return;
   const cx = state.caixinhas[index];
   if (!cx) return;
-  cx.valorGuardado = (Number(cx.valorGuardado) || 0) + valor;
+  // O depósito entra só no "guardado no mês" — ele só é somado à base (valorGuardado)
+  // quando o mês fecha. O total exibido (totalCaixinha) já soma os dois, então o
+  // saldo mostrado pro usuário não muda, só onde o valor fica guardado até o fechamento.
   cx.valorGuardadoMes = (Number(cx.valorGuardadoMes) || 0) + valor;
   state.gastosVariaveis.push({ nome: `Guardado: ${cx.nome}`, valor, pago: true, tipo: "Metas", data: dataHojeISO() });
   sincronizarCacheAtual();
@@ -740,10 +742,13 @@ function retirarDaCaixinha(index, valor) {
   if (isAmbos()) return;
   const cx = state.caixinhas[index];
   if (!cx) return;
-  cx.valorGuardado = Math.max((Number(cx.valorGuardado) || 0) - valor, 0);
-  // Retirada abate do "guardado no mês" também (valor líquido depositado no mês) —
-  // não deixa negativo, senão uma retirada maior que o depósito do mês distorceria o resumo.
-  cx.valorGuardadoMes = Math.max((Number(cx.valorGuardadoMes) || 0) - valor, 0);
+  // Tira primeiro do que foi guardado neste mês (o mais "recente"), e só desconta
+  // da base (valorGuardado) o que sobrar — assim o total cai exatamente o valor
+  // retirado, sem zerar um campo e deixar o outro alto por engano.
+  const doMes = Math.min(valor, Number(cx.valorGuardadoMes) || 0);
+  const doResto = valor - doMes;
+  cx.valorGuardadoMes = Math.max((Number(cx.valorGuardadoMes) || 0) - doMes, 0);
+  cx.valorGuardado = Math.max((Number(cx.valorGuardado) || 0) - doResto, 0);
   state.ganhos.push({ nome: `Retirado da caixinha: ${cx.nome}`, valor, recebido: true, data: dataHojeISO() });
   sincronizarCacheAtual();
   salvarBloco("saveCaixinhas", state.caixinhas);
@@ -765,7 +770,8 @@ function informarRendimentoCaixinha(index, novoMontanteTotal) {
   
   const valorBaseAtual = Number(cx.valorGuardado) || 0;
   const rendimentoAnterior = Number(cx.rendimentoTotal) || 0;
-  const totalAtualNaTela = valorBaseAtual + rendimentoAnterior;
+  const guardadoMesAtual = Number(cx.valorGuardadoMes) || 0;
+  const totalAtualNaTela = valorBaseAtual + rendimentoAnterior + guardadoMesAtual;
   
   // O valor novo menos o total atual da tela dá o rendimento positivo (ex: 219 - 200 = 19)
   const diferencaRendimento = novoMontanteTotal - totalAtualNaTela;
@@ -981,6 +987,13 @@ function soma(lista) { return lista.reduce((acc, i) => acc + (Number(i.valor) ||
 function somaComStatus(lista, campo) { return lista.reduce((acc, i) => acc + (i[campo] === true ? Number(i.valor) || 0 : 0), 0); }
 function somaFixosPagos(lista) { return somaComStatus(lista, "pago"); }
 function somaCampo(lista, campo) { return lista.reduce((acc, i) => acc + (Number(i[campo]) || 0), 0); }
+// Total "de verdade" guardado numa caixinha: base + rendimento acumulado + o que foi
+// depositado neste mês (que só é somado à base no fechamento do mês). Usar sempre essa
+// função pra exibir "quanto tem guardado", em vez de olhar só valorGuardado.
+function totalCaixinha(cx) {
+  return (Number(cx.valorGuardado) || 0) + (Number(cx.rendimentoTotal) || 0) + (Number(cx.valorGuardadoMes) || 0);
+}
+function somaTotalCaixinhas(lista) { return (lista || []).reduce((acc, cx) => acc + totalCaixinha(cx), 0); }
 // Soma dos Gastos Variáveis pagos que contam no saldo — exclui os marcados
 // como "lembrete" (compra do mês que vem, paga adiantada: já foi debitada
 // no mês em que foi paga, então não conta de novo aqui). Ver fecharMes() no
@@ -1037,7 +1050,7 @@ function renderTotais() {
   const totalVariaveisPagos = somaVariaveisPagas(state.gastosVariaveis);
   const totalVariaveisAPagar = totalVariaveisGeral - totalVariaveisPagos;
 
-  const totalGuardado = somaCampo(state.caixinhas, "valorGuardado");
+  const totalGuardado = somaTotalCaixinhas(state.caixinhas);
   const saldo = totalGanhosRecebidos - totalFixosPagos - totalVariaveisPagos;
 
   const ganhosEl = document.getElementById("statGanhos");
@@ -1461,9 +1474,11 @@ function renderCaixinhas() {
       state.caixinhas.forEach((cx, idx) => {
   const valorBase = Number(cx.valorGuardado) || 0;
   const rendimentoTotal = Number(cx.rendimentoTotal) || 0;
+  const guardadoMes = Number(cx.valorGuardadoMes) || 0;
   
-  // O valor total considerado é a soma do que está na caixinha + os rendimentos
-  const guardado = valorBase + rendimentoTotal; 
+  // O valor total considerado é a soma do que está na caixinha + rendimentos + o que
+  // foi guardado neste mês (que só entra na base quando o mês fechar)
+  const guardado = valorBase + rendimentoTotal + guardadoMes; 
   
   const objetivo = Number(cx.valorObjetivo) || 0;
   const temObjetivo = objetivo > 0;
@@ -1513,7 +1528,7 @@ function renderCaixinhas() {
           card.querySelector(".btn-caixinha-rendimento").addEventListener("click", () => abrirModalCaixinha("rendimento", idx));
           card.querySelector("[data-edit]").addEventListener("click", () => abrirModalEditar("caixinhas", idx, { nome: cx.nome, valor: cx.valorObjetivo }));
           card.querySelector("[data-remove]").addEventListener("click", () => {
-            const guardado = Number(cx.valorGuardado) || 0;
+            const guardado = totalCaixinha(cx);
             const aviso = guardado > 0
                 ? `Remover a caixinha "${cx.nome}"? Os ${fmt(guardado)} guardados nela voltam pro saldo disponível como um ganho. Essa ação não pode ser desfeita.`
                 : `Remover a caixinha "${cx.nome}"? Essa ação não pode ser desfeita.`;
@@ -1539,7 +1554,7 @@ function renderCaixinhas() {
     mini.innerHTML = estadoVazio('Crie uma caixinha na aba "Caixinhas".', ICONE_COFRINHO);
   } else {
     state.caixinhas.forEach((cx) => {
-      const guardado = Number(cx.valorGuardado) || 0;
+      const guardado = totalCaixinha(cx);
       const objetivo = Number(cx.valorObjetivo) || 0;
       const temObjetivo = objetivo > 0;
       const pct = temObjetivo ? Math.min((guardado / objetivo) * 100, 100) : 0;
@@ -2127,7 +2142,7 @@ function renderJuntosView() {
   if (ganhosEl) ganhosEl.innerHTML = ["davi", "gabriel"].map((p) => cardJuntos(p, somaComStatus(ganhosPorPessoa[p], "recebido"), soma(ganhosPorPessoa[p]), "income")).join("");
 
   const guardadoEl = document.getElementById("juntosGuardado");
-  if (guardadoEl) guardadoEl.innerHTML = ["davi", "gabriel"].map((p) => cardJuntos(p, somaCampo(caixinhasPorPessoa[p], "valorGuardado"), null, "gold")).join("");
+  if (guardadoEl) guardadoEl.innerHTML = ["davi", "gabriel"].map((p) => cardJuntos(p, somaTotalCaixinhas(caixinhasPorPessoa[p]), null, "gold")).join("");
 
   const fixosEl = document.getElementById("juntosFixos");
   if (fixosEl) fixosEl.innerHTML = ["davi", "gabriel"].map((p) => cardJuntos(p, somaFixosPagos(fixosPorPessoa[p]), soma(fixosPorPessoa[p]), "expense")).join("");
@@ -2704,7 +2719,7 @@ function abrirModalCaixinha(acao, idx) {
   // acumulado): a pessoa só edita pro número novo, em vez de ter que
   // calcular/lembrar o total de cabeça. Guardar/retirar continuam em branco,
   // porque ali o número digitado já é o valor da própria ação.
-  const totalAtualCaixinha = (Number(cx.valorGuardado) || 0) + (Number(cx.rendimentoTotal) || 0);
+  const totalAtualCaixinha = totalCaixinha(cx);
   const valorInicial = acao === "rendimento" ? totalAtualCaixinha : null;
   const dica = acao === "rendimento"
     ? "Digite o valor TOTAL que a caixinha tem hoje (não só o quanto rendeu) — o app calcula a diferença sozinho."
