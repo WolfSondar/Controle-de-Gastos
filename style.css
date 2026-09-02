@@ -17,6 +17,8 @@
   --income-bg: #e6efe3;
   --expense: #a8482e;
   --expense-bg: #f3e3dc;
+  --yield: #3a6b8a;
+  --yield-bg: #e3ecf1;
   --ink-text: #241c12;
   --muted: #7a6f58;
   --tag-bg: rgba(36, 28, 18, 0.07);
@@ -48,6 +50,8 @@
     --income-bg: #1c3629;
     --expense: #e0846a;
     --expense-bg: #3a241e;
+    --yield: #7fb8d9;
+    --yield-bg: #1c2f3a;
     --ink-text: #f1e9d8;
     --muted: #9fae9f;
     --tag-bg: rgba(241, 233, 216, 0.1);
@@ -626,8 +630,9 @@ button, input { font-family: inherit; }
 }
 .historico-grafico-legenda { 
   display: flex; 
+  flex-wrap: wrap;
   justify-content: center; 
-  gap: 16px; 
+  gap: 8px 16px; 
   margin-top: 20px; 
   padding-top: 14px; 
   border-top: 1px dashed var(--line);
