@@ -351,8 +351,12 @@ function fecharMes(mes, ano) {
   saveGanhos(sheetGabriel, ganhosProximoGabriel);
 
   // 3) GASTOS FIXOS
-  const proximosFixosDavi = dadosDavi.gastosFixos.map(proximoFixo).filter(Boolean);
-  const proximosFixosGabriel = dadosGabriel.gastosFixos.map(proximoFixo).filter(Boolean);
+  const proximosFixosDavi = dadosDavi.gastosFixos
+    .map(function (item) { return proximoFixo(item, mes, ano); })
+    .filter(Boolean);
+  const proximosFixosGabriel = dadosGabriel.gastosFixos
+    .map(function (item) { return proximoFixo(item, mes, ano); })
+    .filter(Boolean);
   saveGastosFixos(sheetDavi, proximosFixosDavi);
   saveGastosFixos(sheetGabriel, proximosFixosGabriel);
 
@@ -421,7 +425,29 @@ function ehGanhoRecorrente(nome) {
   });
 }
 
-function proximoFixo(item) {
+// Extrai { ano, mes } da data ("AAAA-MM-DD") de um item, ou null se não
+// houver data válida.
+function mesAnoDoItem(dataStr) {
+  const bruto = String(dataStr || "").trim();
+  const m = bruto.match(/^(\d{4})-(\d{2})-(\d{2})/);
+  if (!m) return null;
+  return { ano: Number(m[1]), mes: Number(m[2]) };
+}
+
+function proximoFixo(item, mesFechado, anoFechado) {
+  // Uma conta fixa já lançada com antecedência pro mês que vem (a tag
+  // "Mês que vem" no app) ainda não venceu — ela só é transportada como
+  // está, sem avançar a data nem a parcela. Se avançássemos aqui, ela
+  // pularia uma parcela e ficaria com a data errada quando o mês em que
+  // ela REALMENTE vence fosse fechado.
+  const dataItem = mesAnoDoItem(item.data);
+  const jaEhFuturo = !!dataItem && (
+    dataItem.ano > anoFechado || (dataItem.ano === anoFechado && dataItem.mes > mesFechado)
+  );
+  if (jaEhFuturo) {
+    return { nome: item.nome, valor: item.valor, tipo: item.tipo || "", data: item.data, parcela: item.parcela || "", pago: false };
+  }
+
   const bruto = String(item.parcela || "").trim();
   const m = bruto.match(/^(\d+)\s*\/\s*(\d+)$/);
   if (!m) {
