@@ -12,7 +12,7 @@
 // perceber que precisa baixar os arquivos novos de novo.
 // =====================================================================
 
-const CACHE_VERSION = "caixa-v22";
+const CACHE_VERSION = "caixa-v23";
 const CACHE_SHELL = `${CACHE_VERSION}-shell`;
 const CACHE_RUNTIME = `${CACHE_VERSION}-runtime`;
 
