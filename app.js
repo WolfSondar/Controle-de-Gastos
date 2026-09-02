@@ -2223,8 +2223,9 @@ function construirGraficoHistoricoMultiSvg(mesesAsc, pessoa) {
   const ptsGanhos = mesesAsc.map(m => getVal(m, 'ganhos'));
   const ptsDebitos = mesesAsc.map(m => getVal(m, 'debitos'));
   const ptsGuardado = mesesAsc.map(m => getVal(m, 'guardadoMes'));
+  const ptsRendimento = mesesAsc.map(m => getVal(m, 'rendimento'));
 
-  const todos = [...ptsGanhos, ...ptsDebitos, ...ptsGuardado];
+  const todos = [...ptsGanhos, ...ptsDebitos, ...ptsGuardado, ...ptsRendimento];
   let min = Math.min(0, ...todos);
   let max = Math.max(0, ...todos);
   if (min === max) max = min + 1;
@@ -2257,23 +2258,25 @@ function construirGraficoHistoricoMultiSvg(mesesAsc, pessoa) {
     const vGanhos = getVal(m, 'ganhos');
     const vGastos = getVal(m, 'debitos');
     const vGuardado = getVal(m, 'guardadoMes');
+    const vRendimento = getVal(m, 'rendimento');
     const cx = x(i).toFixed(1);
     
     // Calcula o início do retângulo invisível para centralizar no ponto
     const rx = (x(i) - larguraFaixa / 2).toFixed(1);
 
     return `
-      <g class="mes-hover-group" data-mes="${nomeMes}" data-ganhos="${fmt(vGanhos)}" data-gastos="${fmt(vGastos)}" data-guardado="${fmt(vGuardado)}">
+      <g class="mes-hover-group" data-mes="${nomeMes}" data-ganhos="${fmt(vGanhos)}" data-gastos="${fmt(vGastos)}" data-guardado="${fmt(vGuardado)}" data-rendimento="${fmt(vRendimento)}">
         <!-- Área gigante e invisível para capturar o dedo/mouse -->
         <rect x="${rx}" y="0" width="${larguraFaixa}" height="${H}" fill="transparent" class="hover-area" />
         
         <!-- Linha guia vertical charmosa -->
         <line x1="${cx}" y1="${padT}" x2="${cx}" y2="${H - padB - 4}" stroke="var(--line)" stroke-dasharray="4,4" class="guia-vertical" />
         
-        <!-- Os 3 pontos sobrepostos -->
+        <!-- Os 4 pontos sobrepostos -->
         <circle cx="${cx}" cy="${y(vGanhos).toFixed(1)}" r="4.2" fill="var(--income)" stroke="var(--paper-deep)" stroke-width="2" class="ponto-dot" />
         <circle cx="${cx}" cy="${y(vGastos).toFixed(1)}" r="4.2" fill="var(--expense)" stroke="var(--paper-deep)" stroke-width="2" class="ponto-dot" />
         <circle cx="${cx}" cy="${y(vGuardado).toFixed(1)}" r="4.2" fill="var(--gold)" stroke="var(--paper-deep)" stroke-width="2" class="ponto-dot" />
+        <circle cx="${cx}" cy="${y(vRendimento).toFixed(1)}" r="4.2" fill="var(--yield)" stroke="var(--paper-deep)" stroke-width="2" class="ponto-dot" />
       </g>
     `;
   }).join("");
@@ -2296,6 +2299,7 @@ function construirGraficoHistoricoMultiSvg(mesesAsc, pessoa) {
         <path d="${caminhoSuave(ptsGanhos)}" fill="none" stroke="var(--income)" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" />
         <path d="${caminhoSuave(ptsDebitos)}" fill="none" stroke="var(--expense)" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" />
         <path d="${caminhoSuave(ptsGuardado)}" fill="none" stroke="var(--gold)" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" stroke-dasharray="6,4" />
+        <path d="${caminhoSuave(ptsRendimento)}" fill="none" stroke="var(--yield)" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" stroke-dasharray="2,3" />
         
         <!-- Renderiza as áreas de interação POR CIMA das linhas -->
         ${gruposMes}
@@ -2305,6 +2309,7 @@ function construirGraficoHistoricoMultiSvg(mesesAsc, pessoa) {
         <span class="legenda-item"><span class="legenda-dot" style="background:var(--income)"></span>Ganhos</span>
         <span class="legenda-item"><span class="legenda-dot" style="background:var(--expense)"></span>Gastos</span>
         <span class="legenda-item"><span class="legenda-dot" style="background:var(--gold)"></span>Guardado</span>
+        <span class="legenda-item"><span class="legenda-dot" style="background:var(--yield)"></span>Rendimento</span>
       </div>
     </div>`;
 }
@@ -3182,12 +3187,14 @@ function initChartTooltip() {
     const ganhos = grupo.dataset.ganhos;
     const gastos = grupo.dataset.gastos;
     const guardado = grupo.dataset.guardado;
+    const rendimento = grupo.dataset.rendimento;
 
     chartTooltip.innerHTML = `
       <div class="tooltip-titulo">${mes}</div>
       <div class="tooltip-linha"><span style="color: #8fd4ab">Ganhos</span> <span class="valor">${ganhos}</span></div>
       <div class="tooltip-linha"><span style="color: #e8a58c">Gastos</span> <span class="valor">${gastos}</span></div>
       <div class="tooltip-linha"><span style="color: #e3c581">Guardado</span> <span class="valor">${guardado}</span></div>
+      <div class="tooltip-linha"><span style="color: #8ec2dd">Rendimento</span> <span class="valor">${rendimento}</span></div>
     `;
 
     // Deixa visível primeiro para o navegador calcular a largura da caixinha
