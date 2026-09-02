@@ -677,6 +677,7 @@ function addCaixinha(nome, valorInicial, valorObjetivo) {
     nome,
     valorGuardado: valorInicial || 0,
     valorObjetivo: valorObjetivo || 0,
+    valorGuardadoMes: valorInicial || 0,
   });
   salvarBloco("saveCaixinhas", state.caixinhas);
   if (valorInicial > 0) {
@@ -728,6 +729,7 @@ function guardarNaCaixinha(index, valor) {
   const cx = state.caixinhas[index];
   if (!cx) return;
   cx.valorGuardado = (Number(cx.valorGuardado) || 0) + valor;
+  cx.valorGuardadoMes = (Number(cx.valorGuardadoMes) || 0) + valor;
   state.gastosVariaveis.push({ nome: `Guardado: ${cx.nome}`, valor, pago: true, tipo: "Metas", data: dataHojeISO() });
   sincronizarCacheAtual();
   salvarBloco("saveCaixinhas", state.caixinhas);
@@ -739,6 +741,9 @@ function retirarDaCaixinha(index, valor) {
   const cx = state.caixinhas[index];
   if (!cx) return;
   cx.valorGuardado = Math.max((Number(cx.valorGuardado) || 0) - valor, 0);
+  // Retirada abate do "guardado no mês" também (valor líquido depositado no mês) —
+  // não deixa negativo, senão uma retirada maior que o depósito do mês distorceria o resumo.
+  cx.valorGuardadoMes = Math.max((Number(cx.valorGuardadoMes) || 0) - valor, 0);
   state.ganhos.push({ nome: `Retirado da caixinha: ${cx.nome}`, valor, recebido: true, data: dataHojeISO() });
   sincronizarCacheAtual();
   salvarBloco("saveCaixinhas", state.caixinhas);
@@ -1991,7 +1996,7 @@ function renderVisaoGeral() {
   const totalGanhos = somaComStatus(state.ganhos, "recebido");
   const variaveisSemGuardado = state.gastosVariaveis.filter((i) => !ehLancamentoDeCaixinha(i.nome));
   const totalGastos = somaFixosPagos(state.gastosFixos) + somaVariaveisPagas(variaveisSemGuardado);
-  const totalGuardado = somaCampo(state.caixinhas, "valorGuardado");
+  const totalGuardado = somaCampo(state.caixinhas, "valorGuardadoMes");
   const livre = totalGanhos - totalGastos - totalGuardado;
   const base = Math.max(totalGanhos, totalGastos + totalGuardado, 0.01);
 
@@ -2202,7 +2207,7 @@ function construirGraficoHistoricoMultiSvg(mesesAsc, pessoa) {
 
   const ptsGanhos = mesesAsc.map(m => getVal(m, 'ganhos'));
   const ptsDebitos = mesesAsc.map(m => getVal(m, 'debitos'));
-  const ptsGuardado = mesesAsc.map(m => getVal(m, 'guardado'));
+  const ptsGuardado = mesesAsc.map(m => getVal(m, 'guardadoMes'));
 
   const todos = [...ptsGanhos, ...ptsDebitos, ...ptsGuardado];
   let min = Math.min(0, ...todos);
@@ -2236,7 +2241,7 @@ function construirGraficoHistoricoMultiSvg(mesesAsc, pessoa) {
     const nomeMes = m.nome.charAt(0).toUpperCase() + m.nome.slice(1).toLowerCase();
     const vGanhos = getVal(m, 'ganhos');
     const vGastos = getVal(m, 'debitos');
-    const vGuardado = getVal(m, 'guardado');
+    const vGuardado = getVal(m, 'guardadoMes');
     const cx = x(i).toFixed(1);
     
     // Calcula o início do retângulo invisível para centralizar no ponto
@@ -2338,7 +2343,7 @@ function renderHistorico() {
   const paginaAnterior = paginaCarrosselAtiva("historicoGraficosCarousel");
 
   // Novo: Inclusão dos campos de rendimento para calcular "Todos os anos" perfeitamente
-  const camposSoma = ["ganhosDavi", "ganhosGabriel", "debitosDavi", "debitosGabriel", "guardadoDavi", "guardadoGabriel", "saldoDavi", "saldoGabriel", "rendimentoDavi", "rendimentoGabriel"];
+  const camposSoma = ["ganhosDavi", "ganhosGabriel", "debitosDavi", "debitosGabriel", "guardadoMesDavi", "guardadoMesGabriel", "saldoDavi", "saldoGabriel", "rendimentoDavi", "rendimentoGabriel"];
   
   const agregarAnoComoRegistro = (bloco) => {
     const registro = { nome: String(bloco.ano), mes: bloco.ano };
@@ -2366,7 +2371,7 @@ function renderHistorico() {
   const cards = mesesOrdenados.map((m) => {
     const ganhos = getVal(m, 'ganhos');
     const debitos = getVal(m, 'debitos');
-    const guardado = getVal(m, 'guardado');
+    const guardado = getVal(m, 'guardadoMes');
     const rendimento = getVal(m, 'rendimento'); // Busca o novo rendimento
     const saldo = getVal(m, 'saldo');
     const nomeMes = modoTodos ? `Ano ${m.nome}` : (m.nome.charAt(0) + m.nome.slice(1).toLowerCase());
