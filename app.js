@@ -181,6 +181,9 @@ const state = {
   historico: null, 
   historicoAnoSelecionado: new Date().getFullYear(),
   categoriasConfig: null, // [{nome, cor}] vindo da aba CONFIGS, ou null pra usar a lista padrão
+  insightExibindoIA: false, // true depois de pedir uma análise com IA — trava a rotação automática do insight rápido até trocar de pessoa/recarregar
+  insightCandidatosCache: null, // lista de frases rápidas já geradas nesta sessão, pra "outro insight" não recalcular tudo de novo
+  insightIndiceAtual: -1,
 };
 
 function renderMesAtual() {
@@ -582,6 +585,8 @@ function trocarPessoa(pessoa) {
   prevTotals.variaveis = null;
   prevTotals.guardado = null;
   prevTotals.saldo = null;
+  state.insightExibindoIA = false;
+  state.insightCandidatosCache = null;
   renderPessoaSwitch();
   atualizarVisibilidadeEdicao();
   atualizarVisibilidadeSplitCard(); 
@@ -934,6 +939,7 @@ function renderDerivadosDeStatus() {
   renderSplit();
   renderJuntosView();
   atualizarCarrosselGraficos();
+  atualizarInsightRapido();
 }
 
 function togglePagoFixo(index) {
@@ -1919,6 +1925,381 @@ function renderCategorias() {
           <span class="legend-label">${escapeHtml(p.cat)}</span>
           <strong>${formatarPctCategoria(p.pct)}</strong>
         </div>`).join("");
+  }
+}
+
+// ---------------------------------------------------------------------
+// INSIGHT — frase rápida calculada no aparelho (offline, instantânea) +
+// análise sob demanda com IA (Gemini, via Code.gs — ver gerarInsightComGemini).
+//
+// A ideia: o texto que aparece sozinho é sempre um insight "de regrinha"
+// (comparação de categorias, saldo, guardado etc), gerado na hora e de
+// graça. O botão "Analisar com IA" é opcional — só é chamado quando a
+// pessoa pede, pra não gastar internet/cota da API à toa.
+// ---------------------------------------------------------------------
+
+function pickRandom(lista) {
+  return lista[Math.floor(Math.random() * lista.length)];
+}
+
+// Categorias pagas do mês em aberto (mesma regra do card "Visão por categoria")
+function categoriasMesAtual() {
+  const mapa = {};
+  [...state.gastosFixos.filter(fixoEhPago), ...state.gastosVariaveis.filter(variavelContaNoSaldo)].forEach((item) => {
+    const cat = (item.tipo && String(item.tipo).trim()) || "Outros";
+    mapa[cat] = (mapa[cat] || 0) + (Number(item.valor) || 0);
+  });
+  return mapa;
+}
+
+function agruparPorCategoriaGenerico(lista) {
+  const mapa = {};
+  (lista || []).forEach((item) => {
+    const cat = (item.tipo && String(item.tipo).trim()) || "Outros";
+    mapa[cat] = (mapa[cat] || 0) + (Number(item.valor) || 0);
+  });
+  return mapa;
+}
+
+// Todos os meses já fechados no HISTORICO, em ordem cronológica
+function mesesHistoricoOrdenados() {
+  const anos = (state.historico && state.historico.anos) || [];
+  const lista = [];
+  anos.forEach((bloco) => (bloco.meses || []).forEach((m) => lista.push(Object.assign({ ano: bloco.ano }, m))));
+  lista.sort((a, b) => (a.ano - b.ano) || (a.mes - b.mes));
+  return lista;
+}
+
+function mesAnteriorHistorico() {
+  const lista = mesesHistoricoOrdenados();
+  return lista.length ? lista[lista.length - 1] : null;
+}
+
+// As três funções abaixo já resolvem sozinhas Davi/Gabriel/Ambos, olhando
+// pra state.pessoaAtual — assim quem chama não precisa se preocupar com isso.
+function categoriasDeUmMesHistorico(mesObj) {
+  if (!mesObj) return {};
+  if (state.pessoaAtual === "davi") return Object.assign({}, mesObj.categoriasDavi);
+  if (state.pessoaAtual === "gabriel") return Object.assign({}, mesObj.categoriasGabriel);
+  const mapa = Object.assign({}, mesObj.categoriasDavi);
+  Object.entries(mesObj.categoriasGabriel || {}).forEach(([cat, v]) => { mapa[cat] = (mapa[cat] || 0) + v; });
+  return mapa;
+}
+function totalGanhosDeUmMesHistorico(mesObj) {
+  if (!mesObj) return 0;
+  if (state.pessoaAtual === "davi") return mesObj.ganhosDavi || 0;
+  if (state.pessoaAtual === "gabriel") return mesObj.ganhosGabriel || 0;
+  return (mesObj.ganhosDavi || 0) + (mesObj.ganhosGabriel || 0);
+}
+function totalDebitosDeUmMesHistorico(mesObj) {
+  if (!mesObj) return 0;
+  if (state.pessoaAtual === "davi") return mesObj.debitosDavi || 0;
+  if (state.pessoaAtual === "gabriel") return mesObj.debitosGabriel || 0;
+  return (mesObj.debitosDavi || 0) + (mesObj.debitosGabriel || 0);
+}
+function totalGuardadoNoMesDeUmMesHistorico(mesObj) {
+  if (!mesObj) return 0;
+  if (state.pessoaAtual === "davi") return mesObj.guardadoMesDavi || 0;
+  if (state.pessoaAtual === "gabriel") return mesObj.guardadoMesGabriel || 0;
+  return (mesObj.guardadoMesDavi || 0) + (mesObj.guardadoMesGabriel || 0);
+}
+
+// Média de gasto por dia no mês em aberto, só faz sentido se o mês em
+// aberto no app for o mês corrente de verdade (evita conta estranha se
+// a pessoa estiver adiantada/atrasada no Fechar Mês)
+function mediaDiariaGastoMesAtual() {
+  const hoje = new Date();
+  if (state.mesAtual !== hoje.getMonth() + 1 || state.anoAtual !== hoje.getFullYear()) return null;
+  const diaDoMes = hoje.getDate();
+  if (diaDoMes < 3) return null; // poucos dias de dado ainda, projeção não diz muita coisa
+  const totalGasto = somaFixosPagos(state.gastosFixos) + somaVariaveisPagas(state.gastosVariaveis);
+  return { totalGasto, diaDoMes, mediaDiaria: totalGasto / diaDoMes, diasNoMes: new Date(hoje.getFullYear(), hoje.getMonth() + 1, 0).getDate() };
+}
+
+// ---- Insight rápido (regrinhas locais, sem internet) -------------------
+
+function gerarCandidatosInsightRapido() {
+  const candidatos = [];
+  const nomeMesAtual = (state.mesAtual && MESES_LABEL[state.mesAtual - 1]) || MESES_LABEL[new Date().getMonth()];
+  const catsAtual = categoriasMesAtual();
+  const mesPassadoObj = mesAnteriorHistorico();
+  const catsPassado = categoriasDeUmMesHistorico(mesPassadoObj);
+  const nomeMesPassado = mesPassadoObj ? mesPassadoObj.nome : null;
+
+  // 1) Maior alta e maior queda de categoria vs mês passado
+  if (nomeMesPassado) {
+    let maiorAlta = null, maiorQueda = null;
+    const todasCats = new Set([...Object.keys(catsAtual), ...Object.keys(catsPassado)]);
+    todasCats.forEach((cat) => {
+      const diff = (catsAtual[cat] || 0) - (catsPassado[cat] || 0);
+      if (diff > 20 && (!maiorAlta || diff > maiorAlta.diff)) maiorAlta = { cat, diff };
+      if (diff < -20 && (!maiorQueda || diff < maiorQueda.diff)) maiorQueda = { cat, diff };
+    });
+    if (maiorAlta) {
+      candidatos.push(pickRandom([
+        `Olha só: você já gastou ${fmt(maiorAlta.diff)} a mais com ${maiorAlta.cat} do que em ${nomeMesPassado}.`,
+        `${maiorAlta.cat} pesou ${fmt(maiorAlta.diff)} a mais esse mês, comparado a ${nomeMesPassado}.`,
+        `Fica de olho: ${maiorAlta.cat} subiu ${fmt(maiorAlta.diff)} em relação a ${nomeMesPassado}.`,
+      ]));
+    }
+    if (maiorQueda) {
+      candidatos.push(pickRandom([
+        `Boa! Você gastou ${fmt(Math.abs(maiorQueda.diff))} a menos com ${maiorQueda.cat} do que em ${nomeMesPassado}.`,
+        `${maiorQueda.cat} caiu ${fmt(Math.abs(maiorQueda.diff))} frente a ${nomeMesPassado} — parabéns pelo controle.`,
+        `Economia detectada: ${fmt(Math.abs(maiorQueda.diff))} a menos em ${maiorQueda.cat} do que em ${nomeMesPassado}.`,
+      ]));
+    }
+  }
+
+  // 2) Maior categoria do mês (fatia do total)
+  const catsOrdenadas = Object.keys(catsAtual).sort((a, b) => catsAtual[b] - catsAtual[a]);
+  const totalCatsAtual = catsOrdenadas.reduce((acc, c) => acc + catsAtual[c], 0);
+  if (catsOrdenadas.length && totalCatsAtual > 0) {
+    const top = catsOrdenadas[0];
+    const pct = Math.round((catsAtual[top] / totalCatsAtual) * 100);
+    if (pct >= 25) {
+      candidatos.push(pickRandom([
+        `Sua maior despesa esse mês é ${top}, respondendo por ${pct}% do que você já gastou.`,
+        `${top} é o maior peso do seu orçamento em ${nomeMesAtual}: ${pct}% do total gasto.`,
+        `De cada R$ 100 gastos esse mês, cerca de R$ ${pct} foram com ${top}.`,
+      ]));
+    }
+  }
+
+  // 3) Quanto do que ganhou já foi usado
+  const ganhosRecebidos = somaComStatus(state.ganhos, "recebido");
+  const gastoTotal = somaFixosPagos(state.gastosFixos) + somaVariaveisPagas(state.gastosVariaveis);
+  if (ganhosRecebidos > 0) {
+    const pctUsado = Math.round((gastoTotal / ganhosRecebidos) * 100);
+    if (pctUsado >= 100) {
+      candidatos.push(pickRandom([
+        `Atenção: você já gastou ${fmt(gastoTotal)} esse mês, mais do que os ${fmt(ganhosRecebidos)} recebidos até agora.`,
+        `O gasto já passou o ganho esse mês (${fmt(gastoTotal)} de ${fmt(ganhosRecebidos)}) — vale rever alguma coisa.`,
+      ]));
+    } else if (pctUsado >= 70) {
+      candidatos.push(pickRandom([
+        `Você já usou ${pctUsado}% do que ganhou esse mês (${fmt(gastoTotal)} de ${fmt(ganhosRecebidos)}).`,
+        `${pctUsado}% do que entrou em ${nomeMesAtual} já saiu — ${fmt(ganhosRecebidos - gastoTotal)} de folga ainda.`,
+      ]));
+    } else if (pctUsado <= 40) {
+      candidatos.push(pickRandom([
+        `Você já ganhou ${fmt(ganhosRecebidos)} esse mês e usou só ${pctUsado}% até agora — de boa!`,
+        `Ritmo tranquilo: só ${pctUsado}% do que você ganhou em ${nomeMesAtual} foi gasto até aqui.`,
+      ]));
+    }
+  }
+
+  // 4) Guardado no mês
+  const guardadoNoMes = somaCampo(state.caixinhas, "valorGuardadoMes");
+  if (guardadoNoMes > 0) {
+    candidatos.push(pickRandom([
+      `Você já guardou ${fmt(guardadoNoMes)} esse mês. Guardar um pouco sempre vale a pena!`,
+      `${fmt(guardadoNoMes)} guardados em ${nomeMesAtual} até agora — continue assim!`,
+    ]));
+  }
+
+  // 5) Projeção do mês vs mês passado
+  const media = mediaDiariaGastoMesAtual();
+  if (media && mesPassadoObj) {
+    const totalPassado = totalDebitosDeUmMesHistorico(mesPassadoObj);
+    const projetado = media.mediaDiaria * media.diasNoMes;
+    const diff = projetado - totalPassado;
+    if (totalPassado > 0 && Math.abs(diff) > 30) {
+      const sentido = diff > 0 ? "a mais" : "a menos";
+      candidatos.push(
+        `No ritmo atual, você deve fechar ${nomeMesAtual} gastando uns ${fmt(projetado)} — ${fmt(Math.abs(diff))} ${sentido} do que em ${nomeMesPassado}.`
+      );
+    }
+  }
+
+  // 6) Fallback: saldo disponível (sempre dá pra calcular)
+  const totalGuardadoGeral = somaTotalCaixinhas(state.caixinhas);
+  const saldo = ganhosRecebidos - gastoTotal - totalGuardadoGeral;
+  candidatos.push(pickRandom([
+    `Seu saldo disponível agora é ${fmt(saldo)}.`,
+    `Depois de gastos e do que está guardado, sobram ${fmt(saldo)} disponíveis em ${nomeMesAtual}.`,
+  ]));
+
+  return candidatos;
+}
+
+function atualizarInsightRapido(forcarOutro) {
+  const el = document.getElementById("insightTexto");
+  if (!el) return;
+  if (state.insightExibindoIA && !forcarOutro) return; // não pisa num insight de IA que a pessoa pediu
+
+  const candidatos = gerarCandidatosInsightRapido();
+  state.insightCandidatosCache = candidatos;
+  if (!candidatos.length) return;
+
+  let indice = Math.floor(Math.random() * candidatos.length);
+  if (forcarOutro && candidatos.length > 1) {
+    while (indice === state.insightIndiceAtual) indice = Math.floor(Math.random() * candidatos.length);
+  }
+  state.insightIndiceAtual = indice;
+  state.insightExibindoIA = false;
+
+  el.classList.remove("is-ia", "is-erro", "is-carregando");
+  el.textContent = candidatos[indice];
+}
+
+function outroInsightRapido() {
+  const btn = document.getElementById("insightBtnDado");
+  if (btn) {
+    btn.classList.add("is-girando");
+    setTimeout(() => btn.classList.remove("is-girando"), 500);
+  }
+  vibrar(8);
+  atualizarInsightRapido(true);
+}
+
+// ---- Insight com IA (Gemini, sob demanda) -------------------------------
+
+function montarResumoParaInsight(periodo) {
+  const nomePessoa = PESSOA_LABEL[state.pessoaAtual] || "Você";
+  const nomeMesAtual = (state.mesAtual && MESES_LABEL[state.mesAtual - 1]) || MESES_LABEL[new Date().getMonth()];
+  const base = { pessoa: nomePessoa, moeda: "BRL" };
+
+  if (periodo === "hoje") {
+    const hoje = dataHojeISO();
+    const ganhosHoje = state.ganhos.filter((g) => g.data === hoje);
+    const gastosHoje = [...state.gastosFixos, ...state.gastosVariaveis].filter((g) => g.data === hoje);
+    const media = mediaDiariaGastoMesAtual();
+    return Object.assign(base, {
+      descricaoDoPeriodo: `Só os lançamentos de hoje (${hoje})`,
+      ganhosDeHoje: soma(ganhosHoje),
+      gastosDeHoje: soma(gastosHoje),
+      categoriasDeHoje: agruparPorCategoriaGenerico(gastosHoje),
+      mediaDeGastoPorDiaNoMes: media ? Number(media.mediaDiaria.toFixed(2)) : null,
+    });
+  }
+
+  if (periodo === "mes-atual") {
+    return Object.assign(base, {
+      descricaoDoPeriodo: `Só o mês atual (${nomeMesAtual}, ainda em andamento)`,
+      ganhosRecebidos: somaComStatus(state.ganhos, "recebido"),
+      gastosFixosPagos: somaFixosPagos(state.gastosFixos),
+      gastosVariaveisPagos: somaVariaveisPagas(state.gastosVariaveis),
+      guardadoNoMes: somaCampo(state.caixinhas, "valorGuardadoMes"),
+      categoriasDoMes: categoriasMesAtual(),
+    });
+  }
+
+  if (periodo === "ano") {
+    const anoAtual = state.anoAtual || new Date().getFullYear();
+    const bloco = ((state.historico && state.historico.anos) || []).find((a) => a.ano === anoAtual);
+    const mesesDoAno = (bloco ? bloco.meses : []).map((m) => ({
+      mes: m.nome,
+      ganhos: totalGanhosDeUmMesHistorico(m),
+      gastos: totalDebitosDeUmMesHistorico(m),
+      guardadoNoMes: totalGuardadoNoMesDeUmMesHistorico(m),
+    }));
+    mesesDoAno.push({
+      mes: `${nomeMesAtual} (em andamento)`,
+      ganhos: somaComStatus(state.ganhos, "recebido"),
+      gastos: somaFixosPagos(state.gastosFixos) + somaVariaveisPagas(state.gastosVariaveis),
+      guardadoNoMes: somaCampo(state.caixinhas, "valorGuardadoMes"),
+    });
+    return Object.assign(base, { descricaoDoPeriodo: `O ano ${anoAtual} inteiro, mês a mês`, mesesDoAno });
+  }
+
+  if (periodo === "historico") {
+    const lista = mesesHistoricoOrdenados();
+    const categoriasSomadas = {};
+    let totalGanhos = 0, totalGastos = 0;
+    lista.forEach((m) => {
+      totalGanhos += totalGanhosDeUmMesHistorico(m);
+      totalGastos += totalDebitosDeUmMesHistorico(m);
+      Object.entries(categoriasDeUmMesHistorico(m)).forEach(([c, v]) => { categoriasSomadas[c] = (categoriasSomadas[c] || 0) + v; });
+    });
+    return Object.assign(base, {
+      descricaoDoPeriodo: `Todo o histórico já fechado (${lista.length} meses) + o mês atual em andamento`,
+      totalDeMesesNoHistorico: lista.length,
+      totalGanhosNoHistorico: totalGanhos,
+      totalGastosNoHistorico: totalGastos,
+      categoriasSomadasNoHistorico: categoriasSomadas,
+      mesAtualEmAndamento: {
+        ganhosRecebidos: somaComStatus(state.ganhos, "recebido"),
+        gastosPagos: somaFixosPagos(state.gastosFixos) + somaVariaveisPagas(state.gastosVariaveis),
+        categorias: categoriasMesAtual(),
+      },
+    });
+  }
+
+  // default: "mes-vs-anterior"
+  const mesPassadoObj = mesAnteriorHistorico();
+  return Object.assign(base, {
+    descricaoDoPeriodo: `Comparação entre o mês atual (${nomeMesAtual}, ainda em andamento) e o mês passado já fechado`,
+    mesAtual: {
+      nome: nomeMesAtual,
+      ganhosRecebidos: somaComStatus(state.ganhos, "recebido"),
+      gastosFixosPagos: somaFixosPagos(state.gastosFixos),
+      gastosVariaveisPagos: somaVariaveisPagas(state.gastosVariaveis),
+      categorias: categoriasMesAtual(),
+    },
+    mesPassado: mesPassadoObj ? {
+      nome: mesPassadoObj.nome,
+      ganhos: totalGanhosDeUmMesHistorico(mesPassadoObj),
+      gastos: totalDebitosDeUmMesHistorico(mesPassadoObj),
+      categorias: categoriasDeUmMesHistorico(mesPassadoObj),
+    } : "Ainda não há nenhum mês fechado no histórico",
+  });
+}
+
+function setInsightIACarregando(carregando) {
+  const btn = document.getElementById("insightBtnIA");
+  const label = document.getElementById("insightBtnIALabel");
+  const select = document.getElementById("insightPeriodoSelect");
+  if (btn) btn.classList.toggle("is-carregando", carregando);
+  if (btn) btn.disabled = carregando;
+  if (select) select.disabled = carregando;
+  if (label) label.textContent = carregando ? "Analisando…" : "Analisar com IA";
+  const el = document.getElementById("insightTexto");
+  if (el && carregando) {
+    el.classList.remove("is-erro", "is-ia");
+    el.classList.add("is-carregando");
+  }
+}
+
+async function pedirInsightIA() {
+  if (!API_URL || API_URL.includes("COLE_AQUI")) {
+    showToast("Configure a URL do Apps Script em config.js");
+    return;
+  }
+  if (!navigator.onLine) {
+    showToast("Sem internet agora — a análise com IA precisa de conexão.");
+    return;
+  }
+
+  const select = document.getElementById("insightPeriodoSelect");
+  const periodo = select ? select.value : "mes-vs-anterior";
+  const resumo = montarResumoParaInsight(periodo);
+  const el = document.getElementById("insightTexto");
+
+  setInsightIACarregando(true);
+  try {
+    const res = await fetch(API_URL, {
+      method: "POST",
+      body: JSON.stringify({ action: "gerarInsightIA", pessoa: state.pessoaAtual, periodo, resumo }),
+    });
+    const data = await res.json().catch(() => null);
+    if (!data || data.ok === false) throw new Error((data && data.error) || "Erro desconhecido");
+
+    state.insightExibindoIA = true;
+    if (el) {
+      el.classList.remove("is-erro", "is-carregando");
+      el.classList.add("is-ia");
+      el.textContent = data.texto;
+    }
+  } catch (err) {
+    showToast("Não consegui gerar o insight agora. Tenta de novo em instantes.");
+    if (el) {
+      el.classList.remove("is-carregando", "is-ia");
+      el.classList.add("is-erro");
+      el.textContent = "Não consegui falar com a IA agora. Toque em \"Analisar com IA\" pra tentar de novo.";
+    }
+  } finally {
+    setInsightIACarregando(false);
   }
 }
 
@@ -3143,6 +3524,8 @@ atualizarVisibilidadeJuntosView();
 initGavetas();
 aplicarMascaraMoedaEmTodos();
 posicionarIndicadorAba();
+on("insightBtnDado", "click", outroInsightRapido);
+on("insightBtnIA", "click", pedirInsightIA);
 carregarDados();
 setTimeout(mostrarDicaAcoesConjuntoSeNecessario, 1200);
 
