@@ -251,6 +251,10 @@ button, input { font-family: inherit; }
 .insight-texto.is-ia::before { content: "✦ "; color: #e3c581; }
 .insight-valor-pos { color: var(--income-on-ink); font-weight: 700; }
 .insight-valor-neg { color: var(--expense-on-ink); font-weight: 700; }
+/* Mesma paleta do gráfico histórico (Ganhos/Gastos/Guardado/Rendimento),
+   em tom "on-ink" pra ficar legível no fundo escuro do card de insight. */
+.insight-valor-guardado { color: #d9ab5c; font-weight: 700; }
+.insight-valor-rendimento { color: #7fb8d9; font-weight: 700; }
 
 .content { flex: 1; padding: 22px 18px 10px; }
 .tab-panel.is-hidden { display: none; }
