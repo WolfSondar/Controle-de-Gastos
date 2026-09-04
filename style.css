@@ -242,16 +242,23 @@ button, input { font-family: inherit; }
 /* INSIGHT — gerado com IA (Gemini), atualizado sozinho a cada sincronização */
 .insight-card { margin-top: 14px; background: rgba(255,255,255,0.06); border: 1px solid rgba(255,255,255,0.14); border-radius: var(--radius-m); padding: 14px 14px 12px; }
 
-.insight-texto { font-size: 13.5px; line-height: 1.5; color: var(--on-ink); margin: 0; min-height: 20px; transition: opacity 0.15s ease; }
+.insight-texto { font-size: 13.5px; line-height: 1.5; color: var(--on-ink); margin: 0; min-height: 20px; transition: opacity 0.2s ease; }
 .insight-texto.is-carregando { opacity: 0.55; }
+/* Troca de texto (ver mostrarInsightTexto em app.js): fica invisível por um
+   instante antes do conteúdo novo entrar, pra dar um fade em vez de trocar
+   seco. A duração aqui deve bater com o setTimeout do JS. */
+.insight-texto.is-trocando { opacity: 0; }
 .insight-texto.is-erro { color: #e8a58c; cursor: pointer; }
 .insight-texto.is-ia::before { content: "✦ "; color: #e3c581; }
-.insight-valor-pos { color: var(--income-on-ink); font-weight: 700; }
-.insight-valor-neg { color: var(--expense-on-ink); font-weight: 700; }
+/* white-space: nowrap trata "R$ 1.234,56" como um bloco só — se não couber
+   no fim da linha, o span inteiro pula pra linha de baixo, em vez de deixar
+   o "R$" numa linha e o número na outra. */
+.insight-valor-pos { color: var(--income-on-ink); font-weight: 700; white-space: nowrap; }
+.insight-valor-neg { color: var(--expense-on-ink); font-weight: 700; white-space: nowrap; }
 /* Mesma paleta do gráfico histórico (Ganhos/Gastos/Guardado/Rendimento),
    em tom "on-ink" pra ficar legível no fundo escuro do card de insight. */
-.insight-valor-guardado { color: #d9ab5c; font-weight: 700; }
-.insight-valor-rendimento { color: #7fb8d9; font-weight: 700; }
+.insight-valor-guardado { color: #d9ab5c; font-weight: 700; white-space: nowrap; }
+.insight-valor-rendimento { color: #7fb8d9; font-weight: 700; white-space: nowrap; }
 
 /* Três pontinhos centralizados, animação de "carregando" enquanto a IA
    ainda não respondeu — substitui o texto "Analisando os números…". */
