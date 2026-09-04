@@ -1052,7 +1052,12 @@ function renderTotais() {
   const totalVariaveisPagos = somaVariaveisPagas(state.gastosVariaveis);
   const totalVariaveisAPagar = totalVariaveisGeral - totalVariaveisPagos;
 
-  const totalGuardado = somaTotalCaixinhas(state.caixinhas);
+  // "Guardado" aqui é o quanto entrou nas caixinhas ESSE mês — igual aos
+  // outros 3 cards do topo (Ganhos/Fixos/Variáveis), que também são do mês
+  // atual, não um acumulado. O total "de verdade" guardado em cada caixinha
+  // (base + rendimento + o que entrou esse mês) já aparece no card de cada
+  // caixinha individualmente — aqui é só a movimentação do mês.
+  const totalGuardadoNoMes = somaCampo(state.caixinhas, "valorGuardadoMes");
   const saldo = totalGanhosRecebidos - totalFixosPagos - totalVariaveisPagos;
 
   const ganhosEl = document.getElementById("statGanhos");
@@ -1066,14 +1071,14 @@ function renderTotais() {
   animarNumero(ganhosEl, prevTotals.ganhos, totalGanhosRecebidos);
   animarNumero(fixosEl, prevTotals.fixos, totalFixosPagos);
   animarNumero(variaveisEl, prevTotals.variaveis, totalVariaveisPagos);
-  animarNumero(guardadoEl, prevTotals.guardado, totalGuardado);
+  animarNumero(guardadoEl, prevTotals.guardado, totalGuardadoNoMes);
   animarNumero(saldoEl, prevTotals.saldo, saldo);
 
   if (!primeiraVez) {
     const heroStats = document.querySelectorAll(".hero-stat");
     popValorFlutuante(document.querySelector(".saldo-block"), saldo - prevTotals.saldo);
     popValorFlutuante(heroStats[0], totalGanhosRecebidos - prevTotals.ganhos, "income");
-    popValorFlutuante(heroStats[1], totalGuardado - prevTotals.guardado, "gold");
+    popValorFlutuante(heroStats[1], totalGuardadoNoMes - prevTotals.guardado, "gold");
     popValorFlutuante(heroStats[2], totalFixosPagos - prevTotals.fixos, "expense");
     popValorFlutuante(heroStats[3], totalVariaveisPagos - prevTotals.variaveis, "expense");
   }
@@ -1097,7 +1102,7 @@ function renderTotais() {
   prevTotals.ganhos = totalGanhosRecebidos;
   prevTotals.fixos = totalFixosPagos;
   prevTotals.variaveis = totalVariaveisPagos;
-  prevTotals.guardado = totalGuardado;
+  prevTotals.guardado = totalGuardadoNoMes;
   prevTotals.saldo = saldo;
 }
 
@@ -2180,13 +2185,16 @@ function renderizarTextoInsight(texto) {
     .replace(/\{\{([^{}]+)\}\}/g, "$1");
 }
 
-// Troca o texto/estado visual do card (carregando / ia / erro)
+// Troca o texto/estado visual do card (carregando / ia / erro). No estado
+// "carregando" mostra 3 pontinhos animados no lugar do texto, centralizados.
 function mostrarInsightTexto(texto, modo) {
   const el = document.getElementById("insightTexto");
   if (!el) return;
   el.classList.remove("is-ia", "is-erro", "is-carregando");
   if (modo) el.classList.add(`is-${modo}`);
-  el.innerHTML = renderizarTextoInsight(texto);
+  el.innerHTML = modo === "carregando"
+    ? '<span class="insight-loading" role="status" aria-label="Carregando insight"><span></span><span></span><span></span></span>'
+    : renderizarTextoInsight(texto);
 }
 
 // Guarda o último insight já mostrado de cada pessoa, só pra aparecer na
