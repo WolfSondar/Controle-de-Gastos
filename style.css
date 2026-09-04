@@ -23,6 +23,10 @@
   --muted: #7a6f58;
   --tag-bg: rgba(36, 28, 18, 0.07);
   --on-ink: #faf5e9;
+  /* Verde/vermelho fixos (não mudam no modo escuro) — pro texto do Insight
+     em cima do header, que é sempre escuro nos dois temas. */
+  --income-on-ink: #6fbb8c;
+  --expense-on-ink: #e0846a;
 
   --font-display: "Fraunces", Georgia, serif;
   --font-body: "Inter", -apple-system, BlinkMacSystemFont, sans-serif;
@@ -245,6 +249,8 @@ button, input { font-family: inherit; }
 .insight-texto.is-carregando { opacity: 0.55; }
 .insight-texto.is-erro { color: #e8a58c; cursor: pointer; }
 .insight-texto.is-ia::before { content: "✦ "; color: #e3c581; }
+.insight-valor-pos { color: var(--income-on-ink); font-weight: 700; }
+.insight-valor-neg { color: var(--expense-on-ink); font-weight: 700; }
 
 .content { flex: 1; padding: 22px 18px 10px; }
 .tab-panel.is-hidden { display: none; }
