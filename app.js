@@ -1954,6 +1954,35 @@ function mesAnteriorHistorico() {
   return lista.length ? lista[lista.length - 1] : null;
 }
 
+// Todos os meses fechados de um ano específico (histórico), em ordem.
+function mesesDoAnoHistorico(ano) {
+  return mesesHistoricoOrdenados().filter((m) => m.ano === ano);
+}
+
+// O mesmo número de mês do ano anterior (ex: Agosto/2026 -> Agosto/2025),
+// se já existir fechado no histórico — pra comparação "mesmo mês, ano
+// passado" (diferente de mesAnteriorHistorico, que é só o mês imediatamente
+// anterior). Usa state.mesAtual/anoAtual, então já muda sozinho quando o
+// ano vira — nunca tem um ano fixo escrito no código.
+function mesmoMesAnoAnteriorHistorico() {
+  if (!state.mesAtual || !state.anoAtual) return null;
+  return mesesHistoricoOrdenados().find((m) => m.mes === state.mesAtual && m.ano === state.anoAtual - 1) || null;
+}
+
+// Soma de todos os meses FECHADOS de um ano (ganhos/gastos/guardado) — usada
+// tanto pro ano em andamento (soma com o mês atual à parte, ver
+// montarResumoParaInsight) quanto pro ano anterior completo.
+function totaisDoAnoHistorico(ano) {
+  const meses = mesesDoAnoHistorico(ano);
+  return {
+    ano,
+    mesesFechados: meses.length,
+    ganhos: meses.reduce((acc, m) => acc + totalGanhosDeUmMesHistorico(m), 0),
+    gastos: meses.reduce((acc, m) => acc + totalDebitosDeUmMesHistorico(m), 0),
+    guardado: meses.reduce((acc, m) => acc + totalGuardadoNoMesDeUmMesHistorico(m), 0),
+  };
+}
+
 // As três funções abaixo já resolvem sozinhas Davi/Gabriel/Ambos, olhando
 // pra state.pessoaAtual — assim quem chama não precisa se preocupar com isso.
 function categoriasDeUmMesHistorico(mesObj) {
@@ -2028,7 +2057,9 @@ function caixinhasDetalhadasParaInsight() {
 function montarResumoParaInsight() {
   const nomePessoa = PESSOA_LABEL[state.pessoaAtual] || "Você";
   const nomeMesAtual = (state.mesAtual && MESES_LABEL[state.mesAtual - 1]) || MESES_LABEL[new Date().getMonth()];
+  const anoAtualNum = state.anoAtual || new Date().getFullYear();
   const mesPassadoObj = mesAnteriorHistorico();
+  const mesmoMesAnoPassadoObj = mesmoMesAnoAnteriorHistorico();
 
   const ganhosRecebidos = somaComStatus(state.ganhos, "recebido");
   const gastosFixosPagos = somaFixosPagos(state.gastosFixos);
@@ -2037,26 +2068,78 @@ function montarResumoParaInsight() {
   const caixinhas = caixinhasDetalhadasParaInsight();
   const totalRendimentoAcumulado = somaCampo(state.caixinhas, "rendimentoTotal");
 
+  // Pendências do mês em andamento — quanto ainda falta receber/pagar, pra
+  // IA poder comentar sobre isso (ex: "ainda tem R$X a receber esse mês").
+  const ganhosAReceber = soma(state.ganhos) - ganhosRecebidos;
+  const gastosFixosAPagar = soma(state.gastosFixos) - gastosFixosPagos;
+  const gastosVariaveisAPagar = soma(state.gastosVariaveis) - gastosVariaveisPagos;
+
+  // Totais do ano corrente "até agora" = todo mês já fechado nesse ano
+  // (histórico) + o mês em andamento. E o ano anterior completo, pra dar
+  // pano de fundo de "esse ano tá indo melhor/pior que o ano passado".
+  // Tudo calculado a partir de state.anoAtual, então quando o ano vira (o
+  // usuário fecha Dezembro e o app avança pra Janeiro do ano seguinte) isso
+  // passa a apontar sozinho pro ano novo, sem precisar mexer em nada aqui.
+  const totaisAnoAtualFechados = totaisDoAnoHistorico(anoAtualNum);
+  const totaisAnoAnterior = totaisDoAnoHistorico(anoAtualNum - 1);
+
   const resumo = {
     pessoa: nomePessoa,
     moeda: "BRL",
-    descricaoDoPeriodo: `Comparação entre o mês atual (${nomeMesAtual}, ainda em andamento) e o mês passado já fechado`,
+    descricaoDoPeriodo: `Comparação entre o mês atual (${nomeMesAtual}/${anoAtualNum}, ainda em andamento) e o mês passado já fechado`,
     mesAtual: {
       nome: nomeMesAtual,
+      ano: anoAtualNum,
       ganhosRecebidos,
       gastosFixosPagos,
       gastosVariaveisPagos,
       saldoDisponivelAgora: ganhosRecebidos - gastosFixosPagos - gastosVariaveisPagos - guardadoNoMes,
       guardadoNoMes,
       categorias: categoriasMesAtual(),
+      // "Ainda falta entrar/sair" — não é gasto/ganho perdido, é só o que já
+      // está lançado mas ainda não foi marcado como recebido/pago.
+      aindaAReceberEsseMes: ganhosAReceber > 0 ? ganhosAReceber : 0,
+      aindaAPagarFixosEsseMes: gastosFixosAPagar > 0 ? gastosFixosAPagar : 0,
+      aindaAPagarVariaveisEsseMes: gastosVariaveisAPagar > 0 ? gastosVariaveisAPagar : 0,
     },
     mesPassado: mesPassadoObj ? {
       nome: mesPassadoObj.nome,
+      ano: mesPassadoObj.ano,
       ganhos: totalGanhosDeUmMesHistorico(mesPassadoObj),
       gastos: totalDebitosDeUmMesHistorico(mesPassadoObj),
       guardadoNoMes: totalGuardadoNoMesDeUmMesHistorico(mesPassadoObj),
       categorias: categoriasDeUmMesHistorico(mesPassadoObj),
     } : "Ainda não há nenhum mês fechado no histórico",
+    // Mesmo mês, um ano antes (ex: Agosto/2026 vs Agosto/2025) — diferente
+    // do mesPassado acima (que é sempre o mês imediatamente anterior). Só
+    // existe quando já tem pelo menos um ano de histórico fechado.
+    mesmoMesAnoPassado: mesmoMesAnoPassadoObj ? {
+      nome: nomeMesAtual,
+      ano: anoAtualNum - 1,
+      ganhos: totalGanhosDeUmMesHistorico(mesmoMesAnoPassadoObj),
+      gastos: totalDebitosDeUmMesHistorico(mesmoMesAnoPassadoObj),
+      guardadoNoMes: totalGuardadoNoMesDeUmMesHistorico(mesmoMesAnoPassadoObj),
+      categorias: categoriasDeUmMesHistorico(mesmoMesAnoPassadoObj),
+    } : `Ainda não há dados de ${nomeMesAtual}/${anoAtualNum - 1} no histórico`,
+    // Visão do ano inteiro — soma de todo mês já fechado nesse ano mais o
+    // mês em andamento, e o ano anterior completo (quando existir), pra IA
+    // poder falar de tendência ao longo do ano ("você já guardou X esse
+    // ano", "esse ano tá X% acima do ano passado até aqui" etc).
+    anoAtualAteAgora: {
+      ano: anoAtualNum,
+      mesesFechadosNesteAno: totaisAnoAtualFechados.mesesFechados,
+      ganhos: totaisAnoAtualFechados.ganhos + ganhosRecebidos,
+      gastos: totaisAnoAtualFechados.gastos + gastosFixosPagos + gastosVariaveisPagos,
+      guardado: totaisAnoAtualFechados.guardado + guardadoNoMes,
+      observacao: `Soma dos ${totaisAnoAtualFechados.mesesFechados} meses já fechados de ${anoAtualNum} mais o mês atual (${nomeMesAtual}), que ainda está em andamento`,
+    },
+    anoAnteriorCompleto: totaisAnoAnterior.mesesFechados > 0 ? {
+      ano: anoAtualNum - 1,
+      mesesFechados: totaisAnoAnterior.mesesFechados,
+      ganhos: totaisAnoAnterior.ganhos,
+      gastos: totaisAnoAnterior.gastos,
+      guardado: totaisAnoAnterior.guardado,
+    } : `Ainda não há nenhum mês fechado de ${anoAtualNum - 1} no histórico`,
     caixinhas: caixinhas.length ? caixinhas : "Nenhuma caixinha cadastrada ainda",
     rendimentoTotalAcumuladoEmTodasAsCaixinhas: totalRendimentoAcumulado,
   };
