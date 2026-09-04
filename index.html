@@ -262,12 +262,42 @@
         <div class="collapsible-inner">
           <form class="add-form" id="formFixos">
             <input type="text" name="nome" placeholder="Descrição (ex: Faculdade)" required maxlength="60" />
-            <input type="text" name="valor" placeholder="0,00" inputmode="decimal" autocomplete="off" required />
-            <select name="tipo" class="input-categoria" aria-label="Categoria">
-              <option value="">Categoria (opcional)</option>
-            </select>
-            <input type="date" name="data" class="input-data" aria-label="Data do gasto fixo" />
-            <input type="text" name="parcela" class="input-parcela" placeholder="Parcela (ex: 2/48) — deixe vazio se não tiver prazo pra acabar" maxlength="10" />
+            <div class="form-row">
+              <input type="text" name="valor" placeholder="Valor total da compra" inputmode="decimal" autocomplete="off" required />
+              <select name="tipo" class="input-categoria" aria-label="Categoria">
+                <option value="">Categoria (opcional)</option>
+              </select>
+            </div>
+            <div class="form-row">
+              <input type="date" name="data" class="input-data" aria-label="Data do gasto fixo" />
+              <select name="parcelas" class="input-parcelas" aria-label="Número de parcelas">
+            <option value="0">Recorrente (sem prazo pra acabar)</option>
+            <option value="1" selected>1x (À vista)</option>
+            <option value="2">2x</option>
+            <option value="3">3x</option>
+            <option value="4">4x</option>
+            <option value="5">5x</option>
+            <option value="6">6x</option>
+            <option value="7">7x</option>
+            <option value="8">8x</option>
+            <option value="9">9x</option>
+            <option value="10">10x</option>
+            <option value="11">11x</option>
+            <option value="12">12x</option>
+            <option value="13">13x</option>
+            <option value="14">14x</option>
+            <option value="15">15x</option>
+            <option value="16">16x</option>
+            <option value="17">17x</option>
+            <option value="18">18x</option>
+            <option value="19">19x</option>
+            <option value="20">20x</option>
+            <option value="21">21x</option>
+            <option value="22">22x</option>
+            <option value="23">23x</option>
+            <option value="24">24x</option>
+              </select>
+            </div>
             <label class="checkbox-inline">
               <input type="checkbox" name="pago" />
               Já paguei essa conta
