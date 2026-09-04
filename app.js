@@ -2037,14 +2037,20 @@ function transferenciasDoMes() {
 
 // Detalhe de cada caixinha (meta e/ou investimento) — dá pra IA falar de
 // progresso de meta e rendimento de forma específica, não só um total.
+// valorGuardado aqui já é o total "de verdade" (mesma conta de totalCaixinha,
+// usada em todo o resto do app pra exibir "quanto tem guardado"): base +
+// rendimentoTotal + valorGuardadoMes. Antes mandava só a base pra IA, que
+// ficava sem saber quanto realmente tinha guardado e calculava errado
+// quanto faltava pra bater a meta.
 function caixinhasDetalhadasParaInsight() {
   return (state.caixinhas || []).map((cx) => {
     const temMeta = Number(cx.valorObjetivo) > 0;
+    const totalGuardadoDeVerdade = totalCaixinha(cx);
     return {
       nome: cx.nome,
-      valorGuardado: Number(cx.valorGuardado) || 0,
+      valorGuardado: totalGuardadoDeVerdade,
       valorObjetivo: temMeta ? Number(cx.valorObjetivo) : null,
-      percentualDaMeta: temMeta ? Math.round(((Number(cx.valorGuardado) || 0) / Number(cx.valorObjetivo)) * 100) : null,
+      percentualDaMeta: temMeta ? Math.round((totalGuardadoDeVerdade / Number(cx.valorObjetivo)) * 100) : null,
       rendimentoTotal: Number(cx.rendimentoTotal) || 0,
       guardadoNesseMes: Number(cx.valorGuardadoMes) || 0,
     };
