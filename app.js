@@ -2062,6 +2062,26 @@ function caixinhasDetalhadasParaInsight() {
   });
 }
 
+// Nome de verdade (não só categoria/total) de cada ganho recebido e gasto
+// variável pago do mês em andamento — pra IA poder citar um lançamento
+// específico (ex: "Almoço - Tia Marina") em vez de só falar em totais e
+// categorias agregadas, que é tudo que ela recebia até agora. Fica de fora
+// o que já é lançamento automático de caixinha (guardar/retirar), porque
+// isso já aparece detalhado em caixinhasDetalhadasParaInsight.
+function lancamentosComNomeDoMes() {
+  const ganhos = (state.ganhos || [])
+    .filter((g) => g.recebido === true)
+    .map((g) => ({ nome: g.nome, valor: Number(g.valor) || 0 }));
+  const gastos = (state.gastosVariaveis || [])
+    .filter(variavelContaNoSaldo)
+    .filter((g) => !ehLancamentoDeCaixinha(g.nome))
+    .map((g) => ({ nome: g.nome, valor: Number(g.valor) || 0, categoria: (g.tipo && String(g.tipo).trim()) || "Outros" }));
+  return {
+    ganhosDoMes: ganhos.length ? ganhos : "Nenhum ganho recebido ainda esse mês",
+    gastosVariaveisDoMes: gastos.length ? gastos : "Nenhum gasto variável pago ainda esse mês",
+  };
+}
+
 // Resumo enviado pro backend: mês atual (em andamento) vs mês passado (já
 // fechado no histórico), com o detalhe de fixos/variáveis/caixinhas por
 // inteiro — pra IA entender a "vida financeira" completa, não só totais.
@@ -2153,6 +2173,7 @@ function montarResumoParaInsight() {
     } : `Ainda não há nenhum mês fechado de ${anoAtualNum - 1} no histórico`,
     caixinhas: caixinhas.length ? caixinhas : "Nenhuma caixinha cadastrada ainda",
     rendimentoTotalAcumuladoEmTodasAsCaixinhas: totalRendimentoAcumulado,
+    lancamentosComNomeDoMesAtual: lancamentosComNomeDoMes(),
   };
 
   if (state.pessoaAtual === "ambos") {
@@ -2190,11 +2211,24 @@ function renderizarTextoInsight(texto) {
 function mostrarInsightTexto(texto, modo) {
   const el = document.getElementById("insightTexto");
   if (!el) return;
-  el.classList.remove("is-ia", "is-erro", "is-carregando");
-  if (modo) el.classList.add(`is-${modo}`);
-  el.innerHTML = modo === "carregando"
-    ? '<span class="insight-loading" role="status" aria-label="Carregando insight"><span></span><span></span><span></span></span>'
-    : renderizarTextoInsight(texto);
+
+  const aplicarConteudo = () => {
+    el.classList.remove("is-ia", "is-erro", "is-carregando", "is-trocando");
+    if (modo) el.classList.add(`is-${modo}`);
+    el.innerHTML = modo === "carregando"
+      ? '<span class="insight-loading" role="status" aria-label="Carregando insight"><span></span><span></span><span></span></span>'
+      : renderizarTextoInsight(texto);
+  };
+
+  // Se já tem algo visível no card, dá um fade (opacity some, troca o
+  // conteúdo por baixo, opacity volta) em vez de trocar seco — a duração do
+  // setTimeout bate com a transição de ".insight-texto" no style.css.
+  if (el.innerHTML.trim()) {
+    el.classList.add("is-trocando");
+    setTimeout(aplicarConteudo, 200);
+  } else {
+    aplicarConteudo();
+  }
 }
 
 // Guarda o último insight já mostrado de cada pessoa, só pra aparecer na
