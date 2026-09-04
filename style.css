@@ -293,6 +293,8 @@ button, input { font-family: inherit; }
 .collapsible.sem-transicao-inicial, .collapse-toggle.sem-transicao-inicial, .collapse-toggle.sem-transicao-inicial svg { transition: none !important; }
 
 .add-form { display: flex; flex-direction: column; gap: 8px; background: var(--paper-deep); border: 1px solid var(--line); border-radius: var(--radius-m); padding: 14px; margin-bottom: 18px; box-shadow: 0 2px 10px rgba(22,51,44,0.05); }
+.add-form .form-row { display: flex; gap: 8px; }
+.add-form .form-row > * { flex: 1 1 0; min-width: 0; }
 .add-form input { border: 1px solid var(--line); background: var(--paper); border-radius: var(--radius-s); padding: 11px 12px; font-size: 15px; color: var(--ink-text); }
 .add-form input::placeholder { color: #a89a78; }
 .add-form input:focus { border-color: var(--gold); }
