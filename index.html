@@ -122,31 +122,13 @@
       <svg viewBox="0 0 24 24" fill="none"><path d="M6 9l6 6 6-6" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>
     </button>
 
-    <!-- INSIGHT: frase rápida (calculada no aparelho) + análise sob demanda com IA (Gemini) -->
+    <!-- INSIGHT: gerado com IA (Gemini), atualizado sozinho a cada sincronização -->
     <div class="insight-card" id="insightCard">
       <div class="insight-topo">
-        <div class="insight-titulo-wrap">
-          <span class="insight-emoji" aria-hidden="true">✨</span>
-          <span class="insight-titulo">Insight</span>
-        </div>
-        <button type="button" class="insight-btn-dado" id="insightBtnDado" aria-label="Ver outro insight rápido" title="Ver outro insight rápido">
-          <svg viewBox="0 0 24 24" fill="none"><path d="M12 5v14M5 12h14" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></svg>
-        </button>
+        <span class="insight-emoji" aria-hidden="true">✨</span>
+        <span class="insight-titulo">Insight</span>
       </div>
-      <p class="insight-texto" id="insightTexto">Carregando os primeiros números do mês…</p>
-      <div class="insight-rodape">
-        <select class="insight-select" id="insightPeriodoSelect" aria-label="Período para a análise com IA">
-          <option value="mes-vs-anterior">Este mês vs. mês passado</option>
-          <option value="mes-atual">Só este mês</option>
-          <option value="hoje">Só hoje</option>
-          <option value="ano">O ano inteiro</option>
-          <option value="historico">Todo o histórico</option>
-        </select>
-        <button type="button" class="btn btn-gold insight-btn-ia" id="insightBtnIA">
-          <svg viewBox="0 0 24 24" fill="none" class="insight-btn-ia-icone"><path d="M12 3l1.6 4.4L18 9l-4.4 1.6L12 15l-1.6-4.4L6 9l4.4-1.6L12 3z" stroke="currentColor" stroke-width="1.6" stroke-linejoin="round"/><path d="M19 14l.8 2.2L22 17l-2.2.8L19 20l-.8-2.2L16 17l2.2-.8L19 14z" stroke="currentColor" stroke-width="1.3" stroke-linejoin="round"/></svg>
-          <span id="insightBtnIALabel">Analisar com IA</span>
-        </button>
-      </div>
+      <p class="insight-texto" id="insightTexto">Sincronizando pra trazer um insight sobre suas finanças…</p>
     </div>
   </header>
 
