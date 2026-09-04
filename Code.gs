@@ -311,6 +311,48 @@ function transferirEntrePessoas(de, para, nome, valor) {
 const GEMINI_MODEL = "gemini-3.1-flash-lite";
 const GEMINI_API_KEY_PROPRIEDADE = "GEMINI_API_KEY";
 
+// Glossário de categorias pra IA não "chutar" o significado só pelo nome
+// (foi assim que ela errou dizendo que "Alimentação" tinha caído, quando na
+// real Alimentação é outra coisa — ver explicação abaixo). Baseado no que
+// foi explicado + inferência por contraste com as categorias vizinhas.
+const GLOSSARIO_CATEGORIAS = {
+  "Alimentação": "Compras pequenas e avulsas de comida/bebida do dia a dia — padaria, uma coquinha na rua, um doce comprado de um colega. NÃO é a compra grande de mantimentos (isso é 'Mercado') nem pedido/refeição em restaurante (isso é 'Delivery & Restaurantes').",
+  "Mercado": "Compra de supermercado/mantimentos para casa — a compra grande, geralmente mensal ou quinzenal (diferente de 'Alimentação', que é gasto avulso pequeno).",
+  "Delivery & Restaurantes": "Pedidos por aplicativo de delivery e refeições feitas em restaurantes, bares ou lanchonetes.",
+  "Assinaturas & Serviços": "Assinaturas recorrentes de serviços — streaming, softwares, planos de aplicativo, etc.",
+  "Beleza & Cuidados": "Produtos e serviços de estética pessoal — cosméticos, salão de beleza, barbearia, manicure.",
+  "Bem-estar": "Academia, psicóloga/terapia, corte de cabelo, e atividades parecidas de cuidado pessoal e saúde mental/física.",
+  "Carro": "Despesas gerais de manutenção e posse do carro — revisão, seguro, IPVA, peças (diferente de 'Combustível', que é só abastecimento, e de 'Estacionamento').",
+  "Casa & Manutenção": "Reparos e manutenção da casa/apartamento — conserto, material de construção, mobília.",
+  "Celular & Internet": "Conta de celular e plano de internet/wi-fi.",
+  "Combustível": "Gasolina, álcool ou gás para o carro/moto.",
+  "Contas": "Contas fixas da casa — água, luz, condomínio.",
+  "Educação": "Cursos, material escolar, mensalidade de curso ou faculdade.",
+  "Estacionamento": "Vagas pagas, zona azul.",
+  "Financiamento": "Parcelas de financiamento (carro, casa, etc).",
+  "Jogos": "Jogos eletrônicos — compras, assinaturas de serviço de jogos, itens dentro de jogo.",
+  "Lazer": "Entretenimento em geral que não seja jogos eletrônicos — cinema, shows, parques, passeios.",
+  "Metas": "Categoria TÉCNICA do sistema, não é um gasto real do dia a dia: é usada só nos lançamentos automáticos 'Guardado: nome da caixinha' quando o usuário guarda dinheiro numa caixinha.",
+  "Outro": "Categoria coringa pra gastos que não se encaixam em nenhuma outra categoria.",
+  "Pessoal": "Gasto de uso/cuidado pessoal diverso que não se encaixa nas outras categorias mais específicas.",
+  "Pets": "Despesas com animais de estimação — ração, veterinário, petshop.",
+  "Presente": "Presentes dados a outras pessoas.",
+  "Reparação Histórica": "Termo interno do casal: um valor que Davi passa pra Gabriel todo mês, porque Gabriel bancou as contas de Davi durante um período em que ele ficou desempregado. NÃO é uma dívida cobrada com juros nem algo formal — é um repasse mensal combinado entre os dois. Se aparecer, pode comentar com o mesmo tom carinhoso/parceria usado pra outras coisas do casal, sem soar como cobrança ou constrangimento.",
+  "Saídas & Confraternizações": "Sair com amigos, happy hour, festas, confraternização de trabalho.",
+  "Saúde & Farmácia": "Só gasto com remédio, médico, consulta, exame — nada de bem-estar geral (isso é a categoria Bem-estar).",
+  "Taxas & Tarifas": "Taxas bancárias, tarifas de serviços, juros, multas administrativas.",
+  "Tech & Equipamentos": "Compra de eletrônicos e equipamentos — celular novo, notebook, acessórios de tecnologia.",
+  "Transporte": "Deslocamento do dia a dia que não seja no carro próprio — ônibus, aplicativo de transporte, metrô.",
+  "Vestuário & Acessórios": "Roupas, calçados, acessórios.",
+  "Viagens": "Despesas de viagens e turismo.",
+};
+
+function textoGlossarioCategorias() {
+  return Object.keys(GLOSSARIO_CATEGORIAS)
+    .map(function (nome) { return "- " + nome + ": " + GLOSSARIO_CATEGORIAS[nome]; })
+    .join("\n");
+}
+
 // Quantos insights pedimos de uma vez pro Gemini. O app guarda esse "estoque"
 // no aparelho e vai consumindo um por sincronização — só pede mais quando
 // o estoque fica baixo, então a tela quase nunca fica esperando rede.
@@ -332,15 +374,18 @@ function gerarInsightComGemini(pessoa, periodo, resumo) {
 
     const regrasComuns = [
       "Você é um assistente financeiro dentro de um app pessoal de controle de gastos chamado Caixa. Seja o mais específico e afiado possível — nunca dê conselho genérico de curso de finanças.",
-      "Contexto do app pra você entender os dados do resumo: 'gastos fixos' são despesas recorrentes do mês (aluguel, assinaturas, etc); 'gastos variáveis' são despesas do dia a dia que mudam de mês a mês; 'caixinhas' são potes de dinheiro guardado — cada uma pode ter uma meta (o campo valorObjetivo mostra o alvo, e dá pra calcular quanto falta) e/ou um 'rendimentoTotal', que é quanto essa caixinha já rendeu — ou seja, funciona como um investimento.",
+      "Contexto do app pra você entender os dados do resumo: 'gastos fixos' são despesas recorrentes do mês (aluguel, assinaturas, etc); 'gastos variáveis' são despesas do dia a dia que mudam de mês a mês; 'caixinhas' são potes de dinheiro guardado — o campo valorGuardado de cada caixinha JÁ É o total real guardado até agora (já inclui o que rendeu e o que foi guardado neste mês, então pra saber quanto falta pra meta é só valorObjetivo − valorGuardado, NUNCA some rendimentoTotal ou guardadoNesseMes de novo em cima disso). rendimentoTotal e guardadoNesseMes são só o detalhamento de parte desse total (quanto rendeu / quanto entrou nesse mês especificamente), úteis pra comentar sobre eles isoladamente, mas não são valores a somar ao valorGuardado.",
+      "GLOSSÁRIO DAS CATEGORIAS — o nome da categoria sozinho pode enganar, use SEMPRE o significado real abaixo em vez de chutar pelo nome (ex: 'Alimentação' NÃO é a feira/mercado do mês, é gasto pequeno e avulso — não confunda os dois nem fale que uma caiu quando na verdade foi a outra):\n" + textoGlossarioCategorias(),
       "Você vai receber um resumo em JSON com os números de " + nomePessoa + ", em reais (BRL).",
+      "O resumo traz vários recortes de tempo — use o que fizer sentido pra cada insight, sem forçar todos: mesAtual (mês em andamento) vs mesPassado (mês imediatamente anterior); mesmoMesAnoPassado (o MESMO mês, um ano antes — ex: Agosto deste ano vs Agosto do ano passado; só existe se já tiver histórico daquele mês) — é diferente de mesPassado, não confunda os dois; e a visão do ano inteiro em anoAtualAteAgora (soma de tudo que já fechou nesse ano mais o mês em andamento) vs anoAnteriorCompleto (o ano anterior fechado). NUNCA escreva um ano fixo/chutado no texto — sempre use o campo 'ano' que vier dentro de cada bloco do resumo, já que o ano de referência muda sozinho conforme o app avança.",
+      "Dentro de mesAtual também vêm 'aindaAReceberEsseMes', 'aindaAPagarFixosEsseMes' e 'aindaAPagarVariaveisEsseMes' — são valores já lançados mas ainda pendentes (não confirmados como recebidos/pagos), não são gasto ou ganho perdido. Quando algum desses vier maior que zero, pode ser um bom ângulo pra um dos insights (ex: lembrar quanto ainda falta entrar ou sair do mês) — mas só use se for relevante, não force em todo insight.",
       "Gere um ARRAY JSON com exatamente " + QUANTIDADE_INSIGHTS_POR_PEDIDO + " insights CURTOS (1 a 3 frases cada, no máximo uns 280 caracteres), em português do Brasil.",
-      "Cada um dos " + QUANTIDADE_INSIGHTS_POR_PEDIDO + " insights precisa focar em um ÂNGULO DIFERENTE dos dados — por exemplo: maior variação de categoria vs mês passado, ritmo/projeção do gasto no mês, progresso de uma caixinha/meta específica, rendimento de algum investimento, comparação entre o peso dos gastos fixos e dos variáveis, ou quanto sobrou disponível. NUNCA repita a mesma informação, a mesma conclusão ou a mesma sugestão em mais de um item.",
+      "Cada um dos " + QUANTIDADE_INSIGHTS_POR_PEDIDO + " insights precisa focar em um ÂNGULO DIFERENTE dos dados — por exemplo: maior variação de categoria vs mês passado, variação de categoria ou do total vs o mesmo mês do ano passado (mesmoMesAnoPassado), ritmo/projeção do gasto no mês, quanto ainda está pendente de receber/pagar, progresso de uma caixinha/meta específica, rendimento de algum investimento, comparação entre o peso dos gastos fixos e dos variáveis, como o ano está indo até agora vs o ano passado, ou quanto sobrou disponível. NUNCA repita a mesma informação, a mesma conclusão ou a mesma sugestão em mais de um item.",
       "Seja específico: cite nomes de categorias e de caixinhas de verdade que aparecerem no resumo — não fale de forma genérica ou vaga.",
       "NÃO termine todos os insights com a mesma sugestão ou o mesmo tipo de conselho (por exemplo, não repita algo como 'que tal começar uma reserva' em mais de um item). Só sugira uma ação quando ela realmente fizer sentido pro dado específico daquele insight, e varie sempre a forma de dizer. Vários dos insights nem precisam ter sugestão nenhuma — às vezes só constatar o dado já basta.",
       "Tom leve, direto, específico e motivador — pode ter humor leve quando fizer sentido, sem ironia pesada nem tom de sermão.",
-      "Sempre que citar um valor em dinheiro, formate como reais no padrão brasileiro (vírgula decimal, sempre com 2 casas — ex: R$ 5,00 ou R$ 1.234,56) e marque o valor assim: {{+R$ 5,00}} quando ele for positivo/favorável (sobra, economia, ganho, guardado, rendimento) ou {{-R$ 5,00}} quando for negativo/desfavorável (gasto a mais, saldo negativo, dívida, queda). Exemplo real de frase: \"Você guardou {{+R$ 150,00}} esse mês, mas o transporte subiu {{-R$ 80,00}} em relação ao mês passado.\" Nunca escreva um valor em reais sem esse marcador ao redor.",
-      "NUNCA use as expressões 'no azul' ou 'no vermelho' pra falar de saldo — os marcadores acima já indicam positivo/negativo, não precisa de metáfora de cor no texto.",
+      "Sempre que citar um valor em dinheiro, formate como reais no padrão brasileiro (vírgula decimal, sempre com 2 casas — ex: R$ 5,00 ou R$ 1.234,56) e marque TODO valor com chaves duplas indicando de que tipo ele é, pra cada um aparecer com a mesma cor usada no gráfico histórico do app (Ganhos=verde, Gastos=vermelho, Guardado=amarelo, Rendimento=azul): {{ganho:R$ 5,00}} pra qualquer valor de ganho/recebimento; {{gasto:R$ 5,00}} pra qualquer valor de gasto/despesa (fixo, variável, de uma categoria, pendência a pagar); {{guardado:R$ 5,00}} pra valor ligado a caixinha — quanto já guardou, quanto falta pra bater a meta, o valor da própria meta; {{rendimento:R$ 5,00}} especificamente pro quanto uma caixinha/investimento rendeu. Só use {{+R$ 5,00}} (favorável) ou {{-R$ 5,00}} (desfavorável) pro raro caso de um valor que não seja claramente nenhum dos quatro tipos, como um saldo geral. Exemplo real de frase: \"Você guardou {{guardado:R$ 150,00}} esse mês, seu Rendimento foi de {{rendimento:R$ 12,30}}, mas o Gasto com transporte subiu {{gasto:R$ 80,00}} em relação ao mês passado.\" NUNCA escreva um valor em reais sem um desses marcadores ao redor, e NUNCA deixe de indicar o tipo quando o valor claramente for um dos quatro — isso é o que importa mais, mais do que decidir se é bom ou ruim.",
+      "NUNCA use as expressões 'no azul' ou 'no vermelho' pra falar de saldo — os marcadores acima já indicam a cor certa, não precisa de metáfora de cor no texto.",
       "Se algum dado relevante estiver ausente, nulo ou zerado no resumo, apenas ignore-o — não invente número.",
       "Não use markdown, no máximo 1 emoji por insight, e cada item do array deve ser só o texto puro do insight (sem aspas, sem numeração, sem prefixo tipo 'Insight:').",
     ];
@@ -349,7 +394,7 @@ function gerarInsightComGemini(pessoa, periodo, resumo) {
       ? [
           "Você está olhando as finanças combinadas de um casal, Davi e Gabriel. Fale com os dois no PLURAL ('vocês', 'o gasto de vocês', 'a caixinha de vocês') — nunca no singular, nunca isolando só um nome como se fosse uma pessoa só.",
           "Em pelo menos um dos " + QUANTIDADE_INSIGHTS_POR_PEDIDO + " insights (não em todos), pode soltar um comentário carinhoso ou de parceria, já que são um casal cuidando do orçamento juntos — sem exagerar no clichê.",
-          "Se o resumo trouxer o campo transferenciasEntreOsDoisEsseMes com alguma transferência, comente sobre isso com naturalidade em pelo menos um insight (ex: quem ajudou quem naquele mês), sem julgamento.",
+          "Se o resumo trouxer o campo transferenciasEntreOsDoisEsseMes com alguma transferência de verdade, comente sobre isso com naturalidade em pelo menos um insight (ex: quem ajudou quem naquele mês), sem julgamento. Mas se esse campo vier dizendo que NÃO houve nenhuma transferência esse mês, NUNCA comente sobre essa ausência — não é um dado relevante nem um sinal de nada (nem bom, nem ruim), então simplesmente ignore esse campo por completo e escolha outro ângulo pro insight.",
         ]
       : ["Fale diretamente com " + nomePessoa + ", no singular ('você')."];
 
