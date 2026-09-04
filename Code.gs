@@ -43,10 +43,11 @@ const SHEETS = {
   gabriel: "Gabriel",
 };
 
-// Nome de exibição de cada pessoa (usado nas descrições de transferência).
+// Nome de exibição de cada pessoa (usado nas descrições de transferência e no insight de IA).
 const PESSOA_NOME = {
   davi: "Davi",
   gabriel: "Gabriel",
+  ambos: "o casal (Davi e Gabriel)",
 };
 
 // Margem extra de linhas ao limpar um bloco, pra garantir que nenhum resto de
@@ -199,6 +200,12 @@ function doPost(e) {
     if (action === "transferir") {
       return respond(transferirEntrePessoas(body.de, body.para, body.nome, body.valor));
     }
+    // Ação só de leitura (não mexe na planilha) — por isso fica antes do
+    // bloqueio de "ambos é somente leitura" logo abaixo: no modo Juntos
+    // também dá pra pedir um insight, só não dá pra editar lançamentos.
+    if (action === "gerarInsightIA") {
+      return respond(gerarInsightComGemini(body.pessoa, body.periodo, body.resumo));
+    }
 
     const pessoa = (body.pessoa || "davi").toLowerCase();
     if (pessoa === "ambos") {
@@ -274,6 +281,145 @@ function transferirEntrePessoas(de, para, nome, valor) {
   saveGanhos(sheetPara, ganhosPara);
 
   return { ok: true, de: de, para: para, valor: valor };
+}
+
+// ---------------------------------------------------------------------
+// INSIGHT COM IA (Gemini)
+// ---------------------------------------------------------------------
+// Como configurar (uma vez só):
+//   1) Gere uma chave grátis em https://aistudio.google.com/apikey
+//   2) Neste editor do Apps Script: ⚙️ "Configurações do projeto" (ícone de
+//      engrenagem no menu lateral) → "Propriedades do script" → "Adicionar
+//      propriedade do script" → nome GEMINI_API_KEY, valor = a chave gerada.
+//   3) Salve e publique de novo (Implantar > Gerenciar implantações > Editar
+//      > Nova versão) pra a mudança valer no site.
+// A chave NUNCA fica no HTML/JS do site — só aqui no backend, então quem
+// abrir o app no navegador não consegue vê-la.
+//
+// Nota sobre o formato da chave: a partir de 2026 o Google passou a emitir
+// chaves novas no formato "AQ.Ab..." (no lugar do antigo "AIzaSy..."). O
+// código abaixo já manda a chave pelo header x-goog-api-key (o jeito atual
+// recomendado pelo Google), que funciona com os dois formatos. Se mesmo
+// assim a Gemini API responder erro de autenticação, vale conferir em
+// aistudio.google.com/apikey se essa chave está restrita à "Generative
+// Language API" e gerar uma nova se precisar.
+//
+// Se quiser trocar o modelo (ex: por um mais esperto/mais caro), troque só
+// a constante abaixo. Nomes de modelo disponíveis aparecem em
+// https://ai.google.dev/gemini-api/docs/models — evite modelos "gemini-2.5-*",
+// que a Google está desativando em outubro/2026.
+const GEMINI_MODEL = "gemini-3.1-flash-lite";
+const GEMINI_API_KEY_PROPRIEDADE = "GEMINI_API_KEY";
+
+// Quantos insights pedimos de uma vez pro Gemini. O app guarda esse "estoque"
+// no aparelho e vai consumindo um por sincronização — só pede mais quando
+// o estoque fica baixo, então a tela quase nunca fica esperando rede.
+const QUANTIDADE_INSIGHTS_POR_PEDIDO = 5;
+
+function gerarInsightComGemini(pessoa, periodo, resumo) {
+  try {
+    const apiKey = PropertiesService.getScriptProperties().getProperty(GEMINI_API_KEY_PROPRIEDADE);
+    if (!apiKey) {
+      return {
+        ok: false,
+        error: "Chave do Gemini não configurada. Veja o comentário acima de gerarInsightComGemini() no Code.gs.",
+      };
+    }
+
+    const pessoaCodigo = String(pessoa || "").toLowerCase();
+    const ehCasal = pessoaCodigo === "ambos";
+    const nomePessoa = PESSOA_NOME[pessoaCodigo] || "a pessoa";
+
+    const regrasComuns = [
+      "Você é um assistente financeiro dentro de um app pessoal de controle de gastos chamado Caixa. Seja o mais específico e afiado possível — nunca dê conselho genérico de curso de finanças.",
+      "Contexto do app pra você entender os dados do resumo: 'gastos fixos' são despesas recorrentes do mês (aluguel, assinaturas, etc); 'gastos variáveis' são despesas do dia a dia que mudam de mês a mês; 'caixinhas' são potes de dinheiro guardado — cada uma pode ter uma meta (o campo valorObjetivo mostra o alvo, e dá pra calcular quanto falta) e/ou um 'rendimentoTotal', que é quanto essa caixinha já rendeu — ou seja, funciona como um investimento.",
+      "Você vai receber um resumo em JSON com os números de " + nomePessoa + ", em reais (BRL).",
+      "Gere um ARRAY JSON com exatamente " + QUANTIDADE_INSIGHTS_POR_PEDIDO + " insights CURTOS (1 a 3 frases cada, no máximo uns 280 caracteres), em português do Brasil.",
+      "Cada um dos " + QUANTIDADE_INSIGHTS_POR_PEDIDO + " insights precisa focar em um ÂNGULO DIFERENTE dos dados — por exemplo: maior variação de categoria vs mês passado, ritmo/projeção do gasto no mês, progresso de uma caixinha/meta específica, rendimento de algum investimento, comparação entre o peso dos gastos fixos e dos variáveis, ou quanto sobrou disponível. NUNCA repita a mesma informação, a mesma conclusão ou a mesma sugestão em mais de um item.",
+      "Seja específico: cite nomes de categorias e de caixinhas de verdade que aparecerem no resumo — não fale de forma genérica ou vaga.",
+      "NÃO termine todos os insights com a mesma sugestão ou o mesmo tipo de conselho (por exemplo, não repita algo como 'que tal começar uma reserva' em mais de um item). Só sugira uma ação quando ela realmente fizer sentido pro dado específico daquele insight, e varie sempre a forma de dizer. Vários dos insights nem precisam ter sugestão nenhuma — às vezes só constatar o dado já basta.",
+      "Tom leve, direto, específico e motivador — pode ter humor leve quando fizer sentido, sem ironia pesada nem tom de sermão.",
+      "Sempre que citar um valor em dinheiro, formate como reais no padrão brasileiro (vírgula decimal, sempre com 2 casas — ex: R$ 5,00 ou R$ 1.234,56) e marque o valor assim: {{+R$ 5,00}} quando ele for positivo/favorável (sobra, economia, ganho, guardado, rendimento) ou {{-R$ 5,00}} quando for negativo/desfavorável (gasto a mais, saldo negativo, dívida, queda). Exemplo real de frase: \"Você guardou {{+R$ 150,00}} esse mês, mas o transporte subiu {{-R$ 80,00}} em relação ao mês passado.\" Nunca escreva um valor em reais sem esse marcador ao redor.",
+      "NUNCA use as expressões 'no azul' ou 'no vermelho' pra falar de saldo — os marcadores acima já indicam positivo/negativo, não precisa de metáfora de cor no texto.",
+      "Se algum dado relevante estiver ausente, nulo ou zerado no resumo, apenas ignore-o — não invente número.",
+      "Não use markdown, no máximo 1 emoji por insight, e cada item do array deve ser só o texto puro do insight (sem aspas, sem numeração, sem prefixo tipo 'Insight:').",
+    ];
+
+    const regrasPessoa = ehCasal
+      ? [
+          "Você está olhando as finanças combinadas de um casal, Davi e Gabriel. Fale com os dois no PLURAL ('vocês', 'o gasto de vocês', 'a caixinha de vocês') — nunca no singular, nunca isolando só um nome como se fosse uma pessoa só.",
+          "Em pelo menos um dos " + QUANTIDADE_INSIGHTS_POR_PEDIDO + " insights (não em todos), pode soltar um comentário carinhoso ou de parceria, já que são um casal cuidando do orçamento juntos — sem exagerar no clichê.",
+          "Se o resumo trouxer o campo transferenciasEntreOsDoisEsseMes com alguma transferência, comente sobre isso com naturalidade em pelo menos um insight (ex: quem ajudou quem naquele mês), sem julgamento.",
+        ]
+      : ["Fale diretamente com " + nomePessoa + ", no singular ('você')."];
+
+    const promptSistema = regrasComuns
+      .concat(regrasPessoa)
+      .concat(["Responda SOMENTE com o array JSON de " + QUANTIDADE_INSIGHTS_POR_PEDIDO + " strings, nada além disso — sem crases, sem a palavra json antes."])
+      .join(" ");
+
+    const corpo = {
+      contents: [
+        { role: "user", parts: [{ text: promptSistema + "\n\nResumo em JSON:\n" + JSON.stringify(resumo || {}) }] },
+      ],
+      generationConfig: {
+        temperature: 0.95,
+        maxOutputTokens: 1200,
+        responseMimeType: "application/json",
+        responseSchema: { type: "ARRAY", items: { type: "STRING" } },
+      },
+    };
+
+    const url = "https://generativelanguage.googleapis.com/v1beta/models/" + GEMINI_MODEL + ":generateContent";
+    const res = UrlFetchApp.fetch(url, {
+      method: "post",
+      contentType: "application/json",
+      headers: { "x-goog-api-key": apiKey },
+      payload: JSON.stringify(corpo),
+      muteHttpExceptions: true,
+    });
+
+    const status = res.getResponseCode();
+    const data = JSON.parse(res.getContentText() || "{}");
+
+    if (status !== 200) {
+      const msg = (data.error && data.error.message) || ("Erro HTTP " + status + " ao chamar o Gemini.");
+      return { ok: false, error: msg };
+    }
+
+    const texto =
+      data.candidates &&
+      data.candidates[0] &&
+      data.candidates[0].content &&
+      data.candidates[0].content.parts &&
+      data.candidates[0].content.parts[0] &&
+      data.candidates[0].content.parts[0].text;
+
+    if (!texto) {
+      return { ok: false, error: "O Gemini não retornou nenhum texto (pode ter sido bloqueado por segurança)." };
+    }
+
+    let lista;
+    try {
+      const parsed = JSON.parse(texto);
+      lista = Array.isArray(parsed) ? parsed : (parsed && Array.isArray(parsed.insights) ? parsed.insights : null);
+    } catch (erroParse) {
+      lista = null;
+    }
+
+    if (!lista) {
+      return { ok: false, error: "O Gemini não devolveu uma lista de insights no formato esperado." };
+    }
+
+    const textos = lista.map(function (t) { return String(t || "").trim(); }).filter(Boolean);
+    if (!textos.length) {
+      return { ok: false, error: "O Gemini devolveu uma lista de insights vazia." };
+    }
+
+    return { ok: true, textos: textos, periodo: periodo || null };
+  } catch (err) {
+    return { ok: false, error: String(err) };
+  }
 }
 
 // ---------------------------------------------------------------------
