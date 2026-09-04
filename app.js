@@ -2152,15 +2152,26 @@ function montarResumoParaInsight() {
   return resumo;
 }
 
-// A IA marca valores em dinheiro como {{+R$ 5,00}} (positivo/favorável) ou
-// {{-R$ 5,00}} (negativo/desfavorável) — aqui a gente troca isso por spans
-// coloridos (verde/vermelho). Escapa tudo primeiro pra nunca deixar a IA
-// injetar HTML de verdade, só esses dois marcadores viram tag.
+// A IA marca cada valor em dinheiro indicando de que tipo ele é —
+// {{ganho:R$ 5,00}}, {{gasto:R$ 5,00}}, {{guardado:R$ 5,00}} ou
+// {{rendimento:R$ 5,00}} — e aqui a gente troca isso pela mesma cor usada
+// pra cada um no gráfico histórico (Ganhos verde, Gastos vermelho, Guardado
+// amarelo, Rendimento azul). {{+}}/{{-}} continuam existindo como fallback
+// pra valor genérico (favorável/desfavorável) que não é claramente um dos
+// quatro tipos, tipo saldo. Escapa tudo primeiro pra nunca deixar a IA
+// injetar HTML de verdade, só esses marcadores viram tag — e qualquer
+// {{...}} que sobrar fora do formato esperado só perde as chaves no final,
+// pra nunca aparecer cru na tela mesmo se a IA errar o formato.
 function renderizarTextoInsight(texto) {
   const seguro = escapeHtml(String(texto || ""));
   return seguro
+    .replace(/\{\{ganho:([^{}]+)\}\}/gi, '<span class="insight-valor-pos">$1</span>')
+    .replace(/\{\{gasto:([^{}]+)\}\}/gi, '<span class="insight-valor-neg">$1</span>')
+    .replace(/\{\{guardado:([^{}]+)\}\}/gi, '<span class="insight-valor-guardado">$1</span>')
+    .replace(/\{\{rendimento:([^{}]+)\}\}/gi, '<span class="insight-valor-rendimento">$1</span>')
     .replace(/\{\{\+([^{}]+)\}\}/g, '<span class="insight-valor-pos">$1</span>')
-    .replace(/\{\{-([^{}]+)\}\}/g, '<span class="insight-valor-neg">$1</span>');
+    .replace(/\{\{-([^{}]+)\}\}/g, '<span class="insight-valor-neg">$1</span>')
+    .replace(/\{\{([^{}]+)\}\}/g, "$1");
 }
 
 // Troca o texto/estado visual do card (carregando / ia / erro)
