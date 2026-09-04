@@ -115,21 +115,18 @@
             <span class="hero-stat-pendente" id="statVariaveisPendente"></span>
           </div>
         </div>
+
+        <!-- INSIGHT: gerado com IA (Gemini), atualizado sozinho a cada sincronização.
+             Fica dentro do collapsible junto com os cards pra recolher/expandir junto. -->
+        <div class="insight-card" id="insightCard">
+          <p class="insight-texto" id="insightTexto">Sincronizando pra trazer um insight sobre suas finanças…</p>
+        </div>
       </div>
     </div>
 
     <button type="button" class="hero-stats-toggle collapse-toggle is-collapsed" id="heroStatsToggle" data-collapse="heroStats" aria-expanded="false" aria-label="Expandir ganhos, guardado e gastos">
       <svg viewBox="0 0 24 24" fill="none"><path d="M6 9l6 6 6-6" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>
     </button>
-
-    <!-- INSIGHT: gerado com IA (Gemini), atualizado sozinho a cada sincronização -->
-    <div class="insight-card" id="insightCard">
-      <div class="insight-topo">
-        <span class="insight-emoji" aria-hidden="true">✨</span>
-        <span class="insight-titulo">Insight</span>
-      </div>
-      <p class="insight-texto" id="insightTexto">Sincronizando pra trazer um insight sobre suas finanças…</p>
-    </div>
   </header>
 
   <!-- CONTEÚDO -->
