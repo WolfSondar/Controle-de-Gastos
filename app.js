@@ -1985,25 +1985,69 @@ function totalGuardadoNoMesDeUmMesHistorico(mesObj) {
 
 // ---- Insight com IA (gerado sozinho a cada sincronização) --------------
 
+// No modo "Juntos" (ambos), as transferências entre as duas pessoas viram
+// um gasto (na saída) e um ganho (na chegada) com nome "Transferência p/
+// NOME: ..." / "Transferência de NOME: ...". Detecta essas linhas pra
+// contar pra IA — assim ela pode comentar quando alguém ajudou o outro.
+function transferenciasDoMes() {
+  if (state.pessoaAtual !== "ambos") return [];
+  const regex = /^Transferência p\/ (.+?): (.*)$/i;
+  return state.gastosVariaveis
+    .map((item) => {
+      const m = regex.exec(item.nome || "");
+      if (!m) return null;
+      return {
+        de: PESSOA_LABEL[item.pessoa] || item.pessoa || "?",
+        para: m[1].trim(),
+        descricao: m[2].trim(),
+        valor: Number(item.valor) || 0,
+      };
+    })
+    .filter(Boolean);
+}
+
+// Detalhe de cada caixinha (meta e/ou investimento) — dá pra IA falar de
+// progresso de meta e rendimento de forma específica, não só um total.
+function caixinhasDetalhadasParaInsight() {
+  return (state.caixinhas || []).map((cx) => {
+    const temMeta = Number(cx.valorObjetivo) > 0;
+    return {
+      nome: cx.nome,
+      valorGuardado: Number(cx.valorGuardado) || 0,
+      valorObjetivo: temMeta ? Number(cx.valorObjetivo) : null,
+      percentualDaMeta: temMeta ? Math.round(((Number(cx.valorGuardado) || 0) / Number(cx.valorObjetivo)) * 100) : null,
+      rendimentoTotal: Number(cx.rendimentoTotal) || 0,
+      guardadoNesseMes: Number(cx.valorGuardadoMes) || 0,
+    };
+  });
+}
+
 // Resumo enviado pro backend: mês atual (em andamento) vs mês passado (já
-// fechado no histórico). É o único período usado agora que não tem mais
-// seletor manual — se um dia quiser variar (hoje, ano inteiro etc.), é só
-// voltar a passar um parâmetro de período aqui.
+// fechado no histórico), com o detalhe de fixos/variáveis/caixinhas por
+// inteiro — pra IA entender a "vida financeira" completa, não só totais.
 function montarResumoParaInsight() {
   const nomePessoa = PESSOA_LABEL[state.pessoaAtual] || "Você";
   const nomeMesAtual = (state.mesAtual && MESES_LABEL[state.mesAtual - 1]) || MESES_LABEL[new Date().getMonth()];
   const mesPassadoObj = mesAnteriorHistorico();
 
-  return {
+  const ganhosRecebidos = somaComStatus(state.ganhos, "recebido");
+  const gastosFixosPagos = somaFixosPagos(state.gastosFixos);
+  const gastosVariaveisPagos = somaVariaveisPagas(state.gastosVariaveis);
+  const guardadoNoMes = somaCampo(state.caixinhas, "valorGuardadoMes");
+  const caixinhas = caixinhasDetalhadasParaInsight();
+  const totalRendimentoAcumulado = somaCampo(state.caixinhas, "rendimentoTotal");
+
+  const resumo = {
     pessoa: nomePessoa,
     moeda: "BRL",
     descricaoDoPeriodo: `Comparação entre o mês atual (${nomeMesAtual}, ainda em andamento) e o mês passado já fechado`,
     mesAtual: {
       nome: nomeMesAtual,
-      ganhosRecebidos: somaComStatus(state.ganhos, "recebido"),
-      gastosFixosPagos: somaFixosPagos(state.gastosFixos),
-      gastosVariaveisPagos: somaVariaveisPagas(state.gastosVariaveis),
-      guardadoNoMes: somaCampo(state.caixinhas, "valorGuardadoMes"),
+      ganhosRecebidos,
+      gastosFixosPagos,
+      gastosVariaveisPagos,
+      saldoDisponivelAgora: ganhosRecebidos - gastosFixosPagos - gastosVariaveisPagos - guardadoNoMes,
+      guardadoNoMes,
       categorias: categoriasMesAtual(),
     },
     mesPassado: mesPassadoObj ? {
@@ -2013,7 +2057,27 @@ function montarResumoParaInsight() {
       guardadoNoMes: totalGuardadoNoMesDeUmMesHistorico(mesPassadoObj),
       categorias: categoriasDeUmMesHistorico(mesPassadoObj),
     } : "Ainda não há nenhum mês fechado no histórico",
+    caixinhas: caixinhas.length ? caixinhas : "Nenhuma caixinha cadastrada ainda",
+    rendimentoTotalAcumuladoEmTodasAsCaixinhas: totalRendimentoAcumulado,
   };
+
+  if (state.pessoaAtual === "ambos") {
+    const transferencias = transferenciasDoMes();
+    resumo.transferenciasEntreOsDoisEsseMes = transferencias.length ? transferencias : "Nenhuma transferência entre os dois esse mês";
+  }
+
+  return resumo;
+}
+
+// A IA marca valores em dinheiro como {{+R$ 5,00}} (positivo/favorável) ou
+// {{-R$ 5,00}} (negativo/desfavorável) — aqui a gente troca isso por spans
+// coloridos (verde/vermelho). Escapa tudo primeiro pra nunca deixar a IA
+// injetar HTML de verdade, só esses dois marcadores viram tag.
+function renderizarTextoInsight(texto) {
+  const seguro = escapeHtml(String(texto || ""));
+  return seguro
+    .replace(/\{\{\+([^{}]+)\}\}/g, '<span class="insight-valor-pos">$1</span>')
+    .replace(/\{\{-([^{}]+)\}\}/g, '<span class="insight-valor-neg">$1</span>');
 }
 
 // Troca o texto/estado visual do card (carregando / ia / erro)
@@ -2022,54 +2086,93 @@ function mostrarInsightTexto(texto, modo) {
   if (!el) return;
   el.classList.remove("is-ia", "is-erro", "is-carregando");
   if (modo) el.classList.add(`is-${modo}`);
-  el.textContent = texto;
+  el.innerHTML = renderizarTextoInsight(texto);
 }
 
-// Guarda o último insight de cada pessoa, só pra aparecer na hora ao abrir
-// o app de novo (sem precisar esperar a sincronização terminar de novo).
+// Guarda o último insight já mostrado de cada pessoa, só pra aparecer na
+// hora ao abrir o app de novo (sem precisar esperar a sincronização de
+// novo) — e um "estoque" de insights já gerados e ainda não mostrados, pra
+// já ter um pronto na próxima sincronização em vez de esperar a IA de novo.
 const INSIGHT_CACHE_PREFIX = "caixaInsightTexto:";
+const INSIGHT_FILA_PREFIX = "caixaInsightFila:";
+const INSIGHT_ESTOQUE_MINIMO = 2; // com menos que isso no estoque, já reabastece
+
 function getInsightCache(pessoa) {
   try { return localStorage.getItem(INSIGHT_CACHE_PREFIX + pessoa); } catch (err) { return null; }
 }
 function setInsightCache(pessoa, texto) {
   try { localStorage.setItem(INSIGHT_CACHE_PREFIX + pessoa, texto); } catch (err) {}
 }
+function getInsightFila(pessoa) {
+  try { return JSON.parse(localStorage.getItem(INSIGHT_FILA_PREFIX + pessoa) || "[]"); } catch (err) { return []; }
+}
+function setInsightFila(pessoa, lista) {
+  try { localStorage.setItem(INSIGHT_FILA_PREFIX + pessoa, JSON.stringify(lista || [])); } catch (err) {}
+}
 
 function exibirInsightCacheOuPlaceholder() {
-  const cache = getInsightCache(state.pessoaAtual);
+  const fila = getInsightFila(state.pessoaAtual);
+  const cache = fila[0] || getInsightCache(state.pessoaAtual);
   mostrarInsightTexto(cache || "Sincronizando pra trazer um insight sobre suas finanças…", cache ? "ia" : "carregando");
 }
 
-// Gera (ou regenera) o insight com IA. Chamado sozinho sempre que os dados
-// terminam de sincronizar com a planilha (ver carregarDados) — não existe
-// mais botão manual nem seletor de período pra isso.
+// Pede um novo lote de insights pro Gemini e devolve a lista (ou lança erro).
+async function pedirLoteDeInsights(pessoaDoPedido) {
+  if (!state.historico) {
+    await carregarHistorico();
+    if (state.pessoaAtual !== pessoaDoPedido) throw new Error("__pessoa_trocou__");
+  }
+  const resumo = montarResumoParaInsight();
+  const res = await fetch(API_URL, {
+    method: "POST",
+    body: JSON.stringify({ action: "gerarInsightIA", pessoa: pessoaDoPedido, periodo: "mes-vs-anterior", resumo }),
+  });
+  const data = await res.json().catch(() => null);
+  if (state.pessoaAtual !== pessoaDoPedido) throw new Error("__pessoa_trocou__");
+  if (!data || data.ok === false || !Array.isArray(data.textos) || !data.textos.length) {
+    throw new Error((data && data.error) || "Erro desconhecido");
+  }
+  return data.textos;
+}
+
+// Gera (ou consome do estoque) o insight com IA. Chamado sozinho sempre que
+// os dados terminam de sincronizar com a planilha (ver carregarDados) —
+// não existe mais botão manual nem seletor de período pra isso.
 async function atualizarInsightComIA() {
   if (!API_URL || API_URL.includes("COLE_AQUI")) return;
   if (!navigator.onLine) return; // sem internet: mantém o último insight já mostrado
 
   const pessoaDoPedido = state.pessoaAtual;
-  mostrarInsightTexto("Analisando os números…", "carregando");
+  const fila = getInsightFila(pessoaDoPedido);
 
-  if (!state.historico) {
-    await carregarHistorico();
-    if (state.pessoaAtual !== pessoaDoPedido) return; // trocou de pessoa enquanto isso carregava
+  if (fila.length > 0) {
+    // Já tem insight pronto no estoque — mostra na hora, sem esperar rede
+    const proximo = fila.shift();
+    setInsightFila(pessoaDoPedido, fila);
+    setInsightCache(pessoaDoPedido, proximo);
+    mostrarInsightTexto(proximo, "ia");
+    if (fila.length >= INSIGHT_ESTOQUE_MINIMO) return; // estoque ainda tá bom
+
+    // Estoque baixo: reabastece em segundo plano, sem mexer no que já apareceu
+    pedirLoteDeInsights(pessoaDoPedido)
+      .then((textos) => {
+        if (state.pessoaAtual !== pessoaDoPedido) return;
+        setInsightFila(pessoaDoPedido, getInsightFila(pessoaDoPedido).concat(textos));
+      })
+      .catch(() => {}); // falhou o reabastecimento silencioso — tenta de novo na próxima sincronização
+    return;
   }
 
-  const resumo = montarResumoParaInsight();
-
+  // Sem nada no estoque: mostra "carregando" e espera a resposta pra exibir
+  mostrarInsightTexto("Analisando os números…", "carregando");
   try {
-    const res = await fetch(API_URL, {
-      method: "POST",
-      body: JSON.stringify({ action: "gerarInsightIA", pessoa: pessoaDoPedido, periodo: "mes-vs-anterior", resumo }),
-    });
-    const data = await res.json().catch(() => null);
-    if (state.pessoaAtual !== pessoaDoPedido) return; // trocou de pessoa enquanto esperava a resposta
-    if (!data || data.ok === false) throw new Error((data && data.error) || "Erro desconhecido");
-
-    setInsightCache(pessoaDoPedido, data.texto);
-    mostrarInsightTexto(data.texto, "ia");
+    const textos = await pedirLoteDeInsights(pessoaDoPedido);
+    const primeiro = textos.shift();
+    setInsightCache(pessoaDoPedido, primeiro);
+    setInsightFila(pessoaDoPedido, textos);
+    mostrarInsightTexto(primeiro, "ia");
   } catch (err) {
-    if (state.pessoaAtual !== pessoaDoPedido) return;
+    if (err && err.message === "__pessoa_trocou__") return;
     const detalhe = err && err.message ? `: ${err.message}` : ".";
     mostrarInsightTexto(`Não consegui gerar o insight agora${detalhe} Toque aqui pra tentar de novo.`, "erro");
   }
