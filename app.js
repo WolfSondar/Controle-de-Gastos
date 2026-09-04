@@ -2124,7 +2124,12 @@ function montarResumoParaInsight() {
       ganhosRecebidos,
       gastosFixosPagos,
       gastosVariaveisPagos,
-      saldoDisponivelAgora: ganhosRecebidos - gastosFixosPagos - gastosVariaveisPagos - guardadoNoMes,
+      // Mesma fórmula do saldo mostrado na tela (renderTotais/#saldoValor):
+      // ganhos recebidos menos fixos e variáveis pagos, SEM subtrair o
+      // guardado nas caixinhas — guardar não é um gasto, o dinheiro ainda é
+      // seu. Antes subtraía guardadoNoMes aqui, o que fazia a IA falar um
+      // saldo diferente do que aparece na tela.
+      saldoDisponivelAgora: ganhosRecebidos - gastosFixosPagos - gastosVariaveisPagos,
       guardadoNoMes,
       categorias: categoriasMesAtual(),
       // "Ainda falta entrar/sair" — não é gasto/ganho perdido, é só o que já
@@ -2206,11 +2211,24 @@ function renderizarTextoInsight(texto) {
     .replace(/\{\{([^{}]+)\}\}/g, "$1");
 }
 
+// Guarda o texto de IA atualmente exibido, pra não refazer o fade quando o
+// texto novo é idêntico ao que já está na tela (ver mostrarInsightTexto).
+let insightTextoAtualExibido = null;
+
 // Troca o texto/estado visual do card (carregando / ia / erro). No estado
 // "carregando" mostra 3 pontinhos animados no lugar do texto, centralizados.
 function mostrarInsightTexto(texto, modo) {
   const el = document.getElementById("insightTexto");
   if (!el) return;
+
+  // Fade "fantasma": acontece quando o placeholder inicial (ao abrir a
+  // página) já mostra um item da fila só espiando, sem consumir — e
+  // segundos depois a sincronização consome esse mesmo item da fila e manda
+  // mostrar de novo: mesmo texto, fade à toa. Se já é exatamente o que está
+  // na tela, não refaz a troca.
+  if (modo === "ia" && texto === insightTextoAtualExibido && el.classList.contains("is-ia")) {
+    return;
+  }
 
   const aplicarConteudo = () => {
     el.classList.remove("is-ia", "is-erro", "is-carregando", "is-trocando");
@@ -2218,6 +2236,7 @@ function mostrarInsightTexto(texto, modo) {
     el.innerHTML = modo === "carregando"
       ? '<span class="insight-loading" role="status" aria-label="Carregando insight"><span></span><span></span><span></span></span>'
       : renderizarTextoInsight(texto);
+    if (modo === "ia") insightTextoAtualExibido = texto;
   };
 
   // Se já tem algo visível no card, dá um fade (opacity some, troca o
@@ -2990,16 +3009,27 @@ on("formFixos", "submit", (e) => {
   if (isAmbos()) return;
   const f = e.target;
   const nome = f.nome.value.trim();
-  const valor = parseValor(f.valor.value);
-  if (!nome || !(valor > 0)) return;
+  const valorTotal = parseValor(f.valor.value);
+  if (!nome || !(valorTotal > 0)) return;
   const pago = f.pago ? f.pago.checked : false;
   const tipo = f.tipo ? f.tipo.value : "";
   const data = f.data ? f.data.value : "";
-  const parcela = f.parcela ? f.parcela.value.trim() : "";
-  if (!parcelaValida(parcela)) {
-    showToast('Parcela inválida — use o formato "atual/total", ex: 2/48.');
-    return;
+
+  // "valor" no formulário agora é o valor INTEGRAL da compra — o select de
+  // parcelas decide como ele é dividido antes de salvar (cada linha guarda
+  // o valor de UMA parcela, igual sempre foi; ver proximoFixo no Code.gs
+  // pra como isso avança de mês em mês).
+  const numParcelas = f.parcelas ? Number(f.parcelas.value) : 0;
+  let valor = valorTotal;
+  let parcela = "";
+  if (numParcelas > 0) {
+    valor = Math.round((valorTotal / numParcelas) * 100) / 100;
+    // "1/1" (não vazio) pra 1x à vista: assim ela some depois de paga em vez
+    // de virar uma cobrança recorrente todo mês (que é o que "parcela
+    // vazia" significa pro fechamento de mês).
+    parcela = `1/${numParcelas}`;
   }
+
   opFixos.add(nome, valor, { pago, tipo, data, parcela });
   f.reset();
   preencherDatasComHoje();
