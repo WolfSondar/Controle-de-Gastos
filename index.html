@@ -507,13 +507,37 @@
 
     <form id="formDividir" class="is-hidden">
       <h3>Dividir uma compra</h3>
-      <p class="section-hint">O valor total é dividido ao meio — metade entra no Davi, metade no Gabriel.</p>
-      <input type="text" id="dividirNome" placeholder="Descrição (ex: Mercado)" required maxlength="60" />
-      <input type="text" id="dividirValor" placeholder="Valor total, R$" inputmode="decimal" autocomplete="off" required />
+      <p class="section-hint" id="dividirHint">O valor total é dividido ao meio — metade entra no Davi, metade no Gabriel.</p>
+
+      <div class="form-row">
+        <input type="text" id="dividirNome" placeholder="Descrição (ex: Mercado)" required maxlength="60" />
+        <input type="text" id="dividirValor" placeholder="Valor total, R$" inputmode="decimal" autocomplete="off" required />
+      </div>
+
+      <div class="form-row">
+        <select id="dividirTipo" class="input-categoria" aria-label="Categoria">
+          <option value="">Categoria (opcional)</option>
+        </select>
+        <input type="date" id="dividirData" aria-label="Data da compra" />
+      </div>
+
       <div class="segmented" id="dividirCategoria">
         <button type="button" class="segmented-btn is-active" data-categoria="variaveis">Variável</button>
         <button type="button" class="segmented-btn" data-categoria="fixos">Fixo</button>
       </div>
+
+      <label class="section-hint" for="dividirQuemPagou" style="display:block; margin-bottom:6px;">Quem pagou a conta na hora?</label>
+      <select id="dividirQuemPagou" aria-label="Quem pagou a conta na hora">
+        <option value="metade" selected>Cada um paga a sua parte</option>
+        <option value="davi">Davi pagou tudo (Gabriel fica devendo a metade)</option>
+        <option value="gabriel">Gabriel pagou tudo (Davi fica devendo a metade)</option>
+      </select>
+
+      <label class="checkbox-inline">
+        <input type="checkbox" id="dividirPago" checked />
+        <span id="dividirPagoTexto">Já está pago (as duas partes)</span>
+      </label>
+
       <div class="modal-actions">
         <button type="button" class="btn btn-ghost" id="dividirVoltar">Voltar</button>
         <button type="submit" class="btn btn-gold" id="dividirSubmit">Dividir</button>
