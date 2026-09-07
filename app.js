@@ -2207,9 +2207,20 @@ function montarResumoParaInsight() {
 
   // Pendências do mês em andamento — quanto ainda falta receber/pagar, pra
   // IA poder comentar sobre isso (ex: "ainda tem R$X a receber esse mês").
-  const ganhosAReceber = soma(state.ganhos) - ganhosRecebidos;
-  const gastosFixosAPagar = soma(state.gastosFixos) - gastosFixosPagos;
-  const gastosVariaveisAPagar = soma(state.gastosVariaveis) - gastosVariaveisPagos;
+  // Importante: um lançamento pendente com data do MÊS QUE VEM (ver
+  // ehDoProximoMes — ex: uma parcela de fixo que só vence no próximo mês,
+  // mas já foi cadastrada agora) ainda não é uma pendência DESTE mês, então
+  // fica de fora dessa soma — senão a IA falava "ainda falta pagar" um valor
+  // que só vence mês que vem.
+  function somaPendenteDoMesAtual(lista) {
+    return (lista || []).reduce((acc, item) => {
+      if (estaPendente(item) && !ehDoProximoMes(item)) return acc + (Number(item.valor) || 0);
+      return acc;
+    }, 0);
+  }
+  const ganhosAReceber = somaPendenteDoMesAtual(state.ganhos);
+  const gastosFixosAPagar = somaPendenteDoMesAtual(state.gastosFixos);
+  const gastosVariaveisAPagar = somaPendenteDoMesAtual(state.gastosVariaveis);
 
   // Totais do ano corrente "até agora" = todo mês já fechado nesse ano
   // (histórico) + o mês em andamento. E o ano anterior completo, pra dar
