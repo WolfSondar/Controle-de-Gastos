@@ -796,14 +796,62 @@ async function obterListaLocal(pessoa, chave) {
   return (data && data[chave]) || [];
 }
 
-async function dividirCompra(nome, valorTotal, categoria) {
+// Marcador guardado dentro do PRÓPRIO nome do lançamento (não tem coluna
+// extra sobrando na planilha pra isso) pra lembrar que aquela "metade" é uma
+// dívida de uma compra dividida, e de quem é o dinheiro quando for paga.
+// Ex: "Mercado (deve pra Davi)" — assim que a pessoa marca como paga (ver
+// togglePagoVariavel/togglePagoFixo), a gente credita o Davi sozinho e tira
+// esse pedacinho do nome, que volta a ficar limpo ("Mercado").
+function sufixoDivisao(pessoaCredora) {
+  return ` (deve pra ${PESSOA_LABEL[pessoaCredora]})`;
+}
+const REGEX_SUFIXO_DIVISAO = / \(deve pra (Davi|Gabriel)\)$/;
+function extrairCredorDivisao(nome) {
+  const m = REGEX_SUFIXO_DIVISAO.exec(String(nome || ""));
+  if (!m) return null;
+  return Object.keys(PESSOA_LABEL).find((p) => PESSOA_LABEL[p] === m[1]) || null;
+}
+function removerSufixoDivisao(nome) {
+  return String(nome || "").replace(REGEX_SUFIXO_DIVISAO, "");
+}
+
+// opts: { tipo, data, pago, quemPagouTudo }
+//   - quemPagouTudo ausente/null: modo padrão, metade pro Davi e metade pro
+//     Gabriel, cada entrada com o status de "pago" escolhido no checkbox.
+//   - quemPagouTudo = "davi" | "gabriel": essa pessoa pagou o valor CHEIO na
+//     hora (entra como gasto integral e já pago pra ela); a outra entra só
+//     com a metade, que é uma dívida com ela — se "pago" já vier marcado, a
+//     metade já é creditada de cara; se não, fica pendente e só é creditada
+//     quando a pessoa marcar essa metade como paga depois (ver os toggles).
+async function dividirCompra(nome, valorTotal, categoria, opts) {
   if (!API_URL || API_URL.includes("COLE_AQUI")) {
     showToast("Configure a URL do Apps Script em config.js");
     return false;
   }
+  opts = opts || {};
+  const tipo = opts.tipo || "";
+  const data = opts.data || "";
+  const pago = opts.pago !== false;
+  const quemPagouTudo = opts.quemPagouTudo || null;
+
   const metade = Math.round((valorTotal / 2) * 100) / 100;
   const action = categoria === "fixos" ? "saveGastosFixos" : "saveGastosVariaveis";
   const chave = categoria === "fixos" ? "gastosFixos" : "gastosVariaveis";
+  const base = { tipo, data };
+
+  let itemDavi, itemGabriel;
+  if (quemPagouTudo) {
+    const devedor = quemPagouTudo === "davi" ? "gabriel" : "davi";
+    const itemPagador = { ...base, nome, valor: valorTotal, pago: true };
+    const itemDevedor = pago
+      ? { ...base, nome, valor: metade, pago: true }
+      : { ...base, nome: nome + sufixoDivisao(quemPagouTudo), valor: metade, pago: false };
+    if (quemPagouTudo === "davi") { itemDavi = itemPagador; itemGabriel = itemDevedor; }
+    else { itemGabriel = itemPagador; itemDavi = itemDevedor; }
+  } else {
+    itemDavi = { ...base, nome, valor: metade, pago };
+    itemGabriel = { ...base, nome, valor: metade, pago };
+  }
 
   try {
     const [listaDavi, listaGabriel] = await Promise.all([
@@ -811,10 +859,8 @@ async function dividirCompra(nome, valorTotal, categoria) {
       obterListaLocal("gabriel", chave),
     ]);
 
-    const item = { nome, valor: metade, pago: categoria !== "fixos" };
-
-    listaDavi.push({ ...item });
-    listaGabriel.push({ ...item });
+    listaDavi.push(itemDavi);
+    listaGabriel.push(itemGabriel);
 
     const [resDavi, resGabriel] = await Promise.all([
       fetch(API_URL, { method: "POST", body: JSON.stringify({ action, payload: listaDavi, pessoa: "davi" }) }),
@@ -835,8 +881,47 @@ async function dividirCompra(nome, valorTotal, categoria) {
     if (state.pessoaAtual === "gabriel") state[chave] = listaGabriel;
     removerCache("ambos"); // visão "Juntos" combina os dois — só invalida, recalcula quando for aberta
 
+    // Alguém pagou tudo e a metade da outra pessoa já nasceu paga: credita
+    // na hora, sem esperar ela marcar nada depois.
+    if (quemPagouTudo && pago) {
+      const devedor = quemPagouTudo === "davi" ? "gabriel" : "davi";
+      await creditarPagamentoDeDivisao(quemPagouTudo, devedor, nome, metade);
+    }
+
     return true;
   } catch (err) {
+    return false;
+  }
+}
+
+// Credita quem pagou a conta na hora quando a metade da outra pessoa é
+// finalmente paga — só o ganho do pagador é criado aqui, porque o gasto de
+// quem devia já é o próprio lançamento que acabou de ser marcado como pago
+// (não duplica como uma transferência à parte).
+async function creditarPagamentoDeDivisao(pagador, devedor, nomeOriginal, valor) {
+  if (!API_URL || API_URL.includes("COLE_AQUI")) return false;
+  const hoje = dataHojeISO();
+  try {
+    const listaGanhosPagador = await obterListaLocal(pagador, "ganhos");
+    listaGanhosPagador.push({
+      nome: `Transferência de ${PESSOA_LABEL[devedor]}: ${nomeOriginal}`,
+      valor, data: hoje, recebido: true,
+    });
+
+    const res = await fetch(API_URL, {
+      method: "POST",
+      body: JSON.stringify({ action: "saveGanhos", payload: listaGanhosPagador, pessoa: pagador }),
+    });
+    const data = await res.json().catch(() => null);
+    if (!data || data.ok === false) throw new Error((data && data.error) || "Erro ao creditar transferência");
+
+    const cachePagador = await getCache(pagador);
+    setCache(pagador, { ...(cachePagador || {}), ganhos: listaGanhosPagador });
+    if (state.pessoaAtual === pagador) state.ganhos = listaGanhosPagador;
+    removerCache("ambos");
+    return true;
+  } catch (err) {
+    showToast(`Não consegui creditar a metade pra ${PESSOA_LABEL[pagador]} automaticamente. Lança uma transferência manual pra acertar.`);
     return false;
   }
 }
@@ -942,33 +1027,54 @@ function togglePagoFixo(index) {
   if (isAmbos()) return;
   const item = state.gastosFixos[index];
   if (!item) return;
-  item.pago = !fixoEhPago(item);
+  const vaiFicarPago = !fixoEhPago(item);
+  item.pago = vaiFicarPago;
+
+  // Essa parcela é a "metade" de uma compra dividida (ver dividirCompra) e
+  // acabou de ser marcada como paga: credita quem pagou a conta na hora e
+  // tira a marcação do nome, que volta a ficar limpo.
+  const credor = vaiFicarPago ? extrairCredorDivisao(item.nome) : null;
+  if (credor) {
+    item.nome = removerSufixoDivisao(item.nome);
+    creditarPagamentoDeDivisao(credor, state.pessoaAtual, item.nome, item.valor);
+  }
+
   vibrar();
   sincronizarCacheAtual();
   salvarBloco("saveGastosFixos", state.gastosFixos);
-  if (!atualizarLinhaStatus("listaFixos", index, item.pago, "Pago", "Pendente")) {
-    renderAll();
+  if (!credor && atualizarLinhaStatus("listaFixos", index, item.pago, "Pago", "Pendente")) {
+    renderDerivadosDeStatus();
     return;
   }
-  renderDerivadosDeStatus();
+  renderAll();
 }
 function togglePagoVariavel(index) {
   if (isAmbos()) return;
   const item = state.gastosVariaveis[index];
   if (!item) return;
-  item.pago = !variavelEhPago(item);
+  const vaiFicarPago = !variavelEhPago(item);
+  item.pago = vaiFicarPago;
   // Mexer manualmente no status tira o item do modo "lembrete" (compra
   // adiantada) — a partir daqui ele volta a ser um lançamento comum, que
   // entra ou sai do saldo normalmente conforme o novo status.
   if (item.lembrete) item.lembrete = false;
+
+  // Mesma lógica do togglePagoFixo acima: se essa metade era uma dívida de
+  // compra dividida, credita quem pagou a conta na hora.
+  const credor = vaiFicarPago ? extrairCredorDivisao(item.nome) : null;
+  if (credor) {
+    item.nome = removerSufixoDivisao(item.nome);
+    creditarPagamentoDeDivisao(credor, state.pessoaAtual, item.nome, item.valor);
+  }
+
   vibrar();
   sincronizarCacheAtual();
   salvarBloco("saveGastosVariaveis", state.gastosVariaveis);
-  if (!atualizarLinhaStatus("listaVariaveis", index, item.pago, "Pago", "Pendente")) {
-    renderAll();
+  if (!credor && atualizarLinhaStatus("listaVariaveis", index, item.pago, "Pago", "Pendente")) {
+    renderDerivadosDeStatus();
     return;
   }
-  renderDerivadosDeStatus();
+  renderAll();
 }
 function toggleRecebidoGanho(index) {
   if (isAmbos()) return;
@@ -3320,11 +3426,37 @@ if (acoesBackdrop) {
   });
 }
 
+const dividirQuemPagouEl = document.getElementById("dividirQuemPagou");
+const dividirPagoCheckbox = document.getElementById("dividirPago");
+const dividirPagoTexto = document.getElementById("dividirPagoTexto");
+const dividirHintEl = document.getElementById("dividirHint");
+
+function atualizarTextoDividir() {
+  const valor = dividirQuemPagouEl ? dividirQuemPagouEl.value : "metade";
+  if (valor === "metade") {
+    if (dividirHintEl) dividirHintEl.textContent = "O valor total é dividido ao meio — metade entra no Davi, metade no Gabriel.";
+    if (dividirPagoTexto) dividirPagoTexto.textContent = "Já está pago (as duas partes)";
+  } else {
+    const pagador = PESSOA_LABEL[valor];
+    const devedor = PESSOA_LABEL[valor === "davi" ? "gabriel" : "davi"];
+    if (dividirHintEl) dividirHintEl.textContent = `${pagador} paga o valor cheio agora; ${devedor} fica devendo a metade.`;
+    if (dividirPagoTexto) dividirPagoTexto.textContent = `${devedor} já pagou a parte dele`;
+  }
+}
+if (dividirQuemPagouEl) dividirQuemPagouEl.addEventListener("change", atualizarTextoDividir);
+
 on("btnAbrirDividir", "click", () => {
   if (acoesMenuView) acoesMenuView.classList.add("is-hidden");
   if (formDividir) formDividir.classList.remove("is-hidden");
   document.getElementById("dividirNome").value = "";
   document.getElementById("dividirValor").value = "";
+  const dividirTipoEl = document.getElementById("dividirTipo");
+  if (dividirTipoEl) dividirTipoEl.value = "";
+  const dividirDataEl = document.getElementById("dividirData");
+  if (dividirDataEl) dividirDataEl.value = dataHojeISO();
+  if (dividirQuemPagouEl) dividirQuemPagouEl.value = "metade";
+  if (dividirPagoCheckbox) dividirPagoCheckbox.checked = true;
+  atualizarTextoDividir();
   setTimeout(() => document.getElementById("dividirNome").focus(), 50);
 });
 on("dividirVoltar", "click", () => {
@@ -3348,13 +3480,20 @@ on("formDividir", "submit", async (e) => {
   const valor = parseValor(document.getElementById("dividirValor").value);
   if (!nome || !(valor > 0)) return;
 
+  const dividirTipoEl = document.getElementById("dividirTipo");
+  const dividirDataEl = document.getElementById("dividirData");
+  const tipo = dividirTipoEl ? dividirTipoEl.value : "";
+  const data = dividirDataEl ? dividirDataEl.value : "";
+  const pago = dividirPagoCheckbox ? dividirPagoCheckbox.checked : true;
+  const quemPagouTudo = dividirQuemPagouEl && dividirQuemPagouEl.value !== "metade" ? dividirQuemPagouEl.value : null;
+
   const btnSubmit = document.getElementById("dividirSubmit");
   if (btnSubmit) {
     btnSubmit.disabled = true;
     btnSubmit.textContent = "Dividindo…";
   }
 
-  const ok = await dividirCompra(nome, valor, categoriaDividir);
+  const ok = await dividirCompra(nome, valor, categoriaDividir, { tipo, data, pago, quemPagouTudo });
 
   if (btnSubmit) {
     btnSubmit.disabled = false;
@@ -3362,7 +3501,11 @@ on("formDividir", "submit", async (e) => {
   }
 
   if (ok) {
-    showToast(`"${nome}" dividido — metade pra cada um`);
+    showToast(
+      quemPagouTudo && !pago
+        ? `"${nome}" lançado — ${PESSOA_LABEL[quemPagouTudo === "davi" ? "gabriel" : "davi"]} fica devendo a metade`
+        : `"${nome}" dividido — metade pra cada um`
+    );
     fecharAcoesConjunto();
     renderAll();
   } else {
