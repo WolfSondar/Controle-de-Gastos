@@ -2202,23 +2202,97 @@ function caixinhasDetalhadasParaInsight() {
   });
 }
 
-// Nome de verdade (não só categoria/total) de cada ganho recebido e gasto
-// variável pago do mês em andamento — pra IA poder citar um lançamento
-// específico (ex: "Almoço - Tia Marina") em vez de só falar em totais e
-// categorias agregadas, que é tudo que ela recebia até agora. Fica de fora
-// o que já é lançamento automático de caixinha (guardar/retirar), porque
-// isso já aparece detalhado em caixinhasDetalhadasParaInsight.
+// Em que situação está um lançamento agora, pro mês em andamento — usado
+// pra IA distinguir "já pago", "ainda vai vencer esse mês", "atrasado desde
+// o mês passado" e "lançado adiantado pro mês que vem", em vez de só ver um
+// total agregado sem saber qual pedaço é o quê.
+function statusDoLancamento(item) {
+  if (item.lembrete) return "pago_adiantado";
+  if (ehDoProximoMes(item)) return "mes_que_vem";
+  if (estaPendente(item)) return ehDoMesAnterior(item) ? "atrasado" : "pendente";
+  return "pago";
+}
+function detalheItemParaInsight(item, tipoLancamento) {
+  const det = {
+    nome: item.nome,
+    valor: Number(item.valor) || 0,
+    categoria: (item.tipo && String(item.tipo).trim()) || "Outros",
+    tipoLancamento, // "fixo" (mensalidade/parcela) ou "variavel" (avulso)
+    status: statusDoLancamento(item), // pago | pendente | atrasado | mes_que_vem | pago_adiantado
+  };
+  // Só existe no modo "Juntos" (ver isAmbos()) — de qual das duas pessoas é
+  // esse lançamento. ESSENCIAL: sem isso a IA não tem como saber de quem é
+  // cada coisa e acaba chutando/misturando (foi assim que ela atribuiu um
+  // gasto que era só do Davi como se fosse do casal genericamente).
+  if (item.pessoa) det.pessoa = PESSOA_LABEL[item.pessoa] || item.pessoa;
+  // Só fixos têm parcela nessa planilha. Ex: "1/5" = essa é a 1ª de 5 parcelas.
+  if (item.parcela && /^\d+\s*\/\s*\d+$/.test(String(item.parcela).trim())) {
+    det.parcela = String(item.parcela).trim();
+  }
+  return det;
+}
+
+// Nome de verdade (não só categoria/total) de cada ganho recebido e de TODO
+// gasto do mês em andamento — fixo ou variável, pago ou pendente — pra IA
+// poder citar um lançamento específico (ex: "Almoço - Tia Marina"), cruzar
+// categoria entre um gasto fixo parcelado e um variável à vista da mesma
+// categoria, saber quando algo é parcelado, apontar uma conta atrasada pelo
+// nome, e (no modo Juntos) saber de qual das duas pessoas é cada lançamento
+// — em vez de só falar em totais e categorias agregadas (que é tudo que ela
+// recebia até agora). Fica de fora o que já é lançamento automático de
+// caixinha (guardar/retirar), porque isso já aparece detalhado em
+// caixinhasDetalhadasParaInsight.
 function lancamentosComNomeDoMes() {
   const ganhos = (state.ganhos || [])
     .filter((g) => g.recebido === true)
-    .map((g) => ({ nome: g.nome, valor: Number(g.valor) || 0 }));
-  const gastos = (state.gastosVariaveis || [])
-    .filter(variavelContaNoSaldo)
+    .map((g) => {
+      const det = { nome: g.nome, valor: Number(g.valor) || 0 };
+      if (g.pessoa) det.pessoa = PESSOA_LABEL[g.pessoa] || g.pessoa;
+      return det;
+    });
+  const gastosFixos = (state.gastosFixos || []).map((g) => detalheItemParaInsight(g, "fixo"));
+  const gastosVariaveis = (state.gastosVariaveis || [])
     .filter((g) => !ehLancamentoDeCaixinha(g.nome))
-    .map((g) => ({ nome: g.nome, valor: Number(g.valor) || 0, categoria: (g.tipo && String(g.tipo).trim()) || "Outros" }));
+    .map((g) => detalheItemParaInsight(g, "variavel"));
+  const gastos = gastosFixos.concat(gastosVariaveis);
   return {
     ganhosDoMes: ganhos.length ? ganhos : "Nenhum ganho recebido ainda esse mês",
-    gastosVariaveisDoMes: gastos.length ? gastos : "Nenhum gasto variável pago ainda esse mês",
+    gastosDoMes: gastos.length ? gastos : "Nenhum gasto lançado ainda esse mês",
+  };
+}
+
+// Só faz sentido no modo "Juntos" (ver isAmbos()): o mesmo recorte do mês
+// atual, mas separado por pessoa — pra IA poder comparar quem gastou mais
+// em quê, calcular o % da renda combinada que foi pra uma categoria, etc,
+// em vez de só ver um número combinado dos dois sem saber a fatia de cada um.
+function resumoPorPessoaMesAtual() {
+  const porPessoa = {};
+  ["davi", "gabriel"].forEach((p) => {
+    const ganhosP = (state.ganhos || []).filter((g) => g.pessoa === p);
+    const fixosPagosP = (state.gastosFixos || []).filter((g) => g.pessoa === p && fixoEhPago(g));
+    const variaveisPagosP = (state.gastosVariaveis || []).filter((g) => g.pessoa === p && variavelContaNoSaldo(g));
+    const categorias = {};
+    fixosPagosP.concat(variaveisPagosP).forEach((g) => {
+      const cat = (g.tipo && String(g.tipo).trim()) || "Outros";
+      categorias[cat] = (categorias[cat] || 0) + (Number(g.valor) || 0);
+    });
+    porPessoa[p] = {
+      nome: PESSOA_LABEL[p],
+      ganhosRecebidos: somaComStatus(ganhosP, "recebido"),
+      gastoFixoPago: soma(fixosPagosP),
+      gastoVariavelPago: soma(variaveisPagosP),
+      categorias,
+    };
+  });
+  return porPessoa;
+}
+// Mesma ideia acima, mas pra um mês já fechado do HISTORICO (que já guarda
+// ganhos/débitos/categorias separados por Davi e por Gabriel).
+function porPessoaDeUmMesHistorico(mesObj) {
+  if (!mesObj) return null;
+  return {
+    davi: { nome: PESSOA_LABEL.davi, ganhos: mesObj.ganhosDavi || 0, gastos: mesObj.debitosDavi || 0, categorias: mesObj.categoriasDavi || {} },
+    gabriel: { nome: PESSOA_LABEL.gabriel, ganhos: mesObj.ganhosGabriel || 0, gastos: mesObj.debitosGabriel || 0, categorias: mesObj.categoriasGabriel || {} },
   };
 }
 
@@ -2353,6 +2427,11 @@ function montarResumoParaInsight() {
   if (state.pessoaAtual === "ambos") {
     const transferencias = transferenciasDoMes();
     resumo.transferenciasEntreOsDoisEsseMes = transferencias.length ? transferencias : "Nenhuma transferência entre os dois esse mês";
+    // Recorte por pessoa — só existe no modo Juntos. Sem isso a IA só via
+    // números combinados dos dois e não conseguia comparar quem gastou mais
+    // em quê, nem calcular a fatia de cada um.
+    resumo.mesAtual.porPessoa = resumoPorPessoaMesAtual();
+    if (mesPassadoObj) resumo.mesPassado.porPessoa = porPessoaDeUmMesHistorico(mesPassadoObj);
   }
 
   return resumo;
