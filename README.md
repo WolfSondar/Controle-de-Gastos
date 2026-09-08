@@ -144,3 +144,24 @@ na pasta do site e acesse `http://localhost:8000`.
   contiver qualquer um desses termos (sem diferenciar acento/maiúscula —
   "Salário" bate com o termo `salario`). Se a coluna C estiver vazia, usa
   o fallback fixo (`salario`, `refeicao`, `beneficio`) do `Code.gs`.
+- **Insights de IA personalizados:** também na aba `CONFIGS`, colunas D a H
+  (opcionais — se ficarem vazias, os insights saem no tom padrão de
+  sempre, sem contexto pessoal):
+  - `IMERSÃO IA DAVI` (D) e `IMERSÃO IA GABRIEL` (E): um traço pessoal por
+    linha (gostos, hobbies, pets, temas etc.), ex: `[COMIDA] Sou
+    vegetariano`. A tag entre colchetes é só uma dica de assunto pra você
+    organizar a planilha — não precisa bater com o nome de uma categoria
+    de gasto, e é opcional.
+  - `IMERSÃO IA AMBOS` (F): traços que valem pros dois, usados também no
+    modo Juntos.
+  - A IA usa esses traços com moderação: só entra no insight quando faz
+    sentido específico pra aquele gasto (ex: um lançamento no pet shop
+    pode puxar o nome do bichinho), nunca forçado.
+  - `TOM IA DAVI` (G) e `TOM IA GABRIEL` (H): descrição livre de
+    persona/estilo de escrita (ex: "fale como o Tom Nook de Animal
+    Crossing"). Ao contrário da imersão, o tom se aplica a **todos** os
+    insights daquela pessoa, sempre. No modo Juntos o tom fica sempre
+    neutro/padrão, mesmo que Davi e Gabriel tenham tons diferentes
+    configurados — não dá pra misturar duas personas na mesma frase.
+  - Editar essas colunas não precisa reimplantar o Apps Script — só editar
+    o `Code.gs` em si (a lógica de leitura) exige nova implantação.
