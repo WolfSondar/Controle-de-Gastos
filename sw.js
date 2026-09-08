@@ -12,7 +12,7 @@
 // perceber que precisa baixar os arquivos novos de novo.
 // =====================================================================
 
-const CACHE_VERSION = "caixa-v32";
+const CACHE_VERSION = "caixa-v33";
 const CACHE_SHELL = `${CACHE_VERSION}-shell`;
 const CACHE_RUNTIME = `${CACHE_VERSION}-runtime`;
 
@@ -97,7 +97,13 @@ self.addEventListener("fetch", (event) => {
     event.respondWith(
       fetch(req)
         .then((res) => {
-          caches.open(CACHE_SHELL).then((cache) => cache.put("./index.html", res.clone()));
+          // Clona IMEDIATAMENTE, antes de qualquer coisa assíncrona (como o
+          // caches.open abaixo). Se o clone() só acontecer dentro do .then()
+          // do caches.open, o navegador já pode ter começado a consumir o
+          // corpo de "res" (via respondWith) nesse meio-tempo, e o clone()
+          // falha com "Response body is already used".
+          const resParaCache = res.clone();
+          caches.open(CACHE_SHELL).then((cache) => cache.put("./index.html", resParaCache));
           return res;
         })
         .catch(() => caches.match("./index.html"))
