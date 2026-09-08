@@ -50,6 +50,20 @@ const PESSOA_NOME = {
   ambos: "o casal (Davi e Gabriel)",
 };
 
+// Aba com as configurações gerais do app, incluindo a "imersão" de contexto
+// pessoal e o "tom" usados pra deixar os insights de IA mais personalizados.
+//   Coluna D = IMERSÃO IA DAVI     (uma frase/traço por linha, com tag opcional tipo "[COMIDA] ...")
+//   Coluna E = IMERSÃO IA GABRIEL
+//   Coluna F = IMERSÃO IA AMBOS    (traços que valem pros dois, usados também no modo Juntos)
+//   Coluna G = TOM IA DAVI         (descrição de como a IA deve "falar" com o Davi — persona/estilo)
+//   Coluna H = TOM IA GABRIEL      (idem, pro Gabriel — no modo Juntos o tom fica sempre neutro/padrão)
+const CONFIGS_SHEET_NAME = "CONFIGS";
+const COL_IMERSAO_DAVI = 4;
+const COL_IMERSAO_GABRIEL = 5;
+const COL_IMERSAO_AMBOS = 6;
+const COL_TOM_DAVI = 7;
+const COL_TOM_GABRIEL = 8;
+
 // Margem extra de linhas ao limpar um bloco, pra garantir que nenhum resto de
 // dado antigo fique pra trás mesmo se a lista encolher bastante.
 const MARGEM_LIMPEZA = 15;
@@ -353,6 +367,74 @@ function textoGlossarioCategorias() {
     .join("\n");
 }
 
+// Lê a "imersão" de contexto pessoal e o "tom" na aba CONFIGS (colunas
+// D:H — ver comentário de CONFIGS_SHEET_NAME acima). Cada célula não-vazia
+// de uma coluna vira uma linha na lista (tom.davi/tom.gabriel viram texto
+// único, juntando as linhas). Se a aba ou as colunas não existirem (ou
+// estiverem vazias), devolve tudo vazio — é opcional, nunca deve quebrar
+// o insight.
+function lerImersaoIA() {
+  const vazio = { davi: [], gabriel: [], ambos: [], tomDavi: "", tomGabriel: "" };
+  try {
+    const ss = SpreadsheetApp.getActiveSpreadsheet();
+    const sheet = ss.getSheetByName(CONFIGS_SHEET_NAME);
+    if (!sheet) return vazio;
+
+    const ultimaLinha = sheet.getLastRow();
+    if (ultimaLinha < 2) return vazio;
+
+    // Linha 1 = cabeçalho, dados a partir da linha 2. Pega D:H de uma vez.
+    const valores = sheet.getRange(2, COL_IMERSAO_DAVI, ultimaLinha - 1, 5).getValues();
+
+    const coluna = function (idx) {
+      return valores
+        .map(function (linha) { return String(linha[idx] || "").trim(); })
+        .filter(Boolean);
+    };
+
+    return {
+      davi: coluna(0),
+      gabriel: coluna(1),
+      ambos: coluna(2),
+      tomDavi: coluna(3).join(" "),
+      tomGabriel: coluna(4).join(" "),
+    };
+  } catch (err) {
+    return vazio;
+  }
+}
+
+// Monta a instrução de tom/persona pra quem está pedindo o insight. No
+// modo Juntos o tom fica sempre neutro (não dá pra falar como duas
+// personas diferentes ao mesmo tempo), então devolve string vazia.
+function textoTomIA(pessoaCodigo) {
+  if (pessoaCodigo === "ambos") return "";
+  const imersao = lerImersaoIA();
+  const tom = pessoaCodigo === "gabriel" ? imersao.tomGabriel : imersao.tomDavi;
+  return tom || "";
+}
+
+// Monta o bloco de texto de imersão a ser enviado no prompt, já filtrado
+// pra quem está pedindo o insight (davi | gabriel | ambos).
+function textoImersaoIA(pessoaCodigo) {
+  const imersao = lerImersaoIA();
+  let linhas = [];
+
+  if (pessoaCodigo === "ambos") {
+    linhas = imersao.ambos
+      .concat(imersao.davi.map(function (l) { return "(sobre o Davi) " + l; }))
+      .concat(imersao.gabriel.map(function (l) { return "(sobre o Gabriel) " + l; }));
+  } else if (pessoaCodigo === "gabriel") {
+    linhas = imersao.gabriel.concat(imersao.ambos);
+  } else {
+    linhas = imersao.davi.concat(imersao.ambos);
+  }
+
+  if (!linhas.length) return "";
+
+  return linhas.map(function (l) { return "- " + l; }).join("\n");
+}
+
 // Quantos insights pedimos de uma vez pro Gemini. O app guarda esse "estoque"
 // no aparelho e vai consumindo um por sincronização — só pede mais quando
 // o estoque fica baixo, então a tela quase nunca fica esperando rede.
@@ -393,6 +475,23 @@ function gerarInsightComGemini(pessoa, periodo, resumo) {
       "Não use markdown, no máximo 1 emoji por insight, e cada item do array deve ser só o texto puro do insight (sem aspas, sem numeração, sem prefixo tipo 'Insight:').",
     ];
 
+    const blocoImersao = textoImersaoIA(pessoaCodigo);
+    const regrasImersao = blocoImersao
+      ? [
+          "CONTEXTO PESSOAL (imersão) sobre quem está falando com você, organizado em tópicos livres (a tag entre colchetes, quando existir, é só uma dica de assunto, não uma categoria financeira — não tente casar com o nome exato de uma categoria de gasto):\n" + blocoImersao,
+          "Use um traço desse contexto pessoal SOMENTE se ele se encaixar de forma natural e específica no insight que você está gerando naquele momento (ex: um gasto que claramente é sobre aquele assunto, tema, pet, hobby etc). NUNCA force uma menção pessoal só por ter o dado disponível, e NUNCA invente uma ligação que os dados não sustentam claramente. É perfeitamente normal — e esperado — que a maioria dos " + QUANTIDADE_INSIGHTS_POR_PEDIDO + " insights não use nada desse contexto. No máximo 1 ou 2 dos insights devem puxar algum traço pessoal, nunca todos.",
+          "Quando usar, o tom pode ficar mais leve, caloroso e conversado (como um amigo comentando, não um extrato bancário), mas sem exagerar — ainda é sobre o dinheiro. Se estiver no modo Juntos (ambos), um traço marcado '(sobre o Davi)' ou '(sobre o Gabriel)' só pode ser usado junto de um gasto que o campo pessoa do lançamento confirma ser daquela pessoa específica — nunca atribua ao casal um traço que é de só um dos dois.",
+        ]
+      : [];
+
+    const textoTom = textoTomIA(pessoaCodigo);
+    const regrasTom = textoTom
+      ? [
+          "TOM/PERSONA obrigatório pra ESTA pessoa — siga em TODOS os " + QUANTIDADE_INSIGHTS_POR_PEDIDO + " insights, do primeiro ao último, sem exceção: " + textoTom,
+          "Esse tom é sobre o JEITO de escrever (vocabulário, expressões, personalidade) — ele NUNCA muda, ignora ou substitui nenhuma das regras de dados, valores, marcadores {{...}} ou formatação definidas acima. Adapte a persona ao redor dos números certos, nunca o contrário.",
+        ]
+      : [];
+
     const regrasPessoa = ehCasal
       ? [
           "Você está olhando as finanças combinadas de um casal, Davi e Gabriel. O resumo, nesse modo Juntos, traz um recorte por pessoa em mesAtual.porPessoa e (quando existir mês fechado anterior) mesPassado.porPessoa — cada um com ganhosRecebidos/ganhos, gastoFixoPago+gastoVariavelPago/gastos, e categorias SEPARADOS por pessoa. Além disso, cada item de lancamentosComNomeDoMesAtual.ganhosDoMes e .gastosDoMes tem um campo pessoa dizendo de qual dos dois é aquele lançamento específico.",
@@ -406,6 +505,8 @@ function gerarInsightComGemini(pessoa, periodo, resumo) {
 
     const promptSistema = regrasComuns
       .concat(regrasPessoa)
+      .concat(regrasImersao)
+      .concat(regrasTom)
       .concat(["Responda SOMENTE com o array JSON de " + QUANTIDADE_INSIGHTS_POR_PEDIDO + " strings, nada além disso — sem crases, sem a palavra json antes."])
       .join(" ");
 
