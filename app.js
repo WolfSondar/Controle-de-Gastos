@@ -2122,6 +2122,40 @@ function totalGuardadoNoMesDeUmMesHistorico(mesObj) {
   if (state.pessoaAtual === "gabriel") return mesObj.guardadoMesGabriel || 0;
   return (mesObj.guardadoMesDavi || 0) + (mesObj.guardadoMesGabriel || 0);
 }
+// Diferente da função acima (que lê só o DEPÓSITO daquele mês): esta lê o
+// TOTAL acumulado nas caixinhas no momento em que aquele mês foi fechado
+// (guardadoDavi/guardadoGabriel no HISTORICO — o mesmo "saldo real", não um
+// delta). É a partir dessas fotografias que dá pra calcular quanto as
+// caixinhas realmente cresceram num período, descontando qualquer saque no
+// meio do caminho (ver totalGuardadoLiquidoNoPeriodo).
+function totalGuardadoAcumuladoDeUmMesHistorico(mesObj) {
+  if (!mesObj) return 0;
+  if (state.pessoaAtual === "davi") return mesObj.guardadoDavi || 0;
+  if (state.pessoaAtual === "gabriel") return mesObj.guardadoGabriel || 0;
+  return (mesObj.guardadoDavi || 0) + (mesObj.guardadoGabriel || 0);
+}
+// Total acumulado no fechamento do ÚLTIMO mês fechado de um ano — serve de
+// "linha de base" pra saber quanto tinha guardado no fim daquele ano. Null
+// quando não existe nenhum mês fechado daquele ano no histórico (ex: antes
+// do usuário começar a usar o app).
+function totalGuardadoNoFimDoAno(ano) {
+  const meses = mesesDoAnoHistorico(ano);
+  if (!meses.length) return null;
+  return totalGuardadoAcumuladoDeUmMesHistorico(meses[meses.length - 1]);
+}
+// Crescimento LÍQUIDO das caixinhas entre o fim de um ano e um total de
+// referência (o de hoje, ou o fim de outro ano) — total final menos total
+// inicial. Diferente de somar os "guardado no mês" de cada mês do período
+// (o que a gente fazia antes): aquilo soma só os DEPÓSITOS e ignora
+// qualquer saque no meio do caminho, então dava um número maior do que a
+// pessoa realmente tem hoje se ela guardou num mês e tirou no mês seguinte.
+// Se não existir linha de base (nenhum mês fechado ainda naquele ano
+// anterior), assume que começou do zero.
+function totalGuardadoLiquidoNoPeriodo(totalFinal, ano) {
+  const base = totalGuardadoNoFimDoAno(ano);
+  return totalFinal - (base === null ? 0 : base);
+}
+
 
 // ---- Insight com IA (gerado sozinho a cada sincronização) --------------
 
@@ -2204,6 +2238,11 @@ function montarResumoParaInsight() {
   const guardadoNoMes = somaCampo(state.caixinhas, "valorGuardadoMes");
   const caixinhas = caixinhasDetalhadasParaInsight();
   const totalRendimentoAcumulado = somaCampo(state.caixinhas, "rendimentoTotal");
+  // Total de VERDADE guardado agora, hoje — a mesma soma que aparece na aba
+  // Caixinhas. É a partir DELE (e não de nenhuma soma de meses diferentes)
+  // que a IA deve falar "quanto você tem guardado" — ver o campo
+  // totalGuardadoAtualDeVerdade logo abaixo e a explicação no prompt do Gemini.
+  const totalGuardadoAgora = somaTotalCaixinhas(state.caixinhas);
 
   // Pendências do mês em andamento — quanto ainda falta receber/pagar, pra
   // IA poder comentar sobre isso (ex: "ainda tem R$X a receber esse mês").
@@ -2283,7 +2322,11 @@ function montarResumoParaInsight() {
       mesesFechadosNesteAno: totaisAnoAtualFechados.mesesFechados,
       ganhos: totaisAnoAtualFechados.ganhos + ganhosRecebidos,
       gastos: totaisAnoAtualFechados.gastos + gastosFixosPagos + gastosVariaveisPagos,
-      guardado: totaisAnoAtualFechados.guardado + guardadoNoMes,
+      // Crescimento LÍQUIDO das caixinhas neste ano (total de hoje menos o
+      // total que já estava guardado no fim do ano anterior) — não é soma
+      // de depósito mês a mês, então já desconta qualquer saque que tenha
+      // rolado no meio do caminho. Ver totalGuardadoLiquidoNoPeriodo.
+      guardado: totalGuardadoLiquidoNoPeriodo(totalGuardadoAgora, anoAtualNum - 1),
       observacao: `Soma dos ${totaisAnoAtualFechados.mesesFechados} meses já fechados de ${anoAtualNum} mais o mês atual (${nomeMesAtual}), que ainda está em andamento`,
     },
     anoAnteriorCompleto: totaisAnoAnterior.mesesFechados > 0 ? {
@@ -2291,8 +2334,17 @@ function montarResumoParaInsight() {
       mesesFechados: totaisAnoAnterior.mesesFechados,
       ganhos: totaisAnoAnterior.ganhos,
       gastos: totaisAnoAnterior.gastos,
-      guardado: totaisAnoAnterior.guardado,
+      // Mesma lógica líquida acima, mas pro ano anterior inteiro: total
+      // guardado no fim daquele ano menos o total que já tinha no fim do
+      // ano anterior a ele.
+      guardado: totalGuardadoLiquidoNoPeriodo(totalGuardadoNoFimDoAno(anoAtualNum - 1), anoAtualNum - 2),
     } : `Ainda não há nenhum mês fechado de ${anoAtualNum - 1} no histórico`,
+    // O total REAL guardado agora, hoje, em todas as caixinhas somadas —
+    // igual ao que aparece na aba Caixinhas. Use SEMPRE este campo quando
+    // for falar "quanto você tem guardado" ou "total guardado atualmente";
+    // nunca some valores de meses diferentes pra chegar nesse número, já
+    // que pode ter havido saques entre um mês e outro.
+    totalGuardadoAtualDeVerdade: totalGuardadoAgora,
     caixinhas: caixinhas.length ? caixinhas : "Nenhuma caixinha cadastrada ainda",
     rendimentoTotalAcumuladoEmTodasAsCaixinhas: totalRendimentoAcumulado,
     lancamentosComNomeDoMesAtual: lancamentosComNomeDoMes(),
