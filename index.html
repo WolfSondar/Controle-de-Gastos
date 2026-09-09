@@ -362,6 +362,14 @@
             <input type="text" name="nome" placeholder="Nome (ex: Reserva de emergência)" required maxlength="60" />
             <input type="text" name="valorInicial" placeholder="Valor inicial guardado, R$" inputmode="decimal" autocomplete="off" required />
             <input type="text" name="valorObjetivo" placeholder="Objetivo, R$ (opcional)" inputmode="decimal" autocomplete="off" />
+            <div class="caixinha-icon-picker" id="caixinhaIconPickerCriar" data-picker-for="criar">
+              <button type="button" class="caixinha-icon-picker-trigger" aria-label="Selecionar ícone da caixinha" aria-haspopup="listbox" aria-expanded="false">
+                <span class="caixinha-icon-picker-preview is-default">Escolher ícone</span>
+                <span class="caixinha-icon-picker-chevron" aria-hidden="true">⌄</span>
+              </button>
+              <div class="caixinha-icon-picker-menu" role="listbox" aria-label="Ícones disponíveis"></div>
+              <input type="hidden" name="icone" value="" />
+            </div>
             <button type="submit" class="btn btn-gold">Criar caixinha</button>
           </form>
         </div>
@@ -444,6 +452,14 @@
       </select>
       <input type="date" id="editData" class="is-hidden" aria-label="Data" />
       <input type="text" id="editParcela" class="input-parcela is-hidden" placeholder="Parcela (ex: 2/48) — deixe vazio se não tiver prazo pra acabar" maxlength="10" />
+      <div class="caixinha-icon-picker is-hidden" id="caixinhaIconPickerEditar" data-picker-for="editar">
+        <button type="button" class="caixinha-icon-picker-trigger" aria-label="Selecionar ícone da caixinha" aria-haspopup="listbox" aria-expanded="false">
+          <span class="caixinha-icon-picker-preview is-default">Escolher ícone</span>
+          <span class="caixinha-icon-picker-chevron" aria-hidden="true">⌄</span>
+        </button>
+        <div class="caixinha-icon-picker-menu" role="listbox" aria-label="Ícones disponíveis"></div>
+        <input type="hidden" id="editIcone" value="" />
+      </div>
       <div class="modal-actions">
         <button type="button" class="btn btn-ghost" id="editCancelar">Cancelar</button>
         <button type="submit" class="btn btn-gold">Salvar</button>
