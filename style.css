@@ -407,9 +407,7 @@ button, input { font-family: inherit; }
 .goal-group-linha { flex: 1 1 auto; height: 1px; background: var(--line); }
 .goal-group-sub { font-family: var(--font-mono); font-size: 11px; color: var(--muted); white-space: nowrap; }
 
-.goal-card { background: var(--paper-deep); border: 1px solid var(--line); border-radius: var(--radius-l); padding: 18px 18px 16px; position: relative; overflow: hidden; box-shadow: 0 3px 14px rgba(22,51,44,0.07); transition: transform 0.15s ease, box-shadow 0.15s ease; animation: item-entrar 0.32s ease both; }
-.goal-card:active { transform: scale(0.99); }
-.goal-card::before { content: ""; position: absolute; left: -8px; top: 50%; width: 16px; height: 16px; background: var(--paper); border: 1px solid var(--line); border-radius: 50%; transform: translateY(-50%); }
+.goal-card { background: var(--paper-deep); border: 1px solid var(--line); border-radius: var(--radius-l); padding: 18px 18px 16px; position: relative; overflow: hidden; box-shadow: 0 3px 14px rgba(22,51,44,0.07); animation: item-entrar 0.32s ease both; }
 .goal-card.tem-meta::after { content: ""; position: absolute; top: 0; left: 0; width: 4px; height: 100%; background: linear-gradient(180deg, var(--gold), var(--gold-deep)); }
 .goal-card.sem-meta::after { content: ""; position: absolute; top: 0; left: 0; width: 4px; height: 100%; background: var(--income); opacity: 0.55; }
 .goal-head { display: flex; align-items: center; gap: 10px; margin-bottom: 12px; }
@@ -432,19 +430,31 @@ button, input { font-family: inherit; }
 .goal-valores strong { color: var(--ink-text); }
 .goal-actions { display: flex; gap: 8px; align-items: center; }
 
-.caixinha-card { display: flex; flex-direction: column; }
+.caixinha-card { display: flex; flex-direction: column; margin: 0; cursor: pointer; touch-action: pan-y; user-select: none; -webkit-user-select: none; will-change: transform; transition: transform 0.28s cubic-bezier(.2,.8,.2,1); }
+.caixinha-card:active { background: var(--paper-deep); filter: brightness(0.98); }
 .caixinha-card .goal-head { margin-bottom: 10px; }
-.caixinha-valores { display: flex; align-items: baseline; justify-content: space-between; gap: 8px; font-size: 12.5px; margin-bottom: 14px; flex-wrap: wrap; }
+.caixinha-valores { display: flex; align-items: baseline; justify-content: space-between; gap: 8px; font-size: 12.5px; flex-wrap: wrap; }
 .caixinha-guardado { font-family: var(--font-mono); color: var(--muted); }
 .caixinha-guardado strong { color: var(--ink-text); font-size: 18px; font-weight: 700; }
 .caixinha-de { color: var(--muted); }
-.caixinha-actions { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; padding-top: 12px; border-top: 1px dashed var(--line); }
-.caixinha-actions .btn { flex: 1 1 auto; padding: 9px 10px; font-size: 12px; font-weight: 600; border-radius: 100px; white-space: nowrap; }
-.btn-caixinha-guardar { background: var(--income); color: #f2f8f0; }
-.btn-caixinha-retirar { background: var(--paper); color: var(--expense); border: 1px solid var(--expense); }
-.btn-caixinha-rendimento { background: var(--paper); color: var(--gold-deep); border: 1px solid var(--gold); }
-.caixinha-actions .btn-edit, .caixinha-actions .btn-remove { flex: 0 0 auto; margin-left: auto; }
-.caixinha-actions .btn-remove { margin-left: 0; }
+
+/* Caixinha ainda sem nenhum valor guardado — texto de convite em vez de "R$ 0,00" */
+.caixinha-valores.vazia { font-style: italic; }
+.caixinha-vazia-txt { font-family: var(--font-mono); font-size: 12.5px; color: var(--muted); }
+.goal-bar-track.vazia { background: transparent; border: 1px dashed var(--line); }
+.goal-bar-pct.vazia { color: var(--muted); font-weight: 600; }
+
+/* Wrapper de swipe: arrastar a caixinha p/ esquerda revela "Editar",
+   p/ direita revela "Excluir"; tocar sem arrastar abre o menu de ações. */
+.caixinha-swipe { position: relative; border-radius: var(--radius-l); animation: item-entrar 0.32s ease both; }
+.caixinha-swipe .goal-card { animation: none; margin: 0; }
+.swipe-actions-caixinha { position: absolute; top: 0; bottom: 0; width: 92px; display: flex; border-radius: var(--radius-l); overflow: hidden; }
+.swipe-actions-excluir { left: 0; justify-content: flex-start; }
+.swipe-actions-editar { right: 0; justify-content: flex-end; }
+.swipe-btn-caixinha { width: 92px; height: 100%; border: none; cursor: pointer; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 5px; font-family: inherit; font-size: 10.5px; font-weight: 700; letter-spacing: 0.02em; text-transform: uppercase; color: #fdfaf3; }
+.swipe-btn-caixinha svg { width: 18px; height: 18px; }
+.swipe-excluir-caixinha { background: var(--expense); }
+.swipe-editar-caixinha { background: var(--gold-deep); }
 
 .mini-goal { display: flex; align-items: center; gap: 10px; background: var(--paper-deep); border: 1px solid var(--line); border-radius: var(--radius-m); padding: 12px 14px; box-shadow: 0 2px 10px rgba(22,51,44,0.05); transition: transform 0.15s ease; animation: item-entrar 0.32s ease both; }
 .mini-goal:active { transform: scale(0.99); }
@@ -624,6 +634,10 @@ button, input { font-family: inherit; }
 .acao-card:active { transform: scale(0.99); }
 .acao-card-icon { width: 38px; height: 38px; border-radius: 50%; background: var(--ink); color: var(--gold); display: flex; align-items: center; justify-content: center; flex-shrink: 0; }
 .acao-card-icon svg { width: 18px; height: 18px; }
+.acao-icon-guardar { background: var(--income-bg); color: var(--income); }
+.acao-icon-retirar { background: var(--expense-bg); color: var(--expense); }
+.acao-icon-rendimento { background: rgba(185,134,47,0.15); color: var(--gold-deep); }
+.modal-acoes-caixinha .acao-card { margin-bottom: 12px; }
 .acao-card-texto { display: flex; flex-direction: column; gap: 2px; flex: 1; min-width: 0; }
 .acao-card-texto strong { font-size: 14.5px; color: var(--ink-text); }
 .acao-card-texto small { font-size: 12px; color: var(--muted); }
