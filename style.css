@@ -432,12 +432,19 @@ button, input { font-family: inherit; }
 .goal-falta svg { width: 12px; height: 12px; flex-shrink: 0; }
 
 .goal-bar-row { display: flex; align-items: center; gap: 10px; margin-bottom: 12px; }
-.goal-bar-track { position: relative; flex: 1 1 auto; width: 100%; height: 10px; background: var(--line-soft); border-radius: 100px; overflow: hidden; }
+.goal-bar-track { position: relative; flex: 1 1 auto; width: 100%; height: 11px; background: var(--line-soft); border-radius: 100px; overflow: hidden; box-shadow: inset 0 1px 3px rgba(0,0,0,0.16); }
 /* Trilha com marcas de checkpoint a cada 25% — remete a barra de XP com
    metas intermediárias, e reforça o quanto já foi percorrido. */
-.goal-bar-track::before { content: ""; position: absolute; inset: 0; background-image: linear-gradient(90deg, var(--paper-deep) 1px, transparent 1px); background-size: 25% 100%; background-position: -1px 0; opacity: 0.6; pointer-events: none; }
-.goal-bar-fill { position: relative; height: 100%; background-image: repeating-linear-gradient(45deg, rgba(255,255,255,0.24) 0 6px, transparent 6px 13px), linear-gradient(90deg, var(--gold-deep), var(--gold)); border-radius: 100px; transition: width 0.6s cubic-bezier(.2,.8,.2,1); }
-.goal-bar-fill.completo { background-image: repeating-linear-gradient(45deg, rgba(255,255,255,0.24) 0 6px, transparent 6px 13px), linear-gradient(90deg, var(--income), #5b9c78); }
+.goal-bar-track::before { content: ""; position: absolute; inset: 0; background-image: linear-gradient(90deg, var(--paper-deep) 1px, transparent 1px); background-size: 25% 100%; background-position: -1px 0; opacity: 0.5; pointer-events: none; z-index: 1; }
+/* Barra estilo "HP" de jogo: gradiente fluindo em loop suave, com um
+   brilho vítreo por cima. Só gradiente, sem textura de listras. */
+.goal-bar-fill { position: relative; height: 100%; border-radius: 100px; background-image: linear-gradient(90deg, var(--gold-deep) 0%, var(--gold) 40%, #f6df9f 50%, var(--gold) 60%, var(--gold-deep) 100%); background-size: 240% 100%; transition: width 0.6s cubic-bezier(.2,.8,.2,1); animation: goal-bar-fluir 3.2s linear infinite; }
+.goal-bar-fill::after { content: ""; position: absolute; inset: 0; border-radius: inherit; background: linear-gradient(180deg, rgba(255,255,255,0.4), rgba(255,255,255,0) 55%); pointer-events: none; }
+.goal-bar-fill.completo { background-image: linear-gradient(90deg, #2f5f42 0%, var(--income) 40%, #a7e3bd 50%, var(--income) 60%, #2f5f42 100%); }
+@keyframes goal-bar-fluir { 0% { background-position: 0% 0; } 100% { background-position: -240% 0; } }
+@media (prefers-reduced-motion: reduce) {
+  .goal-bar-fill { animation: none; }
+}
 .goal-bar-pct { font-family: var(--font-mono); font-size: 11.5px; font-weight: 700; color: var(--gold-deep); flex-shrink: 0; min-width: 34px; text-align: right; }
 .goal-bar-pct.completo { color: var(--income); }
 .goal-foot { display: flex; justify-content: space-between; align-items: center; font-size: 12.5px; }
@@ -449,6 +456,12 @@ button, input { font-family: inherit; }
 .caixinha-card:active { background: var(--paper-deep); filter: brightness(0.98); }
 .caixinha-card .goal-head { margin-bottom: 10px; }
 .caixinha-card .goal-head:last-child, .caixinha-card .goal-meta-linha:last-child { margin-bottom: 0; }
+/* Caixinha com meta mas ainda sem nada guardado: cabeçalho + "faltam X"
+   numa linha só, card mais baixo — sem barra vazia nem linhas soltas. */
+.caixinha-card.compacta { padding-top: 14px; padding-bottom: 14px; }
+.goal-head-compacto { gap: 10px; }
+.goal-head-compacto .goal-nome { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.goal-head-compacto .goal-falta { margin-left: auto; }
 .caixinha-valores { display: flex; align-items: baseline; justify-content: space-between; gap: 8px; font-size: 12.5px; flex-wrap: wrap; }
 .caixinha-guardado { font-family: var(--font-mono); color: var(--muted); }
 .caixinha-guardado strong { color: var(--ink-text); font-size: 18px; font-weight: 700; }
