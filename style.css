@@ -398,15 +398,6 @@ button, input { font-family: inherit; }
 
 .goal-mini-list, .goal-list { display: flex; flex-direction: column; gap: 12px; }
 
-/* Cabeçalho de agrupamento ("Com meta" / "Sem meta") acima da lista de caixinhas */
-.goal-group-header { display: flex; align-items: center; gap: 10px; margin: 4px 2px -2px; }
-.goal-group-header:first-child { margin-top: 0; }
-.goal-group-titulo { font-family: var(--font-display); font-size: 13px; font-weight: 700; letter-spacing: 0.04em; text-transform: uppercase; color: var(--gold-deep); white-space: nowrap; }
-.goal-list .goal-group-header:nth-of-type(2) .goal-group-titulo,
-.goal-group-header.sem-meta .goal-group-titulo { color: var(--muted); }
-.goal-group-linha { flex: 1 1 auto; height: 1px; background: var(--line); }
-.goal-group-sub { font-family: var(--font-mono); font-size: 11px; color: var(--muted); white-space: nowrap; }
-
 .goal-card { background: var(--paper-deep); border: 1px solid var(--line); border-radius: var(--radius-l); padding: 18px 18px 16px; position: relative; overflow: hidden; box-shadow: 0 3px 14px rgba(22,51,44,0.07); animation: item-entrar 0.32s ease both; }
 .goal-card.tem-meta::after { content: ""; position: absolute; top: 0; left: 0; width: 4px; height: 100%; background: linear-gradient(180deg, var(--gold), var(--gold-deep)); }
 .goal-card.sem-meta::after { content: ""; position: absolute; top: 0; left: 0; width: 4px; height: 100%; background: var(--income); opacity: 0.55; }
@@ -417,6 +408,10 @@ button, input { font-family: inherit; }
 .goal-icon.sem-meta { background: var(--income-bg); color: var(--income); }
 .goal-icon.sem-meta svg { width: 17px; height: 17px; }
 .goal-nome { flex: 1 1 auto; font-family: var(--font-display); font-size: 16.5px; font-weight: 600; color: var(--ink-text); min-width: 0; }
+/* Linha própria pro "faltam R$X" / "Batida ✓" — separada do goal-head de
+   propósito, pra nomes longos (ex. "The Legend of Zelda...") não brigarem
+   por espaço com o badge e quebrarem feio. */
+.goal-meta-linha { display: flex; justify-content: flex-end; margin-bottom: 12px; }
 .goal-falta { font-family: var(--font-mono); font-size: 11.5px; font-weight: 600; color: var(--gold-deep); background: rgba(185,134,47,0.12); padding: 4px 10px; border-radius: 100px; white-space: nowrap; flex-shrink: 0; }
 .goal-falta.completo { color: var(--income); background: var(--income-bg); }
 .goal-bar-row { display: flex; align-items: center; gap: 10px; margin-bottom: 12px; }
@@ -433,16 +428,11 @@ button, input { font-family: inherit; }
 .caixinha-card { display: flex; flex-direction: column; margin: 0; cursor: pointer; touch-action: pan-y; user-select: none; -webkit-user-select: none; will-change: transform; transition: transform 0.28s cubic-bezier(.2,.8,.2,1); }
 .caixinha-card:active { background: var(--paper-deep); filter: brightness(0.98); }
 .caixinha-card .goal-head { margin-bottom: 10px; }
+.caixinha-card .goal-head:last-child, .caixinha-card .goal-meta-linha:last-child { margin-bottom: 0; }
 .caixinha-valores { display: flex; align-items: baseline; justify-content: space-between; gap: 8px; font-size: 12.5px; flex-wrap: wrap; }
 .caixinha-guardado { font-family: var(--font-mono); color: var(--muted); }
 .caixinha-guardado strong { color: var(--ink-text); font-size: 18px; font-weight: 700; }
 .caixinha-de { color: var(--muted); }
-
-/* Caixinha ainda sem nenhum valor guardado — texto de convite em vez de "R$ 0,00" */
-.caixinha-valores.vazia { font-style: italic; }
-.caixinha-vazia-txt { font-family: var(--font-mono); font-size: 12.5px; color: var(--muted); }
-.goal-bar-track.vazia { background: transparent; border: 1px dashed var(--line); }
-.goal-bar-pct.vazia { color: var(--muted); font-weight: 600; }
 
 /* Wrapper de swipe: arrastar a caixinha p/ esquerda revela "Editar",
    p/ direita revela "Excluir"; tocar sem arrastar abre o menu de ações. */
