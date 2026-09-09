@@ -1578,6 +1578,17 @@ function carimbarMetaBatida(card) {
 
 // Ícone de alvo (usado no cabeçalho das caixinhas COM meta)
 const ICONE_ALVO = `<svg viewBox="0 0 24 24" fill="none"><circle cx="12" cy="12" r="8.5" stroke="currentColor" stroke-width="1.6"/><circle cx="12" cy="12" r="4.7" stroke="currentColor" stroke-width="1.6"/><circle cx="12" cy="12" r="1.3" fill="currentColor" stroke="none"/></svg>`;
+// Troféu — usado no selo da caixinha e no chip quando a meta é batida.
+const ICONE_TROFEU = `<svg viewBox="0 0 24 24" fill="none"><path d="M8 4h8v4a4 4 0 0 1-8 0V4Z" stroke="currentColor" stroke-width="1.6" stroke-linejoin="round"/><path d="M8 5H5.5A1.5 1.5 0 0 0 4 6.5v.5a3 3 0 0 0 3 3h1" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/><path d="M16 5h2.5A1.5 1.5 0 0 1 20 6.5v.5a3 3 0 0 1-3 3h-1" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/><path d="M12 12v3" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"/><path d="M9 19h6" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"/><path d="M10 15.2c0 1.6.9 2.6 2 2.6s2-1 2-2.6" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/></svg>`;
+
+// Texto de progresso ("Começando" → "Quase lá!") mostrado nas caixinhas
+// com meta, dando um retorno tipo jogo de quanto falta pra próxima etapa.
+function statusCaixinha(pct) {
+  if (pct >= 90) return "Quase lá!";
+  if (pct >= 50) return "Na metade";
+  if (pct >= 25) return "Em ritmo";
+  return "Começando";
+}
 
 // Cabeçalho de agrupamento da lista de caixinhas ("Com meta" / "Sem meta")
 // Ações reais de editar/excluir uma caixinha — chamadas tanto pelo botão
@@ -1628,22 +1639,30 @@ function montarCardCaixinha(cx, idx, ambos) {
   const temRendimento = rendimentoTotal !== 0;
   const rendimentoEhGanho = rendimentoTotal > 0;
 
-  const valoresHtml = `<span class="caixinha-guardado"><strong>${fmt(guardado)}</strong>${temObjetivo ? ` <span class="caixinha-de">de ${fmt(objetivo)}</span>` : " guardados"}</span>
+  const valoresHtml = `<span class="caixinha-guardado"><strong>${fmt(guardado)}</strong>${temObjetivo ? ` <span class="caixinha-de">/ ${fmt(objetivo)}</span>` : " guardados"}</span>
        ${temRendimento ? `<span class="item-tag ${rendimentoEhGanho ? "item-tag-rendimento" : "item-tag-perda"}" style="display:inline-flex;align-items:center;gap:4px;" title="${rendimentoEhGanho ? "Rendimento" : "Perda"}">${rendimentoEhGanho ? iconeRendimentoUp : iconeRendimentoDown}${fmt(Math.abs(rendimentoTotal))}</span>` : ""}`;
+
+  // Ícone: caixinha com meta vira um selo circular cujo anel se preenche
+  // com o progresso (tipo anel de nível/XP); sem meta mantém o cofrinho.
+  const iconeHtml = temObjetivo
+    ? `<span class="goal-icon-ring ${completo ? "completo" : ""}" style="--pct:${pct}%"><span class="goal-icon-ring-inner">${completo ? ICONE_TROFEU : ICONE_ALVO}</span></span>`
+    : `<span class="goal-icon sem-meta">${ICONE_COFRINHO}</span>`;
+
+  const quase = temObjetivo && !completo && pct >= 90;
 
   const cardHtml = `
     <div class="goal-head">
-      <span class="goal-icon ${temObjetivo ? "com-meta" : "sem-meta"}">${temObjetivo ? ICONE_ALVO : ICONE_COFRINHO}</span>
+      ${iconeHtml}
       <span class="goal-nome">${escapeHtml(cx.nome)} ${tagPessoa(cx)}</span>
     </div>
-    ${temObjetivo ? `<div class="goal-meta-linha"><span class="goal-falta ${completo ? "completo" : ""}">${completo ? "Batida ✓" : "faltam " + fmt(falta)}</span></div>` : ""}
+    ${temObjetivo ? `<div class="goal-meta-linha">${!vazia ? `<span class="goal-status">${completo ? "Meta batida" : statusCaixinha(pct)}</span>` : "<span></span>"}<span class="goal-falta ${completo ? "completo" : ""}">${completo ? ICONE_TROFEU + " Conquistada" : "faltam " + fmt(falta)}</span></div>` : ""}
     ${temObjetivo && !vazia ? `<div class="goal-bar-row"><div class="goal-bar-track"><div class="goal-bar-fill ${completo ? "completo" : ""}" style="width:${pct}%"></div></div><span class="goal-bar-pct ${completo ? "completo" : ""}">${Math.round(pct)}%</span></div>` : ""}
     ${!vazia ? `<div class="caixinha-valores">${valoresHtml}</div>` : ""}
   `;
 
   if (ambos) {
     const card = document.createElement("div");
-    card.className = "goal-card caixinha-card" + (temObjetivo ? " tem-meta" : " sem-meta") + (cx._comemoraAoRenderizar ? " is-celebrando" : "");
+    card.className = "goal-card caixinha-card" + (temObjetivo ? " tem-meta" : " sem-meta") + (completo ? " completo" : "") + (quase ? " quase" : "") + (cx._comemoraAoRenderizar ? " is-celebrando" : "");
     card.style.animationDelay = Math.min(idx * 40, 250) + "ms";
     card.innerHTML = cardHtml;
     if (cx._comemoraAoRenderizar) {
@@ -1668,7 +1687,7 @@ function montarCardCaixinha(cx, idx, ambos) {
     <div class="swipe-actions-caixinha swipe-actions-editar">
       <button class="swipe-btn-caixinha swipe-editar-caixinha" aria-label="Editar caixinha" data-idx="${idx}">${ICONE_LAPIS}<span>Editar</span></button>
     </div>
-    <div class="goal-card caixinha-card${temObjetivo ? " tem-meta" : " sem-meta"}${cx._comemoraAoRenderizar ? " is-celebrando" : ""}">${cardHtml}</div>
+    <div class="goal-card caixinha-card${temObjetivo ? " tem-meta" : " sem-meta"}${completo ? " completo" : ""}${quase ? " quase" : ""}${cx._comemoraAoRenderizar ? " is-celebrando" : ""}">${cardHtml}</div>
   `;
   wrap.querySelector(".swipe-editar-caixinha").addEventListener("click", () => {
     fecharSwipeCaixinha(wrap);
