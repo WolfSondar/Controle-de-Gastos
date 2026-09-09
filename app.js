@@ -1588,6 +1588,24 @@ function caixinhaGroupHeader(titulo, subtitulo) {
   </div>`;
 }
 
+// Ações reais de editar/excluir uma caixinha — chamadas tanto pelo botão
+// revelado no swipe quanto por um arrasto "completo" (que já executa
+// direto, sem precisar soltar em cima do botão).
+function acionarEditarCaixinha(idx) {
+  const cx = state.caixinhas[idx];
+  if (!cx) return;
+  abrirModalEditar("caixinhas", idx, { nome: cx.nome, valor: cx.valorObjetivo });
+}
+function acionarExcluirCaixinha(idx) {
+  const cx = state.caixinhas[idx];
+  if (!cx) return;
+  const guardado = totalCaixinha(cx);
+  const aviso = guardado > 0
+      ? `Remover a caixinha "${cx.nome}"? Os ${fmt(guardado)} guardados nela voltam pro saldo disponível como um ganho. Essa ação não pode ser desfeita.`
+      : `Remover a caixinha "${cx.nome}"? Essa ação não pode ser desfeita.`;
+  abrirConfirmacao(aviso, () => removeCaixinha(idx));
+}
+
 function montarCardCaixinha(cx, idx, ambos) {
   const valorBase = Number(cx.valorGuardado) || 0;
   const rendimentoTotal = Number(cx.rendimentoTotal) || 0;
@@ -1602,6 +1620,7 @@ function montarCardCaixinha(cx, idx, ambos) {
   const falta = Math.max(objetivo - guardado, 0);
   const pct = temObjetivo ? Math.min((guardado / objetivo) * 100, 100) : 0;
   const completo = temObjetivo && falta <= 0;
+  const vazia = guardado <= 0;
 
   if (completo && !cx._comemorado) {
     if (!primeiraRenderCaixinhas) cx._comemoraAoRenderizar = true;
@@ -1610,10 +1629,6 @@ function montarCardCaixinha(cx, idx, ambos) {
     cx._comemorado = false;
   }
 
-  const card = document.createElement("div");
-  card.className = "goal-card caixinha-card" + (temObjetivo ? " tem-meta" : " sem-meta") + (cx._comemoraAoRenderizar ? " is-celebrando" : "");
-  card.style.animationDelay = Math.min(idx * 40, 250) + "ms";
-
   // Ícone de rendimento em SVG: seta pra cima (ganho) ou pra baixo (perda),
   // decidido na hora de montar o card abaixo.
   const iconeRendimentoUp = `<svg style="width:12px;height:12px;" viewBox="0 0 24 24" fill="none"><path d="M23 6l-9.5 9.5-5-5L1 18" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"/><path d="M17 6h6v6" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"/></svg>`;
@@ -1621,45 +1636,243 @@ function montarCardCaixinha(cx, idx, ambos) {
   const temRendimento = rendimentoTotal !== 0;
   const rendimentoEhGanho = rendimentoTotal > 0;
 
-  card.innerHTML = `
+  const valoresHtml = vazia
+    ? `<span class="caixinha-vazia-txt">${temObjetivo ? `Ainda nada guardado · meta de ${fmt(objetivo)}` : "Nenhum valor guardado ainda"}</span>`
+    : `<span class="caixinha-guardado"><strong>${fmt(guardado)}</strong>${temObjetivo ? ` <span class="caixinha-de">de ${fmt(objetivo)}</span>` : " guardados"}</span>
+       ${temRendimento ? `<span class="item-tag ${rendimentoEhGanho ? "item-tag-rendimento" : "item-tag-perda"}" style="display:inline-flex;align-items:center;gap:4px;" title="${rendimentoEhGanho ? "Rendimento" : "Perda"}">${rendimentoEhGanho ? iconeRendimentoUp : iconeRendimentoDown}${fmt(Math.abs(rendimentoTotal))}</span>` : ""}`;
+
+  const cardHtml = `
     <div class="goal-head">
       <span class="goal-icon ${temObjetivo ? "com-meta" : "sem-meta"}">${temObjetivo ? ICONE_ALVO : ICONE_COFRINHO}</span>
       <span class="goal-nome">${escapeHtml(cx.nome)} ${tagPessoa(cx)}</span>
       ${temObjetivo ? `<span class="goal-falta ${completo ? "completo" : ""}">${completo ? "Batida ✓" : "faltam " + fmt(falta)}</span>` : ""}
     </div>
-    ${temObjetivo ? `<div class="goal-bar-row"><div class="goal-bar-track"><div class="goal-bar-fill ${completo ? "completo" : ""}" style="width:${pct}%"></div></div><span class="goal-bar-pct ${completo ? "completo" : ""}">${Math.round(pct)}%</span></div>` : ""}
-    <div class="caixinha-valores">
-      <span class="caixinha-guardado"><strong>${fmt(guardado)}</strong>${temObjetivo ? ` <span class="caixinha-de">de ${fmt(objetivo)}</span>` : " guardados"}</span>
-      ${temRendimento ? `<span class="item-tag ${rendimentoEhGanho ? "item-tag-rendimento" : "item-tag-perda"}" style="display:inline-flex;align-items:center;gap:4px;" title="${rendimentoEhGanho ? "Rendimento" : "Perda"}">${rendimentoEhGanho ? iconeRendimentoUp : iconeRendimentoDown}${fmt(Math.abs(rendimentoTotal))}</span>` : ""}
-    </div>
-    ${ambos ? "" : `<div class="caixinha-actions">
-            <button class="btn btn-caixinha-guardar" data-idx="${idx}">+ guardar</button>
-            <button class="btn btn-caixinha-retirar" data-idx="${idx}">− retirar</button>
-            <button class="btn btn-caixinha-rendimento" data-idx="${idx}" aria-label="Informar rendimento" title="Rendimento — não sai do saldo disponível">% rendeu</button>
-            <button class="btn-edit" aria-label="Editar caixinha" data-edit="${idx}">${ICONE_LAPIS}</button>
-            <button class="btn-remove" aria-label="Remover caixinha" data-remove="${idx}">${ICONE_X}</button>
-          </div>`}
+    ${temObjetivo ? `<div class="goal-bar-row"><div class="goal-bar-track ${vazia ? "vazia" : ""}"><div class="goal-bar-fill ${completo ? "completo" : ""}" style="width:${pct}%"></div></div><span class="goal-bar-pct ${completo ? "completo" : ""} ${vazia ? "vazia" : ""}">${vazia ? "0%" : Math.round(pct) + "%"}</span></div>` : ""}
+    <div class="caixinha-valores ${vazia ? "vazia" : ""}">${valoresHtml}</div>
   `;
-  if (!ambos) {
-    card.querySelector(".btn-caixinha-guardar").addEventListener("click", () => abrirModalCaixinha("guardar", idx));
-    card.querySelector(".btn-caixinha-retirar").addEventListener("click", () => abrirModalCaixinha("retirar", idx));
-    card.querySelector(".btn-caixinha-rendimento").addEventListener("click", () => abrirModalCaixinha("rendimento", idx));
-    card.querySelector("[data-edit]").addEventListener("click", () => abrirModalEditar("caixinhas", idx, { nome: cx.nome, valor: cx.valorObjetivo }));
-    card.querySelector("[data-remove]").addEventListener("click", () => {
-      const guardado = totalCaixinha(cx);
-      const aviso = guardado > 0
-          ? `Remover a caixinha "${cx.nome}"? Os ${fmt(guardado)} guardados nela voltam pro saldo disponível como um ganho. Essa ação não pode ser desfeita.`
-          : `Remover a caixinha "${cx.nome}"? Essa ação não pode ser desfeita.`;
-      abrirConfirmacao(aviso, () => removeCaixinha(idx));
-    });
+
+  if (ambos) {
+    const card = document.createElement("div");
+    card.className = "goal-card caixinha-card" + (temObjetivo ? " tem-meta" : " sem-meta") + (cx._comemoraAoRenderizar ? " is-celebrando" : "");
+    card.style.animationDelay = Math.min(idx * 40, 250) + "ms";
+    card.innerHTML = cardHtml;
+    if (cx._comemoraAoRenderizar) {
+      dispararConfete();
+      carimbarMetaBatida(card);
+      cx._comemoraAoRenderizar = false;
+    }
+    return card;
   }
+
+  // Fora do modo "Ambos": card fica dentro de um wrapper de swipe — arrastar
+  // pra esquerda revela "Editar", pra direita revela "Excluir"; tocar no
+  // card (sem arrastar) abre o menu de ações (guardar/retirar/% rendeu).
+  const wrap = document.createElement("div");
+  wrap.className = "caixinha-swipe";
+  wrap.dataset.idx = idx;
+  wrap.style.animationDelay = Math.min(idx * 40, 250) + "ms";
+  wrap.innerHTML = `
+    <div class="swipe-actions-caixinha swipe-actions-excluir">
+      <button class="swipe-btn-caixinha swipe-excluir-caixinha" aria-label="Excluir caixinha" data-idx="${idx}">${ICONE_X}<span>Excluir</span></button>
+    </div>
+    <div class="swipe-actions-caixinha swipe-actions-editar">
+      <button class="swipe-btn-caixinha swipe-editar-caixinha" aria-label="Editar caixinha" data-idx="${idx}">${ICONE_LAPIS}<span>Editar</span></button>
+    </div>
+    <div class="goal-card caixinha-card${temObjetivo ? " tem-meta" : " sem-meta"}${cx._comemoraAoRenderizar ? " is-celebrando" : ""}">${cardHtml}</div>
+  `;
+  wrap.querySelector(".swipe-editar-caixinha").addEventListener("click", () => {
+    fecharSwipeCaixinha(wrap);
+    acionarEditarCaixinha(idx);
+  });
+  wrap.querySelector(".swipe-excluir-caixinha").addEventListener("click", () => {
+    fecharSwipeCaixinha(wrap);
+    acionarExcluirCaixinha(idx);
+  });
+  const card = wrap.querySelector(".caixinha-card");
   if (cx._comemoraAoRenderizar) {
     dispararConfete();
     carimbarMetaBatida(card);
     cx._comemoraAoRenderizar = false;
   }
-  return card;
+  return wrap;
 }
+
+// ---------------------------------------------------------------------
+// SWIPE BIDIRECIONAL DAS CAIXINHAS (arrastar p/ esquerda = editar,
+// p/ direita = excluir) + toque simples abre o menu de ações.
+// ---------------------------------------------------------------------
+const LARGURA_SWIPE_CAIXINHA = 92;
+const LIMIAR_SWIPE_CAIXINHA = 44;
+const LIMIAR_SWIPE_CAIXINHA_TOTAL = 132;
+
+function fecharSwipeCaixinha(wrap) {
+  if (!wrap) return;
+  wrap.classList.remove("is-revelado-editar", "is-revelado-excluir");
+  const card = wrap.querySelector(".caixinha-card");
+  if (card) card.style.transform = "";
+}
+function fecharTodosSwipesCaixinha(lista, exceto) {
+  lista.querySelectorAll(".caixinha-swipe").forEach((el) => {
+    if (el !== exceto) fecharSwipeCaixinha(el);
+  });
+}
+
+function habilitarSwipeCaixinhas(lista) {
+  if (!lista || lista._swipeCaixinhaAtivado) return;
+  lista._swipeCaixinhaAtivado = true;
+  let ativo = null;
+
+  const iniciar = (e) => {
+    const wrap = e.target.closest(".caixinha-swipe");
+    if (!wrap || e.target.closest(".swipe-actions-caixinha") || e.target.tagName === "BUTTON") return;
+    const clientX = e.type.includes("mouse") ? e.clientX : e.touches[0].clientX;
+    const clientY = e.type.includes("mouse") ? e.clientY : e.touches[0].clientY;
+    const jaEditar = wrap.classList.contains("is-revelado-editar");
+    const jaExcluir = wrap.classList.contains("is-revelado-excluir");
+    fecharTodosSwipesCaixinha(lista, wrap);
+    ativo = {
+      wrap,
+      card: wrap.querySelector(".caixinha-card"),
+      startX: clientX,
+      startY: clientY,
+      dragging: false,
+      base: jaEditar ? -LARGURA_SWIPE_CAIXINHA : jaExcluir ? LARGURA_SWIPE_CAIXINHA : 0,
+      ultimoDelta: jaEditar ? -LARGURA_SWIPE_CAIXINHA : jaExcluir ? LARGURA_SWIPE_CAIXINHA : 0,
+      vibrou: jaEditar || jaExcluir,
+    };
+  };
+
+  const mover = (e) => {
+    if (!ativo) return;
+    const clientX = e.type.includes("mouse") ? e.clientX : e.touches[0].clientX;
+    const clientY = e.type.includes("mouse") ? e.clientY : e.touches[0].clientY;
+    const dx = clientX - ativo.startX;
+    const dy = clientY - ativo.startY;
+
+    if (!ativo.dragging) {
+      if (Math.abs(dx) < 8 && Math.abs(dy) < 8) return;
+      if (Math.abs(dy) > Math.abs(dx)) { ativo = null; return; }
+      ativo.dragging = true;
+    }
+    if (ativo.dragging && e.cancelable) e.preventDefault();
+
+    const bruto = ativo.base + dx;
+    let novo;
+    if (Math.abs(bruto) <= LARGURA_SWIPE_CAIXINHA) {
+      novo = bruto;
+    } else {
+      // Resistência elástica depois de revelar o botão inteiro — dá pra
+      // continuar arrastando pra executar na hora, mas com esforço maior.
+      const sinal = Math.sign(bruto);
+      const extra = Math.abs(bruto) - LARGURA_SWIPE_CAIXINHA;
+      novo = sinal * (LARGURA_SWIPE_CAIXINHA + extra * 0.3);
+    }
+    novo = Math.max(-LIMIAR_SWIPE_CAIXINHA_TOTAL, Math.min(LIMIAR_SWIPE_CAIXINHA_TOTAL, novo));
+
+    if (ativo.card) {
+      ativo.card.style.transition = "none";
+      ativo.card.style.transform = `translateX(${novo}px)`;
+    }
+    const cruzouLimiar = Math.abs(novo) >= LIMIAR_SWIPE_CAIXINHA;
+    if (cruzouLimiar && !ativo.vibrou) { vibrar(); ativo.vibrou = true; }
+    else if (!cruzouLimiar) ativo.vibrou = false;
+    ativo.ultimoDelta = novo;
+  };
+
+  const finalizar = () => {
+    if (!ativo) return;
+    const { wrap, card, ultimoDelta, dragging, base } = ativo;
+    const idx = Number(wrap.dataset.idx);
+
+    if (!dragging) {
+      // Toque simples: se já estava revelado, só fecha; senão abre o menu.
+      if (base !== 0) fecharSwipeCaixinha(wrap);
+      else abrirAcoesCaixinha(idx);
+      ativo = null;
+      return;
+    }
+
+    if (card) card.style.transition = "";
+    const swipeCompleto = Math.abs(ultimoDelta) >= LIMIAR_SWIPE_CAIXINHA_TOTAL - 6;
+
+    if (swipeCompleto) {
+      fecharSwipeCaixinha(wrap);
+      vibrar(18);
+      if (ultimoDelta < 0) acionarEditarCaixinha(idx);
+      else acionarExcluirCaixinha(idx);
+    } else if (ultimoDelta <= -LIMIAR_SWIPE_CAIXINHA) {
+      wrap.classList.add("is-revelado-editar");
+      wrap.classList.remove("is-revelado-excluir");
+      if (card) card.style.transform = `translateX(-${LARGURA_SWIPE_CAIXINHA}px)`;
+    } else if (ultimoDelta >= LIMIAR_SWIPE_CAIXINHA) {
+      wrap.classList.add("is-revelado-excluir");
+      wrap.classList.remove("is-revelado-editar");
+      if (card) card.style.transform = `translateX(${LARGURA_SWIPE_CAIXINHA}px)`;
+    } else {
+      fecharSwipeCaixinha(wrap);
+    }
+    ativo = null;
+  };
+
+  lista.addEventListener("touchstart", iniciar, { passive: true });
+  lista.addEventListener("touchmove", mover, { passive: false });
+  lista.addEventListener("touchend", finalizar);
+  lista.addEventListener("touchcancel", finalizar);
+  lista.addEventListener("mousedown", iniciar);
+  lista.addEventListener("mousemove", mover);
+  window.addEventListener("mouseup", finalizar);
+}
+
+document.addEventListener("touchstart", (e) => {
+  const lista = document.getElementById("listaCaixinhas");
+  if (lista && !e.target.closest("#listaCaixinhas")) fecharTodosSwipesCaixinha(lista);
+}, { passive: true });
+document.addEventListener("mousedown", (e) => {
+  const lista = document.getElementById("listaCaixinhas");
+  if (lista && !e.target.closest("#listaCaixinhas")) fecharTodosSwipesCaixinha(lista);
+});
+
+// Menu de ações da caixinha (guardar / retirar / % rendeu) — abre ao tocar
+// no card (sem arrastar).
+let acoesCaixinhaIdx = null;
+const acoesCaixinhaBackdrop = document.getElementById("acoesCaixinhaBackdrop");
+function abrirAcoesCaixinha(idx) {
+  const cx = state.caixinhas[idx];
+  if (!cx || isAmbos()) return;
+  acoesCaixinhaIdx = idx;
+  const tituloEl = document.getElementById("acoesCaixinhaTitulo");
+  if (tituloEl) tituloEl.textContent = cx.nome;
+  if (acoesCaixinhaBackdrop) acoesCaixinhaBackdrop.classList.remove("is-hidden");
+  registrarAberturaModal("acoesCaixinhaBackdrop");
+}
+function fecharAcoesCaixinha() {
+  fecharComHistorico("acoesCaixinhaBackdrop", () => {
+    if (acoesCaixinhaBackdrop) acoesCaixinhaBackdrop.classList.add("is-hidden");
+    acoesCaixinhaIdx = null;
+  });
+}
+FECHADORES_MODAL.acoesCaixinhaBackdrop = fecharAcoesCaixinha;
+on("acoesCaixinhaFechar", "click", fecharAcoesCaixinha);
+if (acoesCaixinhaBackdrop) {
+  acoesCaixinhaBackdrop.addEventListener("click", (e) => {
+    if (e.target === acoesCaixinhaBackdrop) fecharAcoesCaixinha();
+  });
+}
+on("btnAcaoCaixinhaGuardar", "click", () => {
+  const idx = acoesCaixinhaIdx;
+  fecharAcoesCaixinha();
+  abrirModalCaixinha("guardar", idx);
+});
+on("btnAcaoCaixinhaRetirar", "click", () => {
+  const idx = acoesCaixinhaIdx;
+  fecharAcoesCaixinha();
+  abrirModalCaixinha("retirar", idx);
+});
+on("btnAcaoCaixinhaRendimento", "click", () => {
+  const idx = acoesCaixinhaIdx;
+  fecharAcoesCaixinha();
+  abrirModalCaixinha("rendimento", idx);
+});
 
 function renderCaixinhas() {
   const ambos = isAmbos();
@@ -1685,6 +1898,7 @@ function renderCaixinhas() {
         wrap.insertAdjacentHTML("beforeend", caixinhaGroupHeader("Sem meta", semMeta.length + (semMeta.length === 1 ? " caixinha" : " caixinhas")));
         semMeta.forEach((idx) => wrap.appendChild(montarCardCaixinha(state.caixinhas[idx], idx, ambos)));
       }
+      if (!ambos) habilitarSwipeCaixinhas(wrap);
     }
   }
 
