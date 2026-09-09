@@ -45,6 +45,192 @@ function corDaCategoria(nome, idxFallback) {
   return PALETA_CATEGORIAS[idxFallback % PALETA_CATEGORIAS.length];
 }
 
+// ---------------------------------------------------------------------
+// ÍCONES PERSONALIZADOS DAS CAIXINHAS
+// Lê automaticamente IMG/ do próprio repositório GitHub e usa apenas
+// arquivos PNG/WEBP cujo nome começa com "caixa" (ex.: caixa_zelda.png).
+// ---------------------------------------------------------------------
+const CAIXINHA_ICON_STORAGE_KEY = "caixaIconesPersonalizados";
+const CAIXINHA_ICON_DIR = "IMG/";
+const CAIXINHA_ICON_GITHUB_FALLBACK = ""; // Se usar domínio próprio, informe "usuario/repositorio".
+
+function normalizarNomeIcone(nome) {
+  return String(nome || "").split("/").pop().trim();
+}
+
+function urlIconeCaixinha(nome) {
+  const arquivo = normalizarNomeIcone(nome);
+  if (!arquivo) return "";
+  if (/^https?:\/\//i.test(String(nome || ""))) return String(nome);
+  return `${CAIXINHA_ICON_DIR}${encodeURIComponent(arquivo)}`;
+}
+
+function isArquivoIconeCaixinha(nome) {
+  const arquivo = normalizarNomeIcone(nome);
+  return /^caixa/i.test(arquivo) && /\.(png|webp)$/i.test(arquivo);
+}
+
+function obterRepositorioGitHub() {
+  if (CAIXINHA_ICON_GITHUB_FALLBACK) return CAIXINHA_ICON_GITHUB_FALLBACK;
+  const host = window.location.hostname;
+  if (!/\.github\.io$/i.test(host)) return "";
+  const owner = host.split(".")[0];
+  const partes = window.location.pathname.split("/").filter(Boolean);
+  const repo = partes[0] || "";
+  return owner && repo ? `${owner}/${repo}` : "";
+}
+
+let iconesCaixinhas = [];
+let iconesCaixinhasCarregando = false;
+
+function salvarIconesCaixinhasCache() {
+  try { localStorage.setItem(CAIXINHA_ICON_STORAGE_KEY, JSON.stringify(iconesCaixinhas)); } catch (_err) {}
+}
+
+function carregarIconesCaixinhasCache() {
+  try {
+    const raw = localStorage.getItem(CAIXINHA_ICON_STORAGE_KEY);
+    const lista = raw ? JSON.parse(raw) : [];
+    return Array.isArray(lista) ? lista.filter(isArquivoIconeCaixinha) : [];
+  } catch (_err) { return []; }
+}
+
+function nomeIconeBonito(nome) {
+  return normalizarNomeIcone(nome).replace(/\.(png|webp)$/i, "");
+}
+
+function aplicarPreviewIcone(picker, nome) {
+  if (!picker) return;
+  const preview = picker.querySelector(".caixinha-icon-picker-preview");
+  const hidden = picker.querySelector('input[type="hidden"]');
+  if (!preview) return;
+  if (hidden) hidden.value = nome || "";
+  preview.innerHTML = "";
+  preview.classList.toggle("is-default", !nome);
+  if (nome) {
+    const img = document.createElement("img");
+    img.src = urlIconeCaixinha(nome);
+    img.alt = "";
+    img.loading = "lazy";
+    img.onerror = () => {
+      preview.innerHTML = "Ícone indisponível";
+      preview.classList.add("is-default");
+      if (hidden) hidden.value = "";
+    };
+    preview.appendChild(img);
+  } else {
+    preview.textContent = "Sem ícone";
+  }
+}
+
+function fecharPickersIcones(excepto) {
+  document.querySelectorAll(".caixinha-icon-picker.is-open").forEach((picker) => {
+    if (picker !== excepto) {
+      picker.classList.remove("is-open");
+      const trigger = picker.querySelector(".caixinha-icon-picker-trigger");
+      if (trigger) trigger.setAttribute("aria-expanded", "false");
+    }
+  });
+}
+
+function renderOpcoesIconesCaixinhas(picker) {
+  if (!picker) return;
+  const menu = picker.querySelector(".caixinha-icon-picker-menu");
+  if (!menu) return;
+  menu.innerHTML = "";
+
+  const opcoes = [{ nome: "", label: "Sem ícone" }, ...iconesCaixinhas.map((nome) => ({ nome, label: nomeIconeBonito(nome) }))];
+
+  opcoes.forEach(({ nome, label }) => {
+    const btn = document.createElement("button");
+    btn.type = "button";
+    btn.className = "caixinha-icon-option";
+    btn.setAttribute("role", "option");
+    btn.dataset.icone = nome;
+    btn.setAttribute("aria-label", label);
+    btn.title = label;
+
+    if (!nome) {
+      btn.innerHTML = '<span class="caixinha-icon-option-none">×</span>';
+    } else {
+      const img = document.createElement("img");
+      img.src = urlIconeCaixinha(nome);
+      img.alt = "";
+      img.loading = "lazy";
+      img.onerror = () => btn.remove();
+      btn.appendChild(img);
+    }
+
+    btn.addEventListener("click", () => {
+      aplicarPreviewIcone(picker, nome);
+      menu.querySelectorAll(".caixinha-icon-option").forEach((el) => el.classList.remove("is-selected"));
+      btn.classList.add("is-selected");
+      fecharPickersIcones();
+    });
+    menu.appendChild(btn);
+  });
+}
+
+function inicializarPickersIcones() {
+  document.querySelectorAll(".caixinha-icon-picker").forEach((picker) => {
+    const trigger = picker.querySelector(".caixinha-icon-picker-trigger");
+    if (!trigger || trigger.dataset.iconPickerBound) return;
+    trigger.dataset.iconPickerBound = "1";
+    trigger.addEventListener("click", (e) => {
+      e.stopPropagation();
+      const abrir = !picker.classList.contains("is-open");
+      fecharPickersIcones(picker);
+      picker.classList.toggle("is-open", abrir);
+      trigger.setAttribute("aria-expanded", abrir ? "true" : "false");
+      if (abrir) renderOpcoesIconesCaixinhas(picker);
+    });
+  });
+}
+
+async function carregarIconesCaixinhas() {
+  if (iconesCaixinhasCarregando) return;
+  iconesCaixinhasCarregando = true;
+
+  const cache = carregarIconesCaixinhasCache();
+  if (cache.length) {
+    iconesCaixinhas = cache;
+    document.querySelectorAll(".caixinha-icon-picker").forEach(renderOpcoesIconesCaixinhas);
+  }
+
+  const repo = obterRepositorioGitHub();
+  if (!repo) {
+    iconesCaixinhasCarregando = false;
+    inicializarPickersIcones();
+    return;
+  }
+
+  try {
+    const res = await fetch(`https://api.github.com/repos/${repo}/contents/IMG`, {
+      headers: { Accept: "application/vnd.github+json" }
+    });
+    if (!res.ok) throw new Error(`GitHub respondeu ${res.status}`);
+    const arquivos = await res.json();
+    if (!Array.isArray(arquivos)) throw new Error("Pasta IMG inválida");
+
+    iconesCaixinhas = arquivos
+      .filter((arquivo) => arquivo && arquivo.type === "file" && isArquivoIconeCaixinha(arquivo.name))
+      .map((arquivo) => arquivo.name)
+      .sort((a, b) => a.localeCompare(b, "pt-BR", { sensitivity: "base", numeric: true }));
+
+    salvarIconesCaixinhasCache();
+    document.querySelectorAll(".caixinha-icon-picker").forEach(renderOpcoesIconesCaixinhas);
+  } catch (_err) {
+    // Mantém o último cache se o GitHub estiver indisponível.
+  } finally {
+    iconesCaixinhasCarregando = false;
+    inicializarPickersIcones();
+  }
+}
+
+document.addEventListener("click", (e) => {
+  if (!e.target.closest(".caixinha-icon-picker")) fecharPickersIcones();
+});
+
 function dataHojeISO() {
   const d = new Date();
   const ano = d.getFullYear();
@@ -673,13 +859,14 @@ const opGanhos = criarOperacoesLista("ganhos", "saveGanhos");
 const opFixos = criarOperacoesLista("gastosFixos", "saveGastosFixos");
 const opVariaveis = criarOperacoesLista("gastosVariaveis", "saveGastosVariaveis");
 
-function addCaixinha(nome, valorInicial, valorObjetivo) {
+function addCaixinha(nome, valorInicial, valorObjetivo, icone = "") {
   if (isAmbos()) return;
   state.caixinhas.push({
     nome,
     valorGuardado: 0,
     valorObjetivo: valorObjetivo || 0,
     valorGuardadoMes: valorInicial || 0,
+    icone: normalizarNomeIcone(icone),
   });
   salvarBloco("saveCaixinhas", state.caixinhas);
   if (valorInicial > 0) {
@@ -703,13 +890,14 @@ function removeCaixinha(index) {
   salvarBloco("saveCaixinhas", state.caixinhas);
   renderAll();
 }
-function editCaixinha(index, nome, valorObjetivo) {
+function editCaixinha(index, nome, valorObjetivo, icone = "") {
   if (isAmbos()) return;
   const cx = state.caixinhas[index];
   if (!cx) return;
   const nomeAntigo = cx.nome;
   cx.nome = nome;
   cx.valorObjetivo = valorObjetivo || 0;
+  cx.icone = normalizarNomeIcone(icone);
   if (nomeAntigo !== nome) {
     const rotuloAntigo = `Guardado: ${nomeAntigo}`;
     const rotuloNovo = `Guardado: ${nome}`;
@@ -1597,7 +1785,7 @@ function statusCaixinha(pct) {
 function acionarEditarCaixinha(idx) {
   const cx = state.caixinhas[idx];
   if (!cx) return;
-  abrirModalEditar("caixinhas", idx, { nome: cx.nome, valor: cx.valorObjetivo });
+  abrirModalEditar("caixinhas", idx, { nome: cx.nome, valor: cx.valorObjetivo, icone: cx.icone || "" });
 }
 function acionarExcluirCaixinha(idx) {
   const cx = state.caixinhas[idx];
@@ -1644,9 +1832,13 @@ function montarCardCaixinha(cx, idx, ambos) {
 
   // Ícone: caixinha com meta vira um selo circular cujo anel se preenche
   // com o progresso (tipo anel de nível/XP); sem meta mantém o cofrinho.
-  const iconeHtml = temObjetivo
+  const iconePersonalizado = normalizarNomeIcone(cx.icone || "");
+  const iconePersonalizadoHtml = iconePersonalizado
+    ? `<span class="goal-icon-custom"><img src="${escapeHtml(urlIconeCaixinha(iconePersonalizado))}" alt="" loading="lazy" onerror="this.onerror=null;this.src='';this.parentElement.innerHTML=ICONE_COFRINHO"></span>`
+    : "";
+  const iconeHtml = iconePersonalizadoHtml || (temObjetivo
     ? `<span class="goal-icon-ring ${completo ? "completo" : ""}" style="--pct:${pct}%"><span class="goal-icon-ring-inner">${completo ? ICONE_TROFEU : ICONE_ALVO}</span></span>`
-    : `<span class="goal-icon sem-meta">${ICONE_COFRINHO}</span>`;
+    : `<span class="goal-icon sem-meta">${ICONE_COFRINHO}</span>`);
 
   const quase = temObjetivo && !completo && pct >= 90;
 
@@ -3589,9 +3781,11 @@ on("formCaixinhas", "submit", (e) => {
   const nome = f.nome.value.trim();
   const valorInicial = f.valorInicial.value ? parseValor(f.valorInicial.value) : 0;
   const valorObjetivo = f.valorObjetivo.value ? parseValor(f.valorObjetivo.value) : 0;
+  const icone = f.icone ? normalizarNomeIcone(f.icone.value) : "";
   if (!nome || valorInicial < 0) return;
-  addCaixinha(nome, valorInicial, valorObjetivo);
+  addCaixinha(nome, valorInicial, valorObjetivo, icone);
   f.reset();
+  aplicarPreviewIcone(document.getElementById("caixinhaIconPickerCriar"), "");
 });
 
 let onConfirmarValor = null;
@@ -3732,6 +3926,18 @@ function abrirModalEditar(tipo, idx, item) {
   const temCategoria = !!EDICAO_TEM_CATEGORIA[tipo];
   const temData = !!EDICAO_TEM_DATA[tipo];
   const temParcela = !!EDICAO_TEM_PARCELA[tipo];
+  const iconPickerEl = document.getElementById("caixinhaIconPickerEditar");
+
+  if (iconPickerEl) {
+    const temIcone = tipo === "caixinhas";
+    iconPickerEl.classList.toggle("is-hidden", !temIcone);
+    if (temIcone) {
+      aplicarPreviewIcone(iconPickerEl, item.icone || "");
+      renderOpcoesIconesCaixinhas(iconPickerEl);
+    } else {
+      aplicarPreviewIcone(iconPickerEl, "");
+    }
+  }
 
   if (categoriaEl) {
     categoriaEl.classList.toggle("is-hidden", !temCategoria);
@@ -3795,7 +4001,8 @@ on("formEditar", "submit", (e) => {
     // data/categoria que a pessoa escolheu.
     opVariaveis.edit(idx, nome, valor, { tipo: categoria, data, lembrete: false });
   } else if (tipo === "caixinhas") {
-    editCaixinha(idx, nome, valor);
+    const icone = normalizarNomeIcone(document.getElementById("editIcone")?.value || "");
+    editCaixinha(idx, nome, valor, icone);
   }
   fecharModalEditar();
 });
@@ -4272,4 +4479,16 @@ function initChartTooltip() {
 if (!document.body.dataset.tooltipInit) {
   initChartTooltip();
   document.body.dataset.tooltipInit = "1";
+}
+
+
+// Carrega os ícones personalizados depois que o HTML da aplicação estiver disponível.
+if (document.readyState === "loading") {
+  document.addEventListener("DOMContentLoaded", () => {
+    inicializarPickersIcones();
+    carregarIconesCaixinhas();
+  }, { once: true });
+} else {
+  inicializarPickersIcones();
+  carregarIconesCaixinhas();
 }
