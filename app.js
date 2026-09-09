@@ -1650,19 +1650,35 @@ function montarCardCaixinha(cx, idx, ambos) {
 
   const quase = temObjetivo && !completo && pct >= 90;
 
-  const cardHtml = `
+  // Chip "faltam R$X" (ou "Conquistada" quando bate a meta) — sempre
+  // alinhado à direita via margin-left:auto no CSS.
+  const chipFalta = temObjetivo
+    ? `<span class="goal-falta ${completo ? "completo" : ""}">${completo ? ICONE_TROFEU + " Conquistada" : "faltam " + fmt(falta)}</span>`
+    : "";
+
+  // Caixinha com meta mas ainda sem nada guardado: nada de barra vazia
+  // nem linha solta — cabeçalho e "faltam X" numa única linha compacta.
+  const cardHtml = (temObjetivo && vazia)
+    ? `
+    <div class="goal-head goal-head-compacto">
+      ${iconeHtml}
+      <span class="goal-nome" title="${escapeHtml(cx.nome)}">${escapeHtml(cx.nome)} ${tagPessoa(cx)}</span>
+      ${chipFalta}
+    </div>
+  `
+    : `
     <div class="goal-head">
       ${iconeHtml}
       <span class="goal-nome">${escapeHtml(cx.nome)} ${tagPessoa(cx)}</span>
     </div>
-    ${temObjetivo ? `<div class="goal-meta-linha">${!vazia ? `<span class="goal-status">${completo ? "Meta batida" : statusCaixinha(pct)}</span>` : "<span></span>"}<span class="goal-falta ${completo ? "completo" : ""}">${completo ? ICONE_TROFEU + " Conquistada" : "faltam " + fmt(falta)}</span></div>` : ""}
-    ${temObjetivo && !vazia ? `<div class="goal-bar-row"><div class="goal-bar-track"><div class="goal-bar-fill ${completo ? "completo" : ""}" style="width:${pct}%"></div></div><span class="goal-bar-pct ${completo ? "completo" : ""}">${Math.round(pct)}%</span></div>` : ""}
+    ${temObjetivo ? `<div class="goal-meta-linha">${chipFalta}</div>` : ""}
+    ${temObjetivo ? `<div class="goal-bar-row"><div class="goal-bar-track"><div class="goal-bar-fill ${completo ? "completo" : ""}" style="width:${pct}%"></div></div><span class="goal-bar-pct ${completo ? "completo" : ""}">${Math.round(pct)}%</span></div>` : ""}
     ${!vazia ? `<div class="caixinha-valores">${valoresHtml}</div>` : ""}
   `;
 
   if (ambos) {
     const card = document.createElement("div");
-    card.className = "goal-card caixinha-card" + (temObjetivo ? " tem-meta" : " sem-meta") + (completo ? " completo" : "") + (quase ? " quase" : "") + (cx._comemoraAoRenderizar ? " is-celebrando" : "");
+    card.className = "goal-card caixinha-card" + (temObjetivo ? " tem-meta" : " sem-meta") + (completo ? " completo" : "") + (quase ? " quase" : "") + (temObjetivo && vazia ? " compacta" : "") + (cx._comemoraAoRenderizar ? " is-celebrando" : "");
     card.style.animationDelay = Math.min(idx * 40, 250) + "ms";
     card.innerHTML = cardHtml;
     if (cx._comemoraAoRenderizar) {
@@ -1687,7 +1703,7 @@ function montarCardCaixinha(cx, idx, ambos) {
     <div class="swipe-actions-caixinha swipe-actions-editar">
       <button class="swipe-btn-caixinha swipe-editar-caixinha" aria-label="Editar caixinha" data-idx="${idx}">${ICONE_LAPIS}<span>Editar</span></button>
     </div>
-    <div class="goal-card caixinha-card${temObjetivo ? " tem-meta" : " sem-meta"}${completo ? " completo" : ""}${quase ? " quase" : ""}${cx._comemoraAoRenderizar ? " is-celebrando" : ""}">${cardHtml}</div>
+    <div class="goal-card caixinha-card${temObjetivo ? " tem-meta" : " sem-meta"}${completo ? " completo" : ""}${quase ? " quase" : ""}${temObjetivo && vazia ? " compacta" : ""}${cx._comemoraAoRenderizar ? " is-celebrando" : ""}">${cardHtml}</div>
   `;
   wrap.querySelector(".swipe-editar-caixinha").addEventListener("click", () => {
     fecharSwipeCaixinha(wrap);
