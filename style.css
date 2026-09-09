@@ -401,24 +401,44 @@ button, input { font-family: inherit; }
 .goal-card { background: var(--paper-deep); border: 1px solid var(--line); border-radius: var(--radius-l); padding: 18px 18px 16px; position: relative; overflow: hidden; box-shadow: 0 3px 14px rgba(22,51,44,0.07); animation: item-entrar 0.32s ease both; }
 .goal-card.tem-meta::after { content: ""; position: absolute; top: 0; left: 0; width: 4px; height: 100%; background: linear-gradient(180deg, var(--gold), var(--gold-deep)); }
 .goal-card.sem-meta::after { content: ""; position: absolute; top: 0; left: 0; width: 4px; height: 100%; background: var(--income); opacity: 0.55; }
-.goal-head { display: flex; align-items: center; gap: 10px; margin-bottom: 12px; }
+.goal-card.tem-meta.completo::after { background: linear-gradient(180deg, var(--income), #5b9c78); }
+/* Halo dourado sutil e fixo (sem loop) nas metas quase batidas — chama
+   atenção pra pouca coisa que falta sem ficar piscando o tempo todo. */
+.goal-card.tem-meta.quase { box-shadow: 0 3px 14px rgba(22,51,44,0.07), 0 0 0 1px rgba(185,134,47,0.35), 0 0 22px -4px rgba(185,134,47,0.45); }
+
+.goal-head { display: flex; align-items: center; gap: 11px; margin-bottom: 12px; }
 .goal-icon { flex-shrink: 0; width: 30px; height: 30px; border-radius: 50%; display: flex; align-items: center; justify-content: center; }
 .goal-icon svg { width: 16px; height: 16px; }
 .goal-icon.com-meta { background: rgba(185,134,47,0.15); color: var(--gold-deep); }
 .goal-icon.sem-meta { background: var(--income-bg); color: var(--income); }
 .goal-icon.sem-meta svg { width: 17px; height: 17px; }
+
+/* Selo circular de progresso: o ícone da meta vira um "medalhão" cujo anel
+   se preenche conforme a caixinha avança — like a level ring de jogo. */
+.goal-icon-ring { flex-shrink: 0; width: 36px; height: 36px; border-radius: 50%; padding: 3px; display: flex; align-items: center; justify-content: center; background: conic-gradient(var(--gold-deep) var(--pct, 0%), var(--line-soft) 0); transition: background 0.5s ease; }
+.goal-icon-ring.completo { background: conic-gradient(var(--income) var(--pct, 0%), var(--line-soft) 0); }
+.goal-icon-ring-inner { width: 100%; height: 100%; border-radius: 50%; background: var(--paper-deep); display: flex; align-items: center; justify-content: center; color: var(--gold-deep); }
+.goal-icon-ring.completo .goal-icon-ring-inner { color: var(--income); }
+.goal-icon-ring-inner svg { width: 15px; height: 15px; }
+
 .goal-nome { flex: 1 1 auto; font-family: var(--font-display); font-size: 16.5px; font-weight: 600; color: var(--ink-text); min-width: 0; }
-/* Linha própria pro "faltam R$X" / "Batida ✓" — separada do goal-head de
+/* Linha própria pro "faltam R$X" / "Conquistada" — separada do goal-head de
    propósito, pra nomes longos (ex. "The Legend of Zelda...") não brigarem
    por espaço com o badge e quebrarem feio. */
-.goal-meta-linha { display: flex; justify-content: flex-end; margin-bottom: 12px; }
-.goal-falta { font-family: var(--font-mono); font-size: 11.5px; font-weight: 600; color: var(--gold-deep); background: rgba(185,134,47,0.12); padding: 4px 10px; border-radius: 100px; white-space: nowrap; flex-shrink: 0; }
+.goal-meta-linha { display: flex; align-items: center; justify-content: space-between; gap: 8px; margin-bottom: 12px; }
+.goal-status { font-family: var(--font-body); font-size: 11.5px; font-weight: 500; color: var(--muted); }
+.goal-falta { display: inline-flex; align-items: center; gap: 5px; font-family: var(--font-mono); font-size: 11.5px; font-weight: 600; color: var(--gold-deep); background: rgba(185,134,47,0.12); padding: 4px 10px; border-radius: 100px; white-space: nowrap; flex-shrink: 0; margin-left: auto; }
 .goal-falta.completo { color: var(--income); background: var(--income-bg); }
+.goal-falta svg { width: 12px; height: 12px; flex-shrink: 0; }
+
 .goal-bar-row { display: flex; align-items: center; gap: 10px; margin-bottom: 12px; }
-.goal-bar-track { flex: 1 1 auto; width: 100%; height: 8px; background: var(--line-soft); border-radius: 100px; overflow: hidden; }
-.goal-bar-fill { height: 100%; background: linear-gradient(90deg, var(--gold-deep), var(--gold)); border-radius: 100px; transition: width 0.4s ease; }
-.goal-bar-fill.completo { background: linear-gradient(90deg, var(--income), #5b9c78); }
-.goal-bar-pct { font-family: var(--font-mono); font-size: 11px; font-weight: 700; color: var(--gold-deep); flex-shrink: 0; min-width: 32px; text-align: right; }
+.goal-bar-track { position: relative; flex: 1 1 auto; width: 100%; height: 10px; background: var(--line-soft); border-radius: 100px; overflow: hidden; }
+/* Trilha com marcas de checkpoint a cada 25% — remete a barra de XP com
+   metas intermediárias, e reforça o quanto já foi percorrido. */
+.goal-bar-track::before { content: ""; position: absolute; inset: 0; background-image: linear-gradient(90deg, var(--paper-deep) 1px, transparent 1px); background-size: 25% 100%; background-position: -1px 0; opacity: 0.6; pointer-events: none; }
+.goal-bar-fill { position: relative; height: 100%; background-image: repeating-linear-gradient(45deg, rgba(255,255,255,0.24) 0 6px, transparent 6px 13px), linear-gradient(90deg, var(--gold-deep), var(--gold)); border-radius: 100px; transition: width 0.6s cubic-bezier(.2,.8,.2,1); }
+.goal-bar-fill.completo { background-image: repeating-linear-gradient(45deg, rgba(255,255,255,0.24) 0 6px, transparent 6px 13px), linear-gradient(90deg, var(--income), #5b9c78); }
+.goal-bar-pct { font-family: var(--font-mono); font-size: 11.5px; font-weight: 700; color: var(--gold-deep); flex-shrink: 0; min-width: 34px; text-align: right; }
 .goal-bar-pct.completo { color: var(--income); }
 .goal-foot { display: flex; justify-content: space-between; align-items: center; font-size: 12.5px; }
 .goal-valores { font-family: var(--font-mono); color: var(--muted); }
@@ -433,6 +453,10 @@ button, input { font-family: inherit; }
 .caixinha-guardado { font-family: var(--font-mono); color: var(--muted); }
 .caixinha-guardado strong { color: var(--ink-text); font-size: 18px; font-weight: 700; }
 .caixinha-de { color: var(--muted); }
+
+@media (prefers-reduced-motion: reduce) {
+  .goal-card.tem-meta.quase { box-shadow: 0 3px 14px rgba(22,51,44,0.07); }
+}
 
 /* Wrapper de swipe: arrastar a caixinha p/ esquerda revela "Editar",
    p/ direita revela "Excluir"; tocar sem arrastar abre o menu de ações. */
