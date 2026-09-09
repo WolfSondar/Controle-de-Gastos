@@ -1391,3 +1391,135 @@ body.sem-entrada-listas .item-list-row { animation: none !important; }
     min-height: 44px;
   }
 }
+
+/* ==========================================================
+   V7 — AJUSTES FINOS DO SELETOR E SWIPE DAS CAIXINHAS
+   ========================================================== */
+
+/* Pesquisa: a lupa fica ancorada ao próprio campo, nunca ao wrapper. */
+.caixinha-icon-picker-search-wrap {
+  position: sticky;
+  top: 0;
+  z-index: 4;
+  display: flex;
+  align-items: center;
+  height: 48px;
+  min-height: 48px;
+  margin: -2px -2px 8px;
+  padding: 2px 4px;
+  background: var(--paper);
+  box-sizing: border-box;
+}
+
+.caixinha-icon-picker-search {
+  width: 100% !important;
+  min-width: 0;
+  height: 42px !important;
+  box-sizing: border-box !important;
+  padding: 0 42px 0 44px !important;
+  line-height: 42px;
+  text-indent: 0 !important;
+  -webkit-appearance: none !important;
+  appearance: none !important;
+}
+
+.caixinha-icon-picker-search-icon {
+  left: 18px !important;
+  top: 50% !important;
+  width: 18px !important;
+  height: 18px !important;
+  transform: translateY(-50%) !important;
+  z-index: 2;
+  display: flex !important;
+  align-items: center !important;
+  justify-content: center !important;
+}
+
+.caixinha-icon-picker-search-icon svg {
+  width: 18px !important;
+  height: 18px !important;
+  display: block !important;
+}
+
+.caixinha-icon-picker-search-clear {
+  right: 9px !important;
+  top: 50% !important;
+  transform: translateY(-50%) !important;
+  z-index: 3;
+}
+
+/*
+   Swipe: o "fundo" das ações pertence ao mesmo cartão visual.
+   O wrapper passa a ser a moldura externa e o card desliza por dentro dela,
+   sem deixar a faixa colorida parecer um bloco que saiu para fora.
+*/
+.caixinha-swipe {
+  border: 1px solid var(--line);
+  border-radius: var(--radius-l);
+  overflow: hidden;
+  background: var(--paper-deep);
+  box-sizing: border-box;
+}
+
+.caixinha-swipe .goal-card {
+  border: 0;
+  border-radius: 0;
+  box-shadow: none;
+  width: 100%;
+  box-sizing: border-box;
+}
+
+.caixinha-swipe .goal-card.tem-meta.quase {
+  box-shadow: none;
+}
+
+.swipe-actions-caixinha {
+  top: 0;
+  bottom: 0;
+  width: 92px;
+  overflow: hidden;
+}
+
+.swipe-actions-excluir {
+  left: 0;
+}
+
+.swipe-actions-editar {
+  right: 0;
+}
+
+.swipe-btn-caixinha {
+  width: 92px;
+  height: 100%;
+  border: 0;
+}
+
+/* O anel/ícone continua respirando mesmo durante o arraste. */
+.goal-icon-ring-custom {
+  width: 32px;
+  height: 32px;
+}
+
+@media (max-width: 560px) {
+  .caixinha-icon-picker-search-wrap {
+    margin-left: -1px;
+    margin-right: -1px;
+  }
+
+  .caixinha-icon-picker-search {
+    height: 44px !important;
+    line-height: 44px;
+    padding-left: 46px !important;
+  }
+
+  .caixinha-icon-picker-search-icon {
+    left: 17px !important;
+    width: 19px !important;
+    height: 19px !important;
+  }
+
+  .caixinha-icon-picker-search-icon svg {
+    width: 19px !important;
+    height: 19px !important;
+  }
+}
