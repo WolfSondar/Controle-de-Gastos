@@ -1576,6 +1576,91 @@ function carimbarMetaBatida(card) {
   setTimeout(() => selo.remove(), 2350);
 }
 
+// Ícone de alvo (usado no cabeçalho das caixinhas COM meta)
+const ICONE_ALVO = `<svg viewBox="0 0 24 24" fill="none"><circle cx="12" cy="12" r="8.5" stroke="currentColor" stroke-width="1.6"/><circle cx="12" cy="12" r="4.7" stroke="currentColor" stroke-width="1.6"/><circle cx="12" cy="12" r="1.3" fill="currentColor" stroke="none"/></svg>`;
+
+// Cabeçalho de agrupamento da lista de caixinhas ("Com meta" / "Sem meta")
+function caixinhaGroupHeader(titulo, subtitulo) {
+  return `<div class="goal-group-header">
+    <span class="goal-group-titulo">${titulo}</span>
+    <span class="goal-group-linha"></span>
+    <span class="goal-group-sub">${subtitulo}</span>
+  </div>`;
+}
+
+function montarCardCaixinha(cx, idx, ambos) {
+  const valorBase = Number(cx.valorGuardado) || 0;
+  const rendimentoTotal = Number(cx.rendimentoTotal) || 0;
+  const guardadoMes = Number(cx.valorGuardadoMes) || 0;
+
+  // O valor total considerado é a soma do que está na caixinha + rendimentos + o que
+  // foi guardado neste mês (que só entra na base quando o mês fechar)
+  const guardado = valorBase + rendimentoTotal + guardadoMes;
+
+  const objetivo = Number(cx.valorObjetivo) || 0;
+  const temObjetivo = objetivo > 0;
+  const falta = Math.max(objetivo - guardado, 0);
+  const pct = temObjetivo ? Math.min((guardado / objetivo) * 100, 100) : 0;
+  const completo = temObjetivo && falta <= 0;
+
+  if (completo && !cx._comemorado) {
+    if (!primeiraRenderCaixinhas) cx._comemoraAoRenderizar = true;
+    cx._comemorado = true;
+  } else if (!completo) {
+    cx._comemorado = false;
+  }
+
+  const card = document.createElement("div");
+  card.className = "goal-card caixinha-card" + (temObjetivo ? " tem-meta" : " sem-meta") + (cx._comemoraAoRenderizar ? " is-celebrando" : "");
+  card.style.animationDelay = Math.min(idx * 40, 250) + "ms";
+
+  // Ícone de rendimento em SVG: seta pra cima (ganho) ou pra baixo (perda),
+  // decidido na hora de montar o card abaixo.
+  const iconeRendimentoUp = `<svg style="width:12px;height:12px;" viewBox="0 0 24 24" fill="none"><path d="M23 6l-9.5 9.5-5-5L1 18" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"/><path d="M17 6h6v6" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"/></svg>`;
+  const iconeRendimentoDown = `<svg style="width:12px;height:12px;" viewBox="0 0 24 24" fill="none"><path d="M23 18l-9.5-9.5-5 5L1 6" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"/><path d="M17 18h6v-6" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"/></svg>`;
+  const temRendimento = rendimentoTotal !== 0;
+  const rendimentoEhGanho = rendimentoTotal > 0;
+
+  card.innerHTML = `
+    <div class="goal-head">
+      <span class="goal-icon ${temObjetivo ? "com-meta" : "sem-meta"}">${temObjetivo ? ICONE_ALVO : ICONE_COFRINHO}</span>
+      <span class="goal-nome">${escapeHtml(cx.nome)} ${tagPessoa(cx)}</span>
+      ${temObjetivo ? `<span class="goal-falta ${completo ? "completo" : ""}">${completo ? "Batida ✓" : "faltam " + fmt(falta)}</span>` : ""}
+    </div>
+    ${temObjetivo ? `<div class="goal-bar-row"><div class="goal-bar-track"><div class="goal-bar-fill ${completo ? "completo" : ""}" style="width:${pct}%"></div></div><span class="goal-bar-pct ${completo ? "completo" : ""}">${Math.round(pct)}%</span></div>` : ""}
+    <div class="caixinha-valores">
+      <span class="caixinha-guardado"><strong>${fmt(guardado)}</strong>${temObjetivo ? ` <span class="caixinha-de">de ${fmt(objetivo)}</span>` : " guardados"}</span>
+      ${temRendimento ? `<span class="item-tag ${rendimentoEhGanho ? "item-tag-rendimento" : "item-tag-perda"}" style="display:inline-flex;align-items:center;gap:4px;" title="${rendimentoEhGanho ? "Rendimento" : "Perda"}">${rendimentoEhGanho ? iconeRendimentoUp : iconeRendimentoDown}${fmt(Math.abs(rendimentoTotal))}</span>` : ""}
+    </div>
+    ${ambos ? "" : `<div class="caixinha-actions">
+            <button class="btn btn-caixinha-guardar" data-idx="${idx}">+ guardar</button>
+            <button class="btn btn-caixinha-retirar" data-idx="${idx}">− retirar</button>
+            <button class="btn btn-caixinha-rendimento" data-idx="${idx}" aria-label="Informar rendimento" title="Rendimento — não sai do saldo disponível">% rendeu</button>
+            <button class="btn-edit" aria-label="Editar caixinha" data-edit="${idx}">${ICONE_LAPIS}</button>
+            <button class="btn-remove" aria-label="Remover caixinha" data-remove="${idx}">${ICONE_X}</button>
+          </div>`}
+  `;
+  if (!ambos) {
+    card.querySelector(".btn-caixinha-guardar").addEventListener("click", () => abrirModalCaixinha("guardar", idx));
+    card.querySelector(".btn-caixinha-retirar").addEventListener("click", () => abrirModalCaixinha("retirar", idx));
+    card.querySelector(".btn-caixinha-rendimento").addEventListener("click", () => abrirModalCaixinha("rendimento", idx));
+    card.querySelector("[data-edit]").addEventListener("click", () => abrirModalEditar("caixinhas", idx, { nome: cx.nome, valor: cx.valorObjetivo }));
+    card.querySelector("[data-remove]").addEventListener("click", () => {
+      const guardado = totalCaixinha(cx);
+      const aviso = guardado > 0
+          ? `Remover a caixinha "${cx.nome}"? Os ${fmt(guardado)} guardados nela voltam pro saldo disponível como um ganho. Essa ação não pode ser desfeita.`
+          : `Remover a caixinha "${cx.nome}"? Essa ação não pode ser desfeita.`;
+      abrirConfirmacao(aviso, () => removeCaixinha(idx));
+    });
+  }
+  if (cx._comemoraAoRenderizar) {
+    dispararConfete();
+    carimbarMetaBatida(card);
+    cx._comemoraAoRenderizar = false;
+  }
+  return card;
+}
+
 function renderCaixinhas() {
   const ambos = isAmbos();
   const wrap = document.getElementById("listaCaixinhas");
@@ -1584,80 +1669,25 @@ function renderCaixinhas() {
     if (state.caixinhas.length === 0) {
       wrap.innerHTML = estadoVazio("Nenhuma caixinha ainda. Que tal criar uma?", ICONE_COFRINHO);
     } else {
+      // Agrupa: caixinhas com meta definida primeiro, depois as sem meta.
+      const comMeta = [];
+      const semMeta = [];
       state.caixinhas.forEach((cx, idx) => {
-  const valorBase = Number(cx.valorGuardado) || 0;
-  const rendimentoTotal = Number(cx.rendimentoTotal) || 0;
-  const guardadoMes = Number(cx.valorGuardadoMes) || 0;
-  
-  // O valor total considerado é a soma do que está na caixinha + rendimentos + o que
-  // foi guardado neste mês (que só entra na base quando o mês fechar)
-  const guardado = valorBase + rendimentoTotal + guardadoMes; 
-  
-  const objetivo = Number(cx.valorObjetivo) || 0;
-  const temObjetivo = objetivo > 0;
-  const falta = Math.max(objetivo - guardado, 0);
-  const pct = temObjetivo ? Math.min((guardado / objetivo) * 100, 100) : 0;
-  const completo = temObjetivo && falta <= 0;
-
-        if (completo && !cx._comemorado) {
-          if (!primeiraRenderCaixinhas) cx._comemoraAoRenderizar = true;
-          cx._comemorado = true;
-        } else if (!completo) {
-          cx._comemorado = false;
-        }
-
-        const card = document.createElement("div");
-        card.className = "goal-card caixinha-card" + (cx._comemoraAoRenderizar ? " is-celebrando" : "");
-        card.style.animationDelay = Math.min(idx * 40, 250) + "ms";
-        
-        // Ícone de rendimento em SVG: seta pra cima (ganho) ou pra baixo (perda),
-        // decidido na hora de montar o card abaixo.
-        const iconeRendimentoUp = `<svg style="width:12px;height:12px;" viewBox="0 0 24 24" fill="none"><path d="M23 6l-9.5 9.5-5-5L1 18" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"/><path d="M17 6h6v6" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"/></svg>`;
-        const iconeRendimentoDown = `<svg style="width:12px;height:12px;" viewBox="0 0 24 24" fill="none"><path d="M23 18l-9.5-9.5-5 5L1 6" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"/><path d="M17 18h6v-6" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"/></svg>`;
-        const temRendimento = rendimentoTotal !== 0;
-        const rendimentoEhGanho = rendimentoTotal > 0;
-
-        card.innerHTML = `
-          <div class="goal-head">
-            <span class="goal-nome">${escapeHtml(cx.nome)} ${tagPessoa(cx)}</span>
-            ${temObjetivo ? `<span class="goal-falta ${completo ? "completo" : ""}">${completo ? "Objetivo batido ✓" : "faltam " + fmt(falta)}</span>` : ""}
-          </div>
-          ${temObjetivo ? `<div class="goal-bar-track"><div class="goal-bar-fill ${completo ? "completo" : ""}" style="width:${pct}%"></div></div>` : ""}
-          <div class="caixinha-valores">
-            <span class="caixinha-guardado"><strong>${fmt(guardado)}</strong>${temObjetivo ? ` de ${fmt(objetivo)}` : " guardados"}</span>
-            ${temRendimento ? `<span class="item-tag ${rendimentoEhGanho ? "item-tag-rendimento" : "item-tag-perda"}" style="display:inline-flex;align-items:center;gap:4px;" title="${rendimentoEhGanho ? "Rendimento" : "Perda"}">${rendimentoEhGanho ? iconeRendimentoUp : iconeRendimentoDown}${fmt(Math.abs(rendimentoTotal))}</span>` : ""}
-          </div>
-          ${ambos ? "" : `<div class="caixinha-actions">
-                  <button class="btn btn-caixinha-guardar" data-idx="${idx}">+ guardar</button>
-                  <button class="btn btn-caixinha-retirar" data-idx="${idx}">− retirar</button>
-                  <button class="btn btn-caixinha-rendimento" data-idx="${idx}" aria-label="Informar rendimento" title="Rendimento — não sai do saldo disponível">% rendeu</button>
-                  <button class="btn-edit" aria-label="Editar caixinha" data-edit="${idx}">${ICONE_LAPIS}</button>
-                  <button class="btn-remove" aria-label="Remover caixinha" data-remove="${idx}">${ICONE_X}</button>
-                </div>`}
-        `;
-        if (!ambos) {
-          card.querySelector(".btn-caixinha-guardar").addEventListener("click", () => abrirModalCaixinha("guardar", idx));
-          card.querySelector(".btn-caixinha-retirar").addEventListener("click", () => abrirModalCaixinha("retirar", idx));
-          card.querySelector(".btn-caixinha-rendimento").addEventListener("click", () => abrirModalCaixinha("rendimento", idx));
-          card.querySelector("[data-edit]").addEventListener("click", () => abrirModalEditar("caixinhas", idx, { nome: cx.nome, valor: cx.valorObjetivo }));
-          card.querySelector("[data-remove]").addEventListener("click", () => {
-            const guardado = totalCaixinha(cx);
-            const aviso = guardado > 0
-                ? `Remover a caixinha "${cx.nome}"? Os ${fmt(guardado)} guardados nela voltam pro saldo disponível como um ganho. Essa ação não pode ser desfeita.`
-                : `Remover a caixinha "${cx.nome}"? Essa ação não pode ser desfeita.`;
-            abrirConfirmacao(aviso, () => removeCaixinha(idx));
-          });
-        }
-        if (cx._comemoraAoRenderizar) {
-          dispararConfete();
-          carimbarMetaBatida(card);
-          cx._comemoraAoRenderizar = false;
-        }
-        wrap.appendChild(card);
+        if ((Number(cx.valorObjetivo) || 0) > 0) comMeta.push(idx);
+        else semMeta.push(idx);
       });
+
+      if (comMeta.length) {
+        wrap.insertAdjacentHTML("beforeend", caixinhaGroupHeader("Com meta", comMeta.length + (comMeta.length === 1 ? " caixinha" : " caixinhas")));
+        comMeta.forEach((idx) => wrap.appendChild(montarCardCaixinha(state.caixinhas[idx], idx, ambos)));
+      }
+      if (semMeta.length) {
+        wrap.insertAdjacentHTML("beforeend", caixinhaGroupHeader("Sem meta", semMeta.length + (semMeta.length === 1 ? " caixinha" : " caixinhas")));
+        semMeta.forEach((idx) => wrap.appendChild(montarCardCaixinha(state.caixinhas[idx], idx, ambos)));
+      }
     }
   }
-  
+
   primeiraRenderCaixinhas = false;
   
   const mini = document.getElementById("resumoCaixinhas");
