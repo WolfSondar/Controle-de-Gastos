@@ -464,6 +464,38 @@
   </div>
 </div>
 
+<!-- MODAL DE AÇÕES DA CAIXINHA (guardar / retirar / % rendeu) -->
+<div class="modal-backdrop is-hidden" id="acoesCaixinhaBackdrop">
+  <div class="modal modal-acoes modal-acoes-caixinha">
+    <h3 id="acoesCaixinhaTitulo">Caixinha</h3>
+    <p class="section-hint">O que você quer fazer?</p>
+    <button type="button" class="acao-card acao-card-caixinha" id="btnAcaoCaixinhaGuardar">
+      <span class="acao-card-icon acao-icon-guardar">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M12 5v14M5 12h14"/></svg>
+      </span>
+      <span class="acao-card-texto"><strong>Guardar</strong><small>Adicionar um valor a essa caixinha</small></span>
+      <span class="acao-card-seta">›</span>
+    </button>
+    <button type="button" class="acao-card acao-card-caixinha" id="btnAcaoCaixinhaRetirar">
+      <span class="acao-card-icon acao-icon-retirar">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M5 12h14"/></svg>
+      </span>
+      <span class="acao-card-texto"><strong>Retirar</strong><small>Tirar um valor dessa caixinha</small></span>
+      <span class="acao-card-seta">›</span>
+    </button>
+    <button type="button" class="acao-card acao-card-caixinha" id="btnAcaoCaixinhaRendimento">
+      <span class="acao-card-icon acao-icon-rendimento">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M23 6l-9.5 9.5-5-5L1 18"/><path d="M17 6h6v6"/></svg>
+      </span>
+      <span class="acao-card-texto"><strong>% rendeu</strong><small>Informar o total atualizado (rendimento ou perda)</small></span>
+      <span class="acao-card-seta">›</span>
+    </button>
+    <div class="modal-actions">
+      <button type="button" class="btn btn-ghost" id="acoesCaixinhaFechar">Fechar</button>
+    </div>
+  </div>
+</div>
+
 <!-- MODAL DE AÇÕES EM CONJUNTO -->
 <div class="modal-backdrop is-hidden" id="acoesBackdrop">
   <div class="modal modal-acoes">
