@@ -567,7 +567,7 @@ function gerarInsightComGemini(pessoa, periodo, resumo) {
         temperature: 0.95,
         maxOutputTokens: 2400,
         responseMimeType: "application/json",
-        responseSchema: { type: "ARRAY", items: { type: "STRING" } },
+        responseSchema: { type: "ARRAY", minItems: QUANTIDADE_INSIGHTS_POR_PEDIDO, maxItems: QUANTIDADE_INSIGHTS_POR_PEDIDO, items: { type: "STRING" } },
       },
     };
 
@@ -622,16 +622,40 @@ function gerarInsightComGemini(pessoa, periodo, resumo) {
       lista = null;
     }
 
+    // Mesmo com responseSchema, nunca confiamos cegamente na quantidade
+    // devolvida. Se vier menos que 10, fazemos uma única segunda tentativa
+    // reforçando a exigência — ainda é uma única geração de lote na operação
+    // normal e evita guardar uma fila quebrada com apenas 1 insight.
+    if (!lista || lista.map(function (t) { return String(t || "").trim(); }).filter(Boolean).length < QUANTIDADE_INSIGHTS_POR_PEDIDO) {
+      try {
+        const corpoRetry = JSON.parse(JSON.stringify(corpo));
+        corpoRetry.contents[0].parts[0].text += "\n\nATENÇÃO: sua resposta anterior não trouxe 10 itens válidos. Ignore a resposta anterior e gere AGORA exatamente 10 strings independentes no array JSON, sem reduzir a quantidade.";
+        const resRetry = UrlFetchApp.fetch(url, Object.assign({}, opcoesFetch, { payload: JSON.stringify(corpoRetry) }));
+        const statusRetry = resRetry.getResponseCode();
+        let dataRetry = {};
+        try { dataRetry = JSON.parse(resRetry.getContentText() || "{}"); } catch (errParseRetry) { dataRetry = {}; }
+        if (statusRetry === 200) {
+          const textoRetry = dataRetry.candidates && dataRetry.candidates[0] && dataRetry.candidates[0].content && dataRetry.candidates[0].content.parts && dataRetry.candidates[0].content.parts[0] && dataRetry.candidates[0].content.parts[0].text;
+          if (textoRetry) {
+            try {
+              const parsedRetry = JSON.parse(textoRetry);
+              lista = Array.isArray(parsedRetry) ? parsedRetry : (parsedRetry && Array.isArray(parsedRetry.insights) ? parsedRetry.insights : null);
+            } catch (errParseRetry2) { lista = null; }
+          }
+        }
+      } catch (errRetry) {}
+    }
+
     if (!lista) {
       return { ok: false, error: "O Gemini não devolveu uma lista de insights no formato esperado." };
     }
 
     const textos = lista.map(function (t) { return String(t || "").trim(); }).filter(Boolean);
-    if (!textos.length) {
-      return { ok: false, error: "O Gemini devolveu uma lista de insights vazia." };
+    if (textos.length < QUANTIDADE_INSIGHTS_POR_PEDIDO) {
+      return { ok: false, error: "O Gemini não conseguiu devolver os 10 insights completos neste momento." };
     }
 
-    return { ok: true, textos: textos, periodo: periodo || null };
+    return { ok: true, textos: textos.slice(0, QUANTIDADE_INSIGHTS_POR_PEDIDO), periodo: periodo || null };
   } catch (err) {
     return { ok: false, error: String(err) };
   }
