@@ -1638,15 +1638,17 @@ function somaVariaveisPagas(lista) {
 
 function ehLancamentoDeCaixinha(nome) { return typeof nome === "string" && nome.indexOf("Guardado: ") === 0; }
 
-function animarNumero(el, de, para, duracao = 650) {
+function animarNumero(el, de, para, duracao = 650, pulsar = true) {
   if (!el) return;
   if (de === null || de === undefined || de === para) {
     el.textContent = fmt(para);
     return;
   }
-  el.classList.remove("is-pulsing");
-  void el.offsetWidth; 
-  el.classList.add("is-pulsing");
+  if (pulsar) {
+    el.classList.remove("is-pulsing");
+    void el.offsetWidth;
+    el.classList.add("is-pulsing");
+  }
   const inicio = performance.now();
   function passo(agora) {
     const p = Math.min((agora - inicio) / duracao, 1);
@@ -1697,7 +1699,8 @@ function renderTotais() {
   animarNumero(guardadoEl, prevTotals.guardado, totalGuardadoAtual);
   const guardadoMesEl = document.getElementById("statGuardadoMes");
   if (guardadoMesEl) guardadoMesEl.textContent = totalGuardadoNoMes > 0 ? `+ ${fmt(totalGuardadoNoMes)} neste mês` : "";
-  animarNumero(saldoEl, prevTotals.saldo, saldo);
+  // O saldo muda suavemente, mas o visor nunca pulsa.
+  animarNumero(saldoEl, prevTotals.saldo, saldo, 650, false);
 
   // O visor do saldo mantém dimensões fixas e mostra apenas a variação
   // da última sincronização no canto direito — sem criar/remover o card.
@@ -1711,18 +1714,40 @@ function renderTotais() {
     }
 
     const deltaSaldo = primeiraVez ? 0 : saldo - (Number(prevTotals.saldo) || 0);
-    saldoEl.classList.toggle("saldo-subiu", deltaSaldo > 0);
-    saldoEl.classList.toggle("saldo-caiu", deltaSaldo < 0);
+
+    // A variação aparece dentro do próprio visor do saldo por 1 segundo.
+    // Depois, tanto a cor de entrada/saída quanto o texto desaparecem e o
+    // visor volta exatamente ao estado original.
+    if (saldoEl._deltaTimer) {
+      clearTimeout(saldoEl._deltaTimer);
+      saldoEl._deltaTimer = null;
+    }
+
+    saldoEl.classList.remove("saldo-subiu", "saldo-caiu");
+    deltaEl.className = "saldo-delta";
+    deltaEl.textContent = "";
 
     if (deltaSaldo > 0) {
       deltaEl.textContent = `+ ${fmt(deltaSaldo)}`;
-      deltaEl.className = "saldo-delta positivo";
+      deltaEl.className = "saldo-delta positivo is-visible";
+      saldoEl.classList.add("saldo-subiu");
     } else if (deltaSaldo < 0) {
       deltaEl.textContent = `− ${fmt(Math.abs(deltaSaldo))}`;
-      deltaEl.className = "saldo-delta negativo";
-    } else {
-      deltaEl.textContent = "";
-      deltaEl.className = "saldo-delta";
+      deltaEl.className = "saldo-delta negativo is-visible";
+      saldoEl.classList.add("saldo-caiu");
+    }
+
+    if (deltaSaldo !== 0) {
+      saldoEl._deltaTimer = setTimeout(() => {
+        deltaEl.classList.remove("is-visible");
+        saldoEl.classList.remove("saldo-subiu", "saldo-caiu");
+        setTimeout(() => {
+          if (!deltaEl.classList.contains("is-visible")) {
+            deltaEl.textContent = "";
+            deltaEl.className = "saldo-delta";
+          }
+        }, 180);
+      }, 1000);
     }
   }
 
