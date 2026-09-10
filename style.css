@@ -1,4 +1,4 @@
-/* ============================================================
+   /* ============================================================
    CAIXA — tema "livro-caixa" (passbook de banco antigo)
    Paleta: verde-tinta escuro + papel creme + dourado + tinta vermelha
    ============================================================ */
@@ -2609,3 +2609,12 @@ body.sem-entrada-listas .item-list-row { animation: none !important; }
 .saldo-origem-beneficio .saldo-origem-label { color: var(--benefit) !important; }
 .insight-valor-beneficio { color: var(--benefit) !important; font-weight: 700; white-space: nowrap; }
 .hero-stat-guardado-mes { color: var(--gold) !important; }
+
+
+/* V15 — refinamento final de interação */
+.fab-criar { width: 52px; height: 52px; min-height: 52px; padding: 0; justify-content: center; border-radius: 50%; }
+.fab-criar span { display: none !important; }
+.fab-criar svg { width: 23px; height: 23px; }
+.fab-criar.is-hidden { display: none !important; }
+.ganhos-legenda { margin-top: 10px !important; margin-bottom: 14px !important; padding-top: 2px; }
+@media (max-width: 560px) { .fab-criar { width: 52px; height: 52px; } }
