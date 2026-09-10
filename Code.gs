@@ -395,7 +395,7 @@ function gerarInsightComOpenAI(corpoGemini, periodo) {
     model: OPENAI_MODEL,
     input: [{ role: "user", content: [{ type: "input_text", text: prompt }] }],
     temperature: 0.95,
-    max_output_tokens: 2400,
+    max_output_tokens: 4000,
     text: {
       format: {
         type: "json_schema",
@@ -729,7 +729,7 @@ function gerarInsightComGemini(pessoa, periodo, resumo, opcoesModo) {
       ],
       generationConfig: {
         temperature: 0.95,
-        maxOutputTokens: 2400,
+        maxOutputTokens: 4000,
         responseMimeType: "application/json",
         responseSchema: {
           type: "ARRAY",
@@ -822,26 +822,31 @@ function gerarInsightComGemini(pessoa, periodo, resumo, opcoesModo) {
     let insightsValidos = Array.isArray(lista) ? lista.map(normalizarInsightGerado).filter(Boolean) : [];
 
     // Mesmo com responseSchema, nunca confiamos cegamente na quantidade devolvida.
-    // Se vier menos que 5, fazemos uma segunda tentativa reforçando a exigência.
+    // Se vier menos que 5, fazemos até duas tentativas extras reforçando a exigência.
+    // Isso é especialmente importante no modo Juntos, em que o prompt é mais
+    // comprido por trazer o recorte separado de Davi e Gabriel.
     if (insightsValidos.length < QUANTIDADE_INSIGHTS_POR_PEDIDO) {
-      try {
-        const corpoRetry = JSON.parse(JSON.stringify(corpo));
-        corpoRetry.contents[0].parts[0].text += "\n\nATENÇÃO: sua resposta anterior não trouxe 5 objetos válidos. Ignore a resposta anterior e gere AGORA exatamente 5 objetos independentes, cada um com titulo, texto e tipo válidos.";
-        const resRetry = UrlFetchApp.fetch(url, Object.assign({}, opcoesFetch, { payload: JSON.stringify(corpoRetry) }));
-        const statusRetry = resRetry.getResponseCode();
-        let dataRetry = {};
-        try { dataRetry = JSON.parse(resRetry.getContentText() || "{}"); } catch (errParseRetry) { dataRetry = {}; }
-        if (statusRetry === 200) {
-          const textoRetry = dataRetry.candidates && dataRetry.candidates[0] && dataRetry.candidates[0].content && dataRetry.candidates[0].content.parts && dataRetry.candidates[0].content.parts[0] && dataRetry.candidates[0].content.parts[0].text;
-          if (textoRetry) {
-            try {
-              const parsedRetry = JSON.parse(textoRetry);
-              const listaRetry = Array.isArray(parsedRetry) ? parsedRetry : (parsedRetry && Array.isArray(parsedRetry.insights) ? parsedRetry.insights : null);
-              insightsValidos = Array.isArray(listaRetry) ? listaRetry.map(normalizarInsightGerado).filter(Boolean) : [];
-            } catch (errParseRetry2) { insightsValidos = []; }
+      for (let tentativaExtra = 0; tentativaExtra < 2 && insightsValidos.length < QUANTIDADE_INSIGHTS_POR_PEDIDO; tentativaExtra++) {
+        try {
+          const corpoRetry = JSON.parse(JSON.stringify(corpo));
+          corpoRetry.contents[0].parts[0].text += "\n\nATENÇÃO CRÍTICA: a resposta anterior ficou incompleta. Você DEVE devolver AGORA exatamente 5 objetos independentes no array, cada um com titulo, texto e tipo válidos. Não devolva 2, 3 ou 4. Reduza o texto de cada insight se necessário para caber, mas preserve os 5 ângulos diferentes.";
+          const resRetry = UrlFetchApp.fetch(url, Object.assign({}, opcoesFetch, { payload: JSON.stringify(corpoRetry) }));
+          const statusRetry = resRetry.getResponseCode();
+          let dataRetry = {};
+          try { dataRetry = JSON.parse(resRetry.getContentText() || "{}"); } catch (errParseRetry) { dataRetry = {}; }
+          if (statusRetry === 200) {
+            const textoRetry = dataRetry.candidates && dataRetry.candidates[0] && dataRetry.candidates[0].content && dataRetry.candidates[0].content.parts && dataRetry.candidates[0].content.parts[0] && dataRetry.candidates[0].content.parts[0].text;
+            if (textoRetry) {
+              try {
+                const parsedRetry = JSON.parse(textoRetry);
+                const listaRetry = Array.isArray(parsedRetry) ? parsedRetry : (parsedRetry && Array.isArray(parsedRetry.insights) ? parsedRetry.insights : null);
+                const candidatosRetry = Array.isArray(listaRetry) ? listaRetry.map(normalizarInsightGerado).filter(Boolean) : [];
+                if (candidatosRetry.length >= insightsValidos.length) insightsValidos = candidatosRetry;
+              } catch (errParseRetry2) {}
+            }
           }
-        }
-      } catch (errRetry) {}
+        } catch (errRetry) {}
+      }
     }
 
     if (insightsValidos.length < QUANTIDADE_INSIGHTS_POR_PEDIDO) {
