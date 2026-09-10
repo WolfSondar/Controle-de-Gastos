@@ -3875,7 +3875,7 @@ function renderHistoricoSkeleton() {
 
 // Novo Gráfico com Faixas Verticais (Resolve sobreposição de pontos)
 function construirGraficoHistoricoMultiSvg(mesesAsc, pessoa) {
-  const W = 320, H = 160, padL = 14, padR = 14, padT = 16, padB = 28;
+  const W = 320, H = 190, padL = 14, padR = 14, padT = 18, padB = 30;
 
   const getVal = (m, campo) => {
     if (pessoa === 'ambos') return (m[`${campo}Davi`] || 0) + (m[`${campo}Gabriel`] || 0);
