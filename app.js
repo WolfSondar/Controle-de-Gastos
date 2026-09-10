@@ -1615,18 +1615,10 @@ function animarNumero(el, de, para, duracao = 650) {
   requestAnimationFrame(passo);
 }
 
-function popValorFlutuante(container, delta, corFixa) {
-  if (!container || !delta) return;
-  const positivo = delta > 0;
-  const cor = corFixa || (positivo ? "income" : "expense");
-  const span = document.createElement("span");
-  span.className = "value-pop " + cor;
-  span.textContent = (positivo ? "+ " : "− ") + fmt(Math.abs(delta));
-  container.appendChild(span);
-  requestAnimationFrame(() => requestAnimationFrame(() => span.classList.add("is-animating")));
-  setTimeout(() => span.classList.add("is-leaving"), 750);
-  setTimeout(() => span.remove(), 1350);
+function popValorFlutuante() {
+  // Feedback flutuante de adicionar/remover dinheiro desativado.
 }
+
 
 function renderTotais() {
   const totalGanhosGeral = soma(state.ganhos);
@@ -2462,15 +2454,22 @@ function renderCaixinhas() {
     if (state.caixinhas.length === 0) {
       wrap.innerHTML = estadoVazio("Nenhuma caixinha ainda. Que tal criar uma?", ICONE_COFRINHO);
     } else {
-      // Ordena: caixinhas com meta definida primeiro, depois as sem meta —
-      // sem separador visual entre os grupos, só a ordem mesmo.
+      // Prioridade: quem está mais perto de concluir a meta aparece primeiro.
+      // Caixinhas com meta ficam antes das sem objetivo; entre as sem objetivo,
+      // preservamos a ordem original para não ficar reorganizando sem necessidade.
       const ordenadas = state.caixinhas
-        .map((cx, idx) => idx)
+        .map((cx, idx) => ({ cx, idx }))
         .sort((a, b) => {
-          const aTemMeta = (Number(state.caixinhas[a].valorObjetivo) || 0) > 0 ? 0 : 1;
-          const bTemMeta = (Number(state.caixinhas[b].valorObjetivo) || 0) > 0 ? 0 : 1;
-          return aTemMeta - bTemMeta;
-        });
+          const oa = Number(a.cx.valorObjetivo) || 0;
+          const ob = Number(b.cx.valorObjetivo) || 0;
+          if (oa <= 0 && ob <= 0) return a.idx - b.idx;
+          if (oa <= 0) return 1;
+          if (ob <= 0) return -1;
+          const pa = Math.min((totalCaixinha(a.cx) / oa) * 100, 100);
+          const pb = Math.min((totalCaixinha(b.cx) / ob) * 100, 100);
+          return pb - pa || a.idx - b.idx;
+        })
+        .map(({ idx }) => idx);
       ordenadas.forEach((idx) => wrap.appendChild(montarCardCaixinha(state.caixinhas[idx], idx, ambos)));
       if (!ambos) habilitarSwipeCaixinhas(wrap);
     }
@@ -2484,7 +2483,19 @@ function renderCaixinhas() {
   if (state.caixinhas.length === 0) {
     mini.innerHTML = estadoVazio('Crie uma caixinha na aba "Caixinhas".', ICONE_COFRINHO);
   } else {
-    state.caixinhas.forEach((cx) => {
+    const ordenadasResumo = state.caixinhas
+      .map((cx, idx) => ({ cx, idx }))
+      .sort((a, b) => {
+        const oa = Number(a.cx.valorObjetivo) || 0;
+        const ob = Number(b.cx.valorObjetivo) || 0;
+        if (oa <= 0 && ob <= 0) return a.idx - b.idx;
+        if (oa <= 0) return 1;
+        if (ob <= 0) return -1;
+        const pa = Math.min((totalCaixinha(a.cx) / oa) * 100, 100);
+        const pb = Math.min((totalCaixinha(b.cx) / ob) * 100, 100);
+        return pb - pa || a.idx - b.idx;
+      });
+    ordenadasResumo.forEach(({ cx }) => {
       const guardado = totalCaixinha(cx);
       const objetivo = Number(cx.valorObjetivo) || 0;
       const temObjetivo = objetivo > 0;
@@ -2507,33 +2518,68 @@ function renderCaixinhas() {
 const ICONE_GANHO = `<svg viewBox="0 0 24 24" fill="none"><path d="M12 19V5M5 12l7-7 7 7" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>`;
 const ICONE_GASTO = `<svg viewBox="0 0 24 24" fill="none"><path d="M12 5v14M5 12l7 7 7-7" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>`;
 
-function itensRecentesPorCategoria(lista, tipo, tag, n) {
-  return lista.slice(-n).reverse().map((i) => ({ ...i, tipo, tag }));
+function itensRecentesPorCategoria(lista, tipo, tag) {
+  return (lista || []).map((i) => ({ ...i, tipo, tag }));
 }
 
 function renderRecentes() {
   const ledger = document.getElementById("ledgerRecentes");
+  if (!ledger) return;
+
+  // Extrato dos últimos 14 dias (incluindo hoje), mostrando somente o que
+  // já entrou ou já foi pago. A ordem é cronológica, agrupada por data.
+  const hoje = new Date();
+  hoje.setHours(0, 0, 0, 0);
+  const inicio = new Date(hoje);
+  inicio.setDate(inicio.getDate() - 13);
+
   const todos = [
-    ...itensRecentesPorCategoria(state.ganhos, "income", "Ganho", 3),
-    ...itensRecentesPorCategoria(state.gastosFixos, "expense", "Fixo", 3),
-    ...itensRecentesPorCategoria(state.gastosVariaveis, "expense", "Variável", 3),
-  ];
+    ...itensRecentesPorCategoria(state.ganhos, "income", "Ganho"),
+    ...itensRecentesPorCategoria(state.gastosFixos, "expense", "Fixo"),
+    ...itensRecentesPorCategoria(state.gastosVariaveis, "expense", "Variável"),
+  ].filter((item) => {
+    const data = String(item.data || "").slice(0, 10);
+    if (!/^\d{4}-\d{2}-\d{2}$/.test(data)) return false;
+    const d = new Date(`${data}T00:00:00`);
+    if (Number.isNaN(d.getTime()) || d < inicio || d > hoje) return false;
+    const concluido = item.tipo === "income" ? item.recebido === true : item.pago === true;
+    return concluido;
+  }).sort((a, b) => {
+    const da = String(a.data || "");
+    const db = String(b.data || "");
+    return db.localeCompare(da);
+  });
 
   ledger.innerHTML = "";
   if (todos.length === 0) {
-    ledger.innerHTML = estadoVazio('Ainda não há lançamentos. Comece pela aba "Ganhos".', ICONE_PENA);
+    ledger.innerHTML = estadoVazio("Nenhum lançamento recebido ou pago nos últimos 14 dias.", ICONE_PENA);
     return;
   }
+
+  let dataAnterior = null;
   todos.forEach((item) => {
-    const pendente = item.tipo === "income" ? item.recebido === false : item.pago === false;
+    const data = String(item.data || "").slice(0, 10);
+    if (data !== dataAnterior) {
+      const heading = document.createElement("div");
+      heading.className = "ledger-date-heading";
+      const d = new Date(`${data}T00:00:00`);
+      const ehHoje = data === dataHojeISO();
+      const ontem = new Date(hoje);
+      ontem.setDate(ontem.getDate() - 1);
+      const ehOntem = data === `${ontem.getFullYear()}-${String(ontem.getMonth()+1).padStart(2,"0")}-${String(ontem.getDate()).padStart(2,"0")}`;
+      const label = ehHoje ? "Hoje" : ehOntem ? "Ontem" : d.toLocaleDateString("pt-BR", { weekday: "long", day: "2-digit", month: "long" });
+      heading.innerHTML = `<span>${escapeHtml(label)}</span><span class="ledger-date-line"></span>`;
+      ledger.appendChild(heading);
+      dataAnterior = data;
+    }
+
     const row = document.createElement("div");
-    row.className = "ledger-item" + (pendente ? " is-pendente" : "");
-    const tagPendente = item.tipo === "income" ? "A receber" : `${item.tag} · pendente`;
+    row.className = "ledger-item";
     row.innerHTML = `
       <span class="ledger-icon ${item.tipo}">${item.tipo === "income" ? ICONE_GANHO : ICONE_GASTO}</span>
       <div class="ledger-info">
         <span class="ledger-nome">${escapeHtml(item.nome)} ${tagPessoa(item)}</span>
-        <span class="ledger-tag">${pendente ? tagPendente : item.tag}</span>
+        <span class="ledger-tag">${escapeHtml(item.tag)}</span>
       </div>
       <span class="ledger-valor ${item.tipo}">${item.tipo === "income" ? "+" : "−"} ${fmt(item.valor)}</span>
     `;
@@ -4693,7 +4739,7 @@ on("formFecharMes", "submit", async (e) => {
 
     ["davi", "gabriel", "ambos", "historico"].forEach((p) => removerCache(p));
 
-    showToast(`${MESES_LABEL[f.mes - 1]}/${f.ano} fechado — Davi ${fmt(f.saldoDavi)} · Gabriel ${fmt(f.saldoGabriel)}`);
+    showToast(`${MESES_LABEL[f.mes - 1]}/${f.ano} foi fechado. Os saldos restantes foram levados para o próximo mês e os gastos variáveis foram encerrados.`);
     fecharModalFecharMes();
     carregarDados();
     carregarHistorico();
