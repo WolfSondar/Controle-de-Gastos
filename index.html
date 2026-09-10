@@ -113,7 +113,6 @@
           <div class="hero-stat">
             <span class="hero-stat-label">Guardado</span>
             <span class="hero-stat-valor gold" id="statGuardado">R$ 0,00</span>
-            <span class="hero-stat-pendente hero-stat-guardado-mes" id="statGuardadoMes"></span>
           </div>
           <div class="hero-stat">
             <span class="hero-stat-label">Fixos</span>
@@ -233,11 +232,10 @@
         <div>
           <h2 class="section-title">Ganhos</h2>
           <p class="section-hint">Tudo que entra: salário, bônus, presentes, o que for.</p>
-          <div class="ganhos-legenda" aria-label="Cores dos tipos de ganho">
-            <span class="ganho-legenda-item ganho-legenda-saldo"><i></i>Saldo</span>
-            <span class="ganho-legenda-item ganho-legenda-beneficio"><i></i>Benefício</span>
-          </div>
         </div>
+        <button type="button" class="collapse-toggle is-collapsed" data-collapse="ganhos" aria-expanded="false" aria-label="Expandir formulário de ganhos">
+          <svg viewBox="0 0 24 24" fill="none"><path d="M12 6v12M6 12h12" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>
+        </button>
       </div>
 
       <div class="collapsible is-collapsed" id="collapsible-ganhos">
@@ -267,6 +265,9 @@
           <h2 class="section-title">Gastos fixos</h2>
           <p class="section-hint">Contas que se repetem todo mês: assinaturas, mensalidades, contas, faturas.</p>
         </div>
+        <button type="button" class="collapse-toggle is-collapsed" data-collapse="fixos" aria-expanded="false" aria-label="Expandir formulário de gastos fixos">
+          <svg viewBox="0 0 24 24" fill="none"><path d="M12 6v12M6 12h12" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>
+        </button>
       </div>
 
       <div class="collapsible is-collapsed" id="collapsible-fixos">
@@ -328,6 +329,9 @@
           <h2 class="section-title">Gastos variáveis</h2>
           <p class="section-hint">Compras avulsas do dia a dia.</p>
         </div>
+        <button type="button" class="collapse-toggle is-collapsed" data-collapse="variaveis" aria-expanded="false" aria-label="Expandir formulário de gastos variáveis">
+          <svg viewBox="0 0 24 24" fill="none"><path d="M12 6v12M6 12h12" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>
+        </button>
       </div>
 
       <div class="collapsible is-collapsed" id="collapsible-variaveis">
@@ -367,6 +371,9 @@
           <h2 class="section-title">Caixinhas</h2>
           <p class="section-hint">Caixinhas, investimentos e metas.</p>
         </div>
+        <button type="button" class="collapse-toggle is-collapsed" data-collapse="guardado" aria-expanded="false" aria-label="Expandir formulário de caixinhas">
+          <svg viewBox="0 0 24 24" fill="none"><path d="M12 6v12M6 12h12" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>
+        </button>
       </div>
 
       <div class="collapsible is-collapsed" id="collapsible-guardado">
@@ -542,8 +549,8 @@
 <div class="modal-backdrop is-hidden" id="acoesBackdrop">
   <div class="modal modal-acoes">
     <div id="acoesMenuView">
-      <h3>Juntos, fica mais fácil</h3>
-      <p class="section-hint">Divida compras ou transfira valores entre vocês, sem misturar os saldos.</p>
+      <h3>Ações em conjunto</h3>
+      <p class="section-hint">Coisas que mexem na conta dos dois de uma vez.</p>
       <button type="button" class="acao-card" id="btnAbrirDividir">
         <span class="acao-card-icon">
           <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
@@ -661,7 +668,9 @@
 <div class="modal-backdrop is-hidden" id="fecharMesBackdrop">
   <div class="modal">
     <h3>Fechar o mês</h3>
-    <p class="section-hint fechar-mes-explicacao"><strong>Confira mês e ano antes de confirmar, porque o fechamento não pode ser desfeito.</strong></p>
+    <p class="section-hint">
+      Confira o mês e o ano antes de confirmar. O saldo de cada um (o que sobrar depois dos gastos pagos) vira ganho automático da própria pessoa no mês seguinte. Os gastos variáveis zeram; os ganhos e os gastos fixos continuam do mesmo jeito. As caixinhas mantêm o valor guardado. Essa ação não pode ser desfeita.
+    </p>
     <form id="formFecharMes">
       <div class="fechar-mes-campos">
         <select id="fecharMesSelect" required></select>
@@ -686,22 +695,6 @@
     </div>
   </div>
 </div>
-
-
-<!-- CRIAÇÃO RÁPIDA — aberto pelo botão flutuante -->
-<div class="modal-backdrop is-hidden" id="criacaoBackdrop">
-  <div class="modal modal-criacao" role="dialog" aria-modal="true" aria-labelledby="criacaoTitulo">
-    <button type="button" class="modal-fechar-x" id="criacaoFechar" aria-label="Fechar">×</button>
-    <div class="criacao-kicker">Novo lançamento</div>
-    <h3 id="criacaoTitulo">Adicionar</h3>
-    <p class="section-hint" id="criacaoHint">Preencha os dados abaixo.</p>
-    <div id="criacaoModalHost"></div>
-  </div>
-</div>
-
-<button type="button" class="fab-criar" id="fabCriar" aria-label="Adicionar novo lançamento">
-  <svg viewBox="0 0 24 24" fill="none" aria-hidden="true"><path d="M12 5v14M5 12h14" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"/></svg>
-</button>
 
 <div class="toast" id="toast"></div>
 
