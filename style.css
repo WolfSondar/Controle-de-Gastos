@@ -2129,3 +2129,94 @@ body.sem-entrada-listas .item-list-row { animation: none !important; }
   .brand-mark::after { color: rgba(240,194,116,0.5); }
   .tab-indicator { border-color: var(--gold); }
 }
+
+/* Lançamentos recentes — cabeçalho de data e botão de expansão.
+   Mantém o visual de extrato mesmo com o agrupamento por dia. */
+.ledger-date-heading {
+  display: flex;
+  align-items: center;
+  gap: 9px;
+  min-height: 38px;
+  padding: 9px 14px 7px;
+  background: rgba(255,255,255,0.025);
+  border-bottom: 1px solid var(--line-soft);
+}
+.ledger-date-number {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 28px;
+  height: 28px;
+  flex: 0 0 28px;
+  border: 1px solid var(--line);
+  border-radius: 50%;
+  color: var(--ink-text);
+  font-family: var(--font-mono);
+  font-size: 10px;
+  font-weight: 700;
+  line-height: 1;
+}
+.ledger-date-copy {
+  display: flex;
+  flex-direction: column;
+  gap: 1px;
+  min-width: max-content;
+}
+.ledger-date-copy strong {
+  color: var(--ink-text);
+  font-size: 10.5px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.075em;
+  line-height: 1.15;
+}
+.ledger-date-copy small {
+  color: var(--muted);
+  font-size: 9.5px;
+  line-height: 1.2;
+  text-transform: lowercase;
+}
+.ledger-date-line {
+  height: 1px;
+  flex: 1;
+  margin-left: 3px;
+  background: repeating-linear-gradient(to right, var(--line), var(--line) 3px, transparent 3px, transparent 6px);
+  opacity: 0.8;
+}
+.ledger-more-btn {
+  width: 100%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  min-height: 38px;
+  padding: 9px 14px;
+  border: 0;
+  border-top: 1px solid var(--line-soft);
+  background: transparent;
+  color: var(--muted);
+  font: 600 10.5px var(--font-body);
+  letter-spacing: 0.035em;
+  cursor: pointer;
+  transition: color .18s ease, background .18s ease;
+}
+.ledger-more-btn:hover,
+.ledger-more-btn:focus-visible {
+  color: var(--ink-text);
+  background: rgba(255,255,255,0.035);
+  outline: none;
+}
+.ledger-more-arrow {
+  font-size: 13px;
+  line-height: 1;
+  transition: transform .18s ease;
+}
+.ledger-more-btn:active .ledger-more-arrow {
+  transform: translateY(2px);
+}
+
+@media (max-width: 400px) {
+  .ledger-date-heading { padding-left: 11px; padding-right: 11px; }
+  .ledger-item { padding-left: 11px; padding-right: 11px; gap: 9px; }
+  .ledger-date-copy small { font-size: 9px; }
+}
