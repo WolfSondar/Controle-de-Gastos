@@ -3287,3 +3287,18 @@ body.sem-entrada-listas .item-list-row { animation: none !important; }
     color: #fff8e9;
   }
 }
+
+/* Guardado — mostra abaixo do total quanto foi guardado neste mês. */
+.hero-stat-subvalor {
+  display: block;
+  margin-top: -1px;
+  font-family: var(--font-mono);
+  font-size: 9.5px;
+  line-height: 1.2;
+  font-weight: 700;
+  letter-spacing: 0.01em;
+  min-height: 11px;
+  white-space: nowrap;
+}
+.hero-stat-subvalor.gold { color: #d9ab5c; }
+.hero-stat-subvalor:empty { display: none; }
