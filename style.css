@@ -2310,3 +2310,82 @@ body.sem-entrada-listas .item-list-row { animation: none !important; }
     animation: none !important;
   }
 }
+
+
+/* ==========================================================
+   V12 — POPUPS COMO NOTINHAS + EXTRATO RECENTE + CAIXINHAS
+   ========================================================== */
+.modal-backdrop {
+  align-items: center !important;
+  padding: 18px !important;
+  background: rgba(24, 43, 35, .46) !important;
+  backdrop-filter: blur(5px) saturate(.9) !important;
+}
+.modal {
+  width: min(100%, 520px) !important;
+  border-radius: 8px 8px 12px 12px !important;
+  padding: 27px 22px 22px !important;
+  background:
+    linear-gradient(180deg, rgba(255,255,255,.42), transparent 18%),
+    var(--paper) !important;
+  border: 1px solid rgba(122,111,88,.22) !important;
+  box-shadow: 0 24px 60px rgba(20,31,25,.28), 0 3px 0 rgba(122,111,88,.08) !important;
+  transform: rotate(-.35deg);
+}
+.modal::before {
+  content: "";
+  position: absolute;
+  top: -9px;
+  left: 50%;
+  width: 82px;
+  height: 18px;
+  transform: translateX(-50%) rotate(-1.5deg);
+  background: rgba(224, 201, 150, .56);
+  border: 1px solid rgba(185,134,47,.12);
+  box-shadow: 0 1px 2px rgba(0,0,0,.08);
+}
+.modal h3 { font-size: 21px !important; letter-spacing: -.02em; margin-bottom: 9px !important; }
+.modal .section-hint, .modal-hint, .confirm-text {
+  background: rgba(122,111,88,.055);
+  border-left: 3px solid rgba(185,134,47,.45);
+  border-radius: 0 7px 7px 0;
+  padding: 10px 12px;
+  line-height: 1.52;
+}
+.modal input, .modal select {
+  border-radius: 8px !important;
+  background: rgba(255,255,255,.38) !important;
+  border-color: rgba(122,111,88,.25) !important;
+}
+.modal-actions .btn { border-radius: 8px !important; min-height: 44px; }
+.fechar-mes-explicacao strong { color: var(--ink-text); }
+.fechar-mes-campos { gap: 10px !important; margin-top: 14px; }
+
+/* Extrato: cada dia funciona como uma pequena anotação no papel. */
+.ledger-date-heading {
+  display: flex; align-items: center; gap: 10px;
+  margin: 17px 2px 5px;
+  font-size: 10.5px; font-weight: 750;
+  text-transform: uppercase; letter-spacing: .09em;
+  color: var(--muted);
+}
+.ledger-date-heading:first-child { margin-top: 4px; }
+.ledger-date-line { height: 1px; flex: 1; background: var(--line); opacity: .8; }
+.ledger-item {
+  background: rgba(255,255,255,.18);
+  border-bottom: 1px dashed rgba(122,111,88,.22) !important;
+}
+.ledger-item:last-child { border-bottom: none !important; }
+
+/* Caixinhas do resumo seguem a mesma lógica de prioridade. */
+#resumoCaixinhas .mini-goal { margin-bottom: 7px; }
+#resumoCaixinhas .mini-goal:first-child { border-color: rgba(185,134,47,.34); }
+
+/* Feedback flutuante de alteração de saldo: removido. */
+.value-pop { display: none !important; }
+
+@media (max-width: 560px) {
+  .modal-backdrop { padding: 14px !important; }
+  .modal { padding: 25px 17px 18px !important; }
+  .modal-actions { gap: 8px; }
+}
