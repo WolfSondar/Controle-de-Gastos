@@ -1634,6 +1634,7 @@ function renderTotais() {
   // atual, não um acumulado. O total "de verdade" guardado em cada caixinha
   // (base + rendimento + o que entrou esse mês) já aparece no card de cada
   // caixinha individualmente — aqui é só a movimentação do mês.
+  const totalGuardadoAtual = somaTotalCaixinhas(state.caixinhas);
   const totalGuardadoNoMes = somaCampo(state.caixinhas, "valorGuardadoMes");
   const saldo = totalGanhosRecebidos - totalFixosPagos - totalVariaveisPagos;
 
@@ -1650,7 +1651,9 @@ function renderTotais() {
   animarNumero(ganhosEl, prevTotals.ganhos, totalGanhosRecebidos);
   animarNumero(fixosEl, prevTotals.fixos, totalFixosPagos);
   animarNumero(variaveisEl, prevTotals.variaveis, totalVariaveisPagos);
-  animarNumero(guardadoEl, prevTotals.guardado, totalGuardadoNoMes);
+  animarNumero(guardadoEl, prevTotals.guardado, totalGuardadoAtual);
+  const guardadoMesEl = document.getElementById("statGuardadoMes");
+  if (guardadoMesEl) guardadoMesEl.textContent = totalGuardadoNoMes > 0 ? `+ ${fmt(totalGuardadoNoMes)} neste mês` : "";
   animarNumero(saldoEl, prevTotals.saldo, saldo);
 
   // Sem feedback flutuante: as alterações aparecem diretamente nos valores.
@@ -1686,7 +1689,7 @@ function renderTotais() {
   prevTotals.ganhos = totalGanhosRecebidos;
   prevTotals.fixos = totalFixosPagos;
   prevTotals.variaveis = totalVariaveisPagos;
-  prevTotals.guardado = totalGuardadoNoMes;
+  prevTotals.guardado = totalGuardadoAtual;
   prevTotals.saldo = saldo;
 }
 
@@ -1944,7 +1947,7 @@ function renderListaComStatus(ulId, lista, tipo, ops, tipoModal, statusKey, togg
   ordenados.forEach(({ item, idx }, posicao) => {
     const on = item[statusKey] === true;
     const li = document.createElement("li");
-    li.className = "item-list-row" + (on ? "" : " is-pendente");
+    li.className = "item-list-row" + (on ? "" : " is-pendente") + (tipo === "income" ? (ganhoEhBeneficio(item) ? " ganho-beneficio" : " ganho-saldo") : "");
     li.dataset.tipo = tipo;
     li.style.animationDelay = Math.min(posicao * 35, 250) + "ms";
     li.innerHTML = `
@@ -1954,7 +1957,7 @@ function renderListaComStatus(ulId, lista, tipo, ops, tipoModal, statusKey, togg
             </div>`}
       <div class="swipe-content">
         <span class="item-nome">${parcelaInlineHtml(item, tipo)}${nomeComParcela(item)} ${tagPessoa(item)}</span>
-        <span class="item-valor ${tipo}">${fmt(item.valor)}</span>
+        <span class="item-valor ${tipo}${tipo === "income" && ganhoEhBeneficio(item) ? " income-beneficio" : ""}">${fmt(item.valor)}</span>
         ${metaInfoHtml(item) || `<div class="item-meta"></div>`}
         ${ambos ? `<span class="pago-toggle ${on ? "is-pago" : ""}" aria-disabled="true"><span class="dot"></span>${on ? rotuloOn : rotuloOff}</span>`
                 : `<label class="pago-toggle ${on ? "is-pago" : ""}">
@@ -2543,70 +2546,62 @@ function renderRecentes() {
   hoje.setHours(0, 0, 0, 0);
   const inicio7 = new Date(hoje);
   inicio7.setDate(inicio7.getDate() - 6);
-  const inicioExibicao = new Date(hoje);
-  inicioExibicao.setDate(inicioExibicao.getDate() - (mostrarTodosRecentes ? 6 : 1));
 
-  const todos = [
+  const base = [
     ...itensRecentesPorCategoria(state.ganhos, "income", "Ganho"),
     ...itensRecentesPorCategoria(state.gastosFixos, "expense", "Fixo"),
     ...itensRecentesPorCategoria(state.gastosVariaveis, "expense", "Variável"),
-  ].filter((item) => {
-    const data = String(item.data || "").slice(0, 10);
-    if (!/^\d{4}-\d{2}-\d{2}$/.test(data)) return false;
-    const d = new Date(`${data}T00:00:00`);
-    if (Number.isNaN(d.getTime()) || d < inicioExibicao || d > hoje) return false;
-    return item.tipo === "income" ? item.recebido === true : item.pago === true;
-  }).sort((a, b) => String(b.data || "").localeCompare(String(a.data || "")));
-
-  const todos7Dias = [
-    ...itensRecentesPorCategoria(state.ganhos, "income", "Ganho"),
-    ...itensRecentesPorCategoria(state.gastosFixos, "expense", "Fixo"),
-    ...itensRecentesPorCategoria(state.gastosVariaveis, "expense", "Variável"),
-  ].filter((item) => {
-    const data = String(item.data || "").slice(0, 10);
-    if (!/^\d{4}-\d{2}-\d{2}$/.test(data)) return false;
-    const d = new Date(`${data}T00:00:00`);
-    if (Number.isNaN(d.getTime()) || d < inicio7 || d > hoje) return false;
-    return item.tipo === "income" ? item.recebido === true : item.pago === true;
-  });
-
-  ledger.innerHTML = "";
-  if (todos.length === 0) {
-    ledger.innerHTML = estadoVazio("Nenhum lançamento recebido ou pago nos últimos 2 dias.", ICONE_PENA);
-  } else {
-    let dataAnterior = null;
-    todos.forEach((item) => {
+  ].map((item, idx) => ({ ...item, _ordem: idx }))
+   .filter((item) => {
       const data = String(item.data || "").slice(0, 10);
-      if (data !== dataAnterior) {
-        const heading = document.createElement("div");
-        heading.className = "ledger-date-heading";
-        heading.innerHTML = formatarCabecalhoDataExtrato(data, hoje);
-        ledger.appendChild(heading);
-        dataAnterior = data;
-      }
+      if (!/^\d{4}-\d{2}-\d{2}$/.test(data)) return false;
+      const d = new Date(`${data}T00:00:00`);
+      return !Number.isNaN(d.getTime()) && d >= inicio7 && d <= hoje;
+   })
+   .sort((a, b) => String(b.data || "").localeCompare(String(a.data || "")) || b._ordem - a._ordem);
 
-      const row = document.createElement("div");
-      row.className = "ledger-item";
-      row.innerHTML = `
-        <span class="ledger-icon ${item.tipo}">${item.tipo === "income" ? ICONE_GANHO : ICONE_GASTO}</span>
-        <div class="ledger-info">
-          <span class="ledger-nome">${escapeHtml(item.nome)} ${tagPessoa(item)}</span>
-          <span class="ledger-tag">${escapeHtml(item.tag)}</span>
-        </div>
-        <span class="ledger-valor ${item.tipo}">${item.tipo === "income" ? "+" : "−"} ${fmt(item.valor)}</span>
-      `;
-      ledger.appendChild(row);
-    });
+  const exibidos = mostrarTodosRecentes ? base : base.slice(0, 2);
+  ledger.innerHTML = "";
+
+  if (!base.length) {
+    ledger.innerHTML = estadoVazio("Nenhum lançamento registrado nos últimos 7 dias.", ICONE_PENA);
+    return;
   }
 
-  const temMais = todos7Dias.some((item) => String(item.data || "").slice(0, 10) < dataLimiteISO(hoje, 1));
+  let dataAnterior = null;
+  exibidos.forEach((item) => {
+    const data = String(item.data || "").slice(0, 10);
+    if (data !== dataAnterior) {
+      const heading = document.createElement("div");
+      heading.className = "ledger-date-heading";
+      heading.innerHTML = formatarCabecalhoDataExtrato(data, hoje);
+      ledger.appendChild(heading);
+      dataAnterior = data;
+    }
+
+    const row = document.createElement("div");
+    const benefit = item.tipo === "income" && ganhoEhBeneficio(item);
+    const status = item.tipo === "income" ? (item.recebido ? "Recebido" : "Pendente") : (item.pago ? "Pago" : "Pendente");
+    row.className = `ledger-item ${item.tipo === "income" ? (benefit ? "income-beneficio" : "income-saldo") : "expense"}`;
+    row.innerHTML = `
+      <span class="ledger-icon ${item.tipo}${benefit ? " income-beneficio" : ""}">${item.tipo === "income" ? ICONE_GANHO : ICONE_GASTO}</span>
+      <div class="ledger-info">
+        <span class="ledger-nome">${escapeHtml(item.nome)} ${tagPessoa(item)}</span>
+        <span class="ledger-tag">${escapeHtml(item.tag)} · ${status}</span>
+      </div>
+      <span class="ledger-valor ${item.tipo}${benefit ? " income-beneficio" : ""}">${item.tipo === "income" ? "+" : "−"} ${fmt(item.valor)}</span>
+    `;
+    ledger.appendChild(row);
+  });
+
+  const temMais = base.length > 2;
   if (temMais) {
     const more = document.createElement("button");
     more.type = "button";
     more.className = "ledger-more-btn";
     more.innerHTML = mostrarTodosRecentes
       ? `<span>Mostrar menos</span><span class="ledger-more-arrow">↑</span>`
-      : `<span>Ver mais lançamentos</span><span class="ledger-more-arrow">↓</span>`;
+      : `<span>Ver mais dos últimos 7 dias</span><span class="ledger-more-arrow">↓</span>`;
     more.addEventListener("click", () => {
       mostrarTodosRecentes = !mostrarTodosRecentes;
       renderRecentes();
@@ -3385,6 +3380,7 @@ function montarResumoParaInsight() {
 function renderizarTextoInsight(texto) {
   const seguro = escapeHtml(String(texto || ""));
   return seguro
+    .replace(/\{\{beneficio:([^{}]+)\}\}/gi, '<span class="insight-valor-beneficio">$1</span>')
     .replace(/\{\{ganho:([^{}]+)\}\}/gi, '<span class="insight-valor-pos">$1</span>')
     .replace(/\{\{gasto:([^{}]+)\}\}/gi, '<span class="insight-valor-neg">$1</span>')
     .replace(/\{\{guardado:([^{}]+)\}\}/gi, '<span class="insight-valor-guardado">$1</span>')
@@ -4945,6 +4941,60 @@ function initChartTooltip() {
     }
   }, { passive: true });
 }
+
+// ---------------------------------------------------------------------
+// BOTÃO FLUTUANTE DE CRIAÇÃO
+// Usa os próprios formulários existentes: ao abrir, o formulário da aba
+// ativa é movido temporariamente para dentro de uma notinha-modal. Assim
+// não existem formulários duplicados nem listeners paralelos.
+let criacaoOrigem = null;
+let criacaoProximo = null;
+const criacaoBackdrop = document.getElementById("criacaoBackdrop");
+const criacaoHost = document.getElementById("criacaoModalHost");
+const fabCriar = document.getElementById("fabCriar");
+const criacaoTitulo = document.getElementById("criacaoTitulo");
+const criacaoHint = document.getElementById("criacaoHint");
+
+const CONFIG_CRIACAO = {
+  ganhos: { alvo: "collapsible-ganhos", titulo: "Novo ganho", hint: "Registre uma entrada de dinheiro e indique se ela já foi recebida." },
+  fixos: { alvo: "collapsible-fixos", titulo: "Novo gasto fixo", hint: "Cadastre uma conta recorrente ou parcelada." },
+  variaveis: { alvo: "collapsible-variaveis", titulo: "Novo gasto variável", hint: "Registre uma compra ou despesa do dia a dia." },
+  guardado: { alvo: "collapsible-guardado", titulo: "Nova caixinha", hint: "Crie uma meta ou um lugar para guardar seu dinheiro." },
+};
+
+function fecharCriacaoFlutuante() {
+  if (!criacaoBackdrop || !criacaoOrigem) return;
+  const alvo = criacaoOrigem;
+  alvo.classList.add("is-collapsed");
+  if (criacaoProximo && criacaoProximo.parentNode === alvo.parentNode) alvo.parentNode.insertBefore(alvo, criacaoProximo);
+  else criacaoOrigem.parentNode.appendChild(alvo);
+  criacaoOrigem = null;
+  criacaoProximo = null;
+  criacaoBackdrop.classList.add("is-hidden");
+}
+
+function abrirCriacaoFlutuante() {
+  const ativa = document.querySelector(".tab-panel:not(.is-hidden)");
+  const tab = ativa?.dataset.tab;
+  const cfg = CONFIG_CRIACAO[tab];
+  if (!cfg || !criacaoHost || !criacaoBackdrop) return;
+  const alvo = document.getElementById(cfg.alvo);
+  if (!alvo) return;
+
+  criacaoOrigem = alvo;
+  criacaoProximo = alvo.nextSibling;
+  criacaoTitulo.textContent = cfg.titulo;
+  criacaoHint.textContent = cfg.hint;
+  criacaoHost.appendChild(alvo);
+  alvo.classList.remove("is-collapsed");
+  criacaoBackdrop.classList.remove("is-hidden");
+  const primeiro = alvo.querySelector("input, select, textarea, button[type=submit]");
+  requestAnimationFrame(() => primeiro?.focus({ preventScroll: true }));
+}
+
+fabCriar?.addEventListener("click", abrirCriacaoFlutuante);
+document.getElementById("criacaoFechar")?.addEventListener("click", fecharCriacaoFlutuante);
+criacaoBackdrop?.addEventListener("click", (e) => { if (e.target === criacaoBackdrop) fecharCriacaoFlutuante(); });
 
 // Inicializa! (Limpando execuções duplicadas caso você recarregue a página)
 if (!document.body.dataset.tooltipInit) {
