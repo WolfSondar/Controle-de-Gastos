@@ -343,7 +343,6 @@ function transferirEntrePessoas(de, para, nome, valor) {
 const GEMINI_MODEL = "gemini-3.1-flash-lite";
 const GEMINI_API_KEY_PROPRIEDADE = "GEMINI_API_KEY";
 const GEMINI_API_KEY_2_PROPRIEDADE = "GEMINI_API_KEY_2";
-// Segunda chave fornecida para failover. Ela permanece somente no servidor (Code.gs).
 const GEMINI_ULTIMA_CHAVE_PROPRIEDADE = "GEMINI_ULTIMA_CHAVE";
 const OPENAI_API_KEY_PROPRIEDADE = "OPENAI_API_KEY";
 const OPENAI_MODEL = "gpt-5.6-luna";
@@ -447,9 +446,7 @@ function gerarInsightComOpenAI(corpoGemini, periodo) {
 function obterChavesGemini() {
   const props = PropertiesService.getScriptProperties();
   const chave1 = String(props.getProperty(GEMINI_API_KEY_PROPRIEDADE) || "").trim();
-  // Pode ser movida para a propriedade GEMINI_API_KEY_2 depois; o fallback abaixo
-  // permite que a segunda chave funcione sem exigir outra configuração no Script.
-  const chave2 = String(props.getProperty(GEMINI_API_KEY_2_PROPRIEDADE) || GEMINI_API_KEY_2_FALLBACK || "").trim();
+  const chave2 = String(props.getProperty(GEMINI_API_KEY_2_PROPRIEDADE) || "").trim();
   return [chave1, chave2];
 }
 
@@ -654,7 +651,7 @@ function textoImersaoIA(pessoaCodigo) {
 // Quantos insights pedimos de uma vez pro Gemini. O app guarda esse "estoque"
 // no aparelho e vai consumindo um por sincronização — só pede mais quando
 // o estoque fica baixo, então a tela quase nunca fica esperando rede.
-const QUANTIDADE_INSIGHTS_POR_PEDIDO = 10;
+const QUANTIDADE_INSIGHTS_POR_PEDIDO = 5;
 
 function gerarInsightComGemini(pessoa, periodo, resumo, opcoesModo) {
   try {
@@ -676,7 +673,8 @@ function gerarInsightComGemini(pessoa, periodo, resumo, opcoesModo) {
       "O resumo traz vários recortes de tempo — use o que fizer sentido pra cada insight, sem forçar todos: mesAtual (mês em andamento) vs mesPassado (mês imediatamente anterior); mesmoMesAnoPassado (o MESMO mês, um ano antes — ex: Agosto deste ano vs Agosto do ano passado; só existe se já tiver histórico daquele mês) — é diferente de mesPassado, não confunda os dois; e a visão do ano inteiro em anoAtualAteAgora (soma de tudo que já fechou nesse ano mais o mês em andamento) vs anoAnteriorCompleto (o ano anterior fechado). NUNCA escreva um ano fixo/chutado no texto — sempre use o campo 'ano' que vier dentro de cada bloco do resumo, já que o ano de referência muda sozinho conforme o app avança.",
       "CAIXINHAS COM PRAZO: cada objeto em caixinhas pode trazer prazo, diasAtePrazo, mesesAtePrazo, faltaParaMeta, necessarioGuardarPorMes, guardadoNesseMes e diferencaParaMediaMensalNesteMes. Use esses dados para fazer comentários de planejamento quando houver uma meta e um prazo. 'necessarioGuardarPorMes' é a média que precisa ser guardada por mês, a partir de agora, para cobrir o valor que falta até a data; 'guardadoNesseMes' é quanto já entrou nessa caixinha no mês atual. Se fizer sentido, diga de forma concreta algo como 'faltam X meses para [caixinha] e a média necessária é Y por mês'. Se guardadoNesseMes estiver abaixo da média necessária, pode comentar que ainda faltam Z para alcançar a média deste mês, mas lembre que o mês ainda está em andamento e não trate o valor parcial como se fosse o mês inteiro. Nunca invente uma média, prazo ou valor: use somente os campos calculados no resumo. Prazo passado é atraso; meta já completa não precisa de recomendação de aporte.",
       "Dentro de mesAtual também vêm 'aindaAReceberEsseMes', 'aindaAPagarFixosEsseMes' e 'aindaAPagarVariaveisEsseMes' — são valores já lançados mas ainda pendentes (não confirmados como recebidos/pagos), não são gasto ou ganho perdido. Quando algum desses vier maior que zero, pode ser um bom ângulo pra um dos insights (ex: lembrar quanto ainda falta entrar ou sair do mês) — mas só use se for relevante, não force em todo insight.",
-      "Gere um ARRAY JSON com exatamente " + QUANTIDADE_INSIGHTS_POR_PEDIDO + " insights CURTOS (1 a 3 frases cada, no máximo uns 280 caracteres), em português do Brasil.",
+      "Gere um ARRAY JSON com exatamente " + QUANTIDADE_INSIGHTS_POR_PEDIDO + " objetos de insight CURTOS (1 a 3 frases cada, no máximo uns 280 caracteres por texto), em português do Brasil.",
+      "Cada objeto deve ter exatamente estes campos: titulo, texto e tipo. O titulo deve ser CURTO, forte e contextual (1 a 3 palavras), em CAIXA ALTA, como \"GASTO\", \"RECEBIMENTO\", \"CAIXINHA\", \"RENDIMENTO\", \"COMPARAÇÃO\", \"ATENÇÃO\" ou outro título específico que combine com aquele insight. O campo tipo deve ser exatamente um destes valores: gasto, ganho, beneficio, guardado, rendimento, atencao, comparacao, planejamento ou geral. O tipo serve apenas para a interface aplicar a cor adequada ao titulo.",
       "Cada um dos " + QUANTIDADE_INSIGHTS_POR_PEDIDO + " insights precisa focar em um ÂNGULO DIFERENTE dos dados — por exemplo: maior variação de categoria vs mês passado, variação de categoria ou do total vs o mesmo mês do ano passado (mesmoMesAnoPassado), ritmo/projeção do gasto no mês, quanto ainda está pendente de receber/pagar, progresso de uma caixinha/meta específica, rendimento de algum investimento, comparação entre o peso dos gastos fixos e dos variáveis, como o ano está indo até agora vs o ano passado, ou quanto sobrou disponível. NUNCA repita a mesma informação, a mesma conclusão ou a mesma sugestão em mais de um item.",
       "Seja específico: cite nomes de categorias e de caixinhas de verdade que aparecerem no resumo — não fale de forma genérica ou vaga.",
       "ORIGEM DOS GASTOS VARIÁVEIS: cada item variável em lancamentosComNomeDoMesAtual.gastosDoMes traz origem=\"saldo\" ou origem=\"beneficio\". Isso informa de qual reserva o gasto foi pago. Use essa informação quando fizer análises de composição do dinheiro, especialmente para comparar quanto do Benefício já foi utilizado e quanto do Saldo normal foi utilizado. Nunca invente a origem de um gasto; para gastos fixos, não existe esse campo e eles continuam sendo tratados como despesas do Saldo.",
@@ -722,7 +720,7 @@ function gerarInsightComGemini(pessoa, periodo, resumo, opcoesModo) {
       .concat(regrasPessoa)
       .concat(regrasImersao)
       .concat(regrasTom)
-      .concat(["Responda SOMENTE com o array JSON de " + QUANTIDADE_INSIGHTS_POR_PEDIDO + " strings, nada além disso — sem crases, sem a palavra json antes."])
+      .concat(["Responda SOMENTE com o array JSON de " + QUANTIDADE_INSIGHTS_POR_PEDIDO + " objetos, nada além disso — sem crases, sem a palavra json antes. Cada objeto deve ter somente titulo, texto e tipo."])
       .join(" ");
 
     const corpo = {
@@ -733,7 +731,20 @@ function gerarInsightComGemini(pessoa, periodo, resumo, opcoesModo) {
         temperature: 0.95,
         maxOutputTokens: 2400,
         responseMimeType: "application/json",
-        responseSchema: { type: "ARRAY", minItems: QUANTIDADE_INSIGHTS_POR_PEDIDO, maxItems: QUANTIDADE_INSIGHTS_POR_PEDIDO, items: { type: "STRING" } },
+        responseSchema: {
+          type: "ARRAY",
+          minItems: QUANTIDADE_INSIGHTS_POR_PEDIDO,
+          maxItems: QUANTIDADE_INSIGHTS_POR_PEDIDO,
+          items: {
+            type: "OBJECT",
+            properties: {
+              titulo: { type: "STRING" },
+              texto: { type: "STRING" },
+              tipo: { type: "STRING", enum: ["gasto", "ganho", "beneficio", "guardado", "rendimento", "atencao", "comparacao", "planejamento", "geral"] },
+            },
+            required: ["titulo", "texto", "tipo"],
+          },
+        },
       },
     };
 
@@ -796,14 +807,26 @@ function gerarInsightComGemini(pessoa, periodo, resumo, opcoesModo) {
       lista = null;
     }
 
-    // Mesmo com responseSchema, nunca confiamos cegamente na quantidade
-    // devolvida. Se vier menos que 10, fazemos uma única segunda tentativa
-    // reforçando a exigência — ainda é uma única geração de lote na operação
-    // normal e evita guardar uma fila quebrada com apenas 1 insight.
-    if (!lista || lista.map(function (t) { return String(t || "").trim(); }).filter(Boolean).length < QUANTIDADE_INSIGHTS_POR_PEDIDO) {
+    function normalizarInsightGerado(item) {
+      if (!item || typeof item !== "object") return null;
+      const titulo = String(item.titulo || "").trim();
+      const textoInsight = String(item.texto || "").trim();
+      const tiposValidos = ["gasto", "ganho", "beneficio", "guardado", "rendimento", "atencao", "comparacao", "planejamento", "geral"];
+      const tipo = tiposValidos.indexOf(String(item.tipo || "").trim().toLowerCase()) !== -1
+        ? String(item.tipo).trim().toLowerCase()
+        : "geral";
+      if (!titulo || !textoInsight) return null;
+      return { titulo: titulo.slice(0, 32), texto: textoInsight, tipo: tipo };
+    }
+
+    let insightsValidos = Array.isArray(lista) ? lista.map(normalizarInsightGerado).filter(Boolean) : [];
+
+    // Mesmo com responseSchema, nunca confiamos cegamente na quantidade devolvida.
+    // Se vier menos que 5, fazemos uma segunda tentativa reforçando a exigência.
+    if (insightsValidos.length < QUANTIDADE_INSIGHTS_POR_PEDIDO) {
       try {
         const corpoRetry = JSON.parse(JSON.stringify(corpo));
-        corpoRetry.contents[0].parts[0].text += "\n\nATENÇÃO: sua resposta anterior não trouxe 10 itens válidos. Ignore a resposta anterior e gere AGORA exatamente 10 strings independentes no array JSON, sem reduzir a quantidade.";
+        corpoRetry.contents[0].parts[0].text += "\n\nATENÇÃO: sua resposta anterior não trouxe 5 objetos válidos. Ignore a resposta anterior e gere AGORA exatamente 5 objetos independentes, cada um com titulo, texto e tipo válidos.";
         const resRetry = UrlFetchApp.fetch(url, Object.assign({}, opcoesFetch, { payload: JSON.stringify(corpoRetry) }));
         const statusRetry = resRetry.getResponseCode();
         let dataRetry = {};
@@ -813,23 +836,19 @@ function gerarInsightComGemini(pessoa, periodo, resumo, opcoesModo) {
           if (textoRetry) {
             try {
               const parsedRetry = JSON.parse(textoRetry);
-              lista = Array.isArray(parsedRetry) ? parsedRetry : (parsedRetry && Array.isArray(parsedRetry.insights) ? parsedRetry.insights : null);
-            } catch (errParseRetry2) { lista = null; }
+              const listaRetry = Array.isArray(parsedRetry) ? parsedRetry : (parsedRetry && Array.isArray(parsedRetry.insights) ? parsedRetry.insights : null);
+              insightsValidos = Array.isArray(listaRetry) ? listaRetry.map(normalizarInsightGerado).filter(Boolean) : [];
+            } catch (errParseRetry2) { insightsValidos = []; }
           }
         }
       } catch (errRetry) {}
     }
 
-    if (!lista) {
-      return { ok: false, error: "O Gemini não devolveu uma lista de insights no formato esperado." };
+    if (insightsValidos.length < QUANTIDADE_INSIGHTS_POR_PEDIDO) {
+      return { ok: false, error: "O Gemini não conseguiu devolver os 5 insights completos neste momento." };
     }
 
-    const textos = lista.map(function (t) { return String(t || "").trim(); }).filter(Boolean);
-    if (textos.length < QUANTIDADE_INSIGHTS_POR_PEDIDO) {
-      return { ok: false, error: "O Gemini não conseguiu devolver os 10 insights completos neste momento." };
-    }
-
-    return { ok: true, textos: textos.slice(0, QUANTIDADE_INSIGHTS_POR_PEDIDO), periodo: periodo || null };
+    return { ok: true, textos: insightsValidos.slice(0, QUANTIDADE_INSIGHTS_POR_PEDIDO), periodo: periodo || null };
   } catch (err) {
     return { ok: false, error: String(err) };
   }
