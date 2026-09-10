@@ -3570,9 +3570,28 @@ let insightTextoAtualExibido = null;
 
 // Troca o texto/estado visual do card (carregando / ia / erro). No estado
 // "carregando" mostra 3 pontinhos animados no lugar do texto, centralizados.
+function definirVisibilidadeInsight(visivel) {
+  const card = document.getElementById("insightCard");
+  if (!card) return;
+  card.hidden = !visivel;
+  card.style.display = visivel ? "" : "none";
+}
+
+function registrarFalhaInsightNoConsole(err, contexto) {
+  const diagnostico = err && err.diagnostico ? err.diagnostico : null;
+  if (diagnostico && diagnostico.length) {
+    diagnostico.forEach((item) => {
+      console.error(`[Caixa IA] Chave ${item.chave || "?"} falhou. HTTP/status: ${item.status || "desconhecido"}. Motivo: ${item.motivo || "sem detalhe"}`);
+    });
+  } else {
+    console.error(`[Caixa IA] Falha ao gerar insight${contexto ? " (" + contexto + ")" : ""}. Motivo: ${(err && err.message) || "erro desconhecido"}`, err || "");
+  }
+}
+
 function mostrarInsightTexto(texto, modo) {
   const el = document.getElementById("insightTexto");
   if (!el) return;
+  definirVisibilidadeInsight(true);
 
   // Fade "fantasma": acontece quando o placeholder inicial (ao abrir a
   // página) já mostra um item da fila só espiando, sem consumir — e
@@ -3665,7 +3684,10 @@ async function gerarInsightAposAlteracaoFinanceira() {
     setInsightFila(pessoaDoPedido, textos);
     mostrarInsightTexto(primeiro, "ia");
   } catch (err) {
-    // Mantém o último insight válido. A próxima mudança financeira tenta de novo.
+    registrarFalhaInsightNoConsole(err, "alteração financeira");
+    if (err && err.ocultarInsight) definirVisibilidadeInsight(false);
+    // Mantém o último insight válido quando existe. Se as duas chaves falharem,
+    // o card é ocultado até uma próxima tentativa bem-sucedida.
   } finally {
     insightGeracaoEmAndamento = false;
     if (insightGeracaoPendente) {
@@ -3691,7 +3713,10 @@ async function pedirLoteDeInsights(pessoaDoPedido, resumoFornecido = null) {
   const data = await res.json().catch(() => null);
   if (state.pessoaAtual !== pessoaDoPedido) throw new Error("__pessoa_trocou__");
   if (!data || data.ok === false || !Array.isArray(data.textos) || data.textos.length < INSIGHT_LOTE_TAMANHO) {
-    throw new Error((data && data.error) || `O Gemini retornou menos de ${INSIGHT_LOTE_TAMANHO} insights.`);
+    const erro = new Error((data && data.error) || `O Gemini retornou menos de ${INSIGHT_LOTE_TAMANHO} insights.`);
+    if (data && data.diagnostico) erro.diagnostico = data.diagnostico;
+    erro.ocultarInsight = !!(data && data.ocultarInsight);
+    throw erro;
   }
   return data.textos.slice(0, INSIGHT_LOTE_TAMANHO);
 }
@@ -3754,12 +3779,18 @@ async function prepararInsightsIniciaisSemCache(pessoaBase) {
           setInsightFila(pessoa, textos);
         }
       } catch (_err) {
+        registrarFalhaInsightNoConsole(_err, `acesso inicial — ${pessoa}`);
         // Uma pessoa que falhar não impede as demais de serem preparadas.
+        if (_err && _err.ocultarInsight && pessoa === pessoaOriginal) definirVisibilidadeInsight(false);
       }
     }
   } finally {
     insightInicialSemCacheEmAndamento = false;
-    if (state.pessoaAtual === pessoaOriginal) exibirInsightCacheOuPlaceholder();
+    if (state.pessoaAtual === pessoaOriginal) {
+      const cacheFinal = getInsightCache(pessoaOriginal) || getInsightFila(pessoaOriginal)[0];
+      if (cacheFinal) exibirInsightCacheOuPlaceholder();
+      else definirVisibilidadeInsight(false);
+    }
   }
 }
 
