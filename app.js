@@ -3580,6 +3580,60 @@ function garantirEstiloDosIndicadoresInsight() {
   document.head.appendChild(style);
 }
 
+function normalizarInsight(item) {
+  const ehObjeto = item && typeof item === "object";
+  const texto = String(ehObjeto ? (item.texto || item.insight || "") : (item || "")).trim();
+  let tipo = String(ehObjeto ? (item.tipo || "") : "").trim().toLowerCase();
+  let titulo = String(ehObjeto ? (item.titulo || "") : "").trim();
+
+  // Compatibilidade com insights antigos que foram salvos como texto puro:
+  // tenta aproveitar os marcadores que a IA já usava para dar um titulo
+  // coerente até que um novo lote venha com titulo gerado pela própria IA.
+  if (!tipo || tipo === "geral") {
+    if (/\{\{gasto:/i.test(texto) || /\bgastos?\b/i.test(texto)) tipo = "gasto";
+    else if (/\{\{beneficio:/i.test(texto) || /\bbenef[ií]cio\b/i.test(texto)) tipo = "beneficio";
+    else if (/\{\{ganho:/i.test(texto) || /\b(receber|recebimento|ganho|ganhos)\b/i.test(texto)) tipo = "ganho";
+    else if (/\{\{guardado:/i.test(texto) || /\bguardad[oa]\b|caixinha/i.test(texto)) tipo = "guardado";
+    else if (/\{\{rendimento:/i.test(texto) || /\brendimento\b/i.test(texto)) tipo = "rendimento";
+  }
+  if (!titulo) {
+    const titulos = { gasto: "GASTO", ganho: "RECEBIMENTO", beneficio: "BENEFÍCIO", guardado: "CAIXINHA", rendimento: "RENDIMENTO", comparacao: "COMPARAÇÃO", planejamento: "PLANEJAMENTO", atencao: "ATENÇÃO" };
+    titulo = titulos[tipo] || "INSIGHT";
+  }
+  return { titulo, texto, tipo: tipo || "geral" };
+}
+
+function corDoTituloInsight(tipo) {
+  const mapa = {
+    gasto: "neg",
+    ganho: "pos",
+    beneficio: "beneficio",
+    guardado: "guardado",
+    rendimento: "rendimento",
+    atencao: "atencao",
+    comparacao: "comparacao",
+    planejamento: "planejamento",
+    geral: "geral",
+  };
+  return mapa[tipo] || "geral";
+}
+
+function garantirInteracaoInsight() {
+  const card = document.getElementById("insightCard");
+  if (!card || card.dataset.insightClick === "1") return;
+  card.dataset.insightClick = "1";
+  card.setAttribute("role", "button");
+  card.setAttribute("tabindex", "0");
+  card.setAttribute("aria-label", "Próximo insight financeiro");
+  card.addEventListener("click", () => mostrarProximoInsightDaFila());
+  card.addEventListener("keydown", (event) => {
+    if (event.key === "Enter" || event.key === " ") {
+      event.preventDefault();
+      mostrarProximoInsightDaFila();
+    }
+  });
+}
+
 function registrarFalhaInsightNoConsole(err, contexto) {
   const diagnostico = err && err.diagnostico ? err.diagnostico : null;
   if (diagnostico && diagnostico.length) {
@@ -3591,17 +3645,24 @@ function registrarFalhaInsightNoConsole(err, contexto) {
   }
 }
 
-function mostrarInsightTexto(texto, modo) {
+function mostrarInsightTexto(insight, modo) {
   const el = document.getElementById("insightTexto");
   if (!el) return;
   definirVisibilidadeInsight(true);
+  garantirInteracaoInsight();
 
-  // Fade "fantasma": acontece quando o placeholder inicial (ao abrir a
-  // página) já mostra um item da fila só espiando, sem consumir — e
-  // segundos depois a sincronização consome esse mesmo item da fila e manda
-  // mostrar de novo: mesmo texto, fade à toa. Se já é exatamente o que está
-  // na tela, não refaz a troca.
+  const item = normalizarInsight(insight);
+  const texto = item.texto;
+  const tituloEl = document.getElementById("insightTitulo");
+  const titulo = item.titulo;
+  const classeTitulo = corDoTituloInsight(item.tipo);
+
   if (modo === "ia" && texto === insightTextoAtualExibido && el.classList.contains("is-ia")) {
+    if (tituloEl) {
+      tituloEl.textContent = titulo;
+      tituloEl.className = `insight-titulo is-${classeTitulo}`;
+      tituloEl.hidden = !titulo;
+    }
     return;
   }
 
@@ -3611,12 +3672,15 @@ function mostrarInsightTexto(texto, modo) {
     el.innerHTML = modo === "carregando"
       ? '<span class="insight-loading" role="status" aria-label="Carregando insight"><span></span><span></span><span></span></span>'
       : renderizarTextoInsight(texto);
+
+    if (tituloEl) {
+      tituloEl.textContent = modo === "ia" ? titulo : "";
+      tituloEl.className = `insight-titulo is-${classeTitulo}`;
+      tituloEl.hidden = modo !== "ia" || !titulo;
+    }
     if (modo === "ia") insightTextoAtualExibido = texto;
   };
 
-  // Se já tem algo visível no card, dá um fade (opacity some, troca o
-  // conteúdo por baixo, opacity volta) em vez de trocar seco — a duração do
-  // setTimeout bate com a transição de ".insight-texto" no style.css.
   if (el.innerHTML.trim()) {
     el.classList.add("is-trocando");
     setTimeout(aplicarConteudo, 200);
@@ -3625,14 +3689,10 @@ function mostrarInsightTexto(texto, modo) {
   }
 }
 
-// Guarda o último insight já mostrado de cada pessoa, só pra aparecer na
-// hora ao abrir o app de novo (sem precisar esperar a sincronização de
-// novo) — e um "estoque" de insights já gerados e ainda não mostrados, pra
-// já ter um pronto na próxima sincronização em vez de esperar a IA de novo.
 const INSIGHT_CACHE_PREFIX = "caixaInsightTexto:";
 const INSIGHT_FILA_PREFIX = "caixaInsightFila:";
 const INSIGHT_INDICE_PREFIX = "caixaInsightIndice:";
-const INSIGHT_ESTOQUE_MINIMO = 3;
+const INSIGHT_ESTOQUE_MINIMO = 2;
 const INSIGHT_LOTE_TAMANHO = 5;
 const INSIGHT_ROTACAO_MS = 15000;
 let insightGeracaoEmAndamento = false;
@@ -3642,16 +3702,27 @@ let insightRotacaoTimer = null;
 let insightInicialSemCacheEmAndamento = false;
 
 function getInsightCache(pessoa) {
-  try { return localStorage.getItem(INSIGHT_CACHE_PREFIX + pessoa); } catch (err) { return null; }
+  try {
+    const bruto = localStorage.getItem(INSIGHT_CACHE_PREFIX + pessoa);
+    return bruto ? normalizarInsight(JSON.parse(bruto)) : null;
+  } catch (err) {
+    try {
+      const bruto = localStorage.getItem(INSIGHT_CACHE_PREFIX + pessoa);
+      return bruto ? normalizarInsight(bruto) : null;
+    } catch (_) { return null; }
+  }
 }
-function setInsightCache(pessoa, texto) {
-  try { localStorage.setItem(INSIGHT_CACHE_PREFIX + pessoa, texto); } catch (err) {}
+function setInsightCache(pessoa, insight) {
+  try { localStorage.setItem(INSIGHT_CACHE_PREFIX + pessoa, JSON.stringify(normalizarInsight(insight))); } catch (err) {}
 }
 function getInsightFila(pessoa) {
-  try { return JSON.parse(localStorage.getItem(INSIGHT_FILA_PREFIX + pessoa) || "[]"); } catch (err) { return []; }
+  try {
+    const lista = JSON.parse(localStorage.getItem(INSIGHT_FILA_PREFIX + pessoa) || "[]");
+    return Array.isArray(lista) ? lista.map(normalizarInsight).filter((i) => i.texto) : [];
+  } catch (err) { return []; }
 }
 function setInsightFila(pessoa, lista) {
-  try { localStorage.setItem(INSIGHT_FILA_PREFIX + pessoa, JSON.stringify(lista || [])); } catch (err) {}
+  try { localStorage.setItem(INSIGHT_FILA_PREFIX + pessoa, JSON.stringify((lista || []).map(normalizarInsight).filter((i) => i.texto))); } catch (err) {}
 }
 
 function getInsightIndice(pessoa) {
