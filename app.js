@@ -3572,6 +3572,14 @@ function definirVisibilidadeInsight(visivel) {
   card.style.display = visivel ? "" : "none";
 }
 
+function garantirEstiloDosIndicadoresInsight() {
+  if (document.getElementById("insightDotsStyle")) return;
+  const style = document.createElement("style");
+  style.id = "insightDotsStyle";
+  style.textContent = `.insight-dots{display:flex;justify-content:center;align-items:center;gap:5px;margin-top:10px;min-height:8px}.insight-dots span{width:4px;height:4px;border-radius:999px;background:rgba(255,255,255,.24);transition:width .22s ease,background .22s ease,transform .22s ease}.insight-dots span.is-active{width:12px;background:rgba(255,255,255,.72);transform:scale(1.05)}`;
+  document.head.appendChild(style);
+}
+
 function registrarFalhaInsightNoConsole(err, contexto) {
   const diagnostico = err && err.diagnostico ? err.diagnostico : null;
   if (diagnostico && diagnostico.length) {
@@ -3623,9 +3631,10 @@ function mostrarInsightTexto(texto, modo) {
 // já ter um pronto na próxima sincronização em vez de esperar a IA de novo.
 const INSIGHT_CACHE_PREFIX = "caixaInsightTexto:";
 const INSIGHT_FILA_PREFIX = "caixaInsightFila:";
+const INSIGHT_INDICE_PREFIX = "caixaInsightIndice:";
 const INSIGHT_ESTOQUE_MINIMO = 3;
-const INSIGHT_LOTE_TAMANHO = 10;
-const INSIGHT_ROTACAO_MS = 30000;
+const INSIGHT_LOTE_TAMANHO = 5;
+const INSIGHT_ROTACAO_MS = 15000;
 let insightGeracaoEmAndamento = false;
 let insightAlteracaoTimer = null;
 let insightGeracaoPendente = false;
@@ -3645,10 +3654,45 @@ function setInsightFila(pessoa, lista) {
   try { localStorage.setItem(INSIGHT_FILA_PREFIX + pessoa, JSON.stringify(lista || [])); } catch (err) {}
 }
 
+function getInsightIndice(pessoa) {
+  try { return Number(localStorage.getItem(INSIGHT_INDICE_PREFIX + pessoa) || 0) || 0; } catch (err) { return 0; }
+}
+function setInsightIndice(pessoa, indice) {
+  try { localStorage.setItem(INSIGHT_INDICE_PREFIX + pessoa, String(Math.max(0, Number(indice) || 0))); } catch (err) {}
+}
+function getTodosInsights(pessoa) {
+  const atual = getInsightCache(pessoa);
+  const fila = getInsightFila(pessoa);
+  return atual ? [atual].concat(fila) : fila.slice();
+}
+function atualizarIndicadoresInsights() {
+  garantirEstiloDosIndicadoresInsight();
+  const el = document.getElementById("insightTexto");
+  if (!el) return;
+  let dots = document.getElementById("insightDots");
+  const pessoa = state.pessoaAtual;
+  const lista = getTodosInsights(pessoa);
+  if (!lista.length) { if (dots) dots.remove(); return; }
+  const indice = Math.min(getInsightIndice(pessoa), lista.length - 1);
+  if (!dots) {
+    dots = document.createElement("div");
+    dots.id = "insightDots";
+    dots.className = "insight-dots";
+    dots.setAttribute("aria-label", "Indicador de insights");
+    el.insertAdjacentElement("afterend", dots);
+  }
+  dots.innerHTML = lista.map((_, i) => `<span class="${i === indice ? "is-active" : ""}" aria-hidden="true"></span>`).join("");
+}
 function exibirInsightCacheOuPlaceholder() {
-  const fila = getInsightFila(state.pessoaAtual);
-  const cache = fila[0] || getInsightCache(state.pessoaAtual);
-  mostrarInsightTexto(cache || "Seu próximo insight será atualizado quando houver uma mudança nas suas finanças.", cache ? "ia" : "carregando");
+  const lista = getTodosInsights(state.pessoaAtual);
+  if (!lista.length) {
+    definirVisibilidadeInsight(false);
+    return;
+  }
+  const indice = Math.min(getInsightIndice(state.pessoaAtual), lista.length - 1);
+  setInsightIndice(state.pessoaAtual, indice);
+  mostrarInsightTexto(lista[indice], "ia");
+  atualizarIndicadoresInsights();
 }
 
 function invalidarFilaDeInsights(pessoa = state.pessoaAtual) {
@@ -3677,7 +3721,8 @@ async function gerarInsightAposAlteracaoFinanceira() {
     if (!primeiro) throw new Error("O Gemini não retornou um primeiro insight válido.");
     setInsightCache(pessoaDoPedido, primeiro);
     setInsightFila(pessoaDoPedido, textos);
-    mostrarInsightTexto(primeiro, "ia");
+    setInsightIndice(pessoaDoPedido, 0);
+    exibirInsightCacheOuPlaceholder();
   } catch (err) {
     registrarFalhaInsightNoConsole(err, "alteração financeira");
     if (err && err.ocultarInsight) definirVisibilidadeInsight(false);
@@ -3703,7 +3748,7 @@ async function pedirLoteDeInsights(pessoaDoPedido, resumoFornecido = null) {
   const resumo = resumoFornecido || montarResumoParaInsight();
   const res = await fetch(API_URL, {
     method: "POST",
-    body: JSON.stringify({ action: "gerarInsightIA", pessoa: pessoaDoPedido, periodo: "mes-vs-anterior", resumo }),
+    body: JSON.stringify({ action: "gerarInsightIA", pessoa: pessoaDoPedido, periodo: "mes-vs-anterior", quantidade: INSIGHT_LOTE_TAMANHO, resumo }),
   });
   const data = await res.json().catch(() => null);
   // Quando o resumo foi fornecido, esta é uma geração em segundo plano para
@@ -3712,7 +3757,7 @@ async function pedirLoteDeInsights(pessoaDoPedido, resumoFornecido = null) {
   if (!resumoFornecido && state.pessoaAtual !== pessoaDoPedido) {
     throw new Error("__pessoa_trocou__");
   }
-  if (!data || data.ok === false || !Array.isArray(data.textos) || data.textos.length < INSIGHT_LOTE_TAMANHO) {
+  if (!data || data.ok === false || !Array.isArray(data.textos) || data.textos.length < 1) {
     const erro = new Error((data && data.error) || `O Gemini retornou menos de ${INSIGHT_LOTE_TAMANHO} insights.`);
     if (data && data.diagnostico) erro.diagnostico = data.diagnostico;
     erro.ocultarInsight = !!(data && data.ocultarInsight);
@@ -3777,6 +3822,7 @@ async function prepararInsightsIniciaisSemCache(pessoaBase) {
         if (primeiro) {
           setInsightCache(pessoa, primeiro);
           setInsightFila(pessoa, textos);
+          setInsightIndice(pessoa, 0);
           // Se o usuário estiver neste perfil quando a geração terminar,
           // atualiza apenas a interface; não faz uma nova chamada à IA.
           if (state.pessoaAtual === pessoa) exibirInsightCacheOuPlaceholder();
@@ -3799,12 +3845,12 @@ async function prepararInsightsIniciaisSemCache(pessoaBase) {
 
 function mostrarProximoInsightDaFila() {
   const pessoa = state.pessoaAtual;
-  const fila = getInsightFila(pessoa);
-  if (!fila.length) return false;
-  const proximo = fila.shift();
-  setInsightFila(pessoa, fila);
-  setInsightCache(pessoa, proximo);
-  mostrarInsightTexto(proximo, "ia");
+  const lista = getTodosInsights(pessoa);
+  if (lista.length < 2) { atualizarIndicadoresInsights(); return false; }
+  const proximoIndice = (getInsightIndice(pessoa) + 1) % lista.length;
+  setInsightIndice(pessoa, proximoIndice);
+  mostrarInsightTexto(lista[proximoIndice], "ia");
+  atualizarIndicadoresInsights();
   return true;
 }
 
