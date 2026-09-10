@@ -1615,11 +1615,6 @@ function animarNumero(el, de, para, duracao = 650) {
   requestAnimationFrame(passo);
 }
 
-function popValorFlutuante() {
-  // Feedback flutuante de adicionar/remover dinheiro desativado.
-}
-
-
 function renderTotais() {
   const totalGanhosGeral = soma(state.ganhos);
   const totalGanhosRecebidos = somaComStatus(state.ganhos, "recebido");
@@ -1658,14 +1653,7 @@ function renderTotais() {
   animarNumero(guardadoEl, prevTotals.guardado, totalGuardadoNoMes);
   animarNumero(saldoEl, prevTotals.saldo, saldo);
 
-  if (!primeiraVez) {
-    const heroStats = document.querySelectorAll(".hero-stat");
-    popValorFlutuante(document.querySelector(".saldo-block"), saldo - prevTotals.saldo);
-    popValorFlutuante(heroStats[0], totalGanhosRecebidos - prevTotals.ganhos, "income");
-    popValorFlutuante(heroStats[1], totalGuardadoNoMes - prevTotals.guardado, "gold");
-    popValorFlutuante(heroStats[2], totalFixosPagos - prevTotals.fixos, "expense");
-    popValorFlutuante(heroStats[3], totalVariaveisPagos - prevTotals.variaveis, "expense");
-  }
+  // Sem feedback flutuante: as alterações aparecem diretamente nos valores.
 
   saldoEl.classList.toggle("negative", saldo < 0);
 
@@ -2522,16 +2510,41 @@ function itensRecentesPorCategoria(lista, tipo, tag) {
   return (lista || []).map((i) => ({ ...i, tipo, tag }));
 }
 
+let mostrarTodosRecentes = false;
+
+function formatarCabecalhoDataExtrato(data, hoje) {
+  const d = new Date(`${data}T00:00:00`);
+  const isoHoje = dataHojeISO();
+  const ontemDate = new Date(hoje);
+  ontemDate.setDate(ontemDate.getDate() - 1);
+  const isoOntem = `${ontemDate.getFullYear()}-${String(ontemDate.getMonth() + 1).padStart(2, "0")}-${String(ontemDate.getDate()).padStart(2, "0")}`;
+  const dia = String(d.getDate()).padStart(2, "0");
+  const diaSemana = d.toLocaleDateString("pt-BR", { weekday: "long" });
+  const mes = d.toLocaleDateString("pt-BR", { month: "long" });
+
+  let destaque = "";
+  if (data === isoHoje) destaque = "Hoje";
+  else if (data === isoOntem) destaque = "Ontem";
+
+  return `
+    <span class="ledger-date-number">${dia}</span>
+    <span class="ledger-date-copy">
+      <strong>${destaque || escapeHtml(diaSemana)}</strong>
+      <small>${destaque ? escapeHtml(`${diaSemana} · ${dia} de ${mes}`) : escapeHtml(`${dia} de ${mes}`)}</small>
+    </span>
+    <span class="ledger-date-line"></span>`;
+}
+
 function renderRecentes() {
   const ledger = document.getElementById("ledgerRecentes");
   if (!ledger) return;
 
-  // Extrato dos últimos 14 dias (incluindo hoje), mostrando somente o que
-  // já entrou ou já foi pago. A ordem é cronológica, agrupada por data.
   const hoje = new Date();
   hoje.setHours(0, 0, 0, 0);
-  const inicio = new Date(hoje);
-  inicio.setDate(inicio.getDate() - 13);
+  const inicio7 = new Date(hoje);
+  inicio7.setDate(inicio7.getDate() - 6);
+  const inicioExibicao = new Date(hoje);
+  inicioExibicao.setDate(inicioExibicao.getDate() - (mostrarTodosRecentes ? 6 : 1));
 
   const todos = [
     ...itensRecentesPorCategoria(state.ganhos, "income", "Ganho"),
@@ -2541,50 +2554,71 @@ function renderRecentes() {
     const data = String(item.data || "").slice(0, 10);
     if (!/^\d{4}-\d{2}-\d{2}$/.test(data)) return false;
     const d = new Date(`${data}T00:00:00`);
-    if (Number.isNaN(d.getTime()) || d < inicio || d > hoje) return false;
-    const concluido = item.tipo === "income" ? item.recebido === true : item.pago === true;
-    return concluido;
-  }).sort((a, b) => {
-    const da = String(a.data || "");
-    const db = String(b.data || "");
-    return db.localeCompare(da);
+    if (Number.isNaN(d.getTime()) || d < inicioExibicao || d > hoje) return false;
+    return item.tipo === "income" ? item.recebido === true : item.pago === true;
+  }).sort((a, b) => String(b.data || "").localeCompare(String(a.data || "")));
+
+  const todos7Dias = [
+    ...itensRecentesPorCategoria(state.ganhos, "income", "Ganho"),
+    ...itensRecentesPorCategoria(state.gastosFixos, "expense", "Fixo"),
+    ...itensRecentesPorCategoria(state.gastosVariaveis, "expense", "Variável"),
+  ].filter((item) => {
+    const data = String(item.data || "").slice(0, 10);
+    if (!/^\d{4}-\d{2}-\d{2}$/.test(data)) return false;
+    const d = new Date(`${data}T00:00:00`);
+    if (Number.isNaN(d.getTime()) || d < inicio7 || d > hoje) return false;
+    return item.tipo === "income" ? item.recebido === true : item.pago === true;
   });
 
   ledger.innerHTML = "";
   if (todos.length === 0) {
-    ledger.innerHTML = estadoVazio("Nenhum lançamento recebido ou pago nos últimos 14 dias.", ICONE_PENA);
-    return;
+    ledger.innerHTML = estadoVazio("Nenhum lançamento recebido ou pago nos últimos 2 dias.", ICONE_PENA);
+  } else {
+    let dataAnterior = null;
+    todos.forEach((item) => {
+      const data = String(item.data || "").slice(0, 10);
+      if (data !== dataAnterior) {
+        const heading = document.createElement("div");
+        heading.className = "ledger-date-heading";
+        heading.innerHTML = formatarCabecalhoDataExtrato(data, hoje);
+        ledger.appendChild(heading);
+        dataAnterior = data;
+      }
+
+      const row = document.createElement("div");
+      row.className = "ledger-item";
+      row.innerHTML = `
+        <span class="ledger-icon ${item.tipo}">${item.tipo === "income" ? ICONE_GANHO : ICONE_GASTO}</span>
+        <div class="ledger-info">
+          <span class="ledger-nome">${escapeHtml(item.nome)} ${tagPessoa(item)}</span>
+          <span class="ledger-tag">${escapeHtml(item.tag)}</span>
+        </div>
+        <span class="ledger-valor ${item.tipo}">${item.tipo === "income" ? "+" : "−"} ${fmt(item.valor)}</span>
+      `;
+      ledger.appendChild(row);
+    });
   }
 
-  let dataAnterior = null;
-  todos.forEach((item) => {
-    const data = String(item.data || "").slice(0, 10);
-    if (data !== dataAnterior) {
-      const heading = document.createElement("div");
-      heading.className = "ledger-date-heading";
-      const d = new Date(`${data}T00:00:00`);
-      const ehHoje = data === dataHojeISO();
-      const ontem = new Date(hoje);
-      ontem.setDate(ontem.getDate() - 1);
-      const ehOntem = data === `${ontem.getFullYear()}-${String(ontem.getMonth()+1).padStart(2,"0")}-${String(ontem.getDate()).padStart(2,"0")}`;
-      const label = ehHoje ? "Hoje" : ehOntem ? "Ontem" : d.toLocaleDateString("pt-BR", { weekday: "long", day: "2-digit", month: "long" });
-      heading.innerHTML = `<span>${escapeHtml(label)}</span><span class="ledger-date-line"></span>`;
-      ledger.appendChild(heading);
-      dataAnterior = data;
-    }
+  const temMais = todos7Dias.some((item) => String(item.data || "").slice(0, 10) < dataLimiteISO(hoje, 1));
+  if (temMais) {
+    const more = document.createElement("button");
+    more.type = "button";
+    more.className = "ledger-more-btn";
+    more.innerHTML = mostrarTodosRecentes
+      ? `<span>Mostrar menos</span><span class="ledger-more-arrow">↑</span>`
+      : `<span>Ver mais lançamentos</span><span class="ledger-more-arrow">↓</span>`;
+    more.addEventListener("click", () => {
+      mostrarTodosRecentes = !mostrarTodosRecentes;
+      renderRecentes();
+    });
+    ledger.appendChild(more);
+  }
+}
 
-    const row = document.createElement("div");
-    row.className = "ledger-item";
-    row.innerHTML = `
-      <span class="ledger-icon ${item.tipo}">${item.tipo === "income" ? ICONE_GANHO : ICONE_GASTO}</span>
-      <div class="ledger-info">
-        <span class="ledger-nome">${escapeHtml(item.nome)} ${tagPessoa(item)}</span>
-        <span class="ledger-tag">${escapeHtml(item.tag)}</span>
-      </div>
-      <span class="ledger-valor ${item.tipo}">${item.tipo === "income" ? "+" : "−"} ${fmt(item.valor)}</span>
-    `;
-    ledger.appendChild(row);
-  });
+function dataLimiteISO(base, diasAtras) {
+  const d = new Date(base);
+  d.setDate(d.getDate() - diasAtras);
+  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
 }
 
 function skeletonItemRows(n) {
