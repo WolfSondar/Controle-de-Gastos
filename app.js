@@ -581,6 +581,9 @@ const state = {
   gastosVariaveis: [],
   caixinhas: [],
   loaded: false,
+  // Incrementa a cada alteração feita pelo usuário. Uma busca iniciada antes
+  // dessa alteração nunca pode sobrescrever o estado local mais novo.
+  versaoAlteracaoLocal: 0,
   pessoaAtual: localStorage.getItem(PESSOA_STORAGE_KEY) || "davi",
   mesAtual: mesAtualCache ? mesAtualCache.mes : null,
   anoAtual: mesAtualCache ? mesAtualCache.ano : null,
@@ -629,6 +632,12 @@ async function setCache(pessoa, data) {
   });
 }
 async function removerCache(pessoa) { return idbDelete(IDB_LOJA_CACHE, CACHE_PREFIX + pessoa); }
+
+// Marca uma mutação feita localmente. Isso impede que uma resposta GET
+// iniciada antes da ação do usuário volte depois e "desfaça" a alteração.
+function marcarAlteracaoLocal() {
+  state.versaoAlteracaoLocal = (state.versaoAlteracaoLocal || 0) + 1;
+}
 
 const syncEl = document.getElementById("syncStatus");
 let syncModeAnterior = null;
@@ -740,8 +749,12 @@ async function carregarDados() {
   }
 
   const pessoaRequisitada = state.pessoaAtual;
+  const versaoNoInicio = state.versaoAlteracaoLocal;
   const cache = await getCache(pessoaRequisitada);
-  if (state.pessoaAtual !== pessoaRequisitada) return; 
+  if (state.pessoaAtual !== pessoaRequisitada) return;
+  // Se o usuário alterou qualquer coisa enquanto o cache era lido, o cache
+  // antigo não pode entrar por cima do que ele acabou de fazer.
+  if (state.versaoAlteracaoLocal !== versaoNoInicio) return;
   if (cache) {
     state.ganhos = cache.ganhos;
     state.gastosFixos = cache.gastosFixos;
@@ -770,7 +783,10 @@ async function carregarDados() {
     const res = await fetch(url, { method: "GET" });
     const data = await res.json();
     if (data && data.ok === false) throw new Error(data.error || "Erro desconhecido");
-    if (state.pessoaAtual !== pessoaRequisitada) return; 
+    if (state.pessoaAtual !== pessoaRequisitada) return;
+    // A resposta pode ter ficado alguns segundos em trânsito. Se houve uma
+    // ação local desde o início desta busca, ela é mais nova e deve vencer.
+    if (state.versaoAlteracaoLocal !== versaoNoInicio) return;
 
     state.ganhos = data.ganhos || [];
     state.gastosFixos = data.gastosFixos || [];
@@ -1054,6 +1070,7 @@ function criarOperacoesLista(key, action) {
     add(nome, valor, extra = {}) {
       if (isAmbos()) return;
       state[key].push({ nome, valor, ...extra });
+      marcarAlteracaoLocal();
       sincronizarCacheAtual();
       salvarBloco(action, state[key]);
       renderAll();
@@ -1061,6 +1078,7 @@ function criarOperacoesLista(key, action) {
     remove(index) {
       if (isAmbos()) return;
       state[key].splice(index, 1);
+      marcarAlteracaoLocal();
       sincronizarCacheAtual();
       salvarBloco(action, state[key]);
       renderAll();
@@ -1072,6 +1090,7 @@ function criarOperacoesLista(key, action) {
       item.nome = nome;
       item.valor = valor;
       Object.assign(item, extra);
+      marcarAlteracaoLocal();
       sincronizarCacheAtual();
       salvarBloco(action, state[key]);
       renderAll();
@@ -1101,10 +1120,11 @@ function addCaixinha(nome, valorInicial, valorObjetivo, icone = "", data = "") {
     data: String(data || "").trim(),
   };
   state.caixinhas.push(novaCaixinha);
+  marcarAlteracaoLocal();
   marcarComemoracaoSeMetaBatida(novaCaixinha, false);
   salvarBloco("saveCaixinhas", state.caixinhas);
   if (valorInicial > 0) {
-    state.gastosVariaveis.push({ nome: `Guardado: ${nome}`, valor: valorInicial, pago: true, tipo: "Metas", data: dataHojeISO() });
+    state.gastosVariaveis.push({ nome: `Guardado: ${nome}`, valor: valorInicial, pago: true, tipo: "Metas", data: dataHojeISO(), origem: "saldo" });
     salvarBloco("saveGastosVariaveis", state.gastosVariaveis);
   }
   sincronizarCacheAtual();
@@ -1116,6 +1136,7 @@ function removeCaixinha(index) {
   if (!cx) return;
   const guardado = totalCaixinha(cx);
   state.caixinhas.splice(index, 1);
+  marcarAlteracaoLocal();
   if (guardado > 0) {
     state.ganhos.push({ nome: `Retirado da caixinha: ${cx.nome} (removida)`, valor: guardado, recebido: true, data: dataHojeISO() });
     salvarBloco("saveGanhos", state.ganhos);
@@ -1133,6 +1154,7 @@ function editCaixinha(index, nome, valorObjetivo, icone = "", data = "") {
   const estavaCompleta = objetivoAntes > 0 && totalCaixinha(cx) >= objetivoAntes;
   cx.nome = nome;
   cx.valorObjetivo = valorObjetivo || 0;
+  marcarAlteracaoLocal();
   cx.icone = normalizarNomeIcone(icone);
   cx.data = String(data || "").trim();
   marcarComemoracaoSeMetaBatida(cx, estavaCompleta);
@@ -1162,8 +1184,9 @@ function guardarNaCaixinha(index, valor) {
   // quando o mês fecha. O total exibido (totalCaixinha) já soma os dois, então o
   // saldo mostrado pro usuário não muda, só onde o valor fica guardado até o fechamento.
   cx.valorGuardadoMes = (Number(cx.valorGuardadoMes) || 0) + valor;
+  marcarAlteracaoLocal();
   marcarComemoracaoSeMetaBatida(cx, estavaCompleta);
-  state.gastosVariaveis.push({ nome: `Guardado: ${cx.nome}`, valor, pago: true, tipo: "Metas", data: dataHojeISO() });
+  state.gastosVariaveis.push({ nome: `Guardado: ${cx.nome}`, valor, pago: true, tipo: "Metas", data: dataHojeISO(), origem: "saldo" });
   sincronizarCacheAtual();
   salvarBloco("saveCaixinhas", state.caixinhas);
   salvarBloco("saveGastosVariaveis", state.gastosVariaveis);
@@ -1180,6 +1203,7 @@ function retirarDaCaixinha(index, valor) {
   const doResto = valor - doMes;
   cx.valorGuardadoMes = Math.max((Number(cx.valorGuardadoMes) || 0) - doMes, 0);
   cx.valorGuardado = Math.max((Number(cx.valorGuardado) || 0) - doResto, 0);
+  marcarAlteracaoLocal();
   state.ganhos.push({ nome: `Retirado da caixinha: ${cx.nome}`, valor, recebido: true, data: dataHojeISO() });
   sincronizarCacheAtual();
   salvarBloco("saveCaixinhas", state.caixinhas);
@@ -1211,6 +1235,7 @@ function informarRendimentoCaixinha(index, novoMontanteTotal) {
   
   if (diferencaRendimento !== 0) {
     cx.rendimentoTotal = rendimentoAnterior + diferencaRendimento;
+    marcarAlteracaoLocal();
   }
   marcarComemoracaoSeMetaBatida(cx, estavaCompleta);
   
@@ -1269,7 +1294,7 @@ async function dividirCompra(nome, valorTotal, categoria, opts) {
   const metade = Math.round((valorTotal / 2) * 100) / 100;
   const action = categoria === "fixos" ? "saveGastosFixos" : "saveGastosVariaveis";
   const chave = categoria === "fixos" ? "gastosFixos" : "gastosVariaveis";
-  const base = { tipo, data };
+  const base = { tipo, data, origem: "saldo" };
 
   let itemDavi, itemGabriel;
   if (quemPagouTudo) {
@@ -1293,6 +1318,9 @@ async function dividirCompra(nome, valorTotal, categoria, opts) {
 
     listaDavi.push(itemDavi);
     listaGabriel.push(itemGabriel);
+    // A partir daqui há uma alteração local lógica para a pessoa que estiver
+    // em foco; qualquer GET antigo não pode sobrescrevê-la.
+    if (state.pessoaAtual === "davi" || state.pessoaAtual === "gabriel") marcarAlteracaoLocal();
 
     const [resDavi, resGabriel] = await Promise.all([
       fetch(API_URL, { method: "POST", body: JSON.stringify({ action, payload: listaDavi, pessoa: "davi" }) }),
@@ -1339,6 +1367,7 @@ async function creditarPagamentoDeDivisao(pagador, devedor, nomeOriginal, valor)
       nome: `Transferência de ${PESSOA_LABEL[devedor]}: ${nomeOriginal}`,
       valor, data: hoje, recebido: true,
     });
+    if (state.pessoaAtual === pagador) marcarAlteracaoLocal();
 
     const res = await fetch(API_URL, {
       method: "POST",
@@ -1390,6 +1419,7 @@ async function transferirEntrePessoas(de, para, nome, valor, tipo) {
       nome: `Transferência de ${PESSOA_LABEL[de]}: ${descricao}`,
       valor, data: hoje, recebido: true,
     });
+    if (state.pessoaAtual === de || state.pessoaAtual === para) marcarAlteracaoLocal();
 
     const [cacheDe, cachePara] = await Promise.all([getCache(de), getCache(para)]);
     setCache(de, { ...(cacheDe || {}), gastosVariaveis: listaVariaveisDe });
@@ -1407,10 +1437,31 @@ async function transferirEntrePessoas(de, para, nome, valor, tipo) {
 function fixoEhPago(item) { return item.pago === true; }
 function variavelEhPago(item) { return item.pago === true; }
 function ganhoEhRecebido(item) { return item.recebido === true; }
+
+/* Benefício é qualquer ganho cujo nome contenha "beneficio", com ou sem
+   acento e inclusive dentro de palavras como "Multibeneficio". */
+function ganhoEhBeneficio(item) {
+  const nome = String(item && item.nome || "")
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, "")
+    .toLowerCase();
+  return nome.includes("beneficio");
+}
+
+function separarGanhosPorOrigem(lista) {
+  return (lista || []).reduce((acc, item) => {
+    if (!ganhoEhRecebido(item)) return acc;
+    const valor = Number(item.valor) || 0;
+    if (ganhoEhBeneficio(item)) acc.beneficios += valor;
+    else acc.ganhos += valor;
+    return acc;
+  }, { beneficios: 0, ganhos: 0 });
+}
 // Um "lembrete" (compra do mês que vem, paga adiantada) aparece na lista
 // como pago, mas não deve contar de novo no saldo nem nos gastos por
 // categoria deste mês — já foi debitado no mês em que a compra foi paga.
 function variavelContaNoSaldo(item) { return item.pago === true && item.lembrete !== true; }
+function variavelEhBeneficio(item) { return String(item && item.origem || "saldo").toLowerCase() === "beneficio"; }
 
 function atualizarLinhaStatus(ulId, idx, ligado, rotuloOn, rotuloOff) {
   const ul = document.getElementById(ulId);
@@ -1580,6 +1631,7 @@ function popValorFlutuante(container, delta, corFixa) {
 function renderTotais() {
   const totalGanhosGeral = soma(state.ganhos);
   const totalGanhosRecebidos = somaComStatus(state.ganhos, "recebido");
+  const ganhosPorOrigem = separarGanhosPorOrigem(state.ganhos);
   const totalGanhosAReceber = totalGanhosGeral - totalGanhosRecebidos;
 
   const totalFixosGeral = soma(state.gastosFixos);
@@ -1603,6 +1655,8 @@ function renderTotais() {
   const variaveisEl = document.getElementById("statVariaveis");
   const guardadoEl = document.getElementById("statGuardado");
   const saldoEl = document.getElementById("saldoValor");
+  const beneficiosEl = document.getElementById("saldoBeneficios");
+  const ganhosSaldoEl = document.getElementById("saldoGanhos");
 
   const primeiraVez = prevTotals.saldo === null;
 
@@ -1623,12 +1677,8 @@ function renderTotais() {
 
   saldoEl.classList.toggle("negative", saldo < 0);
 
-  const saldoProjetado = totalGanhosGeral - totalFixosGeral - totalVariaveisGeral;
-  const formulaEl = document.getElementById("saldoFormula");
-  if (formulaEl) {
-    formulaEl.textContent = `Projetado: ${fmt(saldoProjetado)}`;
-    formulaEl.classList.toggle("negative", saldoProjetado < 0);
-  }
+  if (beneficiosEl) beneficiosEl.textContent = fmt(ganhosPorOrigem.beneficios);
+  if (ganhosSaldoEl) ganhosSaldoEl.textContent = fmt(ganhosPorOrigem.ganhos);
 
   const ganhosPendenteEl = document.getElementById("statGanhosPendente");
   if (ganhosPendenteEl) ganhosPendenteEl.textContent = totalGanhosAReceber > 0 ? `+ ${fmt(totalGanhosAReceber)}` : "";
@@ -1713,20 +1763,22 @@ function metaInfoHtml(item) {
     partes.push(`<span class="item-tag item-tag-atrasado" title="Venceu no mês passado e ainda não foi pago">Atrasado</span>`);
   }
   if (item.tipo) partes.push(`<span class="item-tag item-tag-cat">${escapeHtml(item.tipo)}</span>`);
-  if (item.parcela && /^\d+\s*\/\s*\d+$/.test(String(item.parcela).trim())) {
-    partes.push(`<span class="item-tag item-tag-parcela">${escapeHtml(String(item.parcela).trim())}</span>`);
-  }
   const dataCurta = formatarDataCurta(item.data);
   if (dataCurta) partes.push(`<span class="item-tag item-tag-data">${dataCurta}</span>`);
   return partes.length ? `<div class="item-meta">${partes.join("")}</div>` : "";
 }
 
 function nomeComParcela(item) {
-  const nome = escapeHtml(item.nome);
-  if (item.parcela && /^\d+\s*\/\s*\d+$/.test(String(item.parcela).trim())) {
-    return `${nome} (${escapeHtml(String(item.parcela).trim())})`;
-  }
-  return nome;
+  // A parcela fica como tag visual ao lado/antes do nome no card.
+  // Mantemos esta função apenas para centralizar o escape do nome.
+  return escapeHtml(item.nome);
+}
+
+function parcelaInlineHtml(item, tipo) {
+  if (tipo !== "expense" || !item.parcela) return "";
+  const parcela = String(item.parcela).trim();
+  if (!/^\d+\s*\/\s*\d+$/.test(parcela)) return "";
+  return `<span class="item-tag item-tag-parcela item-tag-parcela-inline">${escapeHtml(parcela)}</span>`;
 }
 
 function fecharSwipe(li) {
@@ -1905,7 +1957,7 @@ function renderListaComStatus(ulId, lista, tipo, ops, tipoModal, statusKey, togg
               <button class="swipe-btn swipe-delete" aria-label="Excluir" data-idx="${idx}"><span class="swipe-btn-icon">${ICONE_X}</span><span>Excluir</span></button>
             </div>`}
       <div class="swipe-content">
-        <span class="item-nome">${nomeComParcela(item)} ${tagPessoa(item)}</span>
+        <span class="item-nome">${parcelaInlineHtml(item, tipo)}${nomeComParcela(item)} ${tagPessoa(item)}</span>
         <span class="item-valor ${tipo}">${fmt(item.valor)}</span>
         ${metaInfoHtml(item) || `<div class="item-meta"></div>`}
         ${ambos ? `<span class="pago-toggle ${on ? "is-pago" : ""}" aria-disabled="true"><span class="dot"></span>${on ? rotuloOn : rotuloOff}</span>`
@@ -2997,6 +3049,7 @@ function detalheItemParaInsight(item, tipoLancamento) {
     tipoLancamento, // "fixo" (mensalidade/parcela) ou "variavel" (avulso)
     status: statusDoLancamento(item), // pago | pendente | atrasado | mes_que_vem | pago_adiantado
   };
+  if (tipoLancamento === "variavel") det.origem = variavelEhBeneficio(item) ? "beneficio" : "saldo";
   // Só existe no modo "Juntos" (ver isAmbos()) — de qual das duas pessoas é
   // esse lançamento. ESSENCIAL: sem isso a IA não tem como saber de quem é
   // cada coisa e acaba chutando/misturando (foi assim que ela atribuiu um
@@ -3023,7 +3076,11 @@ function lancamentosComNomeDoMes() {
   const ganhos = (state.ganhos || [])
     .filter((g) => g.recebido === true)
     .map((g) => {
-      const det = { nome: g.nome, valor: Number(g.valor) || 0 };
+      const det = {
+        nome: g.nome,
+        valor: Number(g.valor) || 0,
+        beneficio: ganhoEhBeneficio(g),
+      };
       if (g.pessoa) det.pessoa = PESSOA_LABEL[g.pessoa] || g.pessoa;
       return det;
     });
@@ -3053,9 +3110,12 @@ function resumoPorPessoaMesAtual() {
       const cat = (g.tipo && String(g.tipo).trim()) || "Outros";
       categorias[cat] = (categorias[cat] || 0) + (Number(g.valor) || 0);
     });
+    const ganhosPorOrigemP = separarGanhosPorOrigem(ganhosP);
     porPessoa[p] = {
       nome: PESSOA_LABEL[p],
-      ganhosRecebidos: somaComStatus(ganhosP, "recebido"),
+      ganhosRecebidos: ganhosPorOrigemP.beneficios + ganhosPorOrigemP.ganhos,
+      beneficiosRecebidos: ganhosPorOrigemP.beneficios,
+      ganhosRecebidosSemBeneficio: ganhosPorOrigemP.ganhos,
       gastoFixoPago: soma(fixosPagosP),
       gastoVariavelPago: soma(variaveisPagosP),
       categorias,
@@ -3129,6 +3189,8 @@ function montarResumoParaInsight() {
       nome: nomeMesAtual,
       ano: anoAtualNum,
       ganhosRecebidos,
+      beneficiosRecebidos: separarGanhosPorOrigem(state.ganhos).beneficios,
+      ganhosRecebidosSemBeneficio: separarGanhosPorOrigem(state.ganhos).ganhos,
       gastosFixosPagos,
       gastosVariaveisPagos,
       // Mesma fórmula do saldo mostrado na tela (renderTotais/#saldoValor):
@@ -4070,7 +4132,8 @@ on("formVariaveis", "submit", (e) => {
   const pago = f.pago ? f.pago.checked : false;
   const tipo = f.tipo ? f.tipo.value : "";
   const data = f.data ? f.data.value : "";
-  opVariaveis.add(nome, valor, { pago, tipo, data });
+  const origem = f.origem && f.origem.value === "beneficio" ? "beneficio" : "saldo";
+  opVariaveis.add(nome, valor, { pago, tipo, data, origem });
   f.reset();
   preencherDatasComHoje();
 });
@@ -4210,6 +4273,7 @@ const TITULOS_EDICAO = {
 };
 const EDICAO_TEM_CATEGORIA = { fixos: true, variaveis: true };
 const EDICAO_TEM_DATA = { ganhos: true, fixos: true, variaveis: true, caixinhas: true };
+const EDICAO_TEM_ORIGEM = { variaveis: true };
 const EDICAO_TEM_PARCELA = { fixos: true };
 
 function abrirModalEditar(tipo, idx, item) {
@@ -4225,9 +4289,11 @@ function abrirModalEditar(tipo, idx, item) {
   const categoriaEl = document.getElementById("editCategoria");
   const dataEl = document.getElementById("editData");
   const parcelaEl = document.getElementById("editParcela");
+  const origemEl = document.getElementById("editOrigem");
   const temCategoria = !!EDICAO_TEM_CATEGORIA[tipo];
   const temData = !!EDICAO_TEM_DATA[tipo];
   const temParcela = !!EDICAO_TEM_PARCELA[tipo];
+  const temOrigem = !!EDICAO_TEM_ORIGEM[tipo];
   const iconPickerEl = document.getElementById("caixinhaIconPickerEditar");
 
   if (iconPickerEl) {
@@ -4252,6 +4318,10 @@ function abrirModalEditar(tipo, idx, item) {
   if (parcelaEl) {
     parcelaEl.classList.toggle("is-hidden", !temParcela);
     parcelaEl.value = temParcela ? item.parcela || "" : "";
+  }
+  if (origemEl) {
+    origemEl.classList.toggle("is-hidden", !temOrigem);
+    origemEl.value = temOrigem ? (item.origem === "beneficio" ? "beneficio" : "saldo") : "saldo";
   }
 
   if (editBackdrop) editBackdrop.classList.remove("is-hidden");
@@ -4300,10 +4370,11 @@ on("formEditar", "submit", (e) => {
   } else if (tipo === "variaveis") {
     const categoria = document.getElementById("editCategoria").value;
     const data = document.getElementById("editData").value;
+    const origem = document.getElementById("editOrigem").value === "beneficio" ? "beneficio" : "saldo";
     // Editar manualmente tira o item do modo "lembrete" (compra adiantada) —
     // a partir daqui ele volta a contar normalmente no saldo, com a nova
-    // data/categoria que a pessoa escolheu.
-    opVariaveis.edit(idx, nome, valor, { tipo: categoria, data, lembrete: false });
+    // data/categoria/origem que a pessoa escolheu.
+    opVariaveis.edit(idx, nome, valor, { tipo: categoria, data, origem, lembrete: false });
   } else if (tipo === "caixinhas") {
     const icone = normalizarNomeIcone(document.getElementById("editIcone")?.value || "");
     editCaixinha(idx, nome, valor, icone);
@@ -4588,32 +4659,11 @@ on("formFecharMes", "submit", async (e) => {
     btnSubmit.disabled = true;
     btnSubmit.textContent = "Fechando…";
   }
-  const fecharOverlay = document.getElementById("fecharMesOverlay");
-  if (fecharOverlay) {
-    fecharOverlay.classList.remove("is-success");
-    const texto = fecharOverlay.querySelector(".processando-texto");
-    const sub = fecharOverlay.querySelector(".processando-sub");
-    if (texto) texto.textContent = "Fechando o mês…";
-    if (sub) sub.textContent = "Organizando saldo, benefícios e histórico";
-  }
   mostrarProcessando("fecharMesOverlay");
 
   const resultado = await fecharMesRequisicao(mes, ano);
 
-  if (resultado) {
-    // Mantém a confirmação visual por alguns instantes antes de desmontar o modal.
-    if (fecharOverlay) {
-      fecharOverlay.classList.add("is-success");
-      const texto = fecharOverlay.querySelector(".processando-texto");
-      const sub = fecharOverlay.querySelector(".processando-sub");
-      if (texto) texto.textContent = "Mês fechado";
-      if (sub) sub.textContent = "Saldo e benefícios preparados para o próximo mês";
-    }
-    await new Promise((resolve) => setTimeout(resolve, 850));
-  }
-
   esconderProcessando("fecharMesOverlay");
-  if (fecharOverlay) fecharOverlay.classList.remove("is-success");
   if (btnSubmit) {
     btnSubmit.disabled = false;
     btnSubmit.textContent = "Fechar mês";
