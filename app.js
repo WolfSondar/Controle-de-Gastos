@@ -816,7 +816,13 @@ async function carregarDados() {
     if (!cache) {
       atualizarInsightComIA({ motivo: "pagina", semCacheInicial: true });
     }
-    prefetchOutrasPessoas(pessoaRequisitada);
+    const prefetch = prefetchOutrasPessoas(pessoaRequisitada);
+    // Se este dispositivo ainda não tinha cache financeiro, prepara o estoque
+    // inicial da IA para Davi, Gabriel e Juntos em segundo plano. Assim o
+    // primeiro acesso não fica preso a uma única mensagem/pessoa.
+    if (!cache) {
+      prefetch.then(() => prepararInsightsIniciaisSemCache(pessoaRequisitada)).catch(() => {});
+    }
   } catch (err) {
     if (state.pessoaAtual !== pessoaRequisitada) return;
     // Caiu a conexão no meio da busca: mesmo tratamento calmo do offline
@@ -832,12 +838,19 @@ async function carregarDados() {
 }
 
 function prefetchOutrasPessoas(pessoaJaCarregada) {
-  Object.keys(PESSOA_LABEL).filter((p) => p !== pessoaJaCarregada).forEach((p) => {
-      fetch(`${API_URL}?pessoa=${encodeURIComponent(p)}`)
+  const pessoas = Object.keys(PESSOA_LABEL).filter((p) => p !== pessoaJaCarregada);
+  return Promise.all(pessoas.map((p) =>
+    getCache(p).then((cache) => {
+      if (cache) return cache;
+      return fetch(`${API_URL}?pessoa=${encodeURIComponent(p)}`)
         .then((res) => res.json())
-        .then((data) => { if (data && data.ok !== false) setCache(p, data); })
-        .catch(() => {});
-    });
+        .then((data) => {
+          if (data && data.ok !== false) { setCache(p, data); return data; }
+          return null;
+        })
+        .catch(() => null);
+    })
+  ));
 }
 
 const filaSalvar = new Map(); 
@@ -3596,11 +3609,14 @@ function mostrarInsightTexto(texto, modo) {
 // já ter um pronto na próxima sincronização em vez de esperar a IA de novo.
 const INSIGHT_CACHE_PREFIX = "caixaInsightTexto:";
 const INSIGHT_FILA_PREFIX = "caixaInsightFila:";
-const INSIGHT_ESTOQUE_MINIMO = 3; // mantém um pequeno estoque local de insights
+const INSIGHT_ESTOQUE_MINIMO = 3;
 const INSIGHT_LOTE_TAMANHO = 10;
+const INSIGHT_ROTACAO_MS = 30000;
 let insightGeracaoEmAndamento = false;
 let insightAlteracaoTimer = null;
 let insightGeracaoPendente = false;
+let insightRotacaoTimer = null;
+let insightInicialSemCacheEmAndamento = false;
 
 function getInsightCache(pessoa) {
   try { return localStorage.getItem(INSIGHT_CACHE_PREFIX + pessoa); } catch (err) { return null; }
@@ -3621,10 +3637,8 @@ function exibirInsightCacheOuPlaceholder() {
   mostrarInsightTexto(cache || "Seu próximo insight será atualizado quando houver uma mudança nas suas finanças.", cache ? "ia" : "carregando");
 }
 
-function invalidarFilaDeInsights() {
-  // Insights pré-gerados representam um estado financeiro antigo. Quando há
-  // uma mudança real, eles não podem ser reaproveitados como se fossem atuais.
-  setInsightFila(state.pessoaAtual, []);
+function invalidarFilaDeInsights(pessoa = state.pessoaAtual) {
+  setInsightFila(pessoa, []);
 }
 
 function agendarInsightPorAlteracaoFinanceira() {
@@ -3641,17 +3655,17 @@ async function gerarInsightAposAlteracaoFinanceira() {
   if (insightGeracaoEmAndamento || !navigator.onLine || isAmbos()) return;
   insightGeracaoEmAndamento = true;
   const pessoaDoPedido = state.pessoaAtual;
-  invalidarFilaDeInsights();
+  invalidarFilaDeInsights(pessoaDoPedido);
   try {
     const textos = await pedirLoteDeInsights(pessoaDoPedido);
     if (state.pessoaAtual !== pessoaDoPedido) return;
     const primeiro = textos.shift();
+    if (!primeiro) throw new Error("O Gemini não retornou um primeiro insight válido.");
     setInsightCache(pessoaDoPedido, primeiro);
     setInsightFila(pessoaDoPedido, textos);
     mostrarInsightTexto(primeiro, "ia");
   } catch (err) {
-    // Nunca apaga o último insight válido por uma falha temporária do Gemini.
-    // A próxima alteração financeira tenta novamente.
+    // Mantém o último insight válido. A próxima mudança financeira tenta de novo.
   } finally {
     insightGeracaoEmAndamento = false;
     if (insightGeracaoPendente) {
@@ -3664,72 +3678,122 @@ async function gerarInsightAposAlteracaoFinanceira() {
   }
 }
 
-// Pede um novo lote de insights pro Gemini e devolve a lista (ou lança erro).
-async function pedirLoteDeInsights(pessoaDoPedido) {
-  if (!state.historico) {
+async function pedirLoteDeInsights(pessoaDoPedido, resumoFornecido = null) {
+  if (!resumoFornecido && !state.historico) {
     await carregarHistorico();
     if (state.pessoaAtual !== pessoaDoPedido) throw new Error("__pessoa_trocou__");
   }
-  const resumo = montarResumoParaInsight();
+  const resumo = resumoFornecido || montarResumoParaInsight();
   const res = await fetch(API_URL, {
     method: "POST",
     body: JSON.stringify({ action: "gerarInsightIA", pessoa: pessoaDoPedido, periodo: "mes-vs-anterior", resumo }),
   });
   const data = await res.json().catch(() => null);
   if (state.pessoaAtual !== pessoaDoPedido) throw new Error("__pessoa_trocou__");
-  if (!data || data.ok === false || !Array.isArray(data.textos) || !data.textos.length) {
-    throw new Error((data && data.error) || "Erro desconhecido");
+  if (!data || data.ok === false || !Array.isArray(data.textos) || data.textos.length < INSIGHT_LOTE_TAMANHO) {
+    throw new Error((data && data.error) || `O Gemini retornou menos de ${INSIGHT_LOTE_TAMANHO} insights.`);
   }
-  return data.textos;
+  return data.textos.slice(0, INSIGHT_LOTE_TAMANHO);
 }
 
-// Gera (ou consome do estoque) o insight com IA. Chamado sozinho sempre que
-// os dados terminam de sincronizar com a planilha (ver carregarDados) —
-// não existe mais botão manual nem seletor de período pra isso.
-async function atualizarInsightComIA(opcoes = {}) {
-  if (!API_URL || API_URL.includes("COLE_AQUI")) return;
-  if (!navigator.onLine) return;
-
-  const pessoaDoPedido = state.pessoaAtual;
-  const motivo = opcoes.motivo || "";
-
-  // No carregamento normal da página, não chamamos Gemini. O único carregamento
-  // automático é o primeiro deste dispositivo, quando ainda não existe cache
-  // financeiro local. Alterações financeiras usam a função específica abaixo.
-  if (motivo === "pagina" && !opcoes.semCacheInicial) return;
-  if (insightGeracaoEmAndamento) return;
-
-  const fila = getInsightFila(pessoaDoPedido);
-  if (fila.length > 0 && motivo !== "financeiro") {
-    const proximo = fila.shift();
-    setInsightFila(pessoaDoPedido, fila);
-    setInsightCache(pessoaDoPedido, proximo);
-    mostrarInsightTexto(proximo, "ia");
-    if (fila.length >= INSIGHT_ESTOQUE_MINIMO) return;
-  }
-
-  insightGeracaoEmAndamento = true;
-  mostrarInsightTexto("Analisando os números…", "carregando");
+// No primeiro acesso de um dispositivo sem cache financeiro, prepara o estoque
+// de IA dos três contextos. Fazemos em sequência para não abrir três chamadas
+// simultâneas à Gemini e não sobrecarregar a API.
+function montarResumoParaDadosDePessoa(pessoa, dados) {
+  const snapshot = {
+    pessoaAtual: state.pessoaAtual,
+    ganhos: state.ganhos,
+    gastosFixos: state.gastosFixos,
+    gastosVariaveis: state.gastosVariaveis,
+    caixinhas: state.caixinhas,
+    categoriasConfig: state.categoriasConfig,
+    iconCategorias: state.iconCategorias,
+  };
   try {
-    const textos = await pedirLoteDeInsights(pessoaDoPedido);
-    if (state.pessoaAtual !== pessoaDoPedido) return;
-    const primeiro = textos.shift();
-    setInsightCache(pessoaDoPedido, primeiro);
-    setInsightFila(pessoaDoPedido, textos);
-    mostrarInsightTexto(primeiro, "ia");
-  } catch (err) {
-    const ultimo = getInsightCache(pessoaDoPedido);
-    if (ultimo) {
-      mostrarInsightTexto(ultimo, "ia");
+    state.pessoaAtual = pessoa;
+    state.ganhos = dados.ganhos || [];
+    state.gastosFixos = dados.gastosFixos || [];
+    state.gastosVariaveis = dados.gastosVariaveis || [];
+    state.caixinhas = dados.caixinhas || [];
+    state.categoriasConfig = dados.categorias || null;
+    state.iconCategorias = dados.iconCategorias || [];
+    return montarResumoParaInsight();
+  } finally {
+    state.pessoaAtual = snapshot.pessoaAtual;
+    state.ganhos = snapshot.ganhos;
+    state.gastosFixos = snapshot.gastosFixos;
+    state.gastosVariaveis = snapshot.gastosVariaveis;
+    state.caixinhas = snapshot.caixinhas;
+    state.categoriasConfig = snapshot.categoriasConfig;
+    state.iconCategorias = snapshot.iconCategorias;
+  }
+}
+
+// No primeiro acesso de um dispositivo sem cache financeiro, prepara o estoque
+// de IA dos três contextos. Fazemos em sequência para não abrir três chamadas
+// simultâneas à Gemini e não sobrecarregar a API.
+async function prepararInsightsIniciaisSemCache(pessoaBase) {
+  if (insightInicialSemCacheEmAndamento || !navigator.onLine) return;
+  insightInicialSemCacheEmAndamento = true;
+  const pessoaOriginal = state.pessoaAtual;
+  try {
+    if (!state.historico) await carregarHistorico();
+    for (const pessoa of ["davi", "gabriel", "ambos"]) {
+      if (state.pessoaAtual !== pessoaOriginal || !navigator.onLine) break;
+      const dados = await getCache(pessoa);
+      if (!dados) continue;
+      // Se já existe estoque/cache de IA, não gasta uma chamada inicial à toa.
+      if (getInsightCache(pessoa) || getInsightFila(pessoa).length) continue;
+
+      const resumoPessoa = montarResumoParaDadosDePessoa(pessoa, dados);
+      try {
+        const textos = await pedirLoteDeInsights(pessoa, resumoPessoa);
+        const primeiro = textos.shift();
+        if (primeiro) {
+          setInsightCache(pessoa, primeiro);
+          setInsightFila(pessoa, textos);
+        }
+      } catch (_err) {
+        // Uma pessoa que falhar não impede as demais de serem preparadas.
+      }
     }
   } finally {
-    insightGeracaoEmAndamento = false;
+    insightInicialSemCacheEmAndamento = false;
+    if (state.pessoaAtual === pessoaOriginal) exibirInsightCacheOuPlaceholder();
+  }
+}
+
+function mostrarProximoInsightDaFila() {
+  const pessoa = state.pessoaAtual;
+  const fila = getInsightFila(pessoa);
+  if (!fila.length) return false;
+  const proximo = fila.shift();
+  setInsightFila(pessoa, fila);
+  setInsightCache(pessoa, proximo);
+  mostrarInsightTexto(proximo, "ia");
+  return true;
+}
+
+function iniciarRotacaoInsights() {
+  clearInterval(insightRotacaoTimer);
+  insightRotacaoTimer = setInterval(() => {
+    if (!navigator.onLine || document.hidden) return;
+    // Não chama Gemini aqui. Só troca por um texto que já foi gerado.
+    mostrarProximoInsightDaFila();
+  }, INSIGHT_ROTACAO_MS);
+}
+
+function atualizarInsightComIA(opcoes = {}) {
+  // Mantido por compatibilidade com chamadas antigas. A IA só é acionada em
+  // dois casos: primeiro acesso sem cache ou mudança financeira.
+  if (opcoes.motivo === "pagina" && opcoes.semCacheInicial) {
+    prepararInsightsIniciaisSemCache(state.pessoaAtual);
   }
 }
 
 function tentarDeNovoInsightSeErro() {
-  // Não dispara IA manualmente: geração só ocorre no primeiro carregamento sem
-  // cache ou após uma mudança financeira.
+  // Sem geração manual: o insight é atualizado apenas no primeiro acesso sem
+  // cache ou depois de uma mudança financeira salva.
 }
 
 // ---------------------------------------------------------------------
@@ -5046,7 +5110,7 @@ initGavetas();
 aplicarMascaraMoedaEmTodos();
 posicionarIndicadorAba();
 exibirInsightCacheOuPlaceholder();
-on("insightCard", "click", tentarDeNovoInsightSeErro);
+iniciarRotacaoInsights();
 // Leituras da planilha acontecem na abertura da página. Depois disso, a
 // navegação e a troca de perfil usam os dados em memória/cache; alterações
 // feitas pelo usuário continuam sendo enviadas normalmente via POST.
