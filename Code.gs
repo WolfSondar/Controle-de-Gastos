@@ -438,7 +438,7 @@ function gerarInsightComOpenAI(corpoGemini, periodo) {
 
   const textos = (extrairTextosOpenAI(data) || []).map(function(t) { return String(t || "").trim(); }).filter(Boolean);
   if (textos.length < QUANTIDADE_INSIGHTS_POR_PEDIDO) {
-    return { ok: false, error: "A OpenAI não devolveu os 10 insights completos neste momento.", status: 200 };
+    return { ok: false, error: "A OpenAI não devolveu os 5 insights completos neste momento.", status: 200 };
   }
   return { ok: true, textos: textos.slice(0, QUANTIDADE_INSIGHTS_POR_PEDIDO), periodo: periodo || null, tentativas: [{ chave: (opcoesModo && opcoesModo.indiceChave) || null, status: 200, motivo: "OK" }] };
 }
