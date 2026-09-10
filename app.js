@@ -811,11 +811,6 @@ async function carregarDados() {
     if (Object.values(mudancas).some(Boolean)) {
       renderIncremental(mudancas);
     }
-    // IA no primeiro carregamento deste dispositivo sem cache. Se já existe
-    // cache financeiro local, recarregar a página não consome Gemini.
-    if (!cache) {
-      atualizarInsightComIA({ motivo: "pagina", semCacheInicial: true });
-    }
     const prefetch = prefetchOutrasPessoas(pessoaRequisitada);
     // Se este dispositivo ainda não tinha cache financeiro, prepara o estoque
     // inicial da IA para Davi, Gabriel e Juntos em segundo plano. Assim o
@@ -3711,7 +3706,12 @@ async function pedirLoteDeInsights(pessoaDoPedido, resumoFornecido = null) {
     body: JSON.stringify({ action: "gerarInsightIA", pessoa: pessoaDoPedido, periodo: "mes-vs-anterior", resumo }),
   });
   const data = await res.json().catch(() => null);
-  if (state.pessoaAtual !== pessoaDoPedido) throw new Error("__pessoa_trocou__");
+  // Quando o resumo foi fornecido, esta é uma geração em segundo plano para
+  // outra pessoa/perfil. Não devemos cancelar a resposta só porque o usuário
+  // continua visualizando outro perfil.
+  if (!resumoFornecido && state.pessoaAtual !== pessoaDoPedido) {
+    throw new Error("__pessoa_trocou__");
+  }
   if (!data || data.ok === false || !Array.isArray(data.textos) || data.textos.length < INSIGHT_LOTE_TAMANHO) {
     const erro = new Error((data && data.error) || `O Gemini retornou menos de ${INSIGHT_LOTE_TAMANHO} insights.`);
     if (data && data.diagnostico) erro.diagnostico = data.diagnostico;
@@ -3764,7 +3764,7 @@ async function prepararInsightsIniciaisSemCache(pessoaBase) {
   try {
     if (!state.historico) await carregarHistorico();
     for (const pessoa of ["davi", "gabriel", "ambos"]) {
-      if (state.pessoaAtual !== pessoaOriginal || !navigator.onLine) break;
+      if (!navigator.onLine) break;
       const dados = await getCache(pessoa);
       if (!dados) continue;
       // Se já existe estoque/cache de IA, não gasta uma chamada inicial à toa.
@@ -3777,6 +3777,9 @@ async function prepararInsightsIniciaisSemCache(pessoaBase) {
         if (primeiro) {
           setInsightCache(pessoa, primeiro);
           setInsightFila(pessoa, textos);
+          // Se o usuário estiver neste perfil quando a geração terminar,
+          // atualiza apenas a interface; não faz uma nova chamada à IA.
+          if (state.pessoaAtual === pessoa) exibirInsightCacheOuPlaceholder();
         }
       } catch (_err) {
         registrarFalhaInsightNoConsole(_err, `acesso inicial — ${pessoa}`);
