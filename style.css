@@ -2706,13 +2706,14 @@ body.sem-entrada-listas .item-list-row { animation: none !important; }
 }
 
 .historico-grafico-wrap .historico-grafico {
-  height: 176px;
+  height: 204px;
   margin-top: 10px;
 }
 
 .historico-grafico-legenda {
-  justify-content: flex-start;
-  gap: 7px;
+  justify-content: center !important;
+  align-items: center;
+  gap: 9px 18px;
   margin-top: 13px;
   padding-top: 12px;
   border-top: 1px solid rgba(122,111,88,.15);
@@ -2824,7 +2825,7 @@ body.sem-entrada-listas .item-list-row { animation: none !important; }
   }
 
   .historico-grafico-wrap .historico-grafico {
-    height: 158px;
+    height: 184px;
   }
 
   .historico-mes-card {
