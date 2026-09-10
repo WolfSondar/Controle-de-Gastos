@@ -226,7 +226,7 @@ function doPost(e) {
     // bloqueio de "ambos é somente leitura" logo abaixo: no modo Juntos
     // também dá pra pedir um insight, só não dá pra editar lançamentos.
     if (action === "gerarInsightIA") {
-      return respond(gerarInsightComGemini(body.pessoa, body.periodo, body.resumo));
+      return respond(gerarInsightComIA(body.pessoa, body.periodo, body.resumo));
     }
 
     const pessoa = (body.pessoa || "davi").toLowerCase();
@@ -319,6 +319,15 @@ function transferirEntrePessoas(de, para, nome, valor) {
 // A chave NUNCA fica no HTML/JS do site — só aqui no backend, então quem
 // abrir o app no navegador não consegue vê-la.
 //
+// FALLBACK OPENAI: opcionalmente adicione também a propriedade de script
+// OPENAI_API_KEY com uma chave da OpenAI API. O sistema usa o último provedor
+// que funcionou como preferido; se ele falhar, tenta o outro automaticamente.
+// Assim, se o Gemini estiver indisponível, a OpenAI assume; se depois a OpenAI
+// falhar, o Gemini volta a assumir. A chave da OpenAI também fica somente no
+// backend. A assinatura do ChatGPT e o uso da API são serviços separados: a
+// chave precisa ter acesso à API e faturamento/uso configurados na plataforma
+// da OpenAI.
+//
 // Nota sobre o formato da chave: a partir de 2026 o Google passou a emitir
 // chaves novas no formato "AQ.Ab..." (no lugar do antigo "AIzaSy..."). O
 // código abaixo já manda a chave pelo header x-goog-api-key (o jeito atual
@@ -333,6 +342,168 @@ function transferirEntrePessoas(de, para, nome, valor) {
 // que a Google está desativando em outubro/2026.
 const GEMINI_MODEL = "gemini-3.1-flash-lite";
 const GEMINI_API_KEY_PROPRIEDADE = "GEMINI_API_KEY";
+const GEMINI_API_KEY_2_PROPRIEDADE = "GEMINI_API_KEY_2";
+// Segunda chave fornecida para failover. Ela permanece somente no servidor (Code.gs).
+const GEMINI_ULTIMA_CHAVE_PROPRIEDADE = "GEMINI_ULTIMA_CHAVE";
+const OPENAI_API_KEY_PROPRIEDADE = "OPENAI_API_KEY";
+const OPENAI_MODEL = "gpt-5.6-luna";
+const IA_ULTIMO_PROVEDOR_PROPRIEDADE = "IA_ULTIMO_PROVEDOR";
+
+// Fallback entre provedores: o sistema prefere o último provedor que funcionou.
+// Se ele falhar nesta chamada, tenta imediatamente o outro. Se o outro funcionar,
+// ele passa a ser o preferido na próxima chamada. As chaves ficam somente nas
+// Propriedades do Script e nunca são enviadas ao navegador.
+function provedorIAPreferido() {
+  const salvo = PropertiesService.getScriptProperties().getProperty(IA_ULTIMO_PROVEDOR_PROPRIEDADE);
+  return salvo === "openai" ? "openai" : "gemini";
+}
+
+function registrarProvedorIASucesso(provedor) {
+  try { PropertiesService.getScriptProperties().setProperty(IA_ULTIMO_PROVEDOR_PROPRIEDADE, provedor); } catch (err) {}
+}
+
+function ehErroTransitórioIA(status) {
+  return [408, 409, 429, 500, 502, 503, 504].indexOf(Number(status)) !== -1;
+}
+
+function extrairTextosOpenAI(data) {
+  let texto = data && data.output_text;
+  if (!texto && data && Array.isArray(data.output)) {
+    const partes = [];
+    data.output.forEach(function(item) {
+      (item.content || []).forEach(function(c) {
+        if (c.type === "output_text" && c.text) partes.push(c.text);
+      });
+    });
+    texto = partes.join("\n");
+  }
+  if (!texto) return null;
+  try {
+    const parsed = JSON.parse(texto);
+    if (Array.isArray(parsed)) return parsed;
+    if (parsed && Array.isArray(parsed.textos)) return parsed.textos;
+    if (parsed && Array.isArray(parsed.insights)) return parsed.insights;
+  } catch (err) {}
+  return null;
+}
+
+function gerarInsightComOpenAI(corpoGemini, periodo) {
+  const apiKey = PropertiesService.getScriptProperties().getProperty(OPENAI_API_KEY_PROPRIEDADE);
+  if (!apiKey) return { ok: false, error: "Chave da OpenAI não configurada." };
+
+  const prompt = corpoGemini.contents[0].parts[0].text;
+  const corpo = {
+    model: OPENAI_MODEL,
+    input: [{ role: "user", content: [{ type: "input_text", text: prompt }] }],
+    temperature: 0.95,
+    max_output_tokens: 2400,
+    text: {
+      format: {
+        type: "json_schema",
+        name: "insights",
+        strict: true,
+        schema: {
+          type: "object",
+          properties: {
+            textos: { type: "array", minItems: QUANTIDADE_INSIGHTS_POR_PEDIDO, maxItems: QUANTIDADE_INSIGHTS_POR_PEDIDO, items: { type: "string" } }
+          },
+          required: ["textos"],
+          additionalProperties: false
+        }
+      }
+    }
+  };
+
+  const opcoes = {
+    method: "post",
+    contentType: "application/json",
+    headers: { Authorization: "Bearer " + apiKey },
+    payload: JSON.stringify(corpo),
+    muteHttpExceptions: true
+  };
+
+  const atrasos = [1200, 2800, 5200];
+  let res, status = 0, data = {};
+  for (let tentativa = 0; tentativa <= atrasos.length; tentativa++) {
+    res = UrlFetchApp.fetch("https://api.openai.com/v1/responses", opcoes);
+    status = res.getResponseCode();
+    try { data = JSON.parse(res.getContentText() || "{}"); } catch (err) { data = {}; }
+    if (status === 200 || !ehErroTransitórioIA(status) || tentativa === atrasos.length) break;
+    Utilities.sleep(atrasos[tentativa]);
+  }
+
+  if (status !== 200) {
+    const msg = (data.error && (data.error.message || data.error.code)) || ("Erro HTTP " + status + " ao chamar a OpenAI.");
+    return { ok: false, error: msg, status: status };
+  }
+
+  const textos = (extrairTextosOpenAI(data) || []).map(function(t) { return String(t || "").trim(); }).filter(Boolean);
+  if (textos.length < QUANTIDADE_INSIGHTS_POR_PEDIDO) {
+    return { ok: false, error: "A OpenAI não devolveu os 10 insights completos neste momento.", status: 200 };
+  }
+  return { ok: true, textos: textos.slice(0, QUANTIDADE_INSIGHTS_POR_PEDIDO), periodo: periodo || null, tentativas: [{ chave: (opcoesModo && opcoesModo.indiceChave) || null, status: 200, motivo: "OK" }] };
+}
+
+function obterChavesGemini() {
+  const props = PropertiesService.getScriptProperties();
+  const chave1 = String(props.getProperty(GEMINI_API_KEY_PROPRIEDADE) || "").trim();
+  // Pode ser movida para a propriedade GEMINI_API_KEY_2 depois; o fallback abaixo
+  // permite que a segunda chave funcione sem exigir outra configuração no Script.
+  const chave2 = String(props.getProperty(GEMINI_API_KEY_2_PROPRIEDADE) || GEMINI_API_KEY_2_FALLBACK || "").trim();
+  return [chave1, chave2];
+}
+
+function indiceChaveGeminiPreferida() {
+  const salvo = PropertiesService.getScriptProperties().getProperty(GEMINI_ULTIMA_CHAVE_PROPRIEDADE);
+  return salvo === "2" ? 1 : 0;
+}
+
+function registrarChaveGeminiSucesso(indice) {
+  try { PropertiesService.getScriptProperties().setProperty(GEMINI_ULTIMA_CHAVE_PROPRIEDADE, String(indice + 1)); } catch (err) {}
+}
+
+function gerarInsightComIA(pessoa, periodo, resumo) {
+  const chaves = obterChavesGemini();
+  const preferida = indiceChaveGeminiPreferida();
+  const ordem = [preferida, preferida === 0 ? 1 : 0];
+  const diagnosticos = [];
+
+  for (let i = 0; i < ordem.length; i++) {
+    const indice = ordem[i];
+    const chave = chaves[indice];
+    if (!chave) {
+      diagnosticos.push({ chave: indice + 1, status: "sem_chave", motivo: "A chave não está configurada." });
+      continue;
+    }
+
+    const resultado = gerarInsightComGemini(pessoa, periodo, resumo, {
+      apiKeyForcada: chave,
+      indiceChave: indice + 1,
+      diagnosticoIA: true,
+    });
+
+    if (resultado && resultado.ok) {
+      registrarChaveGeminiSucesso(indice);
+      resultado.chaveUsada = indice + 1;
+      resultado.tentativas = diagnosticos.concat(resultado.tentativas || []);
+      return resultado;
+    }
+
+    diagnosticos.push({
+      chave: indice + 1,
+      status: (resultado && resultado.status) || "erro",
+      motivo: (resultado && resultado.error) || "Falha desconhecida.",
+    });
+  }
+
+  return {
+    ok: false,
+    error: "As duas chaves do Gemini falharam.",
+    diagnostico: diagnosticos,
+    ocultarInsight: true,
+  };
+}
+
 
 // Glossário de categorias pra IA não "chutar" o significado só pelo nome
 // (foi assim que ela errou dizendo que "Alimentação" tinha caído, quando na
@@ -485,15 +656,10 @@ function textoImersaoIA(pessoaCodigo) {
 // o estoque fica baixo, então a tela quase nunca fica esperando rede.
 const QUANTIDADE_INSIGHTS_POR_PEDIDO = 10;
 
-function gerarInsightComGemini(pessoa, periodo, resumo) {
+function gerarInsightComGemini(pessoa, periodo, resumo, opcoesModo) {
   try {
-    const apiKey = PropertiesService.getScriptProperties().getProperty(GEMINI_API_KEY_PROPRIEDADE);
-    if (!apiKey) {
-      return {
-        ok: false,
-        error: "Chave do Gemini não configurada. Veja o comentário acima de gerarInsightComGemini() no Code.gs.",
-      };
-    }
+    const apiKey = (opcoesModo && opcoesModo.apiKeyForcada) || PropertiesService.getScriptProperties().getProperty(GEMINI_API_KEY_PROPRIEDADE);
+    const modoSomentePrompt = opcoesModo && opcoesModo.modoSomentePrompt === true;
 
     const pessoaCodigo = String(pessoa || "").toLowerCase();
     const ehCasal = pessoaCodigo === "ambos";
@@ -571,6 +737,9 @@ function gerarInsightComGemini(pessoa, periodo, resumo) {
       },
     };
 
+    if (modoSomentePrompt) return { ok: false, _corpo: corpo };
+    if (!apiKey) return { ok: false, error: "Chave do Gemini não configurada." };
+
     const url = "https://generativelanguage.googleapis.com/v1beta/models/" + GEMINI_MODEL + ":generateContent";
     const opcoesFetch = {
       method: "post",
@@ -599,7 +768,12 @@ function gerarInsightComGemini(pessoa, periodo, resumo) {
 
     if (status !== 200) {
       const msg = (data.error && data.error.message) || ("Erro HTTP " + status + " ao chamar o Gemini.");
-      return { ok: false, error: msg };
+      return {
+        ok: false,
+        error: msg,
+        status: status,
+        diagnostico: [{ chave: (opcoesModo && opcoesModo.indiceChave) || null, status: status, motivo: msg }],
+      };
     }
 
     const texto =
