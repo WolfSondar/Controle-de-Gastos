@@ -788,6 +788,14 @@ async function carregarDados() {
     // ação local desde o início desta busca, ela é mais nova e deve vencer.
     if (state.versaoAlteracaoLocal !== versaoNoInicio) return;
 
+    const mudancas = {
+      ganhos: colecaoMudou(state.ganhos, data.ganhos || []),
+      gastosFixos: colecaoMudou(state.gastosFixos, data.gastosFixos || []),
+      gastosVariaveis: colecaoMudou(state.gastosVariaveis, data.gastosVariaveis || []),
+      caixinhas: colecaoMudou(state.caixinhas, data.caixinhas || []),
+      categoriasConfig: colecaoMudou(state.categoriasConfig || [], data.categorias || []),
+      iconCategorias: colecaoMudou(state.iconCategorias || [], data.iconCategorias || []),
+    };
     state.ganhos = data.ganhos || [];
     state.gastosFixos = data.gastosFixos || [];
     state.gastosVariaveis = data.gastosVariaveis || [];
@@ -798,12 +806,13 @@ async function carregarDados() {
     if (data.mesAtual) state.mesAtual = data.mesAtual;
     if (data.anoAtual) state.anoAtual = data.anoAtual;
     renderMesAtual();
-    popularSelectsDeCategoria();
     setCache(pessoaRequisitada, data);
     setSyncState("idle");
-    renderAll();
+    if (Object.values(mudancas).some(Boolean)) {
+      renderIncremental(mudancas);
+      atualizarInsightComIA();
+    }
     prefetchOutrasPessoas(pessoaRequisitada);
-    atualizarInsightComIA(); // sincronizou de verdade — hora de atualizar o insight
   } catch (err) {
     if (state.pessoaAtual !== pessoaRequisitada) return;
     // Caiu a conexão no meio da busca: mesmo tratamento calmo do offline
@@ -1272,6 +1281,53 @@ function removerSufixoDivisao(nome) {
   return String(nome || "").replace(REGEX_SUFIXO_DIVISAO, "");
 }
 
+function nomeGanhoDivisao(devedor, nomeOriginal) {
+  return `A receber de ${PESSOA_LABEL[devedor]}: ${String(nomeOriginal || "").trim()}`;
+}
+function encontrarGanhoDivisao(listaGanhos, devedor, nomeOriginal, valor, data) {
+  const esperado = nomeGanhoDivisao(devedor, nomeOriginal);
+  const candidatos = (listaGanhos || []).map((item, idx) => ({ item, idx })).filter(({ item }) => {
+    if (String(item.nome || "") !== esperado) return false;
+    if (Math.abs((Number(item.valor) || 0) - (Number(valor) || 0)) > 0.009) return false;
+    return !data || !item.data || String(item.data).slice(0, 10) === String(data).slice(0, 10);
+  });
+  return candidatos.length ? candidatos[candidatos.length - 1] : null;
+}
+async function criarGanhoAReceberDivisao(credor, devedor, nomeOriginal, valor, tipo, data, recebido) {
+  if (!API_URL || API_URL.includes("COLE_AQUI")) return false;
+  try {
+    const lista = await obterListaLocal(credor, "ganhos");
+    lista.push({ nome: nomeGanhoDivisao(devedor, nomeOriginal), valor, data: data || dataHojeISO(), recebido: !!recebido, tipo: tipo || "" });
+    if (state.pessoaAtual === credor) marcarAlteracaoLocal();
+    const res = await fetch(API_URL, { method: "POST", body: JSON.stringify({ action: "saveGanhos", payload: lista, pessoa: credor }) });
+    const dataRes = await res.json().catch(() => null);
+    if (!dataRes || dataRes.ok === false) throw new Error("Erro ao criar ganho a receber");
+    const cache = await getCache(credor);
+    setCache(credor, { ...(cache || {}), ganhos: lista });
+    if (state.pessoaAtual === credor) state.ganhos = lista;
+    removerCache("ambos");
+    return true;
+  } catch { return false; }
+}
+async function atualizarGanhoDivisao(credor, devedor, nomeOriginal, valor, data, recebido) {
+  if (!API_URL || API_URL.includes("COLE_AQUI")) return false;
+  try {
+    const lista = await obterListaLocal(credor, "ganhos");
+    const achado = encontrarGanhoDivisao(lista, devedor, nomeOriginal, valor, data);
+    if (!achado) return false;
+    achado.item.recebido = !!recebido;
+    if (state.pessoaAtual === credor) marcarAlteracaoLocal();
+    const res = await fetch(API_URL, { method: "POST", body: JSON.stringify({ action: "saveGanhos", payload: lista, pessoa: credor }) });
+    const dataRes = await res.json().catch(() => null);
+    if (!dataRes || dataRes.ok === false) throw new Error("Erro ao atualizar ganho da divisão");
+    const cache = await getCache(credor);
+    setCache(credor, { ...(cache || {}), ganhos: lista });
+    if (state.pessoaAtual === credor) state.ganhos = lista;
+    removerCache("ambos");
+    return true;
+  } catch { return false; }
+}
+
 // opts: { tipo, data, pago, quemPagouTudo }
 //   - quemPagouTudo ausente/null: modo padrão, metade pro Davi e metade pro
 //     Gabriel, cada entrada com o status de "pago" escolhido no checkbox.
@@ -1341,11 +1397,13 @@ async function dividirCompra(nome, valorTotal, categoria, opts) {
     if (state.pessoaAtual === "gabriel") state[chave] = listaGabriel;
     removerCache("ambos"); // visão "Juntos" combina os dois — só invalida, recalcula quando for aberta
 
-    // Alguém pagou tudo e a metade da outra pessoa já nasceu paga: credita
-    // na hora, sem esperar ela marcar nada depois.
-    if (quemPagouTudo && pago) {
+    // Se uma pessoa pagou tudo, a metade da outra vira um ganho A RECEBER
+    // para quem pagou. O mesmo lançamento será marcado como recebido quando
+    // a outra pessoa confirmar o pagamento; a categoria original é herdada.
+    if (quemPagouTudo) {
       const devedor = quemPagouTudo === "davi" ? "gabriel" : "davi";
-      await creditarPagamentoDeDivisao(quemPagouTudo, devedor, nome, metade);
+      const criouGanho = await criarGanhoAReceberDivisao(quemPagouTudo, devedor, nome, metade, tipo, data, pago);
+      if (!criouGanho) return false;
     }
 
     return true;
@@ -1358,33 +1416,10 @@ async function dividirCompra(nome, valorTotal, categoria, opts) {
 // finalmente paga — só o ganho do pagador é criado aqui, porque o gasto de
 // quem devia já é o próprio lançamento que acabou de ser marcado como pago
 // (não duplica como uma transferência à parte).
-async function creditarPagamentoDeDivisao(pagador, devedor, nomeOriginal, valor) {
-  if (!API_URL || API_URL.includes("COLE_AQUI")) return false;
-  const hoje = dataHojeISO();
-  try {
-    const listaGanhosPagador = await obterListaLocal(pagador, "ganhos");
-    listaGanhosPagador.push({
-      nome: `Transferência de ${PESSOA_LABEL[devedor]}: ${nomeOriginal}`,
-      valor, data: hoje, recebido: true,
-    });
-    if (state.pessoaAtual === pagador) marcarAlteracaoLocal();
-
-    const res = await fetch(API_URL, {
-      method: "POST",
-      body: JSON.stringify({ action: "saveGanhos", payload: listaGanhosPagador, pessoa: pagador }),
-    });
-    const data = await res.json().catch(() => null);
-    if (!data || data.ok === false) throw new Error((data && data.error) || "Erro ao creditar transferência");
-
-    const cachePagador = await getCache(pagador);
-    setCache(pagador, { ...(cachePagador || {}), ganhos: listaGanhosPagador });
-    if (state.pessoaAtual === pagador) state.ganhos = listaGanhosPagador;
-    removerCache("ambos");
-    return true;
-  } catch (err) {
-    showToast(`Não consegui creditar a metade pra ${PESSOA_LABEL[pagador]} automaticamente. Lança uma transferência manual pra acertar.`);
-    return false;
-  }
+async function creditarPagamentoDeDivisao(pagador, devedor, nomeOriginal, valor, tipo, data, recebido = true) {
+  const atualizado = await atualizarGanhoDivisao(pagador, devedor, nomeOriginal, valor, data, recebido);
+  if (atualizado) return true;
+  return criarGanhoAReceberDivisao(pagador, devedor, nomeOriginal, valor, tipo, data, recebido);
 }
 
 // Espelha o que o backend (transferirEntrePessoas em Code.gs) faz: lança um
@@ -1516,10 +1551,14 @@ function togglePagoFixo(index) {
   // Essa parcela é a "metade" de uma compra dividida (ver dividirCompra) e
   // acabou de ser marcada como paga: credita quem pagou a conta na hora e
   // tira a marcação do nome, que volta a ficar limpo.
-  const credor = vaiFicarPago ? extrairCredorDivisao(item.nome) : null;
+  const credor = extrairCredorDivisao(item.nome);
+  const nomeOriginal = removerSufixoDivisao(item.nome);
   if (credor) {
-    item.nome = removerSufixoDivisao(item.nome);
-    creditarPagamentoDeDivisao(credor, state.pessoaAtual, item.nome, item.valor);
+    if (vaiFicarPago) item.nome = nomeOriginal;
+    atualizarGanhoDivisao(credor, state.pessoaAtual, nomeOriginal, item.valor, item.data, vaiFicarPago);
+  } else if (!vaiFicarPago) {
+    const outro = state.pessoaAtual === "davi" ? "gabriel" : "davi";
+    atualizarGanhoDivisao(outro, state.pessoaAtual, item.nome, item.valor, item.data, false);
   }
 
   vibrar();
@@ -1544,10 +1583,14 @@ function togglePagoVariavel(index) {
 
   // Mesma lógica do togglePagoFixo acima: se essa metade era uma dívida de
   // compra dividida, credita quem pagou a conta na hora.
-  const credor = vaiFicarPago ? extrairCredorDivisao(item.nome) : null;
+  const credor = extrairCredorDivisao(item.nome);
+  const nomeOriginal = removerSufixoDivisao(item.nome);
   if (credor) {
-    item.nome = removerSufixoDivisao(item.nome);
-    creditarPagamentoDeDivisao(credor, state.pessoaAtual, item.nome, item.valor);
+    if (vaiFicarPago) item.nome = nomeOriginal;
+    atualizarGanhoDivisao(credor, state.pessoaAtual, nomeOriginal, item.valor, item.data, vaiFicarPago);
+  } else if (!vaiFicarPago) {
+    const outro = state.pessoaAtual === "davi" ? "gabriel" : "davi";
+    atualizarGanhoDivisao(outro, state.pessoaAtual, item.nome, item.valor, item.data, false);
   }
 
   vibrar();
@@ -2581,13 +2624,12 @@ function renderRecentes() {
 
     const row = document.createElement("div");
     const benefit = item.tipo === "income" && ganhoEhBeneficio(item);
-    const status = item.tipo === "income" ? (item.recebido ? "Recebido" : "Pendente") : (item.pago ? "Pago" : "Pendente");
     row.className = `ledger-item ${item.tipo === "income" ? (benefit ? "income-beneficio" : "income-saldo") : "expense"}`;
     row.innerHTML = `
       <span class="ledger-icon ${item.tipo}${benefit ? " income-beneficio" : ""}">${item.tipo === "income" ? ICONE_GANHO : ICONE_GASTO}</span>
       <div class="ledger-info">
         <span class="ledger-nome">${escapeHtml(item.nome)} ${tagPessoa(item)}</span>
-        <span class="ledger-tag">${escapeHtml(item.tag)} · ${status}</span>
+        <span class="ledger-tag">${escapeHtml(item.tag)}</span>
       </div>
       <span class="ledger-valor ${item.tipo}${benefit ? " income-beneficio" : ""}">${item.tipo === "income" ? "+" : "−"} ${fmt(item.valor)}</span>
     `;
@@ -2690,6 +2732,26 @@ function renderSplitSkeleton() {
 }
 
 let suprimirEntradaNoProximoRenderAll = false;
+
+function colecaoMudou(antes, depois) {
+  try { return JSON.stringify(antes || []) !== JSON.stringify(depois || []); }
+  catch { return true; }
+}
+function renderIncremental(mudancas) {
+  const financeiroMudou = mudancas.ganhos || mudancas.gastosFixos || mudancas.gastosVariaveis || mudancas.caixinhas;
+  if (mudancas.ganhos) renderListaComStatus("listaGanhos", state.ganhos, "income", opGanhos, "ganhos", "recebido", toggleRecebidoGanho, "Recebido", "Pendente");
+  if (mudancas.gastosFixos) renderListaComStatus("listaFixos", state.gastosFixos, "expense", opFixos, "fixos", "pago", togglePagoFixo, "Pago", "Pendente");
+  if (mudancas.gastosVariaveis) renderListaComStatus("listaVariaveis", state.gastosVariaveis, "expense", opVariaveis, "variaveis", "pago", togglePagoVariavel, "Pago", "Pendente");
+  if (mudancas.caixinhas) renderCaixinhas();
+  if (financeiroMudou) {
+    renderTotais(); renderVisaoGeral(); renderCategorias(); renderRecentes(); renderSplit(); renderJuntosView(); atualizarCarrosselGraficos();
+  }
+  if (mudancas.categoriasConfig || mudancas.iconCategorias) {
+    popularSelectsDeCategoria();
+    renderListaComStatus("listaFixos", state.gastosFixos, "expense", opFixos, "fixos", "pago", togglePagoFixo, "Pago", "Pendente");
+    renderListaComStatus("listaVariaveis", state.gastosVariaveis, "expense", opVariaveis, "variaveis", "pago", togglePagoVariavel, "Pago", "Pendente");
+  }
+}
 
 function renderAll() {
   const suprimirEntrada = suprimirEntradaNoProximoRenderAll;
@@ -4097,6 +4159,15 @@ function posicionarIndicadorAba() {
   indicador.classList.add("is-visible");
 }
 
+function atualizarVisibilidadeFab() {
+  const fab = document.getElementById("fabCriar");
+  if (!fab) return;
+  const ativa = document.querySelector(".tab-panel:not(.is-hidden)");
+  const podeCriar = ["ganhos", "fixos", "variaveis", "caixinhas"].includes(ativa?.dataset.tab || "");
+  fab.classList.toggle("is-hidden", !podeCriar);
+  fab.setAttribute("aria-hidden", String(!podeCriar));
+}
+
 const tabbarEl = document.getElementById("tabbar");
 if (tabbarEl) {
   tabbarEl.addEventListener("click", (e) => {
@@ -4107,6 +4178,7 @@ if (tabbarEl) {
     document.querySelectorAll(".tab-panel").forEach((p) => p.classList.toggle("is-hidden", p.dataset.tab !== tab));
     window.scrollTo({ top: 0, behavior: "smooth" });
     posicionarIndicadorAba();
+    atualizarVisibilidadeFab();
     if (tab === "historico") carregarHistorico();
   });
 }
@@ -4973,7 +5045,17 @@ function fecharCriacaoFlutuante() {
   criacaoBackdrop.classList.add("is-hidden");
 }
 
+function limparFormularioCriacao(alvo) {
+  if (!alvo) return;
+  const form = alvo.querySelector("form");
+  if (form) form.reset();
+  alvo.querySelectorAll(".input-erro").forEach((el) => el.classList.remove("input-erro"));
+  if (alvo.id !== "collapsible-guardado") preencherDatasComHoje();
+  if (alvo.id === "collapsible-guardado") aplicarPreviewIcone(document.getElementById("caixinhaIconPickerCriar"), "");
+}
+
 function abrirCriacaoFlutuante() {
+  if (criacaoBackdrop && !criacaoBackdrop.classList.contains("is-hidden")) fecharCriacaoFlutuante();
   const ativa = document.querySelector(".tab-panel:not(.is-hidden)");
   const tab = ativa?.dataset.tab;
   const cfg = CONFIG_CRIACAO[tab];
@@ -4985,6 +5067,7 @@ function abrirCriacaoFlutuante() {
   criacaoProximo = alvo.nextSibling;
   criacaoTitulo.textContent = cfg.titulo;
   criacaoHint.textContent = cfg.hint;
+  limparFormularioCriacao(alvo);
   criacaoHost.appendChild(alvo);
   alvo.classList.remove("is-collapsed");
   criacaoBackdrop.classList.remove("is-hidden");
@@ -4993,6 +5076,7 @@ function abrirCriacaoFlutuante() {
 }
 
 fabCriar?.addEventListener("click", abrirCriacaoFlutuante);
+atualizarVisibilidadeFab();
 document.getElementById("criacaoFechar")?.addEventListener("click", fecharCriacaoFlutuante);
 criacaoBackdrop?.addEventListener("click", (e) => { if (e.target === criacaoBackdrop) fecharCriacaoFlutuante(); });
 
