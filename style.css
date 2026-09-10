@@ -1,4 +1,4 @@
-/* ============================================================
+   /* ============================================================
    CAIXA — tema "livro-caixa" (passbook de banco antigo)
    Paleta: verde-tinta escuro + papel creme + dourado + tinta vermelha
    ============================================================ */
@@ -1864,4 +1864,113 @@ body.sem-entrada-listas .item-list-row { animation: none !important; }
   #fecharMesOverlay .carimbo-processando,
   #fecharMesOverlay .carimbo-anel,
   #fecharMesOverlay .carimbo-check { animation: none !important; }
+}
+
+/* ============================================================
+   POLIMENTO — cabeçalho integrado ao restante da interface
+   Remove o aspecto "painel separado" e aproxima as superfícies,
+   bordas e sombras dos cards do restante do sistema.
+   ============================================================ */
+.hero {
+  background: var(--ink);
+  border-color: transparent;
+  box-shadow: none;
+}
+.hero::before { display: none; }
+.hero::after { opacity: .35; }
+
+.mes-atual-badge,
+.icon-btn,
+.sync {
+  background: rgba(255,255,255,.035);
+  border-color: rgba(255,255,255,.11);
+  box-shadow: none;
+}
+.mes-atual-badge:hover,
+.icon-btn:hover,
+.sync:hover { background: rgba(255,255,255,.065); }
+
+.person-switch {
+  background: rgba(255,255,255,.035);
+  border-color: rgba(255,255,255,.10);
+  box-shadow: none;
+}
+.person-btn.is-active {
+  background: var(--gold);
+  box-shadow: none;
+}
+
+.saldo-block {
+  margin-left: 0;
+  margin-right: 0;
+  padding: 13px 0 12px;
+  border: 0;
+  border-radius: 0;
+  background: transparent;
+  box-shadow: none;
+}
+.saldo-label { color: rgba(167,199,183,.78); }
+.saldo-valor { text-shadow: none; }
+.saldo-formula { color: rgba(167,199,183,.72); }
+
+.hero-stat {
+  background: var(--paper);
+  border-color: var(--line);
+  box-shadow: none;
+}
+.hero-stat:hover {
+  background: var(--paper-deep);
+  border-color: var(--line);
+}
+
+.insight-card {
+  background: var(--paper);
+  border-color: var(--line);
+  box-shadow: none;
+}
+.insight-card::after {
+  background: var(--gold);
+  opacity: .55;
+}
+
+.hero-stats-toggle.collapse-toggle {
+  box-shadow: none;
+}
+
+/* No modo escuro, o topo passa a usar exatamente a mesma família de
+   superfícies dos cards, preservando apenas o fundo verde institucional. */
+@media (prefers-color-scheme: dark) {
+  .hero {
+    background: var(--ink);
+    border-bottom: 1px solid var(--line);
+  }
+  .hero::after { opacity: .20; }
+
+  .hero-stat,
+  .insight-card {
+    background: var(--paper);
+    border-color: var(--line);
+  }
+  .hero-stat:hover { background: var(--paper-deep); }
+
+  .person-switch {
+    background: var(--paper);
+    border-color: var(--line);
+  }
+  .person-btn { color: var(--muted); }
+  .person-btn.is-active {
+    background: var(--gold);
+    color: var(--ink);
+  }
+
+  .mes-atual-badge,
+  .icon-btn,
+  .sync {
+    background: var(--paper);
+    border-color: var(--line);
+    color: var(--muted);
+  }
+  .mes-atual-badge:hover,
+  .icon-btn:hover,
+  .sync:hover { background: var(--paper-deep); }
 }
