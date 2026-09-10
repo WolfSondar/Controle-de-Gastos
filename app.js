@@ -4246,6 +4246,7 @@ on("formGanhos", "submit", (e) => {
   const data = f.data ? f.data.value : "";
   opGanhos.add(nome, valor, { recebido, data });
   f.reset();
+  if (typeof fecharCriacaoFlutuante === "function") fecharCriacaoFlutuante();
   preencherDatasComHoje();
 });
 
@@ -4283,6 +4284,7 @@ on("formFixos", "submit", (e) => {
 
   opFixos.add(nome, valor, { pago, tipo, data, parcela });
   f.reset();
+  if (typeof fecharCriacaoFlutuante === "function") fecharCriacaoFlutuante();
   preencherDatasComHoje();
 });
 
@@ -4299,6 +4301,7 @@ on("formVariaveis", "submit", (e) => {
   const origem = f.origem && f.origem.value === "beneficio" ? "beneficio" : "saldo";
   opVariaveis.add(nome, valor, { pago, tipo, data, origem });
   f.reset();
+  if (typeof fecharCriacaoFlutuante === "function") fecharCriacaoFlutuante();
   preencherDatasComHoje();
 });
 
@@ -4314,6 +4317,7 @@ on("formCaixinhas", "submit", (e) => {
   if (!nome || valorInicial < 0) return;
   addCaixinha(nome, valorInicial, valorObjetivo, icone, data);
   f.reset();
+  if (typeof fecharCriacaoFlutuante === "function") fecharCriacaoFlutuante();
   aplicarPreviewIcone(document.getElementById("caixinhaIconPickerCriar"), "");
 });
 
@@ -5020,7 +5024,7 @@ function initChartTooltip() {
 // ativa é movido temporariamente para dentro de uma notinha-modal. Assim
 // não existem formulários duplicados nem listeners paralelos.
 let criacaoOrigem = null;
-let criacaoProximo = null;
+let criacaoPlaceholder = null;
 const criacaoBackdrop = document.getElementById("criacaoBackdrop");
 const criacaoHost = document.getElementById("criacaoModalHost");
 const fabCriar = document.getElementById("fabCriar");
@@ -5035,13 +5039,18 @@ const CONFIG_CRIACAO = {
 };
 
 function fecharCriacaoFlutuante() {
-  if (!criacaoBackdrop || !criacaoOrigem) return;
+  if (!criacaoBackdrop) return;
   const alvo = criacaoOrigem;
-  alvo.classList.add("is-collapsed");
-  if (criacaoProximo && criacaoProximo.parentNode === alvo.parentNode) alvo.parentNode.insertBefore(alvo, criacaoProximo);
-  else criacaoOrigem.parentNode.appendChild(alvo);
+  if (alvo) {
+    alvo.classList.add("is-collapsed");
+    if (criacaoPlaceholder && criacaoPlaceholder.parentNode) {
+      criacaoPlaceholder.parentNode.insertBefore(alvo, criacaoPlaceholder);
+      criacaoPlaceholder.remove();
+    }
+  }
   criacaoOrigem = null;
-  criacaoProximo = null;
+  criacaoPlaceholder = null;
+  if (criacaoHost) criacaoHost.replaceChildren();
   criacaoBackdrop.classList.add("is-hidden");
 }
 
@@ -5054,8 +5063,15 @@ function limparFormularioCriacao(alvo) {
   if (alvo.id === "collapsible-guardado") aplicarPreviewIcone(document.getElementById("caixinhaIconPickerCriar"), "");
 }
 
+function restaurarCriacaoAnterior() {
+  if (criacaoOrigem) fecharCriacaoFlutuante();
+  else if (criacaoHost) criacaoHost.replaceChildren();
+}
+
 function abrirCriacaoFlutuante() {
-  if (criacaoBackdrop && !criacaoBackdrop.classList.contains("is-hidden")) fecharCriacaoFlutuante();
+  // Nunca permita que um formulário anterior sobreviva dentro do modal.
+  // Cada abertura começa com exatamente um formulário, da aba atual.
+  restaurarCriacaoAnterior();
   const ativa = document.querySelector(".tab-panel:not(.is-hidden)");
   const tab = ativa?.dataset.tab;
   const cfg = CONFIG_CRIACAO[tab];
@@ -5064,7 +5080,8 @@ function abrirCriacaoFlutuante() {
   if (!alvo) return;
 
   criacaoOrigem = alvo;
-  criacaoProximo = alvo.nextSibling;
+  criacaoPlaceholder = document.createComment("caixa-criacao-placeholder");
+  alvo.parentNode.insertBefore(criacaoPlaceholder, alvo);
   criacaoTitulo.textContent = cfg.titulo;
   criacaoHint.textContent = cfg.hint;
   limparFormularioCriacao(alvo);
