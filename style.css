@@ -2509,3 +2509,103 @@ body.sem-entrada-listas .item-list-row { animation: none !important; }
   .ledger-item { margin-left: 5px; margin-right: 5px; }
   .ledger-more-btn { width: calc(100% - 10px); margin-left: 5px; margin-right: 5px; }
 }
+
+
+/* ==========================================================
+   V14 — PADRONIZAÇÃO DE CORES + FAB + CAIXINHAS
+   ========================================================== */
+:root {
+  --benefit: #76b6d2;
+  --benefit-bg: #e4f0f5;
+  --benefit-deep: #4f8eaa;
+}
+@media (prefers-color-scheme: dark) {
+  :root {
+    --benefit: #8bc8e2;
+    --benefit-bg: #1d3540;
+    --benefit-deep: #a6d9ec;
+  }
+}
+
+/* Ganhos: Saldo = verde; Benefício = azul-claro. */
+.item-list-row.ganho-saldo { border-left-color: var(--income) !important; }
+.item-list-row.ganho-beneficio { border-left-color: var(--benefit) !important; }
+.item-valor.income { color: var(--income); }
+.item-valor.income-beneficio { color: var(--benefit) !important; }
+.ledger-item.income-saldo { border-left-color: var(--income); }
+.ledger-item.income-beneficio { border-left-color: var(--benefit); }
+.ledger-icon.income-beneficio { background: var(--benefit-bg); color: var(--benefit-deep); }
+.ledger-valor.income-beneficio { color: var(--benefit-deep) !important; }
+.ganhos-legenda { display: flex; gap: 12px; margin-top: -9px; margin-bottom: 12px; }
+.ganho-legenda-item { display: inline-flex; align-items: center; gap: 6px; font-size: 10.5px; color: var(--muted); font-weight: 650; }
+.ganho-legenda-item i { width: 7px; height: 7px; border-radius: 50%; display: inline-block; }
+.ganho-legenda-saldo i { background: var(--income); }
+.ganho-legenda-beneficio i { background: var(--benefit); }
+
+/* Caixinhas: mais hierarquia e menos aspecto de cartão genérico. */
+.caixinha-swipe { margin-bottom: 12px; border-radius: 18px; }
+.goal-card.caixinha-card {
+  padding: 17px 17px 15px !important;
+  border-radius: 18px !important;
+  background:
+    linear-gradient(135deg, rgba(255,255,255,.34), transparent 48%),
+    var(--paper-deep) !important;
+  border: 1px solid rgba(122,111,88,.18) !important;
+  box-shadow: 0 5px 18px rgba(22,51,44,.065), inset 0 1px 0 rgba(255,255,255,.38) !important;
+}
+.goal-card.caixinha-card.tem-meta { background: linear-gradient(135deg, rgba(185,134,47,.085), transparent 52%), var(--paper-deep) !important; }
+.goal-card.caixinha-card.sem-meta { background: linear-gradient(135deg, rgba(60,110,79,.055), transparent 52%), var(--paper-deep) !important; }
+.caixinha-card .goal-nome { font-size: 17px; }
+.caixinha-card .goal-head { margin-bottom: 12px; }
+.caixinha-card .goal-bar-track { height: 9px; }
+.caixinha-card .caixinha-guardado strong { font-size: 19px; }
+.caixinha-card .goal-meta-linha { margin-bottom: 11px; }
+.caixinha-card .goal-falta { background: rgba(185,134,47,.10); }
+#resumoCaixinhas .mini-goal { border-radius: 14px; padding: 12px 13px; background: linear-gradient(135deg, rgba(185,134,47,.055), transparent 55%), var(--paper-deep); }
+#resumoCaixinhas .mini-goal-pct { color: var(--gold-deep); font-weight: 700; }
+
+/* FAB de criação. */
+.fab-criar {
+  position: fixed;
+  right: max(18px, calc((100vw - 560px) / 2 + 18px));
+  bottom: calc(88px + env(safe-area-inset-bottom));
+  z-index: 90;
+  display: inline-flex; align-items: center; gap: 8px;
+  min-height: 50px; padding: 0 16px 0 13px;
+  border: 1px solid rgba(255,255,255,.22);
+  border-radius: 999px;
+  background: var(--ink);
+  color: var(--on-ink);
+  box-shadow: 0 10px 26px rgba(22,51,44,.28), 0 2px 0 rgba(185,134,47,.55) inset;
+  font-size: 12px; font-weight: 750; letter-spacing: .01em;
+  cursor: pointer;
+  transition: transform .16s ease, box-shadow .16s ease;
+}
+.fab-criar svg { width: 20px; height: 20px; color: var(--gold); }
+.fab-criar:hover { transform: translateY(-2px); box-shadow: 0 14px 30px rgba(22,51,44,.32), 0 2px 0 rgba(185,134,47,.7) inset; }
+.fab-criar:active { transform: translateY(1px) scale(.97); }
+
+.modal-criacao { position: relative; }
+.modal-fechar-x { position: absolute; top: 12px; right: 14px; width: 32px; height: 32px; border: 1px solid var(--line); border-radius: 50%; background: rgba(122,111,88,.06); color: var(--muted); font-size: 22px; line-height: 1; cursor: pointer; }
+.modal-fechar-x:hover { color: var(--ink-text); border-color: var(--gold); }
+.criacao-kicker { font-size: 9.5px; text-transform: uppercase; letter-spacing: .16em; color: var(--gold-deep); font-weight: 800; margin-bottom: 5px; }
+.modal-criacao > .section-hint { margin-bottom: 15px !important; }
+.modal-criacao .collapsible { display: block !important; }
+.modal-criacao .collapsible-inner { padding: 0 !important; overflow: visible !important; }
+.modal-criacao .add-form { padding: 0 !important; margin: 0 !important; }
+.modal-criacao .add-form .btn { margin-top: 2px; width: 100%; }
+.modal-criacao .add-form input, .modal-criacao .add-form select { background: rgba(255,255,255,.52) !important; }
+
+@media (max-width: 560px) {
+  .fab-criar { right: 16px; bottom: calc(86px + env(safe-area-inset-bottom)); padding-right: 14px; }
+  .fab-criar span { display: none; }
+  .fab-criar { width: 52px; height: 52px; min-height: 52px; padding: 0; justify-content: center; }
+  .fab-criar svg { width: 23px; height: 23px; }
+}
+
+
+/* Benefício também segue o azul-claro na composição do saldo e no Insight. */
+.saldo-origem-beneficio .saldo-origem-valor,
+.saldo-origem-beneficio .saldo-origem-label { color: var(--benefit) !important; }
+.insight-valor-beneficio { color: var(--benefit) !important; font-weight: 700; white-space: nowrap; }
+.hero-stat-guardado-mes { color: var(--gold) !important; }
