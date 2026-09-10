@@ -1699,7 +1699,32 @@ function renderTotais() {
   if (guardadoMesEl) guardadoMesEl.textContent = totalGuardadoNoMes > 0 ? `+ ${fmt(totalGuardadoNoMes)} neste mês` : "";
   animarNumero(saldoEl, prevTotals.saldo, saldo);
 
-  // Sem feedback flutuante: as alterações aparecem diretamente nos valores.
+  // O visor do saldo mantém dimensões fixas e mostra apenas a variação
+  // da última sincronização no canto direito — sem criar/remover o card.
+  if (saldoEl) {
+    let deltaEl = saldoEl.querySelector(".saldo-delta");
+    if (!deltaEl) {
+      deltaEl = document.createElement("span");
+      deltaEl.className = "saldo-delta";
+      deltaEl.setAttribute("aria-live", "polite");
+      saldoEl.appendChild(deltaEl);
+    }
+
+    const deltaSaldo = primeiraVez ? 0 : saldo - (Number(prevTotals.saldo) || 0);
+    saldoEl.classList.toggle("saldo-subiu", deltaSaldo > 0);
+    saldoEl.classList.toggle("saldo-caiu", deltaSaldo < 0);
+
+    if (deltaSaldo > 0) {
+      deltaEl.textContent = `+ ${fmt(deltaSaldo)}`;
+      deltaEl.className = "saldo-delta positivo";
+    } else if (deltaSaldo < 0) {
+      deltaEl.textContent = `− ${fmt(Math.abs(deltaSaldo))}`;
+      deltaEl.className = "saldo-delta negativo";
+    } else {
+      deltaEl.textContent = "";
+      deltaEl.className = "saldo-delta";
+    }
+  }
 
   saldoEl.classList.toggle("negative", saldo < 0);
 
