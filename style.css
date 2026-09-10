@@ -1925,3 +1925,184 @@ body.sem-entrada-listas .item-list-row { animation: none !important; }
   .saldo-block { padding-left: 13px; padding-right: 13px; }
   .saldo-valor { font-size: 39px; }
 }
+
+/* ============================================================
+   TEMA — CAIXA REGISTRADORA VINTAGE
+   Corpo de latão, visor mecânico, teclas com relevo e as abas
+   viram uma tira de recibo com corte serrilhado. Usa as mesmas
+   variáveis de sempre (--ink, --paper, --gold, --expense…),
+   então o claro/escuro continua trocando sozinho.
+   ============================================================ */
+
+/* --- Cabeçalho: corpo de latão da registradora --- */
+.hero {
+  background:
+    radial-gradient(circle at 92% 12%, rgba(227,197,129,0.10), transparent 32%),
+    radial-gradient(circle at 8% 88%, rgba(143,212,171,0.07), transparent 34%),
+    radial-gradient(circle at 16px 16px, rgba(227,197,129,0.4) 2px, transparent 2.6px),
+    radial-gradient(circle at calc(100% - 16px) 16px, rgba(227,197,129,0.4) 2px, transparent 2.6px),
+    repeating-linear-gradient(115deg, rgba(255,255,255,0.014) 0px, rgba(255,255,255,0.014) 1px, transparent 1px, transparent 5px),
+    var(--ink);
+  border-bottom: 1px solid rgba(227,197,129,0.16);
+}
+
+.brand-mark { position: relative; display: inline-block; }
+.brand-mark::after {
+  content: "Registradora & Recibos";
+  display: block;
+  font-family: var(--font-body);
+  font-size: 8.5px;
+  font-weight: 600;
+  letter-spacing: 0.16em;
+  text-transform: uppercase;
+  color: rgba(227,197,129,0.55);
+  margin-top: 3px;
+}
+
+/* Visor mecânico do saldo — como a janelinha de números da registradora */
+.saldo-valor {
+  display: inline-block;
+  background: rgba(0,0,0,0.28);
+  border: 1px solid rgba(227,197,129,0.22);
+  border-radius: 8px;
+  padding: 3px 12px;
+  color: #f6df9f;
+  box-shadow: inset 0 2px 7px rgba(0,0,0,0.4), inset 0 -1px 0 rgba(255,255,255,0.04);
+}
+.hero-stat-valor {
+  display: inline-block;
+  background: rgba(0,0,0,0.16);
+  border-radius: 5px;
+  padding: 1px 6px;
+}
+
+/* --- Teclas: botões com relevo de tecla mecânica --- */
+.btn {
+  box-shadow: 0 2px 0 rgba(0,0,0,0.16), 0 4px 10px rgba(0,0,0,0.10), inset 0 1px 0 rgba(255,255,255,0.22);
+  transition: transform 0.08s ease, box-shadow 0.08s ease, opacity 0.15s ease;
+}
+.btn:active {
+  transform: translateY(2px) scale(0.98);
+  box-shadow: 0 0 0 rgba(0,0,0,0.16), 0 1px 3px rgba(0,0,0,0.10), inset 0 1px 0 rgba(255,255,255,0.14);
+}
+.btn-ghost { box-shadow: none; }
+.btn-ghost:active { box-shadow: none; }
+
+.icon-btn {
+  box-shadow: 0 2px 0 rgba(0,0,0,0.22), inset 0 1px 0 rgba(255,255,255,0.14);
+  transition: background 0.15s ease, box-shadow 0.08s ease, transform 0.08s ease;
+}
+.icon-btn:active {
+  transform: translateY(2px) scale(0.94);
+  box-shadow: 0 0 0 rgba(0,0,0,0.22), inset 0 1px 0 rgba(255,255,255,0.08);
+}
+
+/* Alavanca de seleção Davi / Gabriel / Juntos, com sulco entalhado */
+.person-switch {
+  box-shadow: inset 0 2px 6px rgba(0,0,0,0.32), inset 0 1px 0 rgba(255,255,255,0.04);
+}
+.person-btn.is-active {
+  box-shadow: 0 2px 0 rgba(0,0,0,0.2), 0 3px 10px rgba(0,0,0,0.16);
+}
+
+/* --- Cartões e listas com cara de recibo: borda tracejada --- */
+.add-form,
+.ledger,
+.item-list li.item-list-row,
+.goal-card,
+.empty-state,
+.split-card {
+  border-style: dashed;
+}
+
+/* --- Barra de navegação inferior = tira de recibo com corte serrilhado --- */
+.tabbar {
+  background: var(--paper-deep);
+  box-shadow: 0 -8px 22px rgba(40,28,12,0.14);
+  border-top: none;
+}
+.tabbar::before {
+  content: "";
+  position: absolute;
+  left: 0; right: 0;
+  top: -9px;
+  height: 9px;
+  background-image:
+    linear-gradient(135deg, var(--paper-deep) 25%, transparent 25.5%),
+    linear-gradient(225deg, var(--paper-deep) 25%, transparent 25.5%);
+  background-position: bottom left;
+  background-repeat: repeat-x;
+  background-size: 18px 18px;
+  filter: drop-shadow(0 -2px 3px rgba(40,28,12,0.10));
+  pointer-events: none;
+}
+.tabbar::after {
+  content: "";
+  position: absolute;
+  top: 0; left: 14px; right: 14px;
+  border-top: 1.5px dashed var(--line);
+  opacity: 0.8;
+  pointer-events: none;
+}
+.tab-btn {
+  color: var(--muted);
+  border-left: 1px dashed var(--line-soft);
+}
+.tab-btn:first-child { border-left: none; }
+.tab-btn.is-active { color: var(--ink-text); }
+.tab-btn.is-active svg { stroke: var(--gold-deep); }
+.tab-indicator {
+  top: 2px;
+  height: 30px;
+  border-radius: 50%;
+  background: radial-gradient(circle, rgba(185,134,47,0.14), transparent 70%);
+  border: 1.5px dashed var(--gold-deep);
+  transform: rotate(-6deg);
+  opacity: 0;
+}
+.tab-indicator.is-visible { opacity: 1; }
+
+/* --- Modal = recibo saindo da impressora, com corte serrilhado no topo --- */
+.modal {
+  border-radius: 5px 5px 0 0;
+  position: relative;
+  padding-top: 30px;
+}
+.modal::before {
+  content: "";
+  position: absolute;
+  left: 0; right: 0;
+  top: -9px;
+  height: 9px;
+  background-image:
+    linear-gradient(135deg, var(--paper) 25%, transparent 25.5%),
+    linear-gradient(225deg, var(--paper) 25%, transparent 25.5%);
+  background-position: bottom left;
+  background-repeat: repeat-x;
+  background-size: 16px 16px;
+  pointer-events: none;
+}
+.modal::after {
+  content: "";
+  position: absolute;
+  top: 10px; left: 50%;
+  transform: translateX(-50%);
+  width: 34px; height: 4px;
+  border-radius: 2px;
+  background: var(--line);
+}
+.modal h3 { position: relative; padding-top: 2px; }
+.modal h3::before {
+  content: "";
+  display: block;
+  width: 38px; height: 2px;
+  background: var(--gold);
+  border-radius: 2px;
+  margin-bottom: 10px;
+}
+
+@media (prefers-color-scheme: dark) {
+  .hero { border-bottom-color: rgba(240,194,116,0.14); }
+  .brand-mark::after { color: rgba(240,194,116,0.5); }
+  .tab-indicator { border-color: var(--gold); }
+}
