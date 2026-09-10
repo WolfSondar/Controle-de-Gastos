@@ -8,7 +8,6 @@
  *
  * LAYOUT DE COLUNAS (abas Davi/Gabriel):
  *   A = GANHOS              B = VALOR GANHO         C = DATA        D = RECEBIDO (VERDADEIRO/FALSO)
- *   X = TIPO DO GANHO (categoria opcional; usado para herdar a categoria em compras divididas)
  *   E = GASTOS FIXOS        F = VALOR FIXO          G = TIPO        H = DATA        I = PARCELA     J = PAGO (VERDADEIRO/FALSO)
  *   K = GASTOS VARIÁVEIS    L = VALOR VARIÁVEL      M = TIPO        N = DATA        O = PAGO (VERDADEIRO/FALSO)
  *   P = ORIGEM DO GASTO VARIÁVEL ("saldo" ou "beneficio") — fica ao lado do PAGO dos variáveis
@@ -107,7 +106,6 @@ const COL_RENDIMENTO = 20; // T
 const COL_VALOR_GUARDADO_MES = 21; // U
 const COL_DATA_CAIXINHA = 22; // V — prazo opcional da caixinha
 const COL_ICONE = 23; // W — ícone personalizado da caixinha
-const COL_TIPO_GANHO = 24; // X — categoria opcional do ganho
 
 // ---------------------------------------------------------------------
 // HISTÓRICO — constantes de layout
@@ -1078,7 +1076,6 @@ function readGanhos(sheet) {
   const lastRow = sheet.getLastRow();
   if (lastRow < 2) return [];
   const valores = sheet.getRange(2, COL_GANHOS, lastRow - 1, 4).getValues(); // A,B,C,D
-  const tipos = sheet.getRange(2, COL_TIPO_GANHO, lastRow - 1, 1).getValues(); // X
   const result = [];
   valores.forEach(function (row, i) {
     const nome = row[0];
@@ -1088,7 +1085,6 @@ function readGanhos(sheet) {
         valor: Number(row[1]) || 0,
         data: formatarDataCelula(row[2]),
         recebido: row[3] === true,
-        tipo: tipos[i] && tipos[i][0] ? String(tipos[i][0]) : "",
       });
     }
   });
@@ -1098,14 +1094,11 @@ function readGanhos(sheet) {
 function saveGanhos(sheet, rows) {
   const rowsToClear = linhasParaLimpar(sheet, rows);
   sheet.getRange(2, COL_GANHOS, rowsToClear, 4).clearContent();
-  sheet.getRange(2, COL_TIPO_GANHO, rowsToClear, 1).clearContent();
   if (!rows || rows.length === 0) return;
   const valores = rows.map(function (r) {
     return [r.nome, r.valor, r.data || "", r.recebido === true];
   });
-  const tipos = rows.map(function (r) { return [r.tipo || ""]; });
   sheet.getRange(2, COL_GANHOS, valores.length, 4).setValues(valores);
-  sheet.getRange(2, COL_TIPO_GANHO, tipos.length, 1).setValues(tipos);
 }
 
 
