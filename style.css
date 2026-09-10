@@ -2443,3 +2443,400 @@ body {
   .insight-card::after { background: radial-gradient(circle at 5px 0, transparent 4px, #efe5d0 4.2px) 0 0 / 10px 10px repeat-x; }
   .person-switch::before, .person-switch::after { background: radial-gradient(circle at 5px 0, transparent 4px, #efe5d0 4.2px) 0 0 / 10px 10px repeat-x; }
 }
+
+/* ============================================================
+   CAIXA V4 — Caixa Registradora / Arcade Finance
+   Redesign completo: menos "template", mais identidade.
+   ============================================================ */
+:root {
+  --register-body: #10231d;
+  --register-body-2: #17332a;
+  --register-panel: #0a1713;
+  --register-edge: #315447;
+  --register-gold: #e3b65e;
+  --register-gold-soft: #f1cf84;
+  --register-green: #75c99a;
+  --register-red: #e88368;
+  --register-cream: #f4ecd9;
+  --register-paper: #fbf5e7;
+  --register-ink: #2b2a22;
+  --register-muted: #8fa69a;
+  --register-shadow: rgba(0,0,0,.28);
+  --register-grid: rgba(117,201,154,.055);
+}
+
+/* ---------- corpo ---------- */
+html, body {
+  background: #09130f;
+  color: var(--ink-text);
+}
+body {
+  background-image:
+    linear-gradient(var(--register-grid) 1px, transparent 1px),
+    linear-gradient(90deg, var(--register-grid) 1px, transparent 1px);
+  background-size: 24px 24px;
+}
+.app {
+  background: #f7f1e4;
+  box-shadow: 0 0 0 1px rgba(0,0,0,.18), 0 24px 70px rgba(0,0,0,.24);
+}
+
+/* ---------- corpo da registradora ---------- */
+.hero {
+  padding: 16px 18px 27px;
+  border-radius: 0 0 30px 30px;
+  background:
+    linear-gradient(180deg, #1a3a30 0%, #10271f 48%, #0b1b16 100%);
+  border-bottom: 1px solid #315447;
+  box-shadow: inset 0 -1px 0 rgba(255,255,255,.035), 0 12px 28px rgba(0,0,0,.18);
+}
+.hero::before {
+  content: "";
+  position: absolute;
+  top: 0; left: 0; right: 0;
+  height: 7px;
+  background:
+    repeating-linear-gradient(90deg, rgba(227,182,94,.22) 0 16px, transparent 16px 24px),
+    linear-gradient(90deg, transparent, rgba(117,201,154,.10), transparent);
+  opacity: .8;
+}
+.hero::after {
+  height: 8px;
+  background-image: radial-gradient(circle, #d5c39b 2.3px, transparent 2.6px);
+  background-size: 13px 13px;
+  background-position: center bottom 1px;
+  opacity: .55;
+}
+.hero-top {
+  margin-bottom: 14px;
+  align-items: center;
+}
+.brand-mark {
+  position: relative;
+  font-size: 28px;
+  letter-spacing: -.02em;
+  color: #fff7e5;
+  text-shadow: 0 2px 0 rgba(0,0,0,.25);
+}
+.brand-mark::before {
+  content: "";
+  display: inline-block;
+  width: 7px; height: 7px;
+  margin: 0 8px 4px 0;
+  border-radius: 50%;
+  background: var(--register-gold);
+  box-shadow: 0 0 0 2px rgba(227,182,94,.08), 0 0 9px rgba(227,182,94,.28);
+}
+.brand-mark::after {
+  content: "TERMINAL";
+  margin-left: 8px;
+  vertical-align: middle;
+  font: 700 7px/1 var(--font-mono);
+  letter-spacing: .16em;
+  color: #77a995;
+}
+.hero-top-actions { gap: 7px; }
+.mes-atual-badge {
+  border: 1px solid #4c6b5e;
+  background: #10251e;
+  color: var(--register-gold-soft);
+  border-radius: 8px;
+  box-shadow: inset 0 1px 0 rgba(255,255,255,.04);
+}
+.icon-btn, .sync {
+  width: 34px; height: 34px;
+  border-radius: 9px;
+  border: 1px solid #476559;
+  background: #10251e;
+  box-shadow: inset 0 1px 0 rgba(255,255,255,.04);
+}
+
+/* ---------- abas = papel curto encaixado na registradora ---------- */
+.person-switch {
+  position: relative;
+  margin: 0 4px 15px;
+  padding: 3px;
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 2px;
+  border: 1px solid #456459;
+  border-radius: 10px;
+  background: #0b1915;
+  box-shadow: inset 0 2px 5px rgba(0,0,0,.24), 0 4px 0 rgba(0,0,0,.12);
+  overflow: hidden;
+}
+.person-switch::before, .person-switch::after { display: none; }
+.person-btn {
+  min-height: 35px;
+  padding: 7px 5px;
+  border: 0;
+  border-radius: 7px;
+  color: #86a99b;
+  background: transparent;
+  font: 700 9px/1 var(--font-mono);
+  letter-spacing: .12em;
+  text-transform: uppercase;
+}
+.person-btn + .person-btn { border-left: 1px dashed rgba(126,166,151,.18); }
+.person-btn.is-active {
+  color: #332815;
+  background: linear-gradient(180deg, #efc871, #dcae52);
+  box-shadow: inset 0 1px 0 rgba(255,255,255,.4), 0 2px 5px rgba(0,0,0,.16);
+}
+.person-btn.is-active::before { display: none; }
+
+/* ---------- visor LCD da caixa ---------- */
+.saldo-block {
+  position: relative;
+  margin: 0 1px 13px;
+  padding: 15px 16px 13px;
+  border: 1px solid #385b4d;
+  border-radius: 12px;
+  background:
+    radial-gradient(circle at 86% 54%, rgba(117,201,154,.065), transparent 22%),
+    linear-gradient(180deg, #07140f, #0a1b15);
+  box-shadow:
+    inset 0 1px 0 rgba(255,255,255,.045),
+    inset 0 -12px 24px rgba(0,0,0,.17),
+    0 6px 16px rgba(0,0,0,.20);
+}
+.saldo-block::before {
+  content: "TOTAL DISPONÍVEL";
+  top: 9px; right: 12px;
+  color: rgba(227,182,94,.48);
+  font-size: 6.5px;
+  letter-spacing: .18em;
+}
+.saldo-block::after {
+  width: 51px; height: 51px;
+  right: 12px; bottom: 9px;
+  border: 1px solid rgba(117,201,154,.10);
+  box-shadow: 0 0 0 8px rgba(117,201,154,.018), 0 0 0 16px rgba(117,201,154,.01);
+}
+.saldo-label {
+  color: #7fb39d;
+  font-size: 8px;
+  letter-spacing: .19em;
+}
+.saldo-valor {
+  margin-top: 3px;
+  color: #fff9e9;
+  font-size: clamp(40px, 10vw, 48px);
+  letter-spacing: -.045em;
+  text-shadow: 0 0 14px rgba(227,182,94,.08);
+}
+.saldo-origens { margin-top: 10px; gap: 7px; }
+.saldo-origem {
+  padding: 3px 7px;
+  border: 1px solid rgba(117,201,154,.09);
+  border-radius: 5px;
+  background: rgba(255,255,255,.025);
+}
+.saldo-origem-valor { font-size: 10px; }
+.saldo-origem-label { font-size: 7px; letter-spacing: .13em; }
+.saldo-origens-separador { height: 17px; background: rgba(227,182,94,.20); }
+
+/* ---------- teclas financeiras ---------- */
+.hero-stats {
+  gap: 7px;
+}
+.hero-stat {
+  min-height: 62px;
+  padding: 10px 11px 8px;
+  border-radius: 9px;
+  border: 1px solid #38584d;
+  background: linear-gradient(180deg, #173128, #132820);
+  box-shadow: inset 0 1px 0 rgba(255,255,255,.035), 0 4px 10px rgba(0,0,0,.13);
+}
+.hero-stat::after {
+  top: 9px; right: 9px;
+  width: 4px; height: 4px;
+  background: #6fbe91;
+  box-shadow: 0 0 7px rgba(111,190,145,.34);
+}
+.hero-stat-label { color: #7fa797; font-size: 7.5px; letter-spacing: .15em; }
+.hero-stat-valor { font-size: 13px; }
+.hero-stat-pendente { font-size: 8px; }
+
+/* ---------- papel do insight, pequeno e controlado ---------- */
+.insight-card {
+  margin: 10px 2px 0;
+  padding: 11px 12px 11px 14px;
+  border: 1px solid #d7c8aa;
+  border-radius: 3px;
+  background: #f6edda;
+  box-shadow: 0 5px 12px rgba(0,0,0,.17);
+  transform: rotate(-.12deg);
+}
+.insight-card::before { color: #8a7b60; margin-bottom: 5px; font-size: 6.5px; }
+.insight-card::after {
+  bottom: -4px; height: 7px;
+  background: radial-gradient(circle at 5px 0, transparent 3.7px, #f6edda 4px) 0 0/10px 10px repeat-x;
+}
+.insight-texto { color: #352f25; font-size: 11.5px; line-height: 1.42; }
+
+/* ---------- botão: peça física da registradora ---------- */
+.hero-stats-toggle.collapse-toggle {
+  width: 42px; height: 21px;
+  margin: 12px auto 0;
+  border-radius: 6px;
+  border: 1px solid #637a5d;
+  background: linear-gradient(180deg,#27483b,#173329);
+  color: var(--register-gold-soft);
+  box-shadow: inset 0 1px 0 rgba(255,255,255,.07), 0 3px 0 rgba(0,0,0,.18);
+}
+.hero-stats-toggle.collapse-toggle:not(.is-collapsed) { margin-top: 16px; }
+
+/* ---------- conteúdo: bancada limpa, sem parecer papel de escritório ---------- */
+.content {
+  padding: 24px 18px calc(110px + env(safe-area-inset-bottom));
+  background: #f7f1e4;
+}
+.content::before {
+  left: 18px; right: 18px;
+  background: #d8ccb4;
+}
+.section-title {
+  font-size: 20px;
+  color: #25382f;
+}
+.section-hint {
+  color: #7a7768;
+  font-size: 8.5px;
+  letter-spacing: .08em;
+}
+.ledger-line { padding-bottom: 9px; margin-bottom: 14px; }
+.ledger-line::after { border-bottom: 1px dashed #d3c7ae; }
+
+/* ---------- cards: recibo discreto, não fantasia ---------- */
+.item-list { gap: 9px; }
+.item-list li.item-list-row {
+  border: 1px solid #ddd1b9;
+  border-left: 3px solid var(--line);
+  border-radius: 10px;
+  background: #fffaf0;
+  box-shadow: 0 4px 11px rgba(62,52,34,.07);
+}
+.item-list li.item-list-row[data-tipo="income"] { border-left-color: #4c986d; }
+.item-list li.item-list-row[data-tipo="expense"] { border-left-color: #c7634a; }
+.item-list li.item-list-row.is-pendente { border-left-color: #c99a3f; }
+.swipe-content {
+  min-height: 68px;
+  padding: 11px 11px 10px 13px;
+  border-radius: 8px;
+  background: #fffaf0;
+}
+.swipe-content::after { left: 13px; right: 13px; bottom: 5px; border-bottom-color: rgba(129,111,76,.13); }
+.item-nome { font-weight: 700; color: #29352f; }
+.item-valor { font-size: 13px; }
+.item-tag, .pago-toggle { border-radius: 4px; }
+
+/* ---------- outros cards ---------- */
+.split-card, .juntos-card, .mini-goal, .goal-card {
+  border-radius: 12px;
+  border-color: #d8ccb3;
+  background: #fff9ed;
+  box-shadow: 0 5px 14px rgba(62,52,34,.065);
+}
+.add-form {
+  border-radius: 10px;
+  border-color: #d9ccb2;
+  background: #fff8e9;
+  box-shadow: 0 5px 14px rgba(62,52,34,.06);
+}
+.add-form input, .add-form select, .add-form input[type="date"] {
+  border-radius: 7px;
+  background: #fffdf7;
+  border-color: #d6c9ae;
+}
+.btn { border-radius: 7px; }
+
+/* ---------- navegação = rolo de recibo, mas integrado ao produto ---------- */
+.tabbar {
+  padding: 10px 7px calc(12px + env(safe-area-inset-bottom));
+  background: #eee3cd;
+  color: #655b47;
+  border-top: 1px solid #cdbf9f;
+  box-shadow: 0 -8px 22px rgba(38,32,22,.13);
+}
+.tabbar::before {
+  top: -5px; height: 7px;
+  background: radial-gradient(circle at 5px 8px, transparent 3.6px, #eee3cd 3.9px) 0 0/10px 10px repeat-x;
+}
+.tabbar::after { color: #aaa087; }
+.tab-indicator { background: #b75a43; width: 26px; height: 2px; }
+.tab-btn {
+  min-width: 54px;
+  color: #857b67;
+  border-radius: 7px;
+  font-size: 7.5px;
+  letter-spacing: .07em;
+}
+.tab-btn.is-active {
+  color: #332d22;
+  background: rgba(194,151,69,.13);
+  box-shadow: inset 0 1px 0 rgba(255,255,255,.42);
+}
+.tab-btn.is-active svg { stroke: #a55b43; }
+
+/* ---------- modais: gaveta da máquina ---------- */
+.modal-backdrop { background: rgba(4,15,11,.68); backdrop-filter: blur(5px); }
+.modal {
+  border-radius: 16px 16px 0 0;
+  border-top: 2px solid var(--register-gold);
+  background: #fff8e9;
+  box-shadow: 0 -16px 38px rgba(0,0,0,.27);
+}
+.modal h3 { color: #28382f; }
+.modal input, .modal select { background: #fffdf7; border-color: #d6c9ae; border-radius: 7px; }
+
+/* ============================================================
+   DARK — corpo verde da registradora + papel claro só onde faz sentido
+   ============================================================ */
+@media (prefers-color-scheme: dark) {
+  html, body { background: #06100c; color: #efe8d8; }
+  body {
+    background-image:
+      linear-gradient(rgba(117,201,154,.035) 1px, transparent 1px),
+      linear-gradient(90deg, rgba(117,201,154,.035) 1px, transparent 1px);
+    background-size: 24px 24px;
+  }
+  .app { background: #0f211b; box-shadow: 0 0 0 1px #29463b, 0 24px 70px rgba(0,0,0,.35); }
+  .hero { background: linear-gradient(180deg,#18382e 0%,#10271f 48%,#0b1b16 100%); }
+  .content { background: #0f211b; }
+  .content::before { background: #2b473b; }
+  .section-title { color: #f0e8d7; }
+  .section-hint { color: #849a8e; }
+  .ledger-line::after { border-color: #2b473b; }
+  .person-switch { background: #081510; border-color: #3b5a4e; }
+  .person-btn { color: #89a99d; }
+  .person-btn.is-active { color: #322813; background: linear-gradient(180deg,#efc871,#d8a84e); }
+  .saldo-block { background: radial-gradient(circle at 86% 54%,rgba(117,201,154,.065),transparent 22%),linear-gradient(180deg,#06120e,#0a1a14); }
+  .hero-stat { background: linear-gradient(180deg,#18342b,#142a23); border-color:#36584b; }
+  .insight-card { background:#f6edda; border-color:#d5c5a5; }
+  .insight-texto { color:#352f25; }
+  .item-list li.item-list-row { background:#162a23; border-color:#2f4b40; }
+  .swipe-content { background:#162a23; }
+  .item-nome { color:#eee7d8; }
+  .swipe-content::after { border-color:rgba(241,233,216,.09); }
+  .split-card, .juntos-card, .mini-goal, .goal-card { background:#152821; border-color:#304b40; }
+  .add-form { background:#152821; border-color:#304b40; }
+  .add-form input, .add-form select, .add-form input[type="date"] { background:#0f201a; border-color:#365247; color:#efe8d8; }
+  .modal { background:#152821; }
+  .modal h3 { color:#f0e8d7; }
+  .modal input, .modal select { background:#0f201a; border-color:#365247; color:#efe8d8; }
+  .tabbar { background:#e9dfca; color:#655b47; border-color:#c7b998; }
+  .tabbar::before { background:radial-gradient(circle at 5px 8px,transparent 3.6px,#e9dfca 3.9px) 0 0/10px 10px repeat-x; }
+  .tab-btn { color:#827864; }
+  .tab-btn.is-active { color:#332d22; background:rgba(194,151,69,.16); }
+  .modal-backdrop { background:rgba(2,10,7,.78); }
+}
+
+@media (max-width: 400px) {
+  .hero { padding-left: 14px; padding-right: 14px; }
+  .brand-mark { font-size: 26px; }
+  .brand-mark::after { display:none; }
+  .saldo-block { padding-left: 13px; padding-right: 13px; }
+  .person-switch { margin-left: 1px; margin-right: 1px; }
+  .content { padding-left: 14px; padding-right: 14px; }
+}
