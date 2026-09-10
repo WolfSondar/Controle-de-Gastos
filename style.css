@@ -2982,75 +2982,70 @@ body.sem-entrada-listas .item-list-row { animation: none !important; }
 }
 
 .insight-titulo {
-  display: flex;
-  align-items: center;
-  justify-content: center;
+  display: block;
   width: fit-content;
   max-width: 100%;
-  margin: 0 auto 11px;
-  padding: 5px 12px 4px;
-  border: 1px solid currentColor;
-  border-radius: 999px;
-  font-size: 9.5px;
-  font-weight: 800;
-  line-height: 1.15;
-  letter-spacing: .13em;
+  margin: 0 auto 10px;
+  padding: 0 0 4px;
+  border: 0;
+  border-bottom: 2px solid currentColor;
+  border-radius: 0;
+  font-size: 10px;
+  font-weight: 850;
+  line-height: 1.2;
+  letter-spacing: .12em;
   text-align: center;
   text-transform: uppercase;
-  background: color-mix(in srgb, currentColor 12%, transparent);
-  box-shadow: inset 0 1px 0 rgba(255,255,255,.055);
-  transition:
-    color .22s ease,
-    background-color .22s ease,
-    border-color .22s ease,
-    transform .22s ease;
+  background: transparent;
+  box-shadow: none;
+  transition: color .22s ease, border-color .22s ease;
 }
 
 .insight-titulo.is-gasto {
   color: var(--expense-on-ink);
-  background: color-mix(in srgb, var(--expense-on-ink) 12%, transparent);
+  background: transparent;
 }
 .insight-titulo.is-ganho {
   color: var(--income-on-ink);
-  background: color-mix(in srgb, var(--income-on-ink) 12%, transparent);
+  background: transparent;
 }
 .insight-titulo.is-beneficio {
   color: var(--benefit);
-  background: color-mix(in srgb, var(--benefit) 12%, transparent);
+  background: transparent;
 }
 .insight-titulo.is-guardado {
   color: #d9ab5c;
-  background: rgba(217,171,92,.12);
+  background: transparent;
 }
 .insight-titulo.is-rendimento {
   color: #7fb8d9;
-  background: rgba(127,184,217,.12);
+  background: transparent;
 }
 .insight-titulo.is-atencao {
   color: #f0b46b;
-  background: rgba(240,180,107,.12);
+  background: transparent;
 }
 .insight-titulo.is-comparacao {
   color: #c4a7ee;
-  background: rgba(196,167,238,.12);
+  background: transparent;
 }
 .insight-titulo.is-planejamento {
   color: #79c7bd;
-  background: rgba(121,199,189,.12);
+  background: transparent;
 }
 .insight-titulo.is-geral {
   color: var(--gold-deep);
-  background: color-mix(in srgb, var(--gold) 12%, transparent);
+  background: transparent;
 }
 
 .insight-texto {
-  text-align: center;
-  max-width: 48ch;
-  margin-left: auto;
-  margin-right: auto;
+  text-align: left;
+  max-width: none;
+  margin-left: 0;
+  margin-right: 0;
 }
 
-/* Mantém a estrela discreta e alinhada quando o texto está centralizado. */
+/* Mantém a estrela discreta e alinhada ao início do texto. */
 .insight-texto.is-ia::before {
   color: var(--gold-deep);
 }
@@ -3137,9 +3132,8 @@ body.sem-entrada-listas .item-list-row { animation: none !important; }
   }
 
   .insight-titulo {
-    box-shadow:
-      inset 0 1px 0 rgba(255,255,255,.045),
-      0 2px 8px rgba(0,0,0,.10);
+    background: transparent !important;
+    box-shadow: none;
   }
 
   .content {
