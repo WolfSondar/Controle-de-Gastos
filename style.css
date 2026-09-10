@@ -2931,3 +2931,39 @@ body.sem-entrada-listas .item-list-row { animation: none !important; }
     font-size: 9px;
   }
 }
+
+
+/* ============================================================
+   V11 — variação do saldo: indicador dentro do visor
+   ============================================================ */
+.saldo-valor {
+  position: relative !important;
+  overflow: hidden !important;
+}
+.saldo-numero {
+  display: block;
+  min-width: 0;
+  flex: 1 1 auto;
+  white-space: nowrap;
+}
+.saldo-valor.saldo-subiu {
+  background: linear-gradient(90deg, rgba(0,0,0,.28), rgba(72,154,103,.16)) !important;
+  border-color: rgba(108,205,143,.34) !important;
+}
+.saldo-valor.saldo-caiu {
+  background: linear-gradient(90deg, rgba(0,0,0,.28), rgba(180,58,48,.18)) !important;
+  border-color: rgba(232,104,88,.42) !important;
+}
+.saldo-delta {
+  z-index: 3 !important;
+  color: inherit;
+}
+.saldo-delta.positivo {
+  color: #9cddb7 !important;
+}
+.saldo-delta.negativo {
+  color: #f08b78 !important;
+}
+.saldo-valor.saldo-caiu .saldo-delta.negativo {
+  color: #ff9b87 !important;
+}
