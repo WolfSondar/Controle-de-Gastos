@@ -982,35 +982,26 @@ document.addEventListener("visibilitychange", () => {
   if (document.visibilityState === "visible") flushFilaOffline();
 });
 
-// Tocar no ícone de status tenta sincronizar na hora (busca os dados de
-// novo e, se tiver alteração pendente na fila offline, tenta enviar).
+// A leitura da planilha acontece somente na abertura/recarregamento da página.
+// O indicador continua mostrando o estado de salvamento, mas não existe mais
+// uma ação manual que faça um GET e reconcilie tudo no meio da navegação.
 if (syncEl) {
-  syncEl.setAttribute("role", "button");
-  syncEl.setAttribute("tabindex", "0");
-  syncEl.setAttribute("aria-label", "Sincronizar agora");
-  const tentarSincronizarAgora = async () => {
-    if (syncEl.dataset.state === "saving" || syncEl.dataset.state === "syncing") return;
-    vibrar(8);
-    // Espera a fila offline terminar (ou não fazer nada, se estiver vazia)
-    // antes de buscar os dados — assim os dois nunca disputam o ícone ao
-    // mesmo tempo.
-    await flushFilaOffline();
-    carregarDados();
-  };
-  syncEl.addEventListener("click", tentarSincronizarAgora);
-  syncEl.addEventListener("keydown", (e) => {
-    if (e.key === "Enter" || e.key === " ") {
-      e.preventDefault();
-      tentarSincronizarAgora();
-    }
-  });
+  syncEl.removeAttribute("role");
+  syncEl.removeAttribute("tabindex");
+  syncEl.setAttribute("aria-label", "Os dados são sincronizados ao recarregar a página");
 }
 
 // ---------------------------------------------------------------------
 // SELETOR DE PESSOA
 // ---------------------------------------------------------------------
-function trocarPessoa(pessoa) {
+async function trocarPessoa(pessoa) {
   if (pessoa === state.pessoaAtual) return;
+
+  // Trocar de perfil não faz mais uma nova leitura na planilha. A página já
+  // carregou os perfis necessários na abertura e cada perfil fica disponível
+  // no cache local. Assim a troca é instantânea e não reconstrói a tela por
+  // causa de um GET no meio da navegação.
+  const pessoaAnterior = state.pessoaAtual;
   state.pessoaAtual = pessoa;
   localStorage.setItem(PESSOA_STORAGE_KEY, pessoa);
   prevTotals.ganhos = null;
@@ -1021,11 +1012,40 @@ function trocarPessoa(pessoa) {
   exibirInsightCacheOuPlaceholder();
   renderPessoaSwitch();
   atualizarVisibilidadeEdicao();
-  atualizarVisibilidadeSplitCard(); 
-  atualizarVisibilidadeVisaoGeral(); 
-  atualizarVisibilidadeJuntosView(); 
-  carregarDados();
-  renderHistorico(); // Atualiza o histórico dinamicamente baseado na pessoa
+  atualizarVisibilidadeSplitCard();
+  atualizarVisibilidadeVisaoGeral();
+  atualizarVisibilidadeJuntosView();
+
+  const cache = await getCache(pessoa);
+  // Se o usuário trocou de perfil novamente enquanto o cache era lido, não
+  // deixa a resposta assíncrona sobrescrever a tela do perfil atual.
+  if (state.pessoaAtual !== pessoa) return;
+
+  if (cache) {
+    state.ganhos = cache.ganhos || [];
+    state.gastosFixos = cache.gastosFixos || [];
+    state.gastosVariaveis = cache.gastosVariaveis || [];
+    state.caixinhas = cache.caixinhas || [];
+    state.categoriasConfig = cache.categorias || null;
+    state.iconCategorias = cache.iconCategorias || [];
+    state.loaded = true;
+    popularSelectsDeCategoria();
+    renderIncremental({
+      ganhos: true,
+      gastosFixos: true,
+      gastosVariaveis: true,
+      caixinhas: true,
+      categoriasConfig: true,
+      iconCategorias: true,
+    });
+  } else {
+    // Não busca a planilha aqui. Se esse perfil ainda não tiver sido
+    // pré-carregado no cache durante a abertura, deixa os dados locais
+    // atuais e informa de forma discreta que a atualização ocorrerá no
+    // próximo recarregamento.
+    showToast("Este perfil será atualizado quando você recarregar a página.");
+  }
+  renderHistorico();
 }
 
 function atualizarVisibilidadeSplitCard() {
@@ -4241,7 +4261,7 @@ if (tabbarEl) {
     window.scrollTo({ top: 0, behavior: "smooth" });
     posicionarIndicadorAba();
     atualizarVisibilidadeFab();
-    if (tab === "historico") carregarHistorico();
+    if (tab === "historico") renderHistorico();
   });
 }
 window.addEventListener("resize", posicionarIndicadorAba);
@@ -4907,10 +4927,10 @@ on("formFecharMes", "submit", async (e) => {
 
     ["davi", "gabriel", "ambos", "historico"].forEach((p) => removerCache(p));
 
-    showToast(`${MESES_LABEL[f.mes - 1]}/${f.ano} foi fechado. Os saldos restantes foram levados para o próximo mês e os gastos variáveis foram encerrados.`);
+    showToast(`${MESES_LABEL[f.mes - 1]}/${f.ano} foi fechado. Os saldos restantes foram levados para o próximo mês e os gastos variáveis foram encerrados. Recarregue a página para atualizar os dados da planilha.`);
     fecharModalFecharMes();
-    carregarDados();
-    carregarHistorico();
+    ["davi", "gabriel", "ambos"].forEach((p) => removerCache(p));
+    await removerCache("historico");
   } else {
     showToast("Não consegui fechar o mês agora. Tenta de novo em instantes.");
   }
@@ -4962,7 +4982,11 @@ aplicarMascaraMoedaEmTodos();
 posicionarIndicadorAba();
 exibirInsightCacheOuPlaceholder();
 on("insightCard", "click", tentarDeNovoInsightSeErro);
+// Leituras da planilha acontecem na abertura da página. Depois disso, a
+// navegação e a troca de perfil usam os dados em memória/cache; alterações
+// feitas pelo usuário continuam sendo enviadas normalmente via POST.
 carregarDados();
+carregarHistorico();
 setTimeout(mostrarDicaAcoesConjuntoSeNecessario, 1200);
 
 // Listener do novo Seletor de Ano no Histórico
