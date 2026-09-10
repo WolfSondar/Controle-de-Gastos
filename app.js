@@ -3718,14 +3718,18 @@ function setInsightCache(pessoa, insight) {
 function getInsightFila(pessoa) {
   try {
     const lista = JSON.parse(localStorage.getItem(INSIGHT_FILA_PREFIX + pessoa) || "[]");
-    // O estoque visível é sempre de 5 no total: 1 insight atual + até 4 na fila.
-    return Array.isArray(lista) ? lista.map(normalizarInsight).filter((i) => i.texto).slice(0, Math.max(0, INSIGHT_LOTE_TAMANHO - 1)) : [];
+    // Não limitamos a fila a 5: se houver mais insights válidos salvos de uma
+    // geração anterior, eles continuam disponíveis para o carrossel.
+    return Array.isArray(lista) ? lista.map(normalizarInsight).filter((i) => i.texto) : [];
   } catch (err) { return []; }
 }
 function setInsightFila(pessoa, lista) {
   try {
-    const filaLimitada = (lista || []).map(normalizarInsight).filter((i) => i.texto).slice(0, Math.max(0, INSIGHT_LOTE_TAMANHO - 1));
-    localStorage.setItem(INSIGHT_FILA_PREFIX + pessoa, JSON.stringify(filaLimitada));
+    // Preserva todo o estoque válido recebido. Uma geração nova continua
+    // substituindo o estoque antigo, mas não descartamos insights extras que
+    // ainda estejam salvos e sejam válidos.
+    const filaValida = (lista || []).map(normalizarInsight).filter((i) => i.texto);
+    localStorage.setItem(INSIGHT_FILA_PREFIX + pessoa, JSON.stringify(filaValida));
   } catch (err) {}
 }
 
@@ -3738,8 +3742,9 @@ function setInsightIndice(pessoa, indice) {
 function getTodosInsights(pessoa) {
   const atual = getInsightCache(pessoa);
   const fila = getInsightFila(pessoa);
-  // Compatibilidade com estoques antigos: nunca deixamos passar de 5 insights.
-  return (atual ? [atual].concat(fila) : fila.slice()).slice(0, INSIGHT_LOTE_TAMANHO);
+  // A geração padrão entrega 5, mas o carrossel pode aproveitar qualquer
+  // quantidade maior que já esteja salva e ainda seja válida.
+  return atual ? [atual].concat(fila) : fila.slice();
 }
 function atualizarIndicadoresInsights() {
   garantirEstiloDosIndicadoresInsight();
