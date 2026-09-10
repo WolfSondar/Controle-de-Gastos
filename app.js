@@ -3893,8 +3893,11 @@ async function prepararInsightsIniciaisSemCache(pessoaBase) {
       if (!navigator.onLine) break;
       const dados = await getCache(pessoa);
       if (!dados) continue;
-      // Se já existe estoque/cache de IA, não gasta uma chamada inicial à toa.
-      if (getInsightCache(pessoa) || getInsightFila(pessoa).length) continue;
+      // O estoque inicial esperado é de 5 insights. Se existir um estoque
+      // antigo incompleto (por exemplo, 2 insights salvos), completa/regenera
+      // esse contexto em vez de considerar o cache como suficiente.
+      const estoqueExistente = getTodosInsights(pessoa);
+      if (estoqueExistente.length >= INSIGHT_LOTE_TAMANHO) continue;
 
       const resumoPessoa = montarResumoParaDadosDePessoa(pessoa, dados);
       try {
