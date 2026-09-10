@@ -2389,3 +2389,123 @@ body.sem-entrada-listas .item-list-row { animation: none !important; }
   .modal { padding: 25px 17px 18px !important; }
   .modal-actions { gap: 8px; }
 }
+
+
+/* ==========================================================
+   V13 — POLIMENTO FINAL DO RESUMO E DOS MODAIS
+   ========================================================== */
+/* O subtítulo "Registradora & Recibos" deixa de existir visualmente. */
+.brand-mark::after { display: none !important; content: none !important; }
+
+/* Mais respiro entre o último campo e as ações dos popups. */
+.modal-actions {
+  margin-top: 22px !important;
+  padding-top: 2px;
+}
+.modal .modal-actions + * { margin-top: 12px; }
+.modal-acoes .acao-card + .acao-card { margin-top: 10px; }
+.modal-acoes .modal-actions { margin-top: 24px !important; }
+
+/* O texto de confirmação do fechamento vira uma nota curta e objetiva. */
+.fechar-mes-explicacao {
+  margin-bottom: 18px !important;
+  padding: 12px 14px !important;
+  border: 1px dashed rgba(185,134,47,.34) !important;
+  border-left: 3px solid rgba(185,134,47,.58) !important;
+  background: rgba(185,134,47,.065) !important;
+}
+.fechar-mes-explicacao strong { font-weight: 650; }
+
+/* Cabeçalho das datas: dia destacado + descrição, sem parecer uma linha solta. */
+.ledger-date-heading {
+  display: grid !important;
+  grid-template-columns: 32px auto 1fr;
+  align-items: center;
+  gap: 9px;
+  margin: 15px 12px 7px !important;
+  padding: 0 !important;
+  text-transform: none !important;
+  letter-spacing: 0 !important;
+  color: var(--ink-text) !important;
+}
+.ledger-date-heading:first-child { margin-top: 8px !important; }
+.ledger-date-number {
+  width: 32px;
+  height: 32px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 9px;
+  background: rgba(185,134,47,.10);
+  border: 1px solid rgba(185,134,47,.24);
+  color: var(--gold-deep);
+  font-family: var(--font-mono);
+  font-size: 11px;
+  font-weight: 800;
+}
+.ledger-date-copy {
+  display: flex;
+  flex-direction: column;
+  gap: 1px;
+  min-width: 0;
+}
+.ledger-date-copy strong {
+  font-size: 11px;
+  font-weight: 800;
+  line-height: 1.15;
+  text-transform: capitalize;
+}
+.ledger-date-copy small {
+  font-size: 10px;
+  color: var(--muted);
+  line-height: 1.2;
+  text-transform: lowercase;
+}
+.ledger-date-line {
+  min-width: 18px;
+  height: 1px;
+  background: var(--line);
+  opacity: .7;
+}
+
+/* Extrato compacto: dois dias primeiro, restante somente ao pedir. */
+.ledger-item {
+  margin: 0 8px;
+  border-radius: 9px;
+  border-bottom: 1px dashed rgba(122,111,88,.18) !important;
+}
+.ledger-item + .ledger-date-heading { margin-top: 15px !important; }
+.ledger-more-btn {
+  width: calc(100% - 16px);
+  margin: 10px 8px 8px;
+  min-height: 42px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  border: 1px dashed rgba(185,134,47,.38);
+  border-radius: 10px;
+  background: rgba(185,134,47,.055);
+  color: var(--gold-deep);
+  font: 700 11px/1 var(--font-body);
+  letter-spacing: .04em;
+  cursor: pointer;
+  transition: transform .15s ease, background .15s ease, border-color .15s ease;
+}
+.ledger-more-btn:hover { background: rgba(185,134,47,.10); border-color: rgba(185,134,47,.55); }
+.ledger-more-btn:active { transform: translateY(1px); }
+.ledger-more-arrow { font-size: 15px; line-height: 0; }
+
+/* Título de ações em conjunto com aparência mais editorial. */
+.modal-acoes h3 { letter-spacing: -.025em; }
+.modal-acoes > div:first-child > .section-hint {
+  margin-bottom: 18px !important;
+}
+
+@media (max-width: 560px) {
+  .modal-actions { margin-top: 20px !important; }
+  .ledger-date-heading { grid-template-columns: 30px auto 1fr; gap: 8px; margin-left: 10px !important; margin-right: 10px !important; }
+  .ledger-date-number { width: 30px; height: 30px; }
+  .ledger-item { margin-left: 5px; margin-right: 5px; }
+  .ledger-more-btn { width: calc(100% - 10px); margin-left: 5px; margin-right: 5px; }
+}
