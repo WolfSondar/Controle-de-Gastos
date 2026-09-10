@@ -1070,6 +1070,37 @@ async function trocarPessoa(pessoa) {
   renderHistorico();
 }
 
+async function garantirEstoqueInsightsJuntos() {
+  if (!isAmbos() || !navigator.onLine || insightGeracaoEmAndamento || insightInicialSemCacheEmAndamento) return;
+  if (getTodosInsights("ambos").length >= INSIGHT_LOTE_TAMANHO) return;
+  insightInicialSemCacheEmAndamento = true;
+  try {
+    const [dadosDavi, dadosGabriel] = await Promise.all([getCache("davi"), getCache("gabriel")]);
+    if (!dadosDavi || !dadosGabriel || !isAmbos()) return;
+    const dadosJuntos = {
+      ganhos: (dadosDavi.ganhos || []).concat(dadosGabriel.ganhos || []),
+      gastosFixos: (dadosDavi.gastosFixos || []).concat(dadosGabriel.gastosFixos || []),
+      gastosVariaveis: (dadosDavi.gastosVariaveis || []).concat(dadosGabriel.gastosVariaveis || []),
+      caixinhas: (dadosDavi.caixinhas || []).concat(dadosGabriel.caixinhas || []),
+      categorias: dadosDavi.categorias || dadosGabriel.categorias || null,
+      iconCategorias: dadosDavi.iconCategorias || dadosGabriel.iconCategorias || [],
+    };
+    const resumoJuntos = montarResumoParaDadosDePessoa("ambos", dadosJuntos);
+    const textos = await pedirLoteDeInsights("ambos", resumoJuntos);
+    if (!isAmbos()) return;
+    const primeiro = textos.shift();
+    if (!primeiro) return;
+    setInsightCache("ambos", primeiro);
+    setInsightFila("ambos", textos);
+    setInsightIndice("ambos", 0);
+    exibirInsightCacheOuPlaceholder();
+  } catch (err) {
+    registrarFalhaInsightNoConsole(err, "estoque inicial — Juntos");
+  } finally {
+    insightInicialSemCacheEmAndamento = false;
+  }
+}
+
 function atualizarVisibilidadeSplitCard() {
   const card = document.getElementById("splitCard");
   if (!card) return;
