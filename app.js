@@ -1699,8 +1699,20 @@ function renderTotais() {
   animarNumero(guardadoEl, prevTotals.guardado, totalGuardadoAtual);
   const guardadoMesEl = document.getElementById("statGuardadoMes");
   if (guardadoMesEl) guardadoMesEl.textContent = totalGuardadoNoMes > 0 ? `+ ${fmt(totalGuardadoNoMes)} neste mês` : "";
+
+  // O saldo tem um pequeno indicador de variação dentro do próprio visor.
+  // Nunca usamos textContent diretamente no container do saldo, porque isso
+  // apagaria o indicador a cada frame da animação numérica.
+  let saldoNumeroEl = saldoEl ? saldoEl.querySelector(".saldo-numero") : null;
+  if (saldoEl && !saldoNumeroEl) {
+    saldoNumeroEl = document.createElement("span");
+    saldoNumeroEl.className = "saldo-numero";
+    saldoNumeroEl.textContent = saldoEl.textContent.trim();
+    saldoEl.textContent = "";
+    saldoEl.appendChild(saldoNumeroEl);
+  }
   // O saldo muda suavemente, mas o visor nunca pulsa.
-  animarNumero(saldoEl, prevTotals.saldo, saldo, 650, false);
+  animarNumero(saldoNumeroEl, prevTotals.saldo, saldo, 650, false);
 
   // O visor do saldo mantém dimensões fixas e mostra apenas a variação
   // da última sincronização no canto direito — sem criar/remover o card.
