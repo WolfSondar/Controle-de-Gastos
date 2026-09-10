@@ -2106,3 +2106,207 @@ body.sem-entrada-listas .item-list-row { animation: none !important; }
   .brand-mark::after { color: rgba(240,194,116,0.5); }
   .tab-indicator { border-color: var(--gold); }
 }
+
+
+/* ============================================================
+   AJUSTE UI/UX — hierarquia, abas e feedback de lançamentos
+   ============================================================ */
+
+/* 1. Saldo: continua sendo o protagonista, mas cabe melhor no visor. */
+.saldo-valor {
+  font-size: clamp(30px, 8vw, 36px) !important;
+  line-height: 1.08;
+  letter-spacing: -0.025em;
+  padding: 4px 10px !important;
+  max-width: 100%;
+  overflow-wrap: anywhere;
+}
+
+@media (max-width: 400px) {
+  .saldo-valor {
+    font-size: 31px !important;
+    padding-left: 9px !important;
+    padding-right: 9px !important;
+  }
+}
+
+/* 2. Abas: elimina completamente a "bola" e cria um estado ativo limpo. */
+.tab-indicator,
+.tab-indicator.is-visible {
+  opacity: 0 !important;
+  visibility: hidden;
+  width: 0 !important;
+  pointer-events: none;
+}
+
+.tab-btn {
+  min-height: 50px;
+  margin: 2px 3px;
+  padding: 7px 8px 6px;
+  border: 1px solid transparent !important;
+  border-radius: 12px;
+  gap: 3px;
+  color: var(--muted);
+  transition:
+    color .18s ease,
+    background .18s ease,
+    border-color .18s ease,
+    transform .18s ease;
+}
+
+.tab-btn svg {
+  width: 20px;
+  height: 20px;
+  transition: transform .18s ease, stroke-width .18s ease;
+}
+
+.tab-btn:hover {
+  background: rgba(185,134,47,.08);
+  color: var(--ink-text);
+}
+
+.tab-btn:active {
+  transform: scale(.96);
+}
+
+.tab-btn.is-active {
+  color: var(--ink-text) !important;
+  background: var(--paper);
+  border-color: var(--line) !important;
+  box-shadow:
+    0 2px 7px rgba(40,28,12,.10),
+    inset 0 1px 0 rgba(255,255,255,.55);
+  font-weight: 700;
+}
+
+.tab-btn.is-active svg {
+  stroke: var(--gold-deep) !important;
+  transform: translateY(-1px);
+}
+
+@media (max-width: 400px) {
+  .tab-btn {
+    min-width: 52px;
+    min-height: 47px;
+    margin-inline: 2px;
+    padding-inline: 5px;
+    border-radius: 10px;
+  }
+}
+
+/* 3. Feedback do lançamento: o valor aparece como um badge evidente,
+      sem parecer que "sumiu" no fundo do saldo. */
+.value-pop {
+  right: 50% !important;
+  top: -3px !important;
+  transform: translate3d(50%, 8px, 0) scale(.78) !important;
+  padding: 7px 11px;
+  border-radius: 999px;
+  font-size: 13px !important;
+  line-height: 1;
+  letter-spacing: .01em;
+  background: var(--paper);
+  border: 1px solid currentColor;
+  box-shadow:
+    0 5px 16px rgba(0,0,0,.22),
+    0 0 0 4px rgba(255,255,255,.05);
+  text-shadow: none;
+  z-index: 50;
+}
+
+.value-pop.is-animating {
+  opacity: 1;
+  transform: translate3d(50%, -30px, 0) scale(1) !important;
+}
+
+.value-pop.is-leaving {
+  opacity: 0;
+  transform: translate3d(50%, -52px, 0) scale(.96) !important;
+  transition:
+    transform .58s cubic-bezier(.4,0,1,1),
+    opacity .5s ease;
+}
+
+.value-pop.income {
+  color: var(--income);
+  background: var(--income-bg);
+}
+
+.value-pop.expense {
+  color: var(--expense);
+  background: var(--expense-bg);
+}
+
+.value-pop.gold {
+  color: var(--gold-deep);
+  background: rgba(185,134,47,.14);
+}
+
+.hero-stat .value-pop {
+  top: -4px !important;
+  right: 50% !important;
+  font-size: 11.5px !important;
+  padding: 5px 8px;
+}
+
+@media (prefers-color-scheme: dark) {
+  .tab-btn.is-active {
+    background: var(--paper-deep);
+    box-shadow:
+      0 2px 8px rgba(0,0,0,.28),
+      inset 0 1px 0 rgba(255,255,255,.04);
+  }
+
+  .value-pop.income { background: #183326; }
+  .value-pop.expense { background: #38211b; }
+  .value-pop.gold { background: rgba(217,171,92,.16); }
+}
+
+/* Toast global: reforço visual para mensagens de confirmação/erro. */
+.toast {
+  bottom: calc(86px + env(safe-area-inset-bottom)) !important;
+  max-width: min(92%, 390px) !important;
+  padding: 13px 17px !important;
+  border-radius: 14px !important;
+  border: 1px solid rgba(227,197,129,.42);
+  background: var(--ink);
+  box-shadow:
+    0 12px 30px rgba(0,0,0,.28),
+    0 0 0 4px rgba(185,134,47,.08);
+  font-size: 13.5px !important;
+  font-weight: 600;
+  transform: translateX(-50%) translateY(18px) scale(.96) !important;
+}
+
+.toast.is-visible {
+  opacity: 1;
+  transform: translateX(-50%) translateY(0) scale(1) !important;
+  animation: toast-enter .28s cubic-bezier(.22,1,.36,1);
+}
+
+.toast-msg {
+  text-align: left;
+}
+
+@keyframes toast-enter {
+  0% {
+    opacity: 0;
+    transform: translateX(-50%) translateY(18px) scale(.94);
+  }
+  70% {
+    transform: translateX(-50%) translateY(-2px) scale(1.01);
+  }
+  100% {
+    opacity: 1;
+    transform: translateX(-50%) translateY(0) scale(1);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .value-pop,
+  .toast,
+  .tab-btn {
+    transition: none !important;
+    animation: none !important;
+  }
+}
