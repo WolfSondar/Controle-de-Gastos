@@ -3302,3 +3302,47 @@ body.sem-entrada-listas .item-list-row { animation: none !important; }
 }
 .hero-stat-subvalor.gold { color: #d9ab5c; }
 .hero-stat-subvalor:empty { display: none; }
+
+/* Ganhos — separa o total recebido por origem dentro do próprio card. */
+.hero-stat-ganhos { min-width: 0; }
+.hero-stat-origens {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-top: 1px;
+  min-width: 0;
+}
+.hero-stat-origem {
+  display: flex;
+  align-items: baseline;
+  gap: 4px;
+  min-width: 0;
+  white-space: nowrap;
+}
+.hero-stat-origem > span {
+  font-family: var(--font-mono);
+  font-size: 9.5px;
+  font-weight: 700;
+}
+.hero-stat-origem > small {
+  font-size: 8.5px;
+  text-transform: uppercase;
+  letter-spacing: .05em;
+}
+.hero-stat-origem-beneficio > span,
+.hero-stat-origem-beneficio > small { color: #e3c581; }
+.hero-stat-origem-ganho > span,
+.hero-stat-origem-ganho > small { color: #8fd4ab; }
+.hero-stat-origem + .hero-stat-origem {
+  padding-left: 8px;
+  border-left: 1px solid rgba(255,255,255,.16);
+}
+
+/* O saldo agora mostra o restante disponível por origem. */
+.saldo-origem-valor.negative { color: #e08a6e !important; }
+@media (max-width: 400px) {
+  .hero-stat-origens { gap: 6px; }
+  .hero-stat-origem + .hero-stat-origem { padding-left: 6px; }
+  .hero-stat-origem > span { font-size: 9px; }
+  .hero-stat-origem > small { font-size: 8px; }
+}
