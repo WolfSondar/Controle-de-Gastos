@@ -1070,37 +1070,6 @@ async function trocarPessoa(pessoa) {
   renderHistorico();
 }
 
-async function garantirEstoqueInsightsJuntos() {
-  if (!isAmbos() || !navigator.onLine || insightGeracaoEmAndamento || insightInicialSemCacheEmAndamento) return;
-  if (getTodosInsights("ambos").length >= INSIGHT_LOTE_TAMANHO) return;
-  insightInicialSemCacheEmAndamento = true;
-  try {
-    const [dadosDavi, dadosGabriel] = await Promise.all([getCache("davi"), getCache("gabriel")]);
-    if (!dadosDavi || !dadosGabriel || !isAmbos()) return;
-    const dadosJuntos = {
-      ganhos: (dadosDavi.ganhos || []).concat(dadosGabriel.ganhos || []),
-      gastosFixos: (dadosDavi.gastosFixos || []).concat(dadosGabriel.gastosFixos || []),
-      gastosVariaveis: (dadosDavi.gastosVariaveis || []).concat(dadosGabriel.gastosVariaveis || []),
-      caixinhas: (dadosDavi.caixinhas || []).concat(dadosGabriel.caixinhas || []),
-      categorias: dadosDavi.categorias || dadosGabriel.categorias || null,
-      iconCategorias: dadosDavi.iconCategorias || dadosGabriel.iconCategorias || [],
-    };
-    const resumoJuntos = montarResumoParaDadosDePessoa("ambos", dadosJuntos);
-    const textos = await pedirLoteDeInsights("ambos", resumoJuntos);
-    if (!isAmbos()) return;
-    const primeiro = textos.shift();
-    if (!primeiro) return;
-    setInsightCache("ambos", primeiro);
-    setInsightFila("ambos", textos);
-    setInsightIndice("ambos", 0);
-    exibirInsightCacheOuPlaceholder();
-  } catch (err) {
-    registrarFalhaInsightNoConsole(err, "estoque inicial — Juntos");
-  } finally {
-    insightInicialSemCacheEmAndamento = false;
-  }
-}
-
 function atualizarVisibilidadeSplitCard() {
   const card = document.getElementById("splitCard");
   if (!card) return;
@@ -1766,6 +1735,8 @@ function renderTotais() {
   const saldoEl = document.getElementById("saldoValor");
   const beneficiosEl = document.getElementById("saldoBeneficios");
   const ganhosSaldoEl = document.getElementById("saldoGanhos");
+  const beneficioRestanteEl = document.getElementById("saldoBeneficioRestante");
+  const saldoRestanteEl = document.getElementById("saldoGanhosRestante");
 
   const primeiraVez = prevTotals.saldo === null;
 
@@ -1841,19 +1812,37 @@ function renderTotais() {
 
   saldoEl.classList.toggle("negative", saldo < 0);
 
-  // A composição abaixo do saldo é contextual: não mostramos uma origem
-  // zerada e nunca deixamos o separador sozinho. Assim, se só houver
-  // Benefício ou só houver Ganhos, aparece apenas o que existe; se ambos
-  // forem zero, toda a linha desaparece.
+  // No card Ganhos mostramos a origem do total recebido. Abaixo do saldo,
+  // mostramos quanto ainda resta de cada fonte depois dos gastos já pagos:
+  // Benefício = benefícios recebidos − variáveis pagas marcadas como benefício.
+  // Saldo = ganhos normais recebidos − fixos pagos − variáveis pagas do saldo.
   if (beneficiosEl) beneficiosEl.textContent = fmt(ganhosPorOrigem.beneficios);
   if (ganhosSaldoEl) ganhosSaldoEl.textContent = fmt(ganhosPorOrigem.ganhos);
 
+  const gastosVariaveisBeneficio = (state.gastosVariaveis || []).reduce((acc, item) => {
+    return acc + (variavelContaNoSaldo(item) && variavelEhBeneficio(item) ? (Number(item.valor) || 0) : 0);
+  }, 0);
+  const gastosVariaveisSaldo = (state.gastosVariaveis || []).reduce((acc, item) => {
+    return acc + (variavelContaNoSaldo(item) && !variavelEhBeneficio(item) ? (Number(item.valor) || 0) : 0);
+  }, 0);
+  const beneficioRestante = ganhosPorOrigem.beneficios - gastosVariaveisBeneficio;
+  const saldoRestante = ganhosPorOrigem.ganhos - totalFixosPagos - gastosVariaveisSaldo;
+
+  if (beneficioRestanteEl) {
+    beneficioRestanteEl.textContent = fmt(beneficioRestante);
+    beneficioRestanteEl.classList.toggle("negative", beneficioRestante < 0);
+  }
+  if (saldoRestanteEl) {
+    saldoRestanteEl.textContent = fmt(saldoRestante);
+    saldoRestanteEl.classList.toggle("negative", saldoRestante < 0);
+  }
+
   const saldoOrigensEl = document.getElementById("saldoOrigens");
-  const beneficioOrigemEl = beneficiosEl ? beneficiosEl.closest(".saldo-origem") : null;
-  const ganhoOrigemEl = ganhosSaldoEl ? ganhosSaldoEl.closest(".saldo-origem") : null;
+  const beneficioOrigemEl = beneficioRestanteEl ? beneficioRestanteEl.closest(".saldo-origem") : null;
+  const ganhoOrigemEl = saldoRestanteEl ? saldoRestanteEl.closest(".saldo-origem") : null;
   const separadorOrigensEl = saldoOrigensEl ? saldoOrigensEl.querySelector(".saldo-origens-separador") : null;
-  const temBeneficio = Math.abs(Number(ganhosPorOrigem.beneficios) || 0) > 0.000001;
-  const temGanhos = Math.abs(Number(ganhosPorOrigem.ganhos) || 0) > 0.000001;
+  const temBeneficio = Math.abs(Number(beneficioRestante) || 0) > 0.000001;
+  const temGanhos = Math.abs(Number(saldoRestante) || 0) > 0.000001;
 
   beneficioOrigemEl?.classList.toggle("is-zero", !temBeneficio);
   ganhoOrigemEl?.classList.toggle("is-zero", !temGanhos);
