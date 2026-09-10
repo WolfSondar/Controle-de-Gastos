@@ -584,10 +584,6 @@ const state = {
   // Incrementa a cada alteração feita pelo usuário. Uma busca iniciada antes
   // dessa alteração nunca pode sobrescrever o estado local mais novo.
   versaoAlteracaoLocal: 0,
-  // Identifica cada troca de pessoa. Uma resposta de uma sessão anterior
-  // nunca pode voltar a pintar a tela, mesmo se o usuário voltar rapidamente
-  // para a mesma pessoa.
-  sessaoPessoa: 0,
   pessoaAtual: localStorage.getItem(PESSOA_STORAGE_KEY) || "davi",
   mesAtual: mesAtualCache ? mesAtualCache.mes : null,
   anoAtual: mesAtualCache ? mesAtualCache.ano : null,
@@ -753,10 +749,9 @@ async function carregarDados() {
   }
 
   const pessoaRequisitada = state.pessoaAtual;
-  const sessaoNoInicio = state.sessaoPessoa;
   const versaoNoInicio = state.versaoAlteracaoLocal;
   const cache = await getCache(pessoaRequisitada);
-  if (state.pessoaAtual !== pessoaRequisitada || state.sessaoPessoa !== sessaoNoInicio) return;
+  if (state.pessoaAtual !== pessoaRequisitada) return;
   // Se o usuário alterou qualquer coisa enquanto o cache era lido, o cache
   // antigo não pode entrar por cima do que ele acabou de fazer.
   if (state.versaoAlteracaoLocal !== versaoNoInicio) return;
@@ -788,7 +783,7 @@ async function carregarDados() {
     const res = await fetch(url, { method: "GET" });
     const data = await res.json();
     if (data && data.ok === false) throw new Error(data.error || "Erro desconhecido");
-    if (state.pessoaAtual !== pessoaRequisitada || state.sessaoPessoa !== sessaoNoInicio) return;
+    if (state.pessoaAtual !== pessoaRequisitada) return;
     // A resposta pode ter ficado alguns segundos em trânsito. Se houve uma
     // ação local desde o início desta busca, ela é mais nova e deve vencer.
     if (state.versaoAlteracaoLocal !== versaoNoInicio) return;
@@ -810,7 +805,7 @@ async function carregarDados() {
     prefetchOutrasPessoas(pessoaRequisitada);
     atualizarInsightComIA(); // sincronizou de verdade — hora de atualizar o insight
   } catch (err) {
-    if (state.pessoaAtual !== pessoaRequisitada || state.sessaoPessoa !== sessaoNoInicio) return;
+    if (state.pessoaAtual !== pessoaRequisitada) return;
     // Caiu a conexão no meio da busca: mesmo tratamento calmo do offline
     // (sem ícone de erro em vermelho, que é pra falha de verdade).
     setSyncState(ehErroDeRede(err) || !navigator.onLine ? "offline" : "error");
@@ -1007,9 +1002,6 @@ if (syncEl) {
 // ---------------------------------------------------------------------
 function trocarPessoa(pessoa) {
   if (pessoa === state.pessoaAtual) return;
-  // Invalida imediatamente toda requisição/cache pertencente à pessoa anterior.
-  // Isso também cobre Davi → Gabriel → Davi antes da primeira requisição terminar.
-  state.sessaoPessoa = (state.sessaoPessoa || 0) + 1;
   state.pessoaAtual = pessoa;
   localStorage.setItem(PESSOA_STORAGE_KEY, pessoa);
   prevTotals.ganhos = null;
@@ -1685,21 +1677,24 @@ function renderTotais() {
 
   saldoEl.classList.toggle("negative", saldo < 0);
 
+  // A composição abaixo do saldo é contextual: não mostramos uma origem
+  // zerada e nunca deixamos o separador sozinho. Assim, se só houver
+  // Benefício ou só houver Ganhos, aparece apenas o que existe; se ambos
+  // forem zero, toda a linha desaparece.
   if (beneficiosEl) beneficiosEl.textContent = fmt(ganhosPorOrigem.beneficios);
   if (ganhosSaldoEl) ganhosSaldoEl.textContent = fmt(ganhosPorOrigem.ganhos);
 
-  // Não mostra uma origem zerada. O CSS faz a contração suave do item e do
-  // separador; se as duas origens forem zero, a linha inteira desaparece.
-  const origensEl = document.getElementById("saldoOrigens");
-  const origemBeneficioEl = origensEl?.querySelector(".saldo-origem-beneficio");
-  const origemGanhoEl = origensEl?.querySelector(".saldo-origem-ganho");
-  const separadorOrigemEl = origensEl?.querySelector(".saldo-origens-separador");
-  const beneficioZerado = Math.abs(Number(ganhosPorOrigem.beneficios) || 0) < 0.005;
-  const ganhoZerado = Math.abs(Number(ganhosPorOrigem.ganhos) || 0) < 0.005;
-  origemBeneficioEl?.classList.toggle("is-zero", beneficioZerado);
-  origemGanhoEl?.classList.toggle("is-zero", ganhoZerado);
-  separadorOrigemEl?.classList.toggle("is-zero", beneficioZerado || ganhoZerado);
-  origensEl?.classList.toggle("is-vazio", beneficioZerado && ganhoZerado);
+  const saldoOrigensEl = document.getElementById("saldoOrigens");
+  const beneficioOrigemEl = beneficiosEl ? beneficiosEl.closest(".saldo-origem") : null;
+  const ganhoOrigemEl = ganhosSaldoEl ? ganhosSaldoEl.closest(".saldo-origem") : null;
+  const separadorOrigensEl = saldoOrigensEl ? saldoOrigensEl.querySelector(".saldo-origens-separador") : null;
+  const temBeneficio = Math.abs(Number(ganhosPorOrigem.beneficios) || 0) > 0.000001;
+  const temGanhos = Math.abs(Number(ganhosPorOrigem.ganhos) || 0) > 0.000001;
+
+  beneficioOrigemEl?.classList.toggle("is-zero", !temBeneficio);
+  ganhoOrigemEl?.classList.toggle("is-zero", !temGanhos);
+  separadorOrigensEl?.classList.toggle("is-hidden", !(temBeneficio && temGanhos));
+  saldoOrigensEl?.classList.toggle("is-vazio", !(temBeneficio || temGanhos));
 
   const ganhosPendenteEl = document.getElementById("statGanhosPendente");
   if (ganhosPendenteEl) ganhosPendenteEl.textContent = totalGanhosAReceber > 0 ? `+ ${fmt(totalGanhosAReceber)}` : "";
