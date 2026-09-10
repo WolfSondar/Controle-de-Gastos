@@ -3718,11 +3718,15 @@ function setInsightCache(pessoa, insight) {
 function getInsightFila(pessoa) {
   try {
     const lista = JSON.parse(localStorage.getItem(INSIGHT_FILA_PREFIX + pessoa) || "[]");
-    return Array.isArray(lista) ? lista.map(normalizarInsight).filter((i) => i.texto) : [];
+    // O estoque visível é sempre de 5 no total: 1 insight atual + até 4 na fila.
+    return Array.isArray(lista) ? lista.map(normalizarInsight).filter((i) => i.texto).slice(0, Math.max(0, INSIGHT_LOTE_TAMANHO - 1)) : [];
   } catch (err) { return []; }
 }
 function setInsightFila(pessoa, lista) {
-  try { localStorage.setItem(INSIGHT_FILA_PREFIX + pessoa, JSON.stringify((lista || []).map(normalizarInsight).filter((i) => i.texto))); } catch (err) {}
+  try {
+    const filaLimitada = (lista || []).map(normalizarInsight).filter((i) => i.texto).slice(0, Math.max(0, INSIGHT_LOTE_TAMANHO - 1));
+    localStorage.setItem(INSIGHT_FILA_PREFIX + pessoa, JSON.stringify(filaLimitada));
+  } catch (err) {}
 }
 
 function getInsightIndice(pessoa) {
@@ -3734,7 +3738,8 @@ function setInsightIndice(pessoa, indice) {
 function getTodosInsights(pessoa) {
   const atual = getInsightCache(pessoa);
   const fila = getInsightFila(pessoa);
-  return atual ? [atual].concat(fila) : fila.slice();
+  // Compatibilidade com estoques antigos: nunca deixamos passar de 5 insights.
+  return (atual ? [atual].concat(fila) : fila.slice()).slice(0, INSIGHT_LOTE_TAMANHO);
 }
 function atualizarIndicadoresInsights() {
   garantirEstiloDosIndicadoresInsight();
@@ -3922,6 +3927,9 @@ function mostrarProximoInsightDaFila() {
   setInsightIndice(pessoa, proximoIndice);
   mostrarInsightTexto(lista[proximoIndice], "ia");
   atualizarIndicadoresInsights();
+  // Clique manual reinicia a contagem dos 15s. Assim, se faltava 1s para
+  // a troca automática, o clique não é imediatamente seguido por outra troca.
+  iniciarRotacaoInsights();
   return true;
 }
 
