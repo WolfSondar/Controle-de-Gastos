@@ -1,167 +1,56 @@
-# Caixa — Controle Financeiro e Objetivos
+# 💰 CAIXA — Gestão Financeira Pessoal & Compartilhada
 
-PWA pessoal de controle financeiro (funciona offline e pode ser instalado
-no celular) que usa a sua planilha do Google Sheets como banco de dados —
-leitura e escrita, mão dupla. Pensado para uso a dois: Davi e Gabriel, com
-um terceiro modo "Juntos" que soma os dois.
+O **CAIXA** é uma aplicação web progressiva (**PWA**) leve, intuitiva e *Offline-First* desenvolvida para o controle financeiro individual e compartilhado. O sistema utiliza uma planilha do **Google Sheets** como banco de dados através de uma API em **Google Apps Script**, permitindo total controle e persistência dos dados na nuvem sem custos de hospedagem de servidor.
 
-## Como funciona
+---
 
-Como o GitHub Pages só hospeda arquivos estáticos (HTML/CSS/JS), ele não
-consegue escrever direto numa planilha do Google. A ponte é feita por um
-**Google Apps Script** publicado como "App da Web": o site chama essa URL
-para ler os dados e para salvar ganhos, gastos, metas e fechamentos de mês.
+## 🚀 O que o Sistema Faz
 
-```
-[Site no GitHub Pages]  <--fetch()-->  [Apps Script /exec]  <-->  [Sua planilha]
-```
+### 👥 1. Gestão Multiperfil (Individual e Conjunto)
+* **Perfis Individuais:** Registre receitas, despesas e metas de forma isolada para cada usuário (ex: *Davi* e *Gabriel*).
+* **Visão Compartilhada ("Juntos"):** Alternância rápida para um painel consolidado que combina o saldo, gastos e metas de ambas as partes, ideal para casais ou residentes da mesma casa.
 
-Um **Service Worker** (`sw.js`) cuida só do "app shell" — HTML/CSS/JS/ícone
-— pra abrir instalado e funcionar offline. Os dados nunca passam pelo cache
-do Service Worker: cada leitura/escrita na planilha é sempre fresca, com
-uma fila offline própria (guardada no IndexedDB do navegador) que reenvia
-o que não conseguiu sincronizar assim que a conexão volta.
+### 💵 2. Controle de Entradas e Benefícios
+* **Lançamento de Ganhos:** Registro de salários, extras e transferências com status de *Recebido* ou *Pendente*.
+* **Identificação de Benefícios:** Separação automática de saldos provenientes de vale-refeição/alimentação ou multibenefícios para fácil visualização do saldo disponível.
 
-## Passo 1 — Preparar a planilha
+### 📌 3. Gestão de Gastos Fixos e Variáveis
+* **Gastos Fixos:** Acompanhamento de contas recorrentes do mês com alternância de status (*Pago* / *Pendente*).
+* **Gastos Variáveis:** Registro de despesas do dia a dia, compras parceladas e gastos categorizados.
+* **Alertas e Tags Visuais:** Identificação automática de lançamentos atrasados, compras adiantadas (*Lembretes*) ou referentes ao mês seguinte.
 
-Sua planilha já está no formato certo:
+### 🤝 4. Divisão de Despesas e Acerto de Contas
+* **Divisão 50/50:** Permite dividir qualquer compra no momento do lançamento em metadas iguais entre os perfis.
+* **Registro de Credor/Devedor:** Se um usuário pagar o valor total de uma conta compartilhada, o sistema registra automaticamente a metade devida pelo outro (*"deve pra..."*).
+* **Quitação Automática:** Quando o devedor marca a sua metade como paga, o sistema gera o crédito/ganho automaticamente na conta de quem financiou o pagamento.
+* **Transferências Diretas:** Realize transferências de saldo entre perfis com ajuste imediato nos dois extratos.
 
-| GANHOS | VALOR GANHO | GASTOS FIXOS | VALOR FIXO | GASTOS VARIÁVEIS | VALOR VARIÁVEL | OBJETIVOS | CUSTO | VALOR ADICIONADO |
+### 🎯 5. Caixinhas de Objetivos e Reservas Financeiras
+* **Metas e Progresso:** Criação de caixinhas para objetivos de curto/médio/longo prazo com barras de progresso percentual e indicador de meta concluída.
+* **Aportes e Retiradas:** Movimentação direta entre o saldo principal e as caixinhas.
+* **Gestão de Rendimentos:** Cálculo e acompanhamento de rendimentos acumulados (positivos ou negativos) sobre os valores guardados.
+* **Ícones Personalizados com Suporte Offline:** Escolha de ícones por categoria carregados diretamente do repositório/pasta do projeto, organizados por busca e categorias com cache offline.
 
-Confira o **nome da aba** (a abinha lá embaixo da planilha). Você vai usar
-esse nome no Passo 2.
+### ⚡ 6. Arquitetura *Offline-First* (PWA)
+* **Funcionamento sem Internet:** Acesse e navegue por todos os dados salvos mesmo offline via **IndexedDB** e **Service Worker**.
+* **Fila de Sincronização em Segundo Plano (Background Sync):** Registre alterações, pagamentos e novos lançamentos offline. Assim que a conexão for reestabelecida, o sistema sincroniza automaticamente as pendências com a planilha no Google Sheets.
+* **Instalável:** Pode ser adicionado à tela inicial do celular ou desktop como um aplicativo nativo.
 
-## Passo 2 — Publicar o Apps Script
+### 📊 7. Visualização, Gráficos e Insights
+* **Resumos Dinâmicos:** Dashboard com saldo atual, total acumulado no mês, total guardado e pendências a pagar/receber.
+* **Categorização Personalizável:** Distribuição visual dos gastos por categoria com suporte a cores customizadas.
+* **Histórico Financeiro:** Consulta e comparativo de meses e anos anteriores.
 
-1. Abra sua planilha no navegador.
-2. Vá em **Extensões > Apps Script**.
-3. Apague o conteúdo do arquivo `Code.gs` que abrir.
-4. Abra o arquivo `Code.gs` deste projeto, copie tudo e cole lá.
-5. Na primeira linha de código, ajuste se precisar:
-   ```js
-   const SHEET_NAME = "Sistema de Controle Financeiro";
-   ```
-   Troque pelo nome exato da sua aba (se não encontrar, o script usa a
-   primeira aba automaticamente).
-6. Clique em **Salvar** (ícone de disquete).
-7. Clique em **Implantar** (Deploy) → **Nova implantação**.
-8. Em "Selecionar tipo", escolha **App da Web**.
-9. Configure:
-   - **Executar como:** Eu (seu e-mail)
-   - **Quem pode acessar:** Qualquer pessoa
-10. Clique em **Implantar**. O Google vai pedir autorização — aceite
-    (é o seu próprio script acessando sua própria planilha).
-11. Copie a **URL do app da Web** (termina em `/exec`).
+---
 
-> ⚠️ Qualquer pessoa que tiver essa URL consegue ler e alterar a planilha.
-> Não publique essa URL em lugar nenhum público, nem mesmo no código do
-> GitHub — o `config.js` é o único lugar onde ela deve aparecer, e mesmo
-> assim, saiba que ela fica visível para quem abrir o site (isso é uma
-> limitação de sites 100% estáticos sem login). Para um controle financeiro
-> pessoal isso costuma ser aceitável, mas vale saber.
+## 🛠️ Tecnologias Utilizadas
 
-## Passo 3 — Configurar o site
+* **Frontend:** HTML5, CSS3 (Design System com variáveis, animações e suporte a gestos *Swipe* no mobile/PC), JavaScript Vanilla (ES6+).
+* **Armazenamento Local & Offline:** IndexedDB, LocalStorage, Cache API.
+* **PWA:** Service Worker (`sw.js`) com estratégias de cache *Stale-While-Revalidate* e *Background Sync*.
+* **Backend & Banco de Dados:** Google Apps Script (Web App RESTful API) integrado ao **Google Sheets**.
+* **Integração de Mídia:** GitHub API para listagem e cache dinâmico de ícones personalizados.
 
-1. Abra o arquivo `config.js`.
-2. Troque `COLE_AQUI_A_URL_DO_SEU_APPS_SCRIPT` pela URL que você copiou:
-   ```js
-   const API_URL = "https://script.google.com/macros/s/AKfycb.../exec";
-   ```
-3. Salve.
+---
 
-## Passo 4 — Publicar no GitHub Pages
-
-1. Crie um repositório novo no GitHub (pode ser privado ou público).
-2. Suba os arquivos do projeto: `index.html`, `style.css`, `app.js`,
-   `config.js`, `sw.js`, `manifest.json` e a pasta `IMG/` (com o ícone).
-   (`Code.gs` não precisa ir para o GitHub — ele já está na planilha.)
-3. No repositório, vá em **Settings > Pages**.
-4. Em "Source", escolha a branch `main` e a pasta `/ (root)`.
-5. Salve e aguarde alguns minutos. O GitHub mostra a URL do site
-   (algo como `https://seu-usuario.github.io/seu-repositorio/`).
-
-Pronto — abra a URL no celular e comece a usar. Dá pra "Adicionar à Tela de
-Início" no navegador do celular pra abrir instalado, como se fosse um app
-nativo (é o manifest.json + o Service Worker que fazem isso funcionar).
-
-> Toda vez que publicar uma mudança em `style.css`/`app.js`/`index.html`,
-> suba também a versão do `CACHE_VERSION` lá no topo do `sw.js` — é isso
-> que avisa o Service Worker que precisa baixar os arquivos novos de novo
-> em vez de continuar servindo a versão antiga do cache.
-
-## O que o site faz
-
-- **Perfis:** alterna entre Davi, Gabriel e "Juntos" (soma dos dois),
-  cada um com seus próprios ganhos, gastos e metas na mesma planilha.
-- **Resumo:** saldo disponível (ganhos − fixos − variáveis), gráfico de
-  gastos por categoria, últimos lançamentos e progresso das metas.
-- **Ganhos:** adicionar e remover entradas de dinheiro.
-- **Fixos:** adicionar e remover gastos fixos mensais.
-- **Variáveis:** adicionar e remover gastos avulsos, com categoria
-  opcional (a lista de categorias fica centralizada em `app.js`, na
-  constante `CATEGORIAS`).
-- **Metas:** criar objetivos com custo total, guardar valores aos poucos
-  e ver quanto ainda falta, com barra de progresso.
-- **Fechar mês:** encerra o mês corrente e guarda o resumo (saldo de cada
-  um, gastos por categoria) pro **Histórico**, que mostra a evolução mês
-  a mês e a soma de categorias por ano.
-- **Offline:** o app abre e funciona sem internet; qualquer lançamento
-  feito offline entra numa fila e é sincronizado sozinho quando a conexão
-  volta (o indicador no topo mostra "Salvando…", "Sincronizado" ou a
-  fila pendente).
-
-## Testando localmente antes de publicar
-
-Você pode abrir o `index.html` direto no navegador para testar, mas alguns
-navegadores bloqueiam `fetch()` em arquivos abertos com `file://`. Se isso
-acontecer, use uma extensão tipo "Live Server" ou rode:
-```
-python3 -m http.server 8000
-```
-na pasta do site e acesse `http://localhost:8000`.
-
-## Personalizando
-
-- Cores e fontes: tudo centralizado no topo do `style.css`, nas variáveis
-  `:root` (verde-tinta, dourado dos objetivos, vermelho dos gastos).
-- Categorias de gasto — **duas formas**:
-  1. **Aba CONFIGS na planilha (recomendado):** crie uma aba chamada
-     `CONFIGS` com cabeçalho `CATEGORIA` na coluna A e `COR` na coluna B
-     (cor em hex, ex: `#b9862f`). A partir da primeira linha com dado,
-     cada linha vira uma categoria disponível nos formulários e no
-     gráfico, na cor que você escolher. Pra adicionar, editar ou remover
-     uma categoria, basta editar essa aba — não precisa mexer em código
-     nem reimplantar nada.
-  2. **Lista fixa no código (fallback):** se a aba CONFIGS não existir
-     (ou estiver vazia), o app usa a lista em `CATEGORIAS_PADRAO`, em
-     `app.js`, com cores tiradas da paleta `PALETA_CATEGORIAS` logo
-     abaixo, por ordem.
-- Ganhos recorrentes (o que volta sozinho pro mês seguinte ao Fechar Mês,
-  em vez de ser descartado): coluna `TERMO GANHO RECORRENTE` na mesma aba
-  `CONFIGS` (coluna C) — um termo por linha (ex: `salario`, `refeicao`,
-  `13o`). Não precisa estar alinhado com as linhas de categoria, são
-  colunas independentes. Um ganho é considerado recorrente se o nome dele
-  contiver qualquer um desses termos (sem diferenciar acento/maiúscula —
-  "Salário" bate com o termo `salario`). Se a coluna C estiver vazia, usa
-  o fallback fixo (`salario`, `refeicao`, `beneficio`) do `Code.gs`.
-- **Insights de IA personalizados:** também na aba `CONFIGS`, colunas D a H
-  (opcionais — se ficarem vazias, os insights saem no tom padrão de
-  sempre, sem contexto pessoal):
-  - `IMERSÃO IA DAVI` (D) e `IMERSÃO IA GABRIEL` (E): um traço pessoal por
-    linha (gostos, hobbies, pets, temas etc.), ex: `[COMIDA] Sou
-    vegetariano`. A tag entre colchetes é só uma dica de assunto pra você
-    organizar a planilha — não precisa bater com o nome de uma categoria
-    de gasto, e é opcional.
-  - `IMERSÃO IA AMBOS` (F): traços que valem pros dois, usados também no
-    modo Juntos.
-  - A IA usa esses traços com moderação: só entra no insight quando faz
-    sentido específico pra aquele gasto (ex: um lançamento no pet shop
-    pode puxar o nome do bichinho), nunca forçado.
-  - `TOM IA DAVI` (G) e `TOM IA GABRIEL` (H): descrição livre de
-    persona/estilo de escrita (ex: "fale como o Tom Nook de Animal
-    Crossing"). Ao contrário da imersão, o tom se aplica a **todos** os
-    insights daquela pessoa, sempre. No modo Juntos o tom fica sempre
-    neutro/padrão, mesmo que Davi e Gabriel tenham tons diferentes
-    configurados — não dá pra misturar duas personas na mesma frase.
-  - Editar essas colunas não precisa reimplantar o Apps Script — só editar
-    o `Code.gs` em si (a lógica de leitura) exige nova implantação.
+## 📁 Estrutura dos Arquivos Principais
