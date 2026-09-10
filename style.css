@@ -1,4 +1,4 @@
-   /* ============================================================
+/* ============================================================
    CAIXA — tema "livro-caixa" (passbook de banco antigo)
    Paleta: verde-tinta escuro + papel creme + dourado + tinta vermelha
    ============================================================ */
@@ -2618,3 +2618,227 @@ body.sem-entrada-listas .item-list-row { animation: none !important; }
 .fab-criar.is-hidden { display: none !important; }
 .ganhos-legenda { margin-top: 10px !important; margin-bottom: 14px !important; padding-top: 2px; }
 @media (max-width: 560px) { .fab-criar { width: 52px; height: 52px; } }
+
+/* ==========================================================
+   V7 — REFORMA VISUAL DO HISTÓRICO
+   ========================================================== */
+#tab-historico {
+  padding-bottom: 108px;
+}
+
+#tab-historico .section-title {
+  margin-bottom: 5px;
+  letter-spacing: -0.02em;
+}
+
+#tab-historico > .section-hint {
+  max-width: 560px;
+  margin-bottom: 18px;
+}
+
+.historico-controles {
+  display: flex !important;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  margin: 0 0 18px;
+  padding: 11px 12px 11px 14px;
+  background: linear-gradient(180deg, var(--paper) 0%, var(--paper-deep) 100%);
+  border: 1px solid var(--line);
+  border-radius: 16px;
+  box-shadow: 0 6px 18px rgba(22, 51, 44, .055);
+}
+
+.historico-controles::before {
+  content: "Período";
+  color: var(--muted);
+  font-size: 11px;
+  font-weight: 750;
+  letter-spacing: .12em;
+  text-transform: uppercase;
+}
+
+.historico-controles .input-select {
+  min-width: 136px;
+  padding-top: 9px;
+  padding-bottom: 9px;
+  background-color: var(--paper);
+  box-shadow: none;
+}
+
+.historico-lista {
+  gap: 14px;
+}
+
+.historico-ano-bloco {
+  gap: 16px;
+  margin-bottom: 28px;
+}
+
+/* Área dos gráficos com aspecto de painel editorial */
+.historico-ano-bloco .graficos-carousel-wrap {
+  position: relative;
+}
+
+.historico-grafico-wrap {
+  position: relative;
+  overflow: hidden;
+  background:
+    radial-gradient(circle at 92% 10%, rgba(185,134,47,.075), transparent 34%),
+    linear-gradient(180deg, var(--paper) 0%, var(--paper-deep) 100%);
+  border: 1px solid rgba(122,111,88,.22);
+  border-radius: 22px;
+  padding: 19px 16px 15px;
+  margin-bottom: 0;
+  box-shadow: 0 10px 28px rgba(22,51,44,.065), 0 1px 2px rgba(22,51,44,.04);
+}
+
+.historico-grafico-wrap::before {
+  content: "EVOLUÇÃO";
+  position: absolute;
+  top: 14px;
+  left: 16px;
+  z-index: 2;
+  color: var(--muted);
+  font-size: 9px;
+  font-weight: 800;
+  letter-spacing: .16em;
+}
+
+.historico-grafico-wrap .historico-grafico {
+  height: 176px;
+  margin-top: 10px;
+}
+
+.historico-grafico-legenda {
+  justify-content: flex-start;
+  gap: 7px;
+  margin-top: 13px;
+  padding-top: 12px;
+  border-top: 1px solid rgba(122,111,88,.15);
+}
+
+/* Cards mensais — mais próximos de um extrato/resumo financeiro */
+.historico-mes-card {
+  position: relative;
+  overflow: hidden;
+  background: var(--paper);
+  border: 1px solid rgba(122,111,88,.19);
+  border-radius: 20px;
+  padding: 17px 17px 15px;
+  box-shadow: 0 7px 20px rgba(22,51,44,.045);
+  transition: transform .18s ease, box-shadow .18s ease, border-color .18s ease;
+}
+
+.historico-mes-card::before {
+  content: "";
+  position: absolute;
+  left: 0;
+  top: 0;
+  bottom: 0;
+  width: 3px;
+  background: var(--gold);
+  opacity: .75;
+}
+
+.historico-mes-card:hover {
+  transform: translateY(-1px);
+  border-color: rgba(185,134,47,.28);
+  box-shadow: 0 10px 24px rgba(22,51,44,.075);
+}
+
+.historico-mes-head {
+  align-items: center;
+  margin: 0 0 14px;
+  padding: 0 0 12px 1px;
+  border-bottom: 1px dashed rgba(122,111,88,.24);
+}
+
+.historico-mes-nome {
+  font-size: 18px;
+  font-weight: 700;
+  letter-spacing: -.015em;
+}
+
+.historico-mes-saldo {
+  font-size: 15px;
+  padding: 5px 9px;
+  border-radius: 999px;
+  background: rgba(72,137,101,.09);
+}
+
+.historico-mes-saldo.negative {
+  background: rgba(173,73,53,.09);
+}
+
+.historico-mes-linha {
+  align-items: center;
+  padding: 6px 1px;
+  font-size: 12.5px;
+}
+
+.historico-mes-linha > span:first-child {
+  color: var(--muted);
+  font-weight: 560;
+}
+
+.historico-mes-linha span:last-child {
+  font-size: 12.5px;
+}
+
+.historico-mes-pessoas {
+  flex-wrap: wrap;
+  gap: 7px;
+  margin-top: 11px;
+  padding-top: 11px;
+}
+
+.historico-mes-pessoas .pessoa-tag {
+  border: 1px solid var(--line);
+  border-radius: 999px;
+  background: var(--paper-deep);
+  padding: 5px 9px;
+}
+
+@media (max-width: 560px) {
+  #tab-historico {
+    padding-bottom: 102px;
+  }
+
+  .historico-controles {
+    margin-bottom: 14px;
+    padding: 10px 11px 10px 13px;
+  }
+
+  .historico-controles::before {
+    font-size: 10px;
+  }
+
+  .historico-grafico-wrap {
+    border-radius: 19px;
+    padding: 18px 12px 13px;
+  }
+
+  .historico-grafico-wrap::before {
+    left: 13px;
+  }
+
+  .historico-grafico-wrap .historico-grafico {
+    height: 158px;
+  }
+
+  .historico-mes-card {
+    border-radius: 17px;
+    padding: 15px 14px 13px;
+  }
+
+  .historico-mes-nome {
+    font-size: 17px;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .historico-mes-card {
+    transition: none;
+  }
+}
