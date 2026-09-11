@@ -469,11 +469,26 @@ button, input { font-family: inherit; }
 /* Barra estilo "HP" de jogo: gradiente fluindo em loop suave, com um
    brilho vítreo por cima. Só gradiente, sem textura de listras. */
 .goal-bar-fill { position: relative; height: 100%; border-radius: 100px; background: linear-gradient(90deg, var(--gold-deep), var(--gold)); transition: width 0.6s cubic-bezier(.2,.8,.2,1); overflow: hidden; }
+/* Brilho contínuo + micro-partículas douradas bem discretas dentro da barra. */
+.goal-bar-fill::before {
+  content: ""; position: absolute; inset: 0; pointer-events: none;
+  background-image:
+    radial-gradient(circle at 14% 45%, rgba(255,248,220,.72) 0 1px, transparent 1.7px),
+    radial-gradient(circle at 31% 62%, rgba(255,250,228,.52) 0 1px, transparent 1.6px),
+    radial-gradient(circle at 48% 32%, rgba(255,255,255,.62) 0 1px, transparent 1.7px),
+    radial-gradient(circle at 67% 58%, rgba(255,248,220,.45) 0 1px, transparent 1.7px),
+    radial-gradient(circle at 84% 38%, rgba(255,255,255,.55) 0 1px, transparent 1.6px);
+  background-size: 150px 100%, 190px 100%, 130px 100%, 210px 100%, 170px 100%;
+  opacity: .24;
+  animation: goal-bar-particulas 6.8s ease-in-out infinite alternate;
+}
 .goal-bar-fill::after { content: ""; position: absolute; top: 0; bottom: 0; left: -18%; width: 24%; border-radius: inherit; background: linear-gradient(90deg, transparent, rgba(255,255,255,.34), transparent); transform: skewX(-18deg); animation: goal-bar-brilho 4.6s linear infinite; pointer-events: none; }
 .goal-bar-fill.completo { background: linear-gradient(90deg, #2f5f42, var(--income)); }
 @keyframes goal-bar-brilho { 0% { transform: translateX(0) skewX(-18deg); opacity: 0; } 10% { opacity: .8; } 78% { opacity: .8; } 100% { transform: translateX(520%) skewX(-18deg); opacity: 0; } }
+@keyframes goal-bar-particulas { 0% { transform: translateX(-5px); opacity: .16; } 50% { opacity: .28; } 100% { transform: translateX(8px); opacity: .20; } }
 @media (prefers-reduced-motion: reduce) {
   .goal-bar-fill { animation: none; }
+  .goal-bar-fill::before, .goal-bar-fill::after { animation: none; }
 }
 .goal-bar-pct { font-family: var(--font-mono); font-size: 11.5px; font-weight: 700; color: var(--gold-deep); flex-shrink: 0; min-width: 34px; text-align: right; }
 .goal-bar-pct.completo { color: var(--income); }
@@ -2603,7 +2618,7 @@ body.sem-entrada-listas .item-list-row { animation: none !important; }
 .modal-criacao .add-form input, .modal-criacao .add-form select { background: rgba(255,255,255,.52) !important; }
 
 @media (max-width: 560px) {
-  .fab-criar { right: 16px; bottom: calc(86px + env(safe-area-inset-bottom)); padding-right: 14px; }
+  .fab-criar { right: 16px; bottom: calc(142px + env(safe-area-inset-bottom)); padding-right: 14px; }
   .fab-criar span { display: none; }
   .fab-criar { width: 52px; height: 52px; min-height: 52px; padding: 0; justify-content: center; }
   .fab-criar svg { width: 23px; height: 23px; }
@@ -4026,4 +4041,26 @@ body.sem-entrada-listas .item-list-row { animation: none !important; }
   min-width: 70px;
   text-align: right;
   justify-self: end;
+}
+
+
+/* Dica + Recomendação: leitura e ação visualmente separadas. */
+.chat-dica-bloco, .chat-recomendacao-bloco { padding: 10px 11px; border-radius: 12px; }
+.chat-dica-bloco { background: rgba(185,134,47,.075); border: 1px solid rgba(185,134,47,.16); }
+.chat-recomendacao-bloco { margin-top: 8px; background: rgba(22,51,44,.045); border: 1px solid rgba(22,51,44,.10); }
+.chat-dica-titulo, .chat-recomendacao-titulo { display:block; margin-bottom:4px; font-size:9px; font-weight:900; text-transform:uppercase; letter-spacing:.1em; }
+.chat-dica-titulo { color: var(--gold-deep); }
+.chat-recomendacao-titulo { color: var(--ink); }
+.insight-recomendacao { margin-top: 11px; padding: 9px 10px; border-left: 3px solid var(--gold); border-radius: 9px; background: rgba(185,134,47,.08); }
+.insight-recomendacao > span { display:block; margin-bottom:3px; font-size:9px; font-weight:900; text-transform:uppercase; letter-spacing:.1em; color:var(--gold-deep); }
+.insight-recomendacao > div { font-size:inherit; line-height:inherit; }
+
+/* O + fica acima da IA e entra/sai com uma transição curta e limpa. */
+.fab-criar { opacity: 1; transform: translateY(0) scale(1); transition: opacity .22s ease, transform .22s cubic-bezier(.2,.8,.2,1), box-shadow .16s ease; }
+.fab-criar.is-hidden { display:inline-flex !important; opacity:0; pointer-events:none; transform:translateY(8px) scale(.88); visibility:hidden; }
+.caixa-chat-fab { opacity:1; transform:translateY(0) scale(1); visibility:visible; transition:opacity .22s ease, transform .22s cubic-bezier(.2,.8,.2,1), box-shadow .18s ease; }
+.caixa-chat-fab.is-hidden { display:inline-flex !important; opacity:0; pointer-events:none; transform:translateY(8px) scale(.88); visibility:hidden; }
+@media (prefers-reduced-motion: reduce) {
+  .fab-criar { transition:none; }
+  .goal-bar-fill::before { animation:none; }
 }
