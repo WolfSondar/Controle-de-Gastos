@@ -4374,3 +4374,85 @@ body.sem-entrada-listas .item-list-row { animation: none !important; }
 @media (prefers-reduced-motion: reduce) {
   .fab-criar::before { animation: none; }
 }
+
+
+/* V24 — o + acompanha exatamente a transição de entrada/saída do FAB da IA. */
+.fab-criar {
+  opacity: 1;
+  visibility: visible;
+  transform: translateY(0) scale(1);
+  transition: opacity .22s ease, transform .22s cubic-bezier(.2,.8,.2,1), box-shadow .18s ease, visibility 0s linear 0s;
+}
+.fab-criar.is-hidden {
+  display: inline-flex !important;
+  opacity: 0 !important;
+  visibility: hidden !important;
+  pointer-events: none !important;
+  transform: translateY(8px) scale(.88) !important;
+  transition: opacity .22s ease, transform .22s cubic-bezier(.2,.8,.2,1), box-shadow .18s ease, visibility 0s linear .22s;
+}
+
+/* Picker de ícones dentro do cadastro: mesma ideia visual do editor,
+   mas adaptado ao espaço do chat. Mostramos a imagem, não o nome. */
+.caixa-chat-icon-picker {
+  margin: 9px 0 13px;
+  padding: 9px;
+  border: 1px solid rgba(185,134,47,.18);
+  border-radius: 16px;
+  background: linear-gradient(135deg, rgba(185,134,47,.065), rgba(255,255,255,.28));
+  box-shadow: 0 6px 18px rgba(22,51,44,.045), inset 0 1px 0 rgba(255,255,255,.32);
+}
+.caixa-chat-icon-search-wrap {
+  position: relative;
+  display: flex;
+  align-items: center;
+  height: 42px;
+  margin-bottom: 9px;
+}
+.caixa-chat-icon-search-icon {
+  position: absolute;
+  left: 13px;
+  width: 17px;
+  height: 17px;
+  color: var(--muted);
+  pointer-events: none;
+}
+.caixa-chat-icon-search-icon svg { width:100%;height:100%;display:block; }
+.caixa-chat-icon-search {
+  width:100%;height:42px;box-sizing:border-box;
+  padding:0 40px 0 39px;
+  border:1px solid rgba(185,134,47,.34);
+  border-radius:12px;
+  background:var(--paper-deep);
+  color:var(--ink-text);
+  outline:none;
+  font:inherit;font-size:12px;
+}
+.caixa-chat-icon-search:focus { border-color:rgba(185,134,47,.68);box-shadow:0 0 0 3px rgba(185,134,47,.09); }
+.caixa-chat-icon-search-clear {
+  position:absolute;right:7px;width:29px;height:29px;border:0;border-radius:50%;
+  background:transparent;color:var(--muted);font-size:19px;cursor:pointer;
+}
+.caixa-chat-icon-search-clear:hover { background:rgba(185,134,47,.10); }
+.caixa-chat-icon-grid {
+  display:grid;
+  grid-template-columns:repeat(7,minmax(0,1fr));
+  gap:7px;
+  max-height:220px;
+  overflow:auto;
+  padding:1px;
+}
+.caixa-chat-icon-choice {
+  aspect-ratio:1;min-width:0;min-height:42px;
+  display:flex;align-items:center;justify-content:center;
+  padding:6px;border:1px solid transparent;border-radius:11px;
+  background:var(--paper-deep);color:var(--ink-text);cursor:pointer;
+  transition:transform .12s ease,border-color .15s ease,background .15s ease,box-shadow .15s ease;
+}
+.caixa-chat-icon-choice:hover { border-color:var(--gold);background:rgba(185,134,47,.12);box-shadow:0 2px 8px rgba(185,134,47,.10);transform:translateY(-1px); }
+.caixa-chat-icon-choice:active { transform:scale(.94); }
+.caixa-chat-icon-choice img { width:100%;height:100%;object-fit:contain;display:block; }
+.caixa-chat-icon-none { width:25px;height:25px;border:1px dashed var(--muted);border-radius:50%;display:grid;place-items:center;color:var(--muted);font-size:17px; }
+.caixa-chat-icon-empty { padding:18px 8px 12px;text-align:center;color:var(--muted);font-size:11px; }
+@media(max-width:560px){ .caixa-chat-icon-grid{grid-template-columns:repeat(6,minmax(0,1fr));max-height:205px;} }
+@media(prefers-reduced-motion:reduce){ .fab-criar{transition:none}.fab-criar.is-hidden{transition:none}.caixa-chat-icon-choice{transition:none} }
