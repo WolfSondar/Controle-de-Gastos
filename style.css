@@ -3329,10 +3329,8 @@ body.sem-entrada-listas .item-list-row { animation: none !important; }
   text-transform: uppercase;
   letter-spacing: .05em;
 }
-.hero-stat-origem-beneficio > span,
-.hero-stat-origem-beneficio > small { color: #e3c581; }
-.hero-stat-origem-ganho > span,
-.hero-stat-origem-ganho > small { color: #8fd4ab; }
+.hero-stat-origem-beneficio > span { color: var(--benefit) !important; }
+.hero-stat-origem-ganho > span { color: #8fd4ab; }
 .hero-stat-origem + .hero-stat-origem {
   padding-left: 8px;
   border-left: 1px solid rgba(255,255,255,.16);
