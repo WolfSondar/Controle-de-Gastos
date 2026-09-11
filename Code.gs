@@ -1060,6 +1060,9 @@ function normalizarTexto(str) {
 }
 
 function ganhoEhBeneficio(item) {
+  const origem = String(item && item.origem || "").toLowerCase();
+  if (origem === "beneficio") return true;
+  if (origem === "saldo") return false;
   return normalizarTexto(item && item.nome).indexOf("beneficio") !== -1;
 }
 
