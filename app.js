@@ -2764,7 +2764,7 @@ function renderRecentes() {
         <span class="ledger-nome">${escapeHtml(item.nome)} ${tagPessoa(item)}</span>
         <span class="ledger-tag">${escapeHtml(item.tag)}</span>
       </div>
-      <span class="ledger-valor ${item.tipo}${benefit ? " income-beneficio" : ""}">${item.tipo === "income" ? "+" : "−"} ${fmt(item.valor)}</span>
+      <span class="ledger-valor ${item.tipo}${benefit ? " income-beneficio" : ""}${guardado ? " guardado" : ""}">${item.tipo === "income" ? "+" : (guardado ? "" : "−")} ${fmt(item.valor)}</span>
     `;
     ledger.appendChild(row);
   });
@@ -5686,21 +5686,26 @@ if (document.readyState === "loading") {
 
   function calcularRespostaGastar(origem) {
     const t = totaisChat();
-    const valor = origem === "beneficio" ? t.beneficio : t.conta;
+    const valor = origem === "beneficio" ? t.beneficio : t.saldoAtualConta;
     const nome = origem === "beneficio" ? "benefício" : "saldo em conta";
     const classe = origem === "beneficio" ? "chat-valor-gold" : "chat-valor-pos";
     let texto;
     if (valor > 0) {
-      texto = `Você ainda pode gastar <span class="${classe} chat-valor">${chatFmt(valor)}</span> usando o <strong>${nome}</strong> neste mês.`;
+      texto = origem === "beneficio"
+        ? `Você ainda pode gastar <span class="${classe} chat-valor">${chatFmt(valor)}</span> usando o <strong>${nome}</strong> neste mês.`
+        : `Hoje você tem <span class="${classe} chat-valor">${chatFmt(valor)}</span> no <strong>${nome}</strong>.`;
     } else if (valor === 0) {
-      texto = `Neste momento, o <strong>${nome}</strong> está em <span class="chat-valor chat-valor-neg">${chatFmt(0)}</span>. Melhor não contar com essa origem para novos gastos.`;
+      texto = `Neste momento, o <strong>${nome}</strong> está em <span class="chat-valor chat-valor-neg">${chatFmt(0)}</span>.`;
     } else {
-      texto = `Atenção: o <strong>${nome}</strong> já passou do limite em <span class="chat-valor chat-valor-neg">${chatFmt(Math.abs(valor))}</span>.`;
+      texto = `Atenção: o <strong>${nome}</strong> está negativo em <span class="chat-valor chat-valor-neg">${chatFmt(Math.abs(valor))}</span>.`;
     }
-    const detalhes = origem === "beneficio"
-      ? `Disponível no benefício: ${chatFmt(t.beneficio)} · já usado no benefício: ${chatFmt(t.ganhosOrigem.beneficios - t.beneficio)}.`
-      : `Saldo agora: ${chatFmt(t.saldoAtualConta)} · a entrar: ${chatFmt(t.aReceber)} · fixos a pagar: ${chatFmt(t.aPagarFixos)} · variáveis do saldo a pagar: ${chatFmt(t.aPagarVariaveis)}.`;
-    return `${texto}<span class="caixa-chat-note">${detalhes}</span>`;
+    if (origem === "beneficio") {
+      const detalhes = `Disponível no benefício: ${chatFmt(t.beneficio)} · já usado no benefício: ${chatFmt(t.ganhosOrigem.beneficios - t.beneficio)}.`;
+      return `${texto}<span class="caixa-chat-note">${detalhes}</span>`;
+    }
+    const detalhes = [`a entrar: ${chatFmt(t.aReceber)}`, `fixos a pagar: ${chatFmt(t.aPagarFixos)}`];
+    if (t.aPagarVariaveis > 0) detalhes.push(`variáveis do saldo a pagar: ${chatFmt(t.aPagarVariaveis)}`);
+    return `${texto}<span class="caixa-chat-note">${detalhes.join(" · ")}.</span>`;
   }
 
   function respostaCaixinha(cx) {
@@ -5814,8 +5819,11 @@ if (document.readyState === "loading") {
         const linhaPendente = (i, tipo) => {
           const parcela = tipo === "fixo" && /^\d+\s*\/\s*\d+$/.test(String(i.parcela || "").trim())
             ? `<span class="chat-pendente-parcela">Parcela ${esc(String(i.parcela).trim())}</span>` : "";
+          const proximoMes = ehDoProximoMes(i)
+            ? `<span class="chat-pendente-proximo">Mês que vem</span>` : "";
           const data = formatarDataCurta(i.data);
-          return `<li><span class="chat-pendente-main"><strong>${esc(i.nome || (tipo === "fixo" ? "Gasto fixo" : "Gasto variável"))}</strong><small>${parcela}${data ? `${parcela ? " · " : ""}${data}` : ""}</small></span><strong class="chat-valor chat-valor-neg">${chatFmt(i.valor)}</strong></li>`;
+          const meta = [parcela, proximoMes, data ? `<span>${data}</span>` : ""].filter(Boolean).join(" · ");
+          return `<li><span class="chat-pendente-main"><strong>${esc(i.nome || (tipo === "fixo" ? "Gasto fixo" : "Gasto variável"))}</strong><small>${meta}</small></span><strong class="chat-valor chat-valor-neg">${chatFmt(i.valor)}</strong></li>`;
         };
         const linhasFixos = fixosPendentes.map(i => linhaPendente(i, "fixo")).join("");
         const linhasVariaveis = variaveisPendentes.map(i => linhaPendente(i, "variavel")).join("");
