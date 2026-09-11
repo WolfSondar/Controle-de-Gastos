@@ -1540,24 +1540,14 @@ function ganhoEhBeneficio(item) {
   return nome.includes("beneficio");
 }
 
-function ganhoEhSalario(item) {
-  const nome = String(item && item.nome || "")
-    .normalize("NFD")
-    .replace(/[\u0300-\u036f]/g, "")
-    .toLowerCase();
-  return nome.includes("salario");
-}
-
 function separarGanhosPorOrigem(lista) {
   return (lista || []).reduce((acc, item) => {
     if (!ganhoEhRecebido(item)) return acc;
     const valor = Number(item.valor) || 0;
-    // Benefício continua sendo uma origem própria, mesmo que o nome contenha "salário".
     if (ganhoEhBeneficio(item)) acc.beneficios += valor;
-    else if (ganhoEhSalario(item)) acc.salario += valor;
     else acc.ganhos += valor;
     return acc;
-  }, { beneficios: 0, salario: 0, ganhos: 0 });
+  }, { beneficios: 0, ganhos: 0 });
 }
 // Um "lembrete" (compra do mês que vem, paga adiantada) aparece na lista
 // como pago, mas não deve contar de novo no saldo nem nos gastos por
@@ -1757,8 +1747,6 @@ function renderTotais() {
   const saldoEl = document.getElementById("saldoValor");
   const beneficiosEl = document.getElementById("saldoBeneficios");
   const ganhosSaldoEl = document.getElementById("saldoGanhos");
-  const salarioEl = document.getElementById("saldoSalario");
-  const outrosGanhosEl = document.getElementById("saldoOutrosGanhos");
   const beneficioRestanteEl = document.getElementById("saldoBeneficioRestante");
   const saldoRestanteEl = document.getElementById("saldoRestante");
 
@@ -1846,7 +1834,7 @@ function renderTotais() {
     return acc + (variavelContaNoSaldo(item) && !variavelEhBeneficio(item) ? (Number(item.valor) || 0) : 0);
   }, 0);
   const beneficioRestante = ganhosPorOrigem.beneficios - gastosVariaveisBeneficio;
-  const saldoRestante = (ganhosPorOrigem.salario + ganhosPorOrigem.ganhos) - totalFixosPagos - gastosVariaveisSaldo;
+  const saldoRestante = ganhosPorOrigem.ganhos - totalFixosPagos - gastosVariaveisSaldo;
 
   if (beneficiosEl) {
     beneficiosEl.textContent = fmt(beneficioRestante);
