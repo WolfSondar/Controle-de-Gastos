@@ -2682,7 +2682,7 @@ function renderCaixinhas() {
 
 const ICONE_GANHO = `<svg viewBox="0 0 24 24" fill="none"><path d="M12 19V5M5 12l7-7 7 7" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>`;
 const ICONE_GASTO = `<svg viewBox="0 0 24 24" fill="none"><path d="M12 5v14M5 12l7 7 7-7" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>`;
-const ICONE_GUARDADO = `<svg viewBox="0 0 24 24" fill="none" aria-hidden="true"><path d="M5.5 8.5h13v9.25A2.25 2.25 0 0 1 16.25 20h-8.5a2.25 2.25 0 0 1-2.25-2.25V8.5Z" stroke="currentColor" stroke-width="1.8" stroke-linejoin="round"/><path d="M7 8.5V6.75A1.75 1.75 0 0 1 8.75 5h6.5A1.75 1.75 0 0 1 17 6.75V8.5M8.5 12.25h7M10 15.5h4" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/><circle cx="17.5" cy="5.75" r="2.1" fill="currentColor"/><path d="M17.5 4.7v2.1M16.45 5.75h2.1" stroke="var(--paper-deep)" stroke-width=".9" stroke-linecap="round"/></svg>`;
+const ICONE_GUARDADO = `<svg viewBox="0 0 24 24" fill="none" aria-hidden="true"><path d="M4 6.5A2.5 2.5 0 0 1 6.5 4h11A2.5 2.5 0 0 1 20 6.5v2A2.5 2.5 0 0 1 17.5 11h-11A2.5 2.5 0 0 1 4 8.5v-2Z" stroke="currentColor" stroke-width="1.7"/><path d="M4 10.5A2.5 2.5 0 0 1 6.5 8h11A2.5 2.5 0 0 1 20 10.5v2A2.5 2.5 0 0 1 17.5 15h-11A2.5 2.5 0 0 1 4 12.5v-2ZM4 14.5A2.5 2.5 0 0 1 6.5 12h11a2.5 2.5 0 0 1 2.5 2.5v2A2.5 2.5 0 0 1 17.5 19h-11A2.5 2.5 0 0 1 4 16.5v-2Z" stroke="currentColor" stroke-width="1.7"/><path d="M16 7.5h.01M16 11.5h.01M16 15.5h.01" stroke="currentColor" stroke-width="2.4" stroke-linecap="round"/></svg>`;
 
 function itensRecentesPorCategoria(lista, tipo, tag) {
   return (lista || []).map((i) => ({ ...i, tipo, tag }));
@@ -4565,11 +4565,19 @@ function posicionarIndicadorAba() {
 
 function atualizarVisibilidadeFab() {
   const fab = document.getElementById("fabCriar");
-  if (!fab) return;
-  const ativa = document.querySelector(".tab-panel:not(.is-hidden)");
-  const podeCriar = ["ganhos", "fixos", "variaveis", "caixinhas"].includes(ativa?.dataset.tab || "");
-  fab.classList.toggle("is-hidden", !podeCriar);
-  fab.setAttribute("aria-hidden", String(!podeCriar));
+  if (fab) {
+    const ativa = document.querySelector(".tab-panel:not(.is-hidden)");
+    const podeCriar = ["ganhos", "fixos", "variaveis", "caixinhas"].includes(ativa?.dataset.tab || "");
+    fab.classList.toggle("is-hidden", !podeCriar);
+    fab.setAttribute("aria-hidden", String(!podeCriar));
+  }
+  const chatFab = document.getElementById("caixaChatFab");
+  if (chatFab) {
+    const ocultarChat = isAmbos();
+    chatFab.classList.toggle("is-hidden", ocultarChat);
+    chatFab.setAttribute("aria-hidden", String(ocultarChat));
+    chatFab.setAttribute("tabindex", ocultarChat ? "-1" : "0");
+  }
 }
 
 const tabbarEl = document.getElementById("tabbar");
@@ -5751,7 +5759,7 @@ if (document.readyState === "loading") {
       escolhas.className = "caixa-chat-choices";
       [
         ["beneficio", "Benefício", "Usar o valor disponível do benefício", totaisChat().beneficio],
-        ["saldo", "Saldo em conta", "Usar o dinheiro do saldo normal", totaisChat().conta]
+        ["saldo", "Saldo em conta", "Usar o dinheiro do saldo normal", totaisChat().saldoAtualConta]
       ].forEach(([valor, titulo, sub, quantia]) => {
         const btn = document.createElement("button");
         btn.type = "button";
@@ -5823,7 +5831,7 @@ if (document.readyState === "loading") {
             ? `<span class="chat-pendente-proximo">Mês que vem</span>` : "";
           const data = formatarDataCurta(i.data);
           const meta = [parcela, proximoMes, data ? `<span>${data}</span>` : ""].filter(Boolean).join(" · ");
-          return `<li><span class="chat-pendente-main"><strong>${esc(i.nome || (tipo === "fixo" ? "Gasto fixo" : "Gasto variável"))}</strong><small>${meta}</small></span><strong class="chat-valor chat-valor-neg">${chatFmt(i.valor)}</strong></li>`;
+          return `<li><span class="chat-pendente-main"><strong>${parcela}${esc(i.nome || (tipo === "fixo" ? "Gasto fixo" : "Gasto variável"))}</strong><small>${[proximoMes, data ? `<span>${data}</span>` : ""].filter(Boolean).join(" · ")}</small></span><strong class="chat-valor chat-valor-neg">${chatFmt(i.valor)}</strong></li>`;
         };
         const linhasFixos = fixosPendentes.map(i => linhaPendente(i, "fixo")).join("");
         const linhasVariaveis = variaveisPendentes.map(i => linhaPendente(i, "variavel")).join("");
@@ -5839,11 +5847,45 @@ if (document.readyState === "loading") {
       if (id === "economia") {
         const cats = categoriasChat();
         const maior = cats[0];
-        let dica = "Seu melhor próximo passo é manter os lançamentos atualizados; assim o Caixa consegue te dar respostas cada vez mais úteis.";
-        if (maior && maior[1] > 0) {
-          dica = `Hoje, <strong>${esc(maior[0])}</strong> é a categoria que mais pesou, com <span class="chat-valor chat-valor-neg">${chatFmt(maior[1])}</span>. Se quiser economizar sem mexer no essencial, esse é o primeiro lugar que eu revisaria.`;
+        const totalGastos = (Number(t.fixosPagos) || 0) + (Number(t.variaveisPagos) || 0);
+        const totalEntradas = Number(t.ganhosRecebidos) || 0;
+        const dicas = [];
+
+        if (t.aPagarFixos > 0 && t.saldoAtualConta < t.aPagarFixos) {
+          const faltaCobrir = t.aPagarFixos - t.saldoAtualConta;
+          dicas.push(`Seu saldo atual é de <span class="chat-valor chat-valor-pos">${chatFmt(t.saldoAtualConta)}</span>, mas ainda existem <span class="chat-valor chat-valor-neg">${chatFmt(t.aPagarFixos)}</span> em contas fixas. Antes de assumir novos gastos, eu priorizaria cobrir essa diferença de <strong>${chatFmt(faltaCobrir)}</strong>.`);
         }
-        appendMensagem(`Minha dica: ${dica}<span class="caixa-chat-note">É uma leitura dos seus números atuais, não uma regra financeira.</span>`);
+        if (t.aReceber > 0) {
+          dicas.push(`Você ainda tem <span class="chat-valor chat-valor-pos">${chatFmt(t.aReceber)}</span> para receber. Uma boa regra é não tratar esse dinheiro como disponível antes de ele realmente entrar na conta.`);
+        }
+        if (t.aPagarFixos > 0 && t.saldoAtualConta >= t.aPagarFixos) {
+          const sobraAposFixos = t.saldoAtualConta - t.aPagarFixos;
+          dicas.push(`Depois de reservar os <span class="chat-valor chat-valor-neg">${chatFmt(t.aPagarFixos)}</span> de contas fixas, seu saldo atual deixa <span class="chat-valor chat-valor-pos">${chatFmt(sobraAposFixos)}</span> de margem. Eu usaria essa margem como limite pessoal, não como dinheiro livre.`);
+        }
+        if (t.beneficio > 0) {
+          dicas.push(`Você ainda tem <span class="chat-valor chat-valor-gold">${chatFmt(t.beneficio)}</span> disponíveis no benefício. Se esse dinheiro tem uso específico, separar mentalmente essa verba do saldo normal ajuda a não misturar os dois.`);
+        }
+        if (t.aPagarVariaveis > 0) {
+          dicas.push(`Há <span class="chat-valor chat-valor-neg">${chatFmt(t.aPagarVariaveis)}</span> de gastos variáveis ainda pendentes. Antes de uma compra nova, vale deixar esse valor reservado.`);
+        }
+        if (maior && maior[1] > 0) {
+          const percentual = totalGastos > 0 ? Math.round((maior[1] / totalGastos) * 100) : 0;
+          dicas.push(`<strong>${esc(maior[0])}</strong> representa cerca de <strong>${percentual}%</strong> dos seus gastos pagos no período, com <span class="chat-valor chat-valor-neg">${chatFmt(maior[1])}</span>. Não significa que você precise cortar essa categoria — é só o ponto que mais influencia seu orçamento hoje.`);
+        }
+        if (totalEntradas > 0 && totalGastos > totalEntradas) {
+          dicas.push(`Até agora, seus gastos pagos somam <span class="chat-valor chat-valor-neg">${chatFmt(totalGastos)}</span>, acima das entradas recebidas de <span class="chat-valor chat-valor-pos">${chatFmt(totalEntradas)}</span>. Eu evitaria aumentar o ritmo de gastos até essa diferença diminuir.`);
+        }
+        const caixinhasComMeta = metasChat();
+        if (caixinhasComMeta.length) {
+          const meta = caixinhasComMeta[0];
+          dicas.push(`Sua caixinha <strong>${esc(meta.nome)}</strong> está em <strong>${Math.round(Math.min(meta.atual / meta.objetivo * 100, 100))}%</strong> da meta. Se quiser acelerar sem apertar o mês, é melhor definir um valor fixo mensal do que guardar valores aleatórios.`);
+        }
+        if (!dicas.length) {
+          dicas.push(`Seu melhor próximo passo é manter uma pequena margem entre o que entra e o que sai. Mesmo sem uma despesa problemática agora, evitar comprometer todo o saldo reduz a chance de aperto no fim do mês.`);
+        }
+        window._caixaDicaIndice = (Number(window._caixaDicaIndice) || 0) % dicas.length;
+        const dica = dicas[window._caixaDicaIndice++];
+        appendMensagem(`Minha dica: ${dica}<span class="caixa-chat-note">Essa orientação foi escolhida a partir dos números atuais do Caixa.</span>`);
       }
     });
   }
@@ -5889,6 +5931,7 @@ if (document.readyState === "loading") {
   // dados forem sincronizados. A interface fica sempre ligada ao state atual.
   document.addEventListener("click", e => {
     if (e.target.closest(".person-btn")) {
+      fecharChat();
       setTimeout(() => {
         if (chat.classList.contains("is-open")) {
           const respostas = body.querySelectorAll(".caixa-chat-message");
