@@ -5145,12 +5145,29 @@ if (document.readyState === "loading") {
         if (back) back.remove();
         const meuToken = window._caixaChatSessao || 0;
         appendMensagem("Outra dica", "user");
+
+        // Mesmo com a dica já pré-carregada, mantemos uma pequena pausa
+        // intencional para a resposta parecer uma conversa natural, sem
+        // comprometer a sensação de rapidez. Se o usuário mudar de assunto
+        // durante a pausa, a resposta é descartada.
+        const textoPensamentoAnterior = thinking.querySelector("em");
+        if (textoPensamentoAnterior) textoPensamentoAnterior.textContent = "Deixe-me pensar em outra dica para você…";
+        thinking.classList.remove("is-hidden");
+        body.scrollTop = body.scrollHeight;
+        await new Promise(resolve => setTimeout(resolve, 900));
+        if (meuToken !== (window._caixaChatSessao || 0) || !chat.classList.contains("is-open")) {
+          thinking.classList.add("is-hidden");
+          return;
+        }
+        thinking.classList.add("is-hidden");
+
         const estoque = Array.isArray(window._caixaDicasIAEstoque) ? window._caixaDicasIAEstoque : [];
         const idx = Number(window._caixaDicaIAIndice || 0);
         const proxima = estoque[idx];
         if (proxima) {
           window._caixaDicaIAIndice = idx + 1;
           mostrarDicaNoChat(proxima);
+          mostrarMenuCompacto();
           return;
         }
         // O estoque acabou. Não faz outra chamada para a mesma chave: se os
@@ -5162,6 +5179,7 @@ if (document.readyState === "loading") {
         const fi = Number(window._caixaDicaIndice || 0) % Math.max(fallback.length, 1);
         window._caixaDicaIndice = fi + 1;
         mostrarDicaNoChat({ texto: fallback[fi]?.dica || "Não apareceu nenhuma informação nova relevante nos dados atuais." });
+        mostrarMenuCompacto();
       });
       if (tokenAtual !== (window._caixaChatSessao || 0)) return;
       const back = document.getElementById("caixaChatBack");
@@ -5374,6 +5392,12 @@ if (document.readyState === "loading") {
           return;
         }
         const sessaoEconomia = window._caixaChatSessao || 0;
+        const textoPensamento = thinking.querySelector("em");
+        if (textoPensamento) textoPensamento.textContent = state.pessoaAtual === "davi"
+          ? "Ora, ora… vou dar uma olhadinha cuidadosa nos seus números…"
+          : state.pessoaAtual === "gabriel"
+            ? "Só um momento… estou preparando uma dica com seus números…"
+            : "Só um momento… estou preparando uma dica para vocês…";
         return buscarDicasIA(t, { chave }).then((dicasIA) => {
           // Se o usuário já mudou de assunto/perfil, a resposta atrasada não
           // pode invadir a nova conversa.
@@ -5393,8 +5417,10 @@ if (document.readyState === "loading") {
     });
   }
 
-  function iniciarPensamento(cb) {
+  function iniciarPensamento(cb, mensagem = "Só um instante… estou organizando os números para você…") {
     clearTimeout(pensamentoTimer);
+    const textoPensamento = thinking.querySelector("em");
+    if (textoPensamento) textoPensamento.textContent = mensagem;
     thinking.classList.remove("is-hidden");
     body.scrollTop = body.scrollHeight;
     pensamentoTimer = setTimeout(async () => {
