@@ -4285,3 +4285,92 @@ body.sem-entrada-listas .item-list-row { animation: none !important; }
   .caixa-chat-select-wrap{display:grid;grid-template-columns:1fr;margin-left:0;margin-right:0}
   .caixa-chat-select-btn{width:100%}
 }
+
+/* ============================================================
+   V23 — refinamento do cadastro conversacional e FABs
+   ============================================================ */
+/* O botão + recebe a mesma pulsação discreta do botão de IA. */
+.fab-criar::before {
+  content: "";
+  position: absolute;
+  inset: -5px;
+  border: 1px solid rgba(185,134,47,.3);
+  border-radius: 50%;
+  animation: caixa-chat-pulse 2.8s ease-out infinite;
+  pointer-events: none;
+}
+.fab-criar { position: fixed; }
+
+/* Select do cadastro: mais elegante, espaçoso e com aparência de controle
+   nativo refinado, sem despejar dezenas de opções no corpo do chat. */
+.caixa-chat-select-wrap {
+  display: grid;
+  grid-template-columns: minmax(0,1fr) auto;
+  gap: 9px;
+  align-items: center;
+  margin: 10px 0 13px;
+  padding: 6px;
+  border: 1px solid rgba(185,134,47,.18);
+  border-radius: 16px;
+  background: linear-gradient(135deg, rgba(185,134,47,.07), rgba(255,255,255,.30));
+  box-shadow: 0 6px 18px rgba(22,51,44,.055), inset 0 1px 0 rgba(255,255,255,.35);
+}
+.caixa-chat-select {
+  width: 100%;
+  min-width: 0;
+  height: 46px;
+  padding: 0 14px;
+  border: 1px solid rgba(122,111,88,.17);
+  border-radius: 12px;
+  background: var(--paper, #faf5e9);
+  color: var(--ink-text, #16332c);
+  font-family: var(--font-sans, Inter, sans-serif);
+  font-size: 12px;
+  font-weight: 650;
+  outline: none;
+  cursor: pointer;
+  box-shadow: 0 2px 7px rgba(22,51,44,.035);
+  transition: border-color .18s ease, box-shadow .18s ease, transform .18s ease;
+}
+.caixa-chat-select:hover { border-color: rgba(185,134,47,.38); }
+.caixa-chat-select:focus {
+  border-color: rgba(185,134,47,.65);
+  box-shadow: 0 0 0 3px rgba(185,134,47,.10), 0 4px 12px rgba(22,51,44,.05);
+}
+.caixa-chat-select option { background: var(--paper, #faf5e9); color: var(--ink-text, #16332c); }
+.caixa-chat-select-btn {
+  height: 46px;
+  padding: 0 17px;
+  border: 1px solid rgba(185,134,47,.34);
+  border-radius: 12px;
+  background: linear-gradient(180deg, rgba(185,134,47,.17), rgba(185,134,47,.10));
+  color: var(--ink-text, #16332c);
+  font-size: 11px;
+  font-weight: 850;
+  cursor: pointer;
+  box-shadow: inset 0 1px 0 rgba(255,255,255,.28);
+  transition: transform .16s ease, background .16s ease, box-shadow .16s ease;
+}
+.caixa-chat-select-btn:hover { transform: translateY(-1px); background: rgba(185,134,47,.19); box-shadow: 0 5px 12px rgba(22,51,44,.07); }
+.caixa-chat-select-btn:active { transform: translateY(0) scale(.98); }
+
+/* A pergunta agora é uma mensagem independente; o campo fica logo abaixo,
+   sem repetir a pergunta dentro do próprio controle. */
+.caixa-chat-cadastro-form { margin-top: 8px; }
+.caixa-chat-cadastro-form .caixa-chat-simulador-input span {
+  display: none;
+}
+.caixa-chat-cadastro-form .caixa-chat-simulador-input input {
+  border-radius: 13px;
+}
+
+@media (max-width:560px) {
+  .caixa-chat-select-wrap {
+    grid-template-columns: 1fr;
+    padding: 7px;
+  }
+  .caixa-chat-select-btn { width: 100%; }
+}
+@media (prefers-reduced-motion: reduce) {
+  .fab-criar::before { animation: none; }
+}
