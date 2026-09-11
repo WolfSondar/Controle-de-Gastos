@@ -28,5 +28,24 @@
       "type": "image/jpeg",
       "purpose": "maskable"
     }
+  ],
+  "id": "./",
+  "categories": [
+    "finance",
+    "productivity"
+  ],
+  "shortcuts": [
+    {
+      "name": "Abrir Caixa",
+      "short_name": "Caixa",
+      "url": "./index.html",
+      "icons": [
+        {
+          "src": "IMG/Icon.jpg",
+          "sizes": "192x192",
+          "type": "image/jpeg"
+        }
+      ]
+    }
   ]
 }
