@@ -670,7 +670,7 @@ function gerarInsightComGemini(pessoa, periodo, resumo, opcoesModo) {
 
     const regrasComuns = [
       "Você é um assistente financeiro dentro de um app pessoal de controle de gastos chamado Caixa. Seja o mais específico e afiado possível — nunca dê conselho genérico de curso de finanças.",
-      "Contexto do app pra você entender os dados do resumo: 'gastos fixos' são despesas recorrentes do mês (aluguel, assinaturas, etc); 'gastos variáveis' são despesas do dia a dia que mudam de mês a mês; 'caixinhas' são potes de dinheiro guardado — o campo valorGuardado de cada caixinha JÁ É o total real guardado até agora (já inclui o que rendeu e o que foi guardado neste mês, então pra saber quanto falta pra meta é só valorObjetivo − valorGuardado, NUNCA some rendimentoTotal ou guardadoNesseMes de novo em cima disso). rendimentoTotal e guardadoNesseMes são só o detalhamento de parte desse total (quanto rendeu / quanto entrou nesse mês especificamente), úteis pra comentar sobre eles isoladamente, mas não são valores a somar ao valorGuardado.",
+      "REGRA FUNDAMENTAL: lançamentos com nome começando por 'Guardado: ' são TRANSFERÊNCIAS PARA CAIXINHAS, não são gastos. Eles nunca entram em totais de gastos, categorias de gastos, gráficos de gastos, comparações de despesas, saldos de despesas ou qualquer análise de consumo. Se aparecerem no histórico antigo dentro de DEBITOS, o sistema já corrige esse valor pela categoria técnica 'Metas'. 'gastos variáveis' significam somente despesas reais do dia a dia. Contexto do app pra você entender os dados do resumo: 'gastos fixos' são despesas recorrentes do mês (aluguel, assinaturas, etc); 'gastos variáveis' são despesas do dia a dia que mudam de mês a mês; 'caixinhas' são potes de dinheiro guardado — o campo valorGuardado de cada caixinha JÁ É o total real guardado até agora (já inclui o que rendeu e o que foi guardado neste mês, então pra saber quanto falta pra meta é só valorObjetivo − valorGuardado, NUNCA some rendimentoTotal ou guardadoNesseMes de novo em cima disso). rendimentoTotal e guardadoNesseMes são só o detalhamento de parte desse total (quanto rendeu / quanto entrou nesse mês especificamente), úteis pra comentar sobre eles isoladamente, mas não são valores a somar ao valorGuardado.",
       "MUITO IMPORTANTE — não confunda 'total acumulado de sempre' com 'total deste ano/mês': o valorGuardado de cada caixinha (e a soma dele entre as caixinhas) é um saldo ACUMULADO DESDE SEMPRE, que só muda quando alguém guarda ou retira — ele NÃO reseta a cada mês nem a cada ano. Por isso NUNCA introduza esse valor com uma frase que dê a entender que é algo do período atual, tipo 'neste ano você já guardou X' ou 'esse mês você guardou X entre as caixinhas' — isso é falso e confunde quem lê. Fale dele de forma atemporal (ex: 'você já tem X guardado na caixinha Tal' ou 'no total, X guardados entre as caixinhas'). Quem quer saber quanto foi guardado especificamente NESTE MÊS é o campo mesAtual.guardadoNoMes (ou guardadoNesseMes de cada caixinha), e quem quer saber o total do ANO é anoAtualAteAgora.guardado — só use frases como 'neste ano' ou 'esse mês' quando o valor vier de um desses dois campos, nunca do valorGuardado bruto da caixinha.",
       "O resumo tem um campo totalGuardadoAtualDeVerdade — é o total real, ATUAL, de tudo que está guardado agora nas caixinhas, exatamente como aparece na aba Caixinhas do app. Use esse campo (ou os valorGuardado de cada caixinha) toda vez que for falar 'quanto você tem guardado hoje' ou o total guardado no momento. Já os campos guardado dentro de anoAtualAteAgora e anoAnteriorCompleto são o CRESCIMENTO LÍQUIDO das caixinhas naquele período (total final menos total inicial, já descontando qualquer saque no meio do caminho) — não são soma de depósitos mês a mês, então podem ser bem menores do que somar os valores guardados mês a mês, e isso é esperado.",
       "GLOSSÁRIO DAS CATEGORIAS — o nome da categoria sozinho pode enganar, use SEMPRE o significado real abaixo em vez de chutar pelo nome (ex: 'Alimentação' NÃO é a feira/mercado do mês, é gasto pequeno e avulso — não confunda os dois nem fale que uma caiu quando na verdade foi a outra):\n" + textoGlossarioCategorias(),
@@ -880,8 +880,8 @@ function fecharMes(mes, ano) {
 
   const ganhosDavi = somaComStatus(dadosDavi.ganhos, "recebido");
   const ganhosGabriel = somaComStatus(dadosGabriel.ganhos, "recebido");
-  const debitosDavi = somaFixosPagos(dadosDavi.gastosFixos) + somaComStatus(dadosDavi.gastosVariaveis, "pago");
-  const debitosGabriel = somaFixosPagos(dadosGabriel.gastosFixos) + somaComStatus(dadosGabriel.gastosVariaveis, "pago");
+  const debitosDavi = somaFixosPagos(dadosDavi.gastosFixos) + somaVariaveisPagasReais(dadosDavi.gastosVariaveis);
+  const debitosGabriel = somaFixosPagos(dadosGabriel.gastosFixos) + somaVariaveisPagasReais(dadosGabriel.gastosVariaveis);
 
   const saldoDavi = ganhosDavi - debitosDavi;
   const saldoGabriel = ganhosGabriel - debitosGabriel;
@@ -1058,7 +1058,7 @@ function separarSaldoPorOrigem(ganhosOrigem, gastosFixosPagos, gastosVariaveis) 
   const beneficios = Number(ganhosOrigem && ganhosOrigem.beneficios) || 0;
   const ganhos = Number(ganhosOrigem && ganhosOrigem.ganhos) || 0;
   const fixos = Number(gastosFixosPagos) || 0;
-  const variaveis = (gastosVariaveis || []).filter(function (g) { return g.pago === true && g.lembrete !== true; });
+  const variaveis = (gastosVariaveis || []).filter(function (g) { return !ehLancamentoDeCaixinha(g) && g.pago === true && g.lembrete !== true; });
   const gastosBeneficios = variaveis.reduce(function (acc, g) {
     return acc + (gastoVariavelEhBeneficio(g) ? Number(g.valor) || 0 : 0);
   }, 0);
@@ -1148,11 +1148,21 @@ function somaFixosPagos(lista) {
   return somaComStatus(lista, "pago");
 }
 
+function ehLancamentoDeCaixinha(g) {
+  return String(g && g.nome || "").indexOf("Guardado: ") === 0;
+}
+
+function somaVariaveisPagasReais(lista) {
+  return (lista || []).reduce(function (acc, g) {
+    return acc + (!ehLancamentoDeCaixinha(g) && g.pago === true && g.lembrete !== true ? Number(g.valor) || 0 : 0);
+  }, 0);
+}
+
 function categoriasDoMes(dados) {
   const mapa = {};
   const pagos = dados.gastosFixos
     .filter(function (g) { return g.pago === true; })
-    .concat(dados.gastosVariaveis.filter(function (g) { return g.pago === true; }));
+    .concat(dados.gastosVariaveis.filter(function (g) { return !ehLancamentoDeCaixinha(g) && g.pago === true; }));
   pagos.forEach(function (g) {
     const cat = (g.tipo && String(g.tipo).trim()) || "Outros";
     mapa[cat] = (mapa[cat] || 0) + (Number(g.valor) || 0);
@@ -1279,15 +1289,15 @@ function lerHistoricoCompleto(sheet) {
         mes: m + 1,
         nome: HISTORICO_NOME_MESES[m],
         ganhosDavi: Number(ganhosDaviVals[m]) || 0,
-        debitosDavi: Number(debitosDaviVals[m]) || 0,
-        saldoDavi: Number(saldoDaviVals[m]) || 0,
+        debitosDavi: (Number(debitosDaviVals[m]) || 0) + (Number((parseCategorias(categoriasDaviVals[m]) || {}).Metas) || 0),
+        saldoDavi: (Number(ganhosDaviVals[m]) || 0) + ((Number(debitosDaviVals[m]) || 0) + (Number((parseCategorias(categoriasDaviVals[m]) || {}).Metas) || 0)),
         guardadoDavi: Number(guardadoDaviVals[m]) || 0,
         guardadoMesDavi: Number(guardadoDaviMesVals[m]) || 0,
         categoriasDavi: parseCategorias(categoriasDaviVals[m]),
         rendimentoDavi: Number(rendimentoDaviVals[m]) || 0,
         ganhosGabriel: Number(ganhosGabrielVals[m]) || 0,
-        debitosGabriel: Number(debitosGabrielVals[m]) || 0,
-        saldoGabriel: Number(saldoGabrielVals[m]) || 0,
+        debitosGabriel: (Number(debitosGabrielVals[m]) || 0) + (Number((parseCategorias(categoriasGabrielVals[m]) || {}).Metas) || 0),
+        saldoGabriel: (Number(ganhosGabrielVals[m]) || 0) + ((Number(debitosGabrielVals[m]) || 0) + (Number((parseCategorias(categoriasGabrielVals[m]) || {}).Metas) || 0)),
         guardadoGabriel: Number(guardadoGabrielVals[m]) || 0,
         guardadoMesGabriel: Number(guardadoGabrielMesVals[m]) || 0,
         categoriasGabriel: parseCategorias(categoriasGabrielVals[m]),
