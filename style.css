@@ -258,7 +258,7 @@ button, input { font-family: inherit; }
 /* Mesma paleta do gráfico histórico (Ganhos/Gastos/Guardado/Rendimento),
    em tom "on-ink" pra ficar legível no fundo escuro do card de insight. */
 .insight-valor-guardado { color: #d9ab5c; font-weight: 700; white-space: nowrap; }
-.insight-valor-rendimento { color: #7fb8d9; font-weight: 700; white-space: nowrap; }
+.insight-valor-rendimento { color: #c4a7ee; font-weight: 700; white-space: nowrap; }
 
 /* Três pontinhos centralizados, animação de "carregando" enquanto a IA
    ainda não respondeu — substitui o texto "Analisando os números…". */
@@ -362,7 +362,7 @@ button, input { font-family: inherit; }
 .item-tag-cat { background: var(--tag-bg); color: var(--ink-text); }
 .item-tag-parcela { color: var(--gold-deep); background: rgba(185,134,47,0.16); }
 .item-tag-lembrete { color: var(--income); background: var(--income-bg); }
-.item-tag-rendimento { color: var(--gold-deep); background: rgba(185,134,47,0.16); }
+.item-tag-rendimento { color: #c4a7ee; background: rgba(196,167,238,0.16); }
 .item-tag-perda { color: var(--expense); background: var(--expense-bg); }
 .item-tag-proximo { color: var(--expense); background: var(--expense-bg); }
 .item-tag-atrasado { color: var(--on-ink); background: var(--expense); font-weight: 800; }
@@ -3018,7 +3018,7 @@ body.sem-entrada-listas .item-list-row { animation: none !important; }
   background: transparent;
 }
 .insight-titulo.is-rendimento {
-  color: #7fb8d9;
+  color: #c4a7ee;
   background: transparent;
 }
 .insight-titulo.is-atencao {
