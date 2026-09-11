@@ -1735,6 +1735,8 @@ function renderTotais() {
   const saldoEl = document.getElementById("saldoValor");
   const beneficiosEl = document.getElementById("saldoBeneficios");
   const ganhosSaldoEl = document.getElementById("saldoGanhos");
+  const beneficioRestanteEl = document.getElementById("saldoBeneficioRestante");
+  const saldoRestanteEl = document.getElementById("saldoRestante");
 
   const primeiraVez = prevTotals.saldo === null;
 
@@ -1831,6 +1833,14 @@ function renderTotais() {
   if (ganhosSaldoEl) {
     ganhosSaldoEl.textContent = fmt(saldoRestante);
     ganhosSaldoEl.classList.toggle("negative", saldoRestante < 0);
+  }
+  if (beneficioRestanteEl) {
+    beneficioRestanteEl.textContent = fmt(beneficioRestante);
+    beneficioRestanteEl.classList.toggle("negative", beneficioRestante < 0);
+  }
+  if (saldoRestanteEl) {
+    saldoRestanteEl.textContent = fmt(saldoRestante);
+    saldoRestanteEl.classList.toggle("negative", saldoRestante < 0);
   }
 
   const fixosPendenteEl = document.getElementById("statFixosPendente");
