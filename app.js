@@ -5445,7 +5445,7 @@ if (document.readyState === "loading") {
       const valor = String(input.value || "").trim();
       if (!valor && !opts.allowEmpty) { input.focus(); return; }
       wrap.remove();
-      appendMensagem(valor || "Pular", "user");
+      if (!opts.skipResponse) appendMensagem(valor || "Pular", "user");
       callback(valor);
     };
     input.addEventListener("keydown", e => { if (e.key === "Enter") enviar(); });
@@ -5468,15 +5468,28 @@ if (document.readyState === "loading") {
 
   function categoriasEscolhiveis(callback) {
     const cats = typeof categoriasAtuais === "function" ? categoriasAtuais() : CATEGORIAS_PADRAO;
-    const op = cats.map(c => [c, c, ""]);
-    op.push(["__sem_categoria", "Sem categoria", "Deixar sem categoria"]);
-    appendMensagem("E em qual <strong>categoria</strong> ele entra?");
-    escolhaChat(op, (valor, titulo) => callback(valor === "__sem_categoria" ? "" : valor, titulo));
+    const op = cats.map(c => [c, c]);
+    op.push(["__sem_categoria", "Sem categoria"]);
+    selectChat("E em qual categoria ele entra?", op, (valor, titulo) => {
+      callback(valor === "__sem_categoria" ? "" : valor, titulo);
+    }, { placeholder: "Selecione uma categoria…" });
+  }
+
+  function formatarDataParaChat(valor) {
+    const s = String(valor || "").trim();
+    const m = /^(\d{4})-(\d{2})-(\d{2})/.exec(s);
+    if (!m) return s;
+    return `${m[3]}/${m[2]}/${m[1]}`;
   }
 
   function perguntaDataCadastro(callback, label = "Qual é a data?") {
     appendMensagem(`<strong>${esc(label)}</strong>`);
-    campoChat(label, "", valor => callback(valor || dataHojeISO()), { type: "date", autocomplete: "off", value: dataHojeISO() });
+    const hoje = dataHojeISO();
+    campoChat(label, "", valor => {
+      const data = valor || hoje;
+      appendMensagem(esc(formatarDataParaChat(data)), "user");
+      callback(data);
+    }, { type: "date", autocomplete: "off", value: hoje, skipResponse: true });
   }
 
   function perguntaStatusCadastro(label, positivo, negativo, callback) {
@@ -5597,19 +5610,22 @@ if (document.readyState === "loading") {
         cadastroAtivo.nome = nome;
         campoValorCadastro("Qual é o valor?", valor => {
           cadastroAtivo.valor = valor;
-          appendMensagem("Esse ganho pertence ao <strong>saldo em conta</strong> ou ao <strong>benefício</strong>?");
-          escolhaChat([
-            ["saldo", "Saldo em conta", "Entra no saldo normal"],
-            ["beneficio", "Benefício", "Entra no saldo do benefício"]
-          ], origem => {
-            cadastroAtivo.origem = origem;
-            perguntaDataCadastro(data => {
+          categoriasEscolhiveis(cat => {
+            cadastroAtivo.categoria = cat;
+            appendMensagem("Esse ganho pertence ao <strong>saldo em conta</strong> ou ao <strong>benefício</strong>?");
+            escolhaChat([
+              ["saldo", "Saldo em conta", "Entra no saldo normal"],
+              ["beneficio", "Benefício", "Entra no saldo do benefício"]
+            ], origem => {
+              cadastroAtivo.origem = origem;
+              perguntaDataCadastro(data => {
               cadastroAtivo.data = data;
               perguntaStatusCadastro("Esse dinheiro já foi recebido?", "Sim, já recebi", "Ainda vou receber", recebido => {
-                opGanhos.add(cadastroAtivo.nome, cadastroAtivo.valor, { recebido, data: dataDoLancamento(cadastroAtivo.data), origem: cadastroAtivo.origem });
+                opGanhos.add(cadastroAtivo.nome, cadastroAtivo.valor, { recebido, data: dataDoLancamento(cadastroAtivo.data), origem: cadastroAtivo.origem, tipo: cadastroAtivo.categoria });
                 finalizarCadastro("Ganho adicionado", `${esc(cadastroAtivo.nome)} · <span class="chat-valor chat-valor-pos">${chatFmt(cadastroAtivo.valor)}</span>.`);
               });
             });
+          });
           });
         });
       });
