@@ -4966,11 +4966,30 @@ if (document.readyState === "loading") {
 
   async function buscarDicasIA(t) {
     if (!API_URL || API_URL.includes("COLE_AQUI")) return [];
+
+    // A IA é um extra: se a rede/backend ficar preso, o chat nunca pode
+    // deixar o usuário eternamente em "Analisando seus números…".
+    // Limitamos a espera no navegador e deixamos o fluxo cair para as dicas
+    // locais já calculadas pelo app.
+    const TEMPO_MAXIMO_IA_MS = 14000;
+    let controller = null;
+    let timer = null;
     try {
-      const res = await fetch(API_URL, {
+      controller = typeof AbortController !== "undefined" ? new AbortController() : null;
+      const requisicao = fetch(API_URL, {
         method: "POST",
-        body: JSON.stringify({ action: "gerarInsightIA", pessoa: state.pessoaAtual || "davi", periodo: { mes: state.mesAtual, ano: state.anoAtual }, resumo: resumoParaIAChat(t) })
+        body: JSON.stringify({ action: "gerarInsightIA", pessoa: state.pessoaAtual || "davi", periodo: { mes: state.mesAtual, ano: state.anoAtual }, resumo: resumoParaIAChat(t) }),
+        signal: controller ? controller.signal : undefined
       });
+      const limite = new Promise((_, reject) => {
+        timer = setTimeout(() => {
+          try { if (controller) controller.abort(); } catch (e) {}
+          reject(new Error("timeout_ia"));
+        }, TEMPO_MAXIMO_IA_MS);
+      });
+      const res = await Promise.race([requisicao, limite]);
+      clearTimeout(timer);
+      if (!res || !res.ok) return [];
       const data = await res.json();
       if (!data || data.ok === false || !Array.isArray(data.textos)) return [];
       return data.textos.map(x => {
@@ -4978,6 +4997,7 @@ if (document.readyState === "loading") {
         return { texto: x?.texto || "", tipo: x?.tipo || "geral", titulo: x?.titulo || "" };
       }).filter(x => x.texto);
     } catch (err) {
+      if (timer) clearTimeout(timer);
       return [];
     }
   }
