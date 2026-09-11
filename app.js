@@ -3723,17 +3723,22 @@ function posicionarIndicadorAba() {
 
 function atualizarVisibilidadeFab() {
   const fab = document.getElementById("fabCriar");
-  if (fab) {
-    const podeCriar = !isAmbos();
-    fab.classList.toggle("is-hidden", !podeCriar);
-    fab.setAttribute("aria-hidden", String(!podeCriar));
-  }
   const chatFab = document.getElementById("caixaChatFab");
+  const chatAberto = document.getElementById("caixaChat")?.classList.contains("is-open");
+  const abaHistorico = document.querySelector('.tab-btn[data-tab="historico"]')?.classList.contains("is-active");
+  const ocultarTudo = !!chatAberto || !!abaHistorico;
+
+  if (fab) {
+    const ocultar = isAmbos() || ocultarTudo;
+    fab.classList.toggle("is-hidden", ocultar);
+    fab.setAttribute("aria-hidden", String(ocultar));
+    fab.setAttribute("tabindex", ocultar ? "-1" : "0");
+  }
   if (chatFab) {
-    const ocultarChat = isAmbos();
-    chatFab.classList.toggle("is-hidden", ocultarChat);
-    chatFab.setAttribute("aria-hidden", String(ocultarChat));
-    chatFab.setAttribute("tabindex", ocultarChat ? "-1" : "0");
+    const ocultar = isAmbos() || ocultarTudo;
+    chatFab.classList.toggle("is-hidden", ocultar);
+    chatFab.setAttribute("aria-hidden", String(ocultar));
+    chatFab.setAttribute("tabindex", ocultar ? "-1" : "0");
   }
 }
 
@@ -5429,6 +5434,7 @@ if (document.readyState === "loading") {
   }
 
   function campoChat(label, placeholder, callback, opts = {}) {
+    if (!opts.skipQuestion) appendMensagem(`<strong>${esc(label)}</strong>`);
     const wrap = document.createElement("div");
     wrap.className = `caixa-chat-simulador-form caixa-chat-cadastro-form ${opts.className || ""}`;
     const inputType = opts.type || "text";
@@ -5489,7 +5495,7 @@ if (document.readyState === "loading") {
       const data = valor || hoje;
       appendMensagem(esc(formatarDataParaChat(data)), "user");
       callback(data);
-    }, { type: "date", autocomplete: "off", value: hoje, skipResponse: true });
+    }, { type: "date", autocomplete: "off", value: hoje, skipResponse: true, skipQuestion: true });
   }
 
   function perguntaStatusCadastro(label, positivo, negativo, callback) {
@@ -5499,8 +5505,23 @@ if (document.readyState === "loading") {
 
   function finalizarCadastro(titulo, mensagem) {
     appendMensagem(`<strong>${esc(titulo)}</strong><br>${mensagem}`);
-    mostrarMenuCompacto();
     cadastroAtivo = null;
+    appendMensagem("Quer adicionar outro lançamento?");
+    escolhaChat([
+      ["sim", "Sim, adicionar outro", "Voltar para o início do cadastro"],
+      ["nao", "Não, terminar", "Voltar para as ações do assistente"]
+    ], escolha => {
+      if (escolha === "sim") {
+        iniciarCadastroConversacional();
+      } else {
+        mostrarAcoesRapidas();
+        const quickTitle = quick.previousElementSibling;
+        if (quickTitle && quickTitle.classList.contains("caixa-chat-quick-title")) quickTitle.classList.remove("is-hidden");
+        const welcome = body.querySelector(".caixa-chat-welcome");
+        if (welcome) welcome.classList.add("is-hidden");
+        appendMensagem("Tudo certo. O que você gostaria de fazer agora?");
+      }
+    });
   }
 
   function iniciarCadastroConversacional() {
@@ -5533,7 +5554,7 @@ if (document.readyState === "loading") {
     });
 
     function fluxoGasto() {
-      appendMensagem("Vamos ao <strong>gasto</strong>. O que foi?");
+      appendMensagem("Vamos ao <strong>gasto</strong>.");
       campoChat("O que foi?", "Ex.: Mercado, Amazon, aluguel…", nome => {
         cadastroAtivo.nome = nome;
         campoValorCadastro("Qual foi o valor?", valor => {
@@ -5605,7 +5626,7 @@ if (document.readyState === "loading") {
     }
 
     function fluxoGanho() {
-      appendMensagem("Vamos registrar o <strong>ganho</strong>. Qual é o nome dessa entrada?");
+      appendMensagem("Vamos registrar o <strong>ganho</strong>.");
       campoChat("Nome do ganho", "Ex.: Salário, vale, benefício…", nome => {
         cadastroAtivo.nome = nome;
         campoValorCadastro("Qual é o valor?", valor => {
@@ -5632,18 +5653,18 @@ if (document.readyState === "loading") {
     }
 
     function fluxoCaixinha() {
-      appendMensagem("Vamos criar a <strong>caixinha</strong>. Como você quer chamá-la?");
+      appendMensagem("Vamos criar a <strong>caixinha</strong>.");
       campoChat("Nome da caixinha", "Ex.: Reserva de emergência, viagem…", nome => {
         cadastroAtivo.nome = nome;
         campoValorCadastro("Quanto já quer guardar nela?", valor => {
           cadastroAtivo.valorInicial = valor;
-          appendMensagem("Qual é o <strong>objetivo</strong> dessa caixinha? (Opcional)");
+          appendMensagem("Vamos definir a meta da caixinha.");
           campoChat("Objetivo", "Ex.: 5000,00 — ou deixe em branco", valorObjetivo => {
             cadastroAtivo.valorObjetivo = valorObjetivo ? parseValor(valorObjetivo) : 0;
-            appendMensagem("Você quer colocar um <strong>prazo</strong> para essa meta? (Opcional)");
+            appendMensagem("Vamos definir o prazo da meta.");
             campoChat("Prazo", "Escolha uma data ou deixe em branco", data => {
               cadastroAtivo.data = data || "";
-              appendMensagem("Quer escolher um <strong>ícone</strong> para ela? (Opcional)");
+              appendMensagem("Agora escolha um ícone, se quiser.");
               const icones = (Array.isArray(iconesCaixinhas) ? iconesCaixinhas : []).slice(0,8);
               const op = icones.map(nomeIcone => [nomeIcone, nomeIconeBonito(nomeIcone), ""]);
               op.push(["", "Sem ícone", "Usar o padrão"]);
@@ -5680,6 +5701,7 @@ if (document.readyState === "loading") {
     chat.classList.add("is-open");
     chat.setAttribute("aria-hidden", "false");
     fab.setAttribute("aria-expanded", "true");
+    atualizarVisibilidadeFab();
     const first = quick.querySelector("button");
     if (first) setTimeout(() => first.focus(), 80);
   }
@@ -5687,6 +5709,7 @@ if (document.readyState === "loading") {
     chat.classList.remove("is-open");
     chat.setAttribute("aria-hidden", "true");
     fab.setAttribute("aria-expanded", "false");
+    atualizarVisibilidadeFab();
     // Fechar encerra o contexto atual. Ao abrir novamente pela IA, nunca
     // reaparece uma pergunta/formulário do cadastro anterior.
     resetarChatParaSelecao();
@@ -5730,6 +5753,7 @@ if (document.readyState === "loading") {
     const welcome = body.querySelector(".caixa-chat-welcome");
     if (welcome) welcome.classList.remove("is-hidden");
     body.scrollTop = 0;
+    atualizarVisibilidadeFab();
   }
 
   document.addEventListener("click", e => {
