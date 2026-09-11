@@ -3961,3 +3961,69 @@ body.sem-entrada-listas .item-list-row { animation: none !important; }
 }
 
 .caixa-chat-fab.is-hidden { display: none !important; }
+
+
+/* Lançamento guardado: o movimento é identificado no próprio valor, com um
+   símbolo de caixa/arquivo e seta para baixo, sem sinal de gasto. */
+.ledger-item.expense-guardado .ledger-icon.guardado {
+  display: none;
+}
+.ledger-item.expense-guardado {
+  grid-template-columns: 1fr auto;
+}
+.ledger-valor.guardado {
+  display: inline-flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 5px;
+}
+.ledger-valor-guardado-icone {
+  width: 18px;
+  height: 18px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  flex: 0 0 auto;
+}
+.ledger-valor-guardado-icone svg {
+  width: 18px;
+  height: 18px;
+}
+
+/* No card de pendências, o nome fica inteiro e a parcela vem limpa em
+   parênteses; o valor mantém uma coluna própria para todos os cards ficarem
+   alinhados. */
+.caixa-chat-pendencias-lista li {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  align-items: center;
+}
+.chat-pendente-main {
+  flex: 1 1 auto;
+  min-width: 0;
+}
+.chat-pendente-main strong {
+  display: block;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  line-height: 1.25;
+}
+.chat-pendente-parcela {
+  margin-left: 4px;
+  margin-right: 0;
+  font-weight: 800;
+  color: var(--gold-deep);
+  white-space: nowrap;
+}
+.chat-pendente-main small {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  min-height: 15px;
+}
+.caixa-chat-pendencias-lista li > .chat-valor {
+  min-width: 70px;
+  text-align: right;
+  justify-self: end;
+}
