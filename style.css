@@ -4145,3 +4145,52 @@ body.sem-entrada-listas .item-list-row { animation: none !important; }
 @media (prefers-reduced-motion: reduce) {
   .caixa-chat-outra-dica { animation: none; }
 }
+
+/* V9 — glitter das caixinhas: partículas minúsculas sobem suavemente dentro da barra,
+   como uma barra de XP/HP, sem virar um efeito chamativo. */
+.goal-bar-fill::before {
+  content: "";
+  position: absolute;
+  left: -5%;
+  top: 105%;
+  width: 110%;
+  height: 190%;
+  pointer-events: none;
+  opacity: .34;
+  background-image:
+    radial-gradient(circle at 7% 72%, rgba(255,255,255,.78) 0 1px, transparent 1.7px),
+    radial-gradient(circle at 19% 48%, rgba(255,248,220,.68) 0 .8px, transparent 1.5px),
+    radial-gradient(circle at 31% 82%, rgba(255,255,255,.58) 0 .9px, transparent 1.6px),
+    radial-gradient(circle at 44% 38%, rgba(255,248,220,.72) 0 1px, transparent 1.7px),
+    radial-gradient(circle at 58% 68%, rgba(255,255,255,.55) 0 .8px, transparent 1.5px),
+    radial-gradient(circle at 72% 46%, rgba(255,248,220,.68) 0 .9px, transparent 1.6px),
+    radial-gradient(circle at 86% 76%, rgba(255,255,255,.62) 0 1px, transparent 1.7px),
+    radial-gradient(circle at 95% 34%, rgba(255,248,220,.56) 0 .8px, transparent 1.5px);
+  background-size: 86px 70px, 122px 92px, 104px 76px, 138px 98px, 96px 84px, 126px 88px, 112px 72px, 148px 102px;
+  background-repeat: repeat;
+  filter: blur(.05px);
+  transform: translate3d(0, 0, 0);
+  animation: goal-bar-glitter-rise 3.2s linear infinite;
+}
+
+@keyframes goal-bar-glitter-rise {
+  0%   { transform: translate3d(0, 0, 0); opacity: 0; }
+  12%  { opacity: .30; }
+  48%  { opacity: .38; }
+  82%  { opacity: .22; }
+  100% { transform: translate3d(0, -58%, 0); opacity: 0; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .goal-bar-fill::before { animation: none; opacity: .18; transform: none; }
+}
+
+/* V9 — card auxiliar do planejamento de caixinha */
+.caixa-chat-goal-help-card {
+  margin-top: 8px;
+  border-style: dashed;
+  background: rgba(185,134,47,.055);
+}
+.caixa-chat-meta-choices {
+  margin-top: 8px;
+}
