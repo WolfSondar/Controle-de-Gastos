@@ -1038,6 +1038,8 @@ async function trocarPessoa(pessoa) {
   const pessoaAnterior = state.pessoaAtual;
   state.pessoaAtual = pessoa;
   localStorage.setItem(PESSOA_STORAGE_KEY, pessoa);
+  atualizarVisibilidadeFab();
+  document.dispatchEvent(new CustomEvent("caixa:perfil-trocado", { detail: { pessoa } }));
   prevTotals.ganhos = null;
   prevTotals.fixos = null;
   prevTotals.variaveis = null;
@@ -3660,6 +3662,7 @@ function garantirEstiloDosIndicadoresInsight() {
 function normalizarInsight(item) {
   const ehObjeto = item && typeof item === "object";
   const texto = String(ehObjeto ? (item.texto || item.insight || "") : (item || "")).trim();
+  const recomendacao = String(ehObjeto ? (item.recomendacao || item.recommendation || "") : "").trim();
   let tipo = String(ehObjeto ? (item.tipo || "") : "").trim().toLowerCase();
   let titulo = String(ehObjeto ? (item.titulo || "") : "").trim();
 
@@ -3677,7 +3680,7 @@ function normalizarInsight(item) {
     const titulos = { gasto: "GASTO", ganho: "RECEBIMENTO", beneficio: "BENEFÍCIO", guardado: "CAIXINHA", rendimento: "RENDIMENTO", comparacao: "COMPARAÇÃO", planejamento: "PLANEJAMENTO", atencao: "ATENÇÃO" };
     titulo = titulos[tipo] || "INSIGHT";
   }
-  return { titulo, texto, tipo: tipo || "geral" };
+  return { titulo, texto, recomendacao, tipo: tipo || "geral" };
 }
 
 function corDoTituloInsight(tipo) {
@@ -3748,7 +3751,7 @@ function mostrarInsightTexto(insight, modo) {
     if (modo) el.classList.add(`is-${modo}`);
     el.innerHTML = modo === "carregando"
       ? '<span class="insight-loading" role="status" aria-label="Carregando insight"><span></span><span></span><span></span></span>'
-      : renderizarTextoInsight(texto);
+      : `${renderizarTextoInsight(texto)}${modo === "ia" && item.recomendacao ? `<div class="insight-recomendacao"><span>Recomendação</span><div>${renderizarTextoInsight(item.recomendacao)}</div></div>` : ""}`;
 
     if (tituloEl) {
       tituloEl.textContent = modo === "ia" ? titulo : "";
@@ -4618,7 +4621,7 @@ function atualizarVisibilidadeFab() {
   const fab = document.getElementById("fabCriar");
   if (fab) {
     const ativa = document.querySelector(".tab-panel:not(.is-hidden)");
-    const podeCriar = ["ganhos", "fixos", "variaveis", "caixinhas"].includes(ativa?.dataset.tab || "");
+    const podeCriar = ["ganhos", "fixos", "variaveis"].includes(ativa?.dataset.tab || "") && !isAmbos();
     fab.classList.toggle("is-hidden", !podeCriar);
     fab.setAttribute("aria-hidden", String(!podeCriar));
   }
@@ -4642,6 +4645,7 @@ if (tabbarEl) {
     window.scrollTo({ top: 0, behavior: "smooth" });
     posicionarIndicadorAba();
     atualizarVisibilidadeFab();
+    if (typeof fecharCriacaoFlutuante === "function") fecharCriacaoFlutuante();
     if (tab === "historico") renderHistorico();
   });
 }
@@ -5502,7 +5506,6 @@ const CONFIG_CRIACAO = {
   ganhos: { alvo: "collapsible-ganhos", titulo: "Novo ganho", hint: "Registre uma entrada de dinheiro e indique se ela já foi recebida." },
   fixos: { alvo: "collapsible-fixos", titulo: "Novo gasto fixo", hint: "Cadastre uma conta recorrente ou parcelada." },
   variaveis: { alvo: "collapsible-variaveis", titulo: "Novo gasto variável", hint: "Registre uma compra ou despesa do dia a dia." },
-  guardado: { alvo: "collapsible-guardado", titulo: "Nova caixinha", hint: "Crie uma meta ou um lugar para guardar seu dinheiro." },
 };
 
 function fecharCriacaoFlutuante() {
@@ -5914,49 +5917,36 @@ if (document.readyState === "loading") {
         const maior = cats[0];
         const totalGastos = (Number(t.fixosPagos) || 0) + (Number(t.variaveisPagos) || 0);
         const totalEntradas = Number(t.ganhosRecebidos) || 0;
-        const dicas = [];
-        const totalContasAbertas = t.aPagarFixos + t.aPagarVariaveis;
-        const saldoProjetadoComEntradas = t.saldoAtualConta + t.aReceber;
-        const contasFuturas = t.aPagarFixosFuturos + t.aPagarVariaveisFuturos;
-        const contasDesteMes = t.aPagarFixosEsseMes + t.aPagarVariaveisEsseMes;
+        const totalContasAbertas = Number(t.aPagarFixos) + Number(t.aPagarVariaveis);
+        const saldoProjetado = Number(t.saldoAtualConta) + Number(t.aReceber);
+        const contasDesteMes = Number(t.aPagarFixosEsseMes) + Number(t.aPagarVariaveisEsseMes);
+        const contasFuturas = Number(t.aPagarFixosFuturos) + Number(t.aPagarVariaveisFuturos);
+        const folgaProjetada = saldoProjetado - totalContasAbertas;
+
+        let dica = "Seu orçamento fica mais seguro quando o dinheiro já comprometido fica separado do valor livre.";
+        let recomendacao = "Antes de criar um gasto novo, confira o limite projetado depois das contas.";
 
         if (t.aReceber > 0 && totalContasAbertas > 0) {
-          const folgaProjetada = saldoProjetadoComEntradas - totalContasAbertas;
-          const futuroTexto = contasFuturas > 0
-            ? ` — desse total, <strong>${chatFmt(contasFuturas)}</strong> são lançamentos com vencimento depois deste mês.`
-            : ".";
-          dicas.push(`Com a entrada de <span class="chat-valor chat-valor-pos">${chatFmt(t.aReceber)}</span>, seu saldo projetado sobe para <span class="chat-valor chat-valor-pos">${chatFmt(saldoProjetadoComEntradas)}</span>, cobrindo as contas em aberto de <span class="chat-valor chat-valor-neg">${chatFmt(totalContasAbertas)}</span>${futuroTexto} <strong>Recomendação:</strong> quando o valor entrar, quite o que vence neste mês (${chatFmt(contasDesteMes)}) e deixe o restante das contas já reservado; depois de considerar tudo, a folga projetada fica em <span class="chat-valor chat-valor-pos">${chatFmt(folgaProjetada)}</span>.`);
-        }
-        if (t.aReceber > 0) {
-          dicas.push(`Você ainda tem <span class="chat-valor chat-valor-pos">${chatFmt(t.aReceber)}</span> para receber. O melhor é tratar esse valor como entrada projetada até ele cair na conta, e não como saldo livre antes da hora.`);
-        }
-        if (totalContasAbertas > 0 && t.aPagarFixosEsseMes > 0) {
-          dicas.push(`Neste mês, há <span class="chat-valor chat-valor-neg">${chatFmt(t.aPagarFixosEsseMes)}</span> em contas fixas que vencem agora. Além delas, existem <span class="chat-valor chat-valor-neg">${chatFmt(contasFuturas)}</span> em lançamentos futuros já cadastrados — não misture as duas datas ao analisar o mês.`);
-        }
-        if (t.aPagarVariaveisEsseMes > 0) {
-          dicas.push(`Ainda existem <span class="chat-valor chat-valor-neg">${chatFmt(t.aPagarVariaveisEsseMes)}</span> em gastos variáveis pendentes deste mês. Vale manter esse valor reservado antes de transformar o restante em dinheiro disponível.`);
-        }
-        if (t.beneficio > 0) {
-          dicas.push(`Você ainda tem <span class="chat-valor chat-valor-gold">${chatFmt(t.beneficio)}</span> disponíveis no benefício. Separar essa verba do saldo normal deixa mais claro quanto realmente está livre para cada tipo de gasto.`);
-        }
-        if (maior && maior[1] > 0) {
+          dica = `Com a entrada de <span class="chat-valor chat-valor-pos">${chatFmt(t.aReceber)}</span>, seu saldo projetado vai para <span class="chat-valor chat-valor-pos">${chatFmt(saldoProjetado)}</span>. Depois de reservar <span class="chat-valor chat-valor-neg">${chatFmt(totalContasAbertas)}</span> para as contas abertas, sobra uma folga projetada de <span class="chat-valor chat-valor-pos">${chatFmt(Math.max(folgaProjetada,0))}</span>.`;
+          recomendacao = contasDesteMes > 0
+            ? `Quando o dinheiro entrar, priorize os <span class="chat-valor chat-valor-neg">${chatFmt(contasDesteMes)}</span> que vencem neste mês. ${contasFuturas > 0 ? `Os ${chatFmt(contasFuturas)} restantes são compromissos futuros, então vale deixá-los reservados.` : `Depois disso, a folga projetada fica em ${chatFmt(Math.max(folgaProjetada,0))}.`}`
+            : `Quando o dinheiro entrar, mantenha as contas futuras reservadas e use a folga de <span class="chat-valor chat-valor-pos">${chatFmt(Math.max(folgaProjetada,0))}</span> com um objetivo definido.`;
+        } else if (t.aPagarVariaveisEsseMes > 0) {
+          dica = `Ainda há <span class="chat-valor chat-valor-neg">${chatFmt(t.aPagarVariaveisEsseMes)}</span> em gastos variáveis deste mês que não foram pagos.`;
+          recomendacao = `Reserve esse valor antes de considerar o restante do saldo como dinheiro livre para novos gastos.`;
+        } else if (maior && maior[1] > 0) {
           const percentual = totalGastos > 0 ? Math.round((maior[1] / totalGastos) * 100) : 0;
-          dicas.push(`<strong>${esc(maior[0])}</strong> representa cerca de <strong>${percentual}%</strong> dos seus gastos pagos no período, com <span class="chat-valor chat-valor-neg">${chatFmt(maior[1])}</span>. Esse é o maior peso do seu orçamento hoje, sem precisar presumir que seja um problema.`);
+          dica = `A categoria <strong>${esc(maior[0])}</strong> foi a que mais consumiu seu dinheiro, com <span class="chat-valor chat-valor-neg">${chatFmt(maior[1])}</span> (${percentual}% dos gastos pagos).`;
+          recomendacao = `Se essa categoria não era prioridade, estabeleça um teto para o próximo período e compare o resultado com este mês.`;
+        } else if (t.beneficio > 0) {
+          dica = `Você ainda tem <span class="chat-valor chat-valor-gold">${chatFmt(t.beneficio)}</span> disponíveis no benefício.`;
+          recomendacao = `Use o benefício primeiro nos gastos que realmente podem sair dessa origem e preserve o saldo normal para as contas que dependem dele.`;
+        } else if (totalEntradas > 0 && totalGastos > totalEntradas) {
+          dica = `Até agora, os gastos pagos somam <span class="chat-valor chat-valor-neg">${chatFmt(totalGastos)}</span>, acima das entradas recebidas de <span class="chat-valor chat-valor-pos">${chatFmt(totalEntradas)}</span>.`;
+          recomendacao = `Evite assumir novas despesas até as próximas entradas compensarem essa diferença.`;
         }
-        if (totalEntradas > 0 && totalGastos > totalEntradas) {
-          dicas.push(`Até agora, seus gastos pagos somam <span class="chat-valor chat-valor-neg">${chatFmt(totalGastos)}</span>, acima das entradas recebidas de <span class="chat-valor chat-valor-pos">${chatFmt(totalEntradas)}</span>.`);
-        }
-        const caixinhasComMeta = metasChat();
-        if (caixinhasComMeta.length) {
-          const meta = caixinhasComMeta[0];
-          dicas.push(`Sua caixinha <strong>${esc(meta.nome)}</strong> está em <strong>${Math.round(Math.min(meta.atual / meta.objetivo * 100, 100))}%</strong> da meta. Se fizer sentido para o seu fluxo, um valor mensal fixo ajuda a acompanhar o prazo sem apertar o restante do orçamento.`);
-        }
-        if (!dicas.length) {
-          dicas.push(`Seu melhor próximo passo é manter uma margem entre o que entra e o que sai. O Caixa fica mais previsível quando o dinheiro já comprometido não é confundido com saldo livre.`);
-        }
-        window._caixaDicaIndice = (Number(window._caixaDicaIndice) || 0) % dicas.length;
-        const dica = dicas[window._caixaDicaIndice++];
-        appendMensagem(`Minha dica: ${dica}<span class="caixa-chat-note">Essa orientação foi escolhida a partir dos números atuais do Caixa.</span>`);
+
+        appendMensagem(`<div class="chat-dica-bloco"><span class="chat-dica-titulo">Dica</span><div>${dica}</div></div><div class="chat-recomendacao-bloco"><span class="chat-recomendacao-titulo">Recomendação</span><div>${recomendacao}</div></div>`);
       }
     });
   }
@@ -6018,6 +6008,10 @@ if (document.readyState === "loading") {
       resetarChatParaSelecao();
       fecharChat();
     }
+  });
+  document.addEventListener("caixa:perfil-trocado", () => {
+    resetarChatParaSelecao();
+    fecharChat();
   });
 
   mostrarAcoesRapidas();
