@@ -5531,7 +5531,11 @@ if (document.readyState === "loading") {
         btn.addEventListener("click", () => {
           menu.remove();
           if (nome) registrarUsoIconeCaixinha(nome);
-          appendMensagem(nome ? label : "Sem ícone", "user");
+          if (nome) {
+            appendMensagem(`<span class="caixa-chat-icon-selected" title="${esc(label)}"><img src="${esc(urlIconeCaixinha(nome))}" alt="${esc(label)}"></span>`, "user");
+          } else {
+            appendMensagem("Sem ícone", "user");
+          }
           callback(nome, label);
         });
         grid.appendChild(btn);
@@ -5574,17 +5578,9 @@ if (document.readyState === "loading") {
     cadastroAtivo = null;
     appendMensagem("Quer adicionar outro lançamento?");
     escolhaChat([
-      ["sim", "Sim, adicionar outro", "Voltar para o início do cadastro"],
-      ["nao", "Não, terminar", "Voltar para as ações do assistente"]
+      ["sim", "Sim, adicionar outro", "Voltar para o início do cadastro"]
     ], escolha => {
-      if (escolha === "sim") {
-        iniciarCadastroConversacional();
-      } else {
-        // Ao terminar, volta diretamente ao menu principal do assistente.
-        // Não adiciona uma mensagem intermediária nem deixa o menu secundário
-        // "Escolher outra coisa" preso no fim do cadastro.
-        resetarChatParaSelecao();
-      }
+      if (escolha === "sim") iniciarCadastroConversacional();
     });
   }
 
