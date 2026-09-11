@@ -4729,7 +4729,7 @@ if (document.readyState === "loading") {
   const ACOES = [
     { id: "gastar", icon: "wallet", titulo: "Quanto ainda posso gastar?", subtitulo: "Separar benefício e saldo em conta" },
         { id: "categorias", icon: "chart", titulo: "Onde estou gastando mais?", subtitulo: "As categorias que mais pesaram" },
-    { id: "guardado", icon: "pig", titulo: "Planejar uma caixinha", subtitulo: "Quanto preciso guardar para a meta" },
+    { id: "guardado", icon: "pig", titulo: "Progresso das caixinhas", subtitulo: "Metas, prazos e quanto falta guardar" },
     { id: "mudou", icon: "chart", titulo: "O que mais mudou este mês?", subtitulo: "Compare com o mês anterior" },
     { id: "pendencias", icon: "clock", titulo: "Ainda falta pagar", subtitulo: "Veja contas, parcelas e valores pendentes" },
     { id: "economia", icon: "sparkle", titulo: "Me dê uma dica", subtitulo: "Uma orientação baseada nos seus números" }
@@ -4868,14 +4868,22 @@ if (document.readyState === "loading") {
     return { tom: pessoa === "gabriel" ? (cfg.tomGabriel || "") : (cfg.tomDavi || ""), imersao: [...(cfg[pessoa] || []), ...(cfg.ambos || [])] };
   }
   function aplicarTomChat(texto) {
-    const { tom } = tomChat();
-    let base = String(texto || "");
+    const { tom, imersao } = tomChat();
+    let base = String(texto || "").trim();
     if (!tom) return base;
     const t = tom.toLowerCase();
-    if (/gamer|jogo|internet|meme|zoeira|informal|descontra/.test(t)) {
-      base = base.replace(/^Com /, "Boa: com ").replace(/^Ainda existem/, "Ainda tem").replace(/^Ainda há/, "Ainda tem");
+    const nome = state.pessoaAtual === "gabriel" ? "Gabriel" : "Davi";
+    const nook = /tom nook|acolhedor|gentil|formal\/antiquado|formal|old-school|educadinho/.test(t);
+    const gamer = /gamer|jogo|internet|meme|zoeira|informal|descontra/.test(t);
+    const fofo = /fofo|carinho|caloroso|fazendinha|puxa vida|yay|ora, ora|que maravilha/.test(t);
+    if (nook || fofo) {
+      if (!/^ora, ora/i.test(base) && !/^puxa vida/i.test(base) && !/^que maravilha/i.test(base)) base = `Ora, ora, ${nome}! ${base.charAt(0).toLowerCase()}${base.slice(1)}`;
+      if (imersao.length && /meta|caixinha|guardar|reserva/.test(imersao.join(" ").toLowerCase()) && /caixinha|meta|guard/i.test(base)) base = base.replace(/\.$/, ". Que maravilha!");
+    } else if (gamer) {
+      base = `Boa, ${nome}! ${base.charAt(0).toLowerCase()}${base.slice(1)}`;
+    } else if (/sério|serio|objetivo|profissional/.test(t)) {
+      base = base.replace(/^Boa, /, "");
     }
-    if (/formal|sério|serio|objetivo|profissional/.test(t)) base = base.replace(/^Boa: /, "").replace(/Ainda tem/g, "Ainda existem");
     return base;
   }
   function compararMesAnteriorChat() {
@@ -4891,7 +4899,87 @@ if (document.readyState === "loading") {
       const suf = state.pessoaAtual === "gabriel" ? "Gabriel" : "Davi";
       return Number(mes[`${campo}${suf}`]) || 0;
     };
-    return { ganhos: get("ganhos"), gastos: get("debitos"), guardado: get("guardadoMes"), nome: mes.nome || "mês anterior" };
+    // DEBITOS no HISTORICO são gravados negativos. Para comparar com os
+    // gastos atuais (que são positivos), normalizamos aqui uma única vez.
+    return { ganhos: get("ganhos"), gastos: Math.abs(get("debitos")), guardado: Math.max(0, get("guardadoMes")), nome: mes.nome || "mês anterior" };
+  }
+
+  function resumoParaIAChat(t) {
+    const totalGastos = (Number(t.fixosPagos) || 0) + (Number(t.variaveisPagos) || 0);
+    const categorias = Object.fromEntries(categoriasChat().map(([nome, valor]) => [nome, Number(valor) || 0]));
+    const caixinhas = listaFinita(state.caixinhas).map(cx => {
+      const atual = typeof totalCaixinha === "function" ? totalCaixinha(cx) : ((Number(cx.valorGuardado)||0)+(Number(cx.rendimentoTotal)||0)+(Number(cx.valorGuardadoMes)||0));
+      const objetivo = Number(cx.valorObjetivo) || 0;
+      const prazo = String(cx.data || "");
+      let diasAtePrazo = null;
+      if (prazo) {
+        const alvo = new Date(`${prazo}T23:59:59`);
+        if (!Number.isNaN(alvo.getTime())) diasAtePrazo = Math.ceil((alvo - new Date()) / 86400000);
+      }
+      const falta = Math.max(objetivo - atual, 0);
+      const meses = diasAtePrazo === null ? null : Math.max(1, Math.ceil(Math.max(diasAtePrazo, 0) / 30.4375));
+      return { nome: cx.nome || "Caixinha", valorGuardado: atual, valorObjetivo: objetivo, prazo, diasAtePrazo, faltaParaMeta: falta, necessarioGuardarPorMes: meses && falta > 0 ? falta / meses : 0, guardadoNesseMes: Number(cx.valorGuardadoMes) || 0 };
+    });
+    const anterior = compararMesAnteriorChat();
+    const ganhosAtuais = listaFinita(state.ganhos).filter(i => ganhoEhRecebido(i));
+    const gastosAtuais = listaFinita(state.gastosFixos).filter(i => fixoEhPago(i)).concat(listaFinita(state.gastosVariaveis).filter(i => gastoVariavelEhReal(i) && variavelContaNoSaldo(i)));
+    return {
+      mesAtual: {
+        mes: state.mesAtual, ano: state.anoAtual,
+        ganhosRecebidos: Number(t.ganhosRecebidos) || 0,
+        beneficiosRecebidos: Number(t.ganhosOrigem?.beneficios) || 0,
+        ganhosRecebidosSemBeneficio: Number(t.ganhosOrigem?.ganhos) || 0,
+        gastoFixoPago: Number(t.fixosPagos) || 0,
+        gastoVariavelPago: Number(t.variaveisPagos) || 0,
+        gastos: totalGastos,
+        saldoAtualEmConta: Number(t.saldoAtualConta) || 0,
+        saldoProjetadoComEntradas: (Number(t.saldoAtualConta) || 0) + (Number(t.aReceber) || 0),
+        contasAbertasTotal: (Number(t.aPagarFixos) || 0) + (Number(t.aPagarVariaveis) || 0),
+        limiteDeGastoProjetado: Number(t.conta) || 0,
+        aindaAReceberEsseMes: Number(t.aReceber) || 0,
+        aindaAPagarFixosEsseMes: Number(t.aPagarFixosEsseMes) || 0,
+        aindaAPagarVariaveisEsseMes: Number(t.aPagarVariaveisEsseMes) || 0,
+        gastosFuturos: (Number(t.aPagarFixosFuturos) || 0) + (Number(t.aPagarVariaveisFuturos) || 0),
+        guardadoNoMes: somaCampo(state.caixinhas, "valorGuardadoMes"),
+        totalGuardadoAtualDeVerdade: somaTotalCaixinhas(state.caixinhas),
+        rendimentoNoMes: somaCampo(state.caixinhas, "rendimentoTotal"),
+        categorias,
+        caixinhas,
+        lancamentosPagos: gastosAtuais.slice(0, 80).map(i => ({ nome: i.nome || "", valor: Number(i.valor)||0, categoria: i.tipo || "", data: i.data || "" })),
+        ganhosDoMes: ganhosAtuais.slice(0, 40).map(i => ({ nome: i.nome || "", valor: Number(i.valor)||0, data: i.data || "" }))
+      },
+      mesPassado: anterior ? { ganhosRecebidos: anterior.ganhos, gastos: anterior.gastos, guardadoNoMes: anterior.guardado, nome: anterior.nome } : null
+    };
+  }
+
+  function formatarTextoIAChat(texto) {
+    const bruto = String(texto || "").trim();
+    if (!bruto) return "";
+    let seguro = esc(bruto);
+    seguro = seguro.replace(/\{\{(ganho|gasto|guardado|rendimento|\+|-)\s*:\s*(R\$\s*[0-9.]+,[0-9]{2})\}\}/gi, (_, tipo, valor) => {
+      const mapa = { ganho: "chat-valor-pos", gasto: "chat-valor-neg", guardado: "chat-valor-gold", rendimento: "chat-valor-yield", "+": "chat-valor-pos", "-": "chat-valor-neg" };
+      return `<span class="chat-valor ${mapa[String(tipo).toLowerCase()] || ""}">${valor}</span>`;
+    });
+    seguro = seguro.replace(/\*\*(.*?)\*\*/g, "<strong>$1</strong>");
+    return seguro.replace(/\n+/g, "<br>");
+  }
+
+  async function buscarDicasIA(t) {
+    if (!API_URL || API_URL.includes("COLE_AQUI")) return [];
+    try {
+      const res = await fetch(API_URL, {
+        method: "POST",
+        body: JSON.stringify({ action: "gerarInsightIA", pessoa: state.pessoaAtual || "davi", periodo: { mes: state.mesAtual, ano: state.anoAtual }, resumo: resumoParaIAChat(t) })
+      });
+      const data = await res.json();
+      if (!data || data.ok === false || !Array.isArray(data.textos)) return [];
+      return data.textos.map(x => {
+        if (typeof x === "string") return { texto: x };
+        return { texto: x?.texto || "", tipo: x?.tipo || "geral", titulo: x?.titulo || "" };
+      }).filter(x => x.texto);
+    } catch (err) {
+      return [];
+    }
   }
 
   function montarDicasFinanceiras(t) {
@@ -4952,25 +5040,37 @@ if (document.readyState === "loading") {
   function mostrarDicaNoChat(item) {
     clearTimeout(dicaOutraTimer);
     body.querySelectorAll("#caixaChatOutraDica").forEach((x) => x.remove());
-    appendMensagem(`<div class="chat-dica-bloco"><span class="chat-dica-titulo">Dica</span><div>${item?.dica || ""}</div></div>`);
+    const texto = formatarTextoIAChat(item?.texto || item?.dica || "");
+    appendMensagem(`<span class="chat-dica-titulo">Dica</span><div class="chat-dica-texto">${texto}</div>`);
     dicaOutraTimer = setTimeout(() => {
       if (!chat.classList.contains("is-open")) return;
+      if (document.getElementById("caixaChatOutraDica")) return;
       const btn = document.createElement("button");
       btn.type = "button";
       btn.id = "caixaChatOutraDica";
       btn.className = "caixa-chat-outra-dica";
       btn.innerHTML = `${IC.sparkle}<span>Outra dica</span><span aria-hidden="true">↗</span>`;
-      btn.addEventListener("click", () => {
+      btn.addEventListener("click", async () => {
         btn.remove();
+        clearTimeout(dicaOutraTimer);
+        dicaOutraTimer = null;
         const back = document.getElementById("caixaChatBack");
         if (back) back.remove();
         appendMensagem("Outra dica", "user");
         iniciarPensamento(() => {
+          const estoque = Array.isArray(window._caixaDicasIAEstoque) ? window._caixaDicasIAEstoque : [];
+          const idx = Number(window._caixaDicaIAIndice || 0);
+          const proxima = estoque[idx];
+          if (proxima) {
+            window._caixaDicaIAIndice = idx + 1;
+            mostrarDicaNoChat(proxima);
+            return;
+          }
           const t = totaisChat();
-          const dicas = montarDicasFinanceiras(t);
-          const indice = Number(window._caixaDicaIndice || 0) % Math.max(dicas.length, 1);
-          window._caixaDicaIndice = indice + 1;
-          mostrarDicaNoChat(dicas[indice]);
+          const fallback = montarDicasFinanceiras(t);
+          const fi = Number(window._caixaDicaIndice || 0) % Math.max(fallback.length, 1);
+          window._caixaDicaIndice = fi + 1;
+          mostrarDicaNoChat({ texto: fallback[fi]?.dica || "Não apareceu nenhuma informação nova relevante nos dados atuais." });
         });
       });
       const back = document.getElementById("caixaChatBack");
@@ -5035,6 +5135,8 @@ if (document.readyState === "loading") {
   function executarAcao(id) {
     clearTimeout(dicaOutraTimer);
     dicaOutraTimer = null;
+    window._caixaDicasIAEstoque = [];
+    window._caixaDicaIAIndice = 0;
     body.querySelectorAll("#caixaChatOutraDica").forEach(x => x.remove());
     quick.classList.add("is-hidden");
     const quickTitle = quick.previousElementSibling;
@@ -5115,17 +5217,25 @@ if (document.readyState === "loading") {
         const ant = compararMesAnteriorChat();
         if (!ant) { appendMensagem(`<strong>Ainda não tenho um mês fechado anterior suficiente para comparar.</strong><span class="caixa-chat-note">Assim que o histórico tiver o mês anterior, eu consigo apontar a mudança mais relevante.</span>`); }
         else {
-          const atual = { gastos: (Number(t.fixosPagos)||0)+(Number(t.variaveisPagos)||0), ganhos: Number(t.ganhosRecebidos)||0, guardado: Number(t.totalGuardadoNoMes)||0 };
-          const lista = Object.keys(atual).map(k => ({ k, delta: atual[k] - ant[k] })).sort((a,b)=>Math.abs(b.delta)-Math.abs(a.delta));
+          const atual = { gastos: (Number(t.fixosPagos)||0)+(Number(t.variaveisPagos)||0), ganhos: Number(t.ganhosRecebidos)||0, guardado: somaCampo(state.caixinhas, "valorGuardadoMes") };
+          const lista = Object.keys(atual).map(k => ({ k, delta: atual[k] - (Number(ant[k]) || 0) })).sort((a,b)=>Math.abs(b.delta)-Math.abs(a.delta));
           const top = lista[0];
-          const nomes = { gastos:"gastos", ganhos:"ganhos", guardado:"valor guardado" };
-          const dir = top.delta >= 0 ? "subiu" : "caiu";
+          const nomeMes = esc(ant.nome);
+          const diferencaFmt = chatFmt(Math.abs(top.delta));
+          const atualFmt = chatFmt(atual[top.k]);
+          const valorClasse = top.k === "ganhos" ? "chat-valor-pos" : top.k === "guardado" ? "chat-valor-gold" : "chat-valor-neg";
           const frases = {
-            gastos: `O que mais mudou foi o seu gasto: ele ${dir} <span class="chat-valor chat-valor-neg">${chatFmt(Math.abs(top.delta))}</span> em relação a ${esc(ant.nome)}.`,
-            ganhos: `O que mais mudou foram as entradas: elas ${dir} <span class="chat-valor chat-valor-pos">${chatFmt(Math.abs(top.delta))}</span> em relação a ${esc(ant.nome)}.`,
-            guardado: `O que mais mudou foi o valor guardado: ele ${dir} <span class="chat-valor chat-valor-gold">${chatFmt(Math.abs(top.delta))}</span> em relação a ${esc(ant.nome)}.`
+            gastos: top.delta >= 0
+              ? `Olhando o mês atual contra ${nomeMes}, seus gastos pagos estão <span class="chat-valor ${valorClasse}">${diferencaFmt}</span> acima. Até agora, você gastou <span class="chat-valor chat-valor-neg">${atualFmt}</span> neste mês.`
+              : `Olhando o mês atual contra ${nomeMes}, seus gastos pagos estão <span class="chat-valor ${valorClasse}">${diferencaFmt}</span> abaixo. Até agora, você gastou <span class="chat-valor chat-valor-neg">${atualFmt}</span> neste mês.`,
+            ganhos: top.delta >= 0
+              ? `A maior mudança veio das entradas: você recebeu <span class="chat-valor chat-valor-pos">${diferencaFmt}</span> a mais do que em ${nomeMes}. Neste mês, as entradas recebidas somam <span class="chat-valor chat-valor-pos">${atualFmt}</span>.`
+              : `A maior mudança veio das entradas: você recebeu <span class="chat-valor chat-valor-neg">${diferencaFmt}</span> a menos do que em ${nomeMes}. Neste mês, as entradas recebidas somam <span class="chat-valor chat-valor-pos">${atualFmt}</span>.`,
+            guardado: top.delta >= 0
+              ? `A maior mudança veio do que você guardou: neste mês entraram <span class="chat-valor chat-valor-gold">${diferencaFmt}</span> a mais nas caixinhas do que em ${nomeMes}.`
+              : `A maior mudança veio do que você guardou: neste mês entraram <span class="chat-valor chat-valor-gold">${diferencaFmt}</span> a menos nas caixinhas do que em ${nomeMes}.`
           };
-          appendMensagem(frases[top.k] || `A maior mudança foi em ${nomes[top.k]}, que ${dir} ${chatFmt(Math.abs(top.delta))} em relação a ${esc(ant.nome)}.`);
+          appendMensagem(aplicarTomChat(frases[top.k] || `O mês atual mudou principalmente em ${nomeMes}.`));
         }
       }
 
@@ -5159,13 +5269,23 @@ if (document.readyState === "loading") {
 
 
       if (id === "economia") {
-        const dicas = montarDicasFinanceiras(t);
-        const indice = Number(window._caixaDicaIndice || 0) % Math.max(dicas.length, 1);
-        const dicaAtual = dicas[indice] || {
-          dica: "Seu orçamento fica mais seguro quando o dinheiro comprometido fica separado do valor realmente livre.",
-        };
-        window._caixaDicaIndice = indice + 1;
-        mostrarDicaNoChat(dicaAtual);
+        // Pede um pequeno estoque de dicas ao backend de uma vez. Assim o
+        // modelo aplica TOM + IMERSÃO da pessoa, mas o botão "Outra dica"
+        // continua rápido e não dispara uma chamada a cada clique.
+        window._caixaDicasIAEstoque = [];
+        window._caixaDicaIAIndice = 0;
+        return buscarDicasIA(t).then((dicasIA) => {
+          if (dicasIA.length) {
+            window._caixaDicasIAEstoque = dicasIA;
+            window._caixaDicaIAIndice = 1;
+            mostrarDicaNoChat(dicasIA[0]);
+          } else {
+            const dicas = montarDicasFinanceiras(t);
+            const indice = Number(window._caixaDicaIndice || 0) % Math.max(dicas.length, 1);
+            window._caixaDicaIndice = indice + 1;
+            mostrarDicaNoChat({ texto: aplicarTomChat(dicas[indice]?.dica || "Não apareceu nenhuma informação nova relevante nos dados atuais.") });
+          }
+        });
       }
     });
   }
@@ -5174,10 +5294,14 @@ if (document.readyState === "loading") {
     clearTimeout(pensamentoTimer);
     thinking.classList.remove("is-hidden");
     body.scrollTop = body.scrollHeight;
-    pensamentoTimer = setTimeout(() => {
-      thinking.classList.add("is-hidden");
-      cb();
-      mostrarMenuCompacto();
+    pensamentoTimer = setTimeout(async () => {
+      try {
+        const resultado = cb();
+        if (resultado && typeof resultado.then === "function") await resultado;
+      } finally {
+        thinking.classList.add("is-hidden");
+        mostrarMenuCompacto();
+      }
     }, 620);
   }
 
@@ -5214,6 +5338,8 @@ if (document.readyState === "loading") {
     clearTimeout(dicaOutraTimer);
     pensamentoTimer = null;
     dicaOutraTimer = null;
+    window._caixaDicasIAEstoque = [];
+    window._caixaDicaIAIndice = 0;
     thinking.classList.add("is-hidden");
     body.querySelectorAll(".caixa-chat-message, .caixa-chat-choices, #caixaChatBack").forEach(x => x.remove());
     quick.classList.remove("is-hidden");
