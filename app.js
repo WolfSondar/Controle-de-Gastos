@@ -5481,6 +5481,72 @@ if (document.readyState === "loading") {
     }, { placeholder: "Selecione uma categoria…" });
   }
 
+  function escolhaIconeChat(callback) {
+    const menu = document.createElement("div");
+    menu.className = "caixa-chat-icon-picker";
+    menu.innerHTML = `
+      <div class="caixa-chat-icon-search-wrap">
+        <span class="caixa-chat-icon-search-icon" aria-hidden="true">
+          <svg viewBox="0 0 24 24" fill="none"><circle cx="11" cy="11" r="6.5" stroke="currentColor" stroke-width="1.8"></circle><path d="m16 16 4 4" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"></path></svg>
+        </span>
+        <input type="search" class="caixa-chat-icon-search" placeholder="Pesquisar ícone…" autocomplete="off" spellcheck="false" aria-label="Pesquisar ícone">
+        <button type="button" class="caixa-chat-icon-search-clear is-hidden" aria-label="Limpar pesquisa">×</button>
+      </div>
+      <div class="caixa-chat-icon-grid" role="listbox" aria-label="Escolha um ícone"></div>
+      <div class="caixa-chat-icon-empty is-hidden">Nenhum ícone encontrado.</div>
+    `;
+    body.appendChild(menu);
+
+    const search = menu.querySelector(".caixa-chat-icon-search");
+    const clear = menu.querySelector(".caixa-chat-icon-search-clear");
+    const grid = menu.querySelector(".caixa-chat-icon-grid");
+    const empty = menu.querySelector(".caixa-chat-icon-empty");
+    const opcoes = [{ nome: "", label: "Sem ícone" }, ...(Array.isArray(iconesCaixinhas) ? ordenarIconesPorUso(iconesCaixinhas) : []).map(nome => ({ nome, label: nomeIconeBonito(nome) }))];
+
+    const desenhar = (termo = "") => {
+      const busca = normalizarTextoBuscaIcone(termo);
+      grid.innerHTML = "";
+      const filtradas = opcoes.filter(x => !busca || normalizarTextoBuscaIcone(`${x.nome} ${x.label}`).includes(busca));
+      empty.classList.toggle("is-hidden", filtradas.length > 0);
+      clear.classList.toggle("is-hidden", !busca);
+
+      filtradas.forEach(({ nome, label }) => {
+        const btn = document.createElement("button");
+        btn.type = "button";
+        btn.className = "caixa-chat-icon-choice";
+        btn.setAttribute("role", "option");
+        btn.setAttribute("aria-label", label);
+        btn.title = label;
+        if (!nome) {
+          btn.innerHTML = '<span class="caixa-chat-icon-none">×</span>';
+        } else {
+          const img = document.createElement("img");
+          img.src = urlIconeCaixinha(nome);
+          img.alt = "";
+          img.loading = "lazy";
+          img.decoding = "async";
+          img.onerror = () => btn.remove();
+          btn.appendChild(img);
+        }
+        btn.addEventListener("click", () => {
+          menu.remove();
+          if (nome) registrarUsoIconeCaixinha(nome);
+          appendMensagem(nome ? label : "Sem ícone", "user");
+          callback(nome, label);
+        });
+        grid.appendChild(btn);
+      });
+    };
+
+    search.addEventListener("input", () => desenhar(search.value));
+    clear.addEventListener("click", () => { search.value = ""; desenhar(""); search.focus(); });
+    search.addEventListener("keydown", e => { if (e.key === "Escape") { menu.remove(); body.scrollTop = body.scrollHeight; } });
+    desenhar("");
+    setTimeout(() => search.focus(), 40);
+    body.scrollTop = body.scrollHeight;
+    return menu;
+  }
+
   function formatarDataParaChat(valor) {
     const s = String(valor || "").trim();
     const m = /^(\d{4})-(\d{2})-(\d{2})/.exec(s);
@@ -5514,12 +5580,10 @@ if (document.readyState === "loading") {
       if (escolha === "sim") {
         iniciarCadastroConversacional();
       } else {
-        mostrarAcoesRapidas();
-        const quickTitle = quick.previousElementSibling;
-        if (quickTitle && quickTitle.classList.contains("caixa-chat-quick-title")) quickTitle.classList.remove("is-hidden");
-        const welcome = body.querySelector(".caixa-chat-welcome");
-        if (welcome) welcome.classList.add("is-hidden");
-        appendMensagem("Tudo certo. O que você gostaria de fazer agora?");
+        // Ao terminar, volta diretamente ao menu principal do assistente.
+        // Não adiciona uma mensagem intermediária nem deixa o menu secundário
+        // "Escolher outra coisa" preso no fim do cadastro.
+        resetarChatParaSelecao();
       }
     });
   }
@@ -5665,10 +5729,7 @@ if (document.readyState === "loading") {
             campoChat("Prazo", "Escolha uma data ou deixe em branco", data => {
               cadastroAtivo.data = data || "";
               appendMensagem("Agora escolha um ícone, se quiser.");
-              const icones = (Array.isArray(iconesCaixinhas) ? iconesCaixinhas : []).slice(0,8);
-              const op = icones.map(nomeIcone => [nomeIcone, nomeIconeBonito(nomeIcone), ""]);
-              op.push(["", "Sem ícone", "Usar o padrão"]);
-              escolhaChat(op, icone => {
+              escolhaIconeChat(icone => {
                 cadastroAtivo.icone = icone;
                 addCaixinha(cadastroAtivo.nome, cadastroAtivo.valorInicial, cadastroAtivo.valorObjetivo, cadastroAtivo.icone, cadastroAtivo.data);
                 finalizarCadastro("Caixinha criada", `${esc(cadastroAtivo.nome)} · guardado inicial de <span class="chat-valor chat-valor-gold">${chatFmt(cadastroAtivo.valorInicial)}</span>.`);
