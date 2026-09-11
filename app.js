@@ -4955,22 +4955,85 @@ if (document.readyState === "loading") {
   function formatarTextoIAChat(texto) {
     const bruto = String(texto || "").trim();
     if (!bruto) return "";
-    let seguro = esc(bruto);
-    seguro = seguro.replace(/\{\{(ganho|gasto|guardado|rendimento|\+|-)\s*:\s*(R\$\s*[0-9.]+,[0-9]{2})\}\}/gi, (_, tipo, valor) => {
-      const mapa = { ganho: "chat-valor-pos", gasto: "chat-valor-neg", guardado: "chat-valor-gold", rendimento: "chat-valor-yield", "+": "chat-valor-pos", "-": "chat-valor-neg" };
-      return `<span class="chat-valor ${mapa[String(tipo).toLowerCase()] || ""}">${valor}</span>`;
+
+    // A IA pode devolver marcação para destacar valores. Não escapamos essa
+    // marcação inteira, pois isso fazia o usuário enxergar literalmente
+    // "<span class=...>" na conversa. Em vez disso, preservamos apenas um
+    // conjunto pequeno de tags que o chat conhece e escapamos todo o restante.
+    const marcadores = [];
+    const guardar = (html) => {
+      const id = `___CAIXA_TAG_${marcadores.length}___`;
+      marcadores.push(html);
+      return id;
+    };
+
+    let base = bruto
+      .replace(/\{\{(ganho|gasto|guardado|rendimento|\+|-)\s*:\s*(R\$\s*[0-9.]+,[0-9]{2})\}\}/gi, (_, tipo, valor) => {
+        const mapa = { ganho: "chat-valor-pos", gasto: "chat-valor-neg", guardado: "chat-valor-gold", rendimento: "chat-valor-yield", "+": "chat-valor-pos", "-": "chat-valor-neg" };
+        return guardar(`<span class="chat-valor ${mapa[String(tipo).toLowerCase()] || ""}">${esc(valor)}</span>`);
+      })
+      .replace(/<span\s+class=["']chat-valor\s+(chat-valor-pos|chat-valor-neg|chat-valor-gold|chat-valor-yield)["']\s*>([\s\S]*?)<\/span>/gi,
+        (_, classe, conteudo) => guardar(`<span class="chat-valor ${classe}">${esc(String(conteudo).replace(/<[^>]*>/g, ""))}</span>`))
+      .replace(/<strong>([\s\S]*?)<\/strong>/gi, (_, conteudo) => guardar(`<strong>${esc(String(conteudo).replace(/<[^>]*>/g, ""))}</strong>`))
+      .replace(/<br\s*\/?>/gi, () => guardar("<br>"));
+
+    base = esc(base);
+    marcadores.forEach((html, i) => {
+      base = base.replace(`___CAIXA_TAG_${i}___`, html);
     });
-    seguro = seguro.replace(/\*\*(.*?)\*\*/g, "<strong>$1</strong>");
-    return seguro.replace(/\n+/g, "<br>");
+    base = base.replace(/\*\*(.*?)\*\*/g, "<strong>$1</strong>");
+    return base.replace(/\n+/g, "<br>");
   }
 
-  async function buscarDicasIA(t) {
+  function hashDicasChat(valor) {
+    const texto = String(valor || "");
+    let h = 2166136261;
+    for (let i = 0; i < texto.length; i++) {
+      h ^= texto.charCodeAt(i);
+      h = Math.imul(h, 16777619);
+    }
+    return (h >>> 0).toString(36);
+  }
+
+  function chaveCacheDicasChat(t) {
+    const cfg = state.iaConfig || {};
+    const { tom, imersao } = tomChat();
+    return `caixa:dicas:v3:${hashDicasChat(JSON.stringify({
+      pessoa: state.pessoaAtual || "davi",
+      mes: state.mesAtual,
+      ano: state.anoAtual,
+      resumo: resumoParaIAChat(t),
+      tom,
+      imersao
+    }))}`;
+  }
+
+  function lerCacheDicasChat(chave) {
+    try {
+      const raw = localStorage.getItem(chave);
+      if (!raw) return null;
+      const data = JSON.parse(raw);
+      if (!Array.isArray(data?.textos) || !data.textos.length) return null;
+      return data.textos;
+    } catch (e) { return null; }
+  }
+
+  function salvarCacheDicasChat(chave, textos) {
+    try {
+      localStorage.setItem(chave, JSON.stringify({ salvoEm: Date.now(), textos }));
+    } catch (e) {}
+  }
+
+  async function buscarDicasIA(t, opcoes = {}) {
     if (!API_URL || API_URL.includes("COLE_AQUI")) return [];
+    const chave = opcoes.chave || chaveCacheDicasChat(t);
+    if (!opcoes.forcar) {
+      const cache = lerCacheDicasChat(chave);
+      if (cache) return cache;
+    }
 
     // A IA é um extra: se a rede/backend ficar preso, o chat nunca pode
     // deixar o usuário eternamente em "Analisando seus números…".
-    // Limitamos a espera no navegador e deixamos o fluxo cair para as dicas
-    // locais já calculadas pelo app.
     const TEMPO_MAXIMO_IA_MS = 14000;
     let controller = null;
     let timer = null;
@@ -4992,10 +5055,12 @@ if (document.readyState === "loading") {
       if (!res || !res.ok) return [];
       const data = await res.json();
       if (!data || data.ok === false || !Array.isArray(data.textos)) return [];
-      return data.textos.map(x => {
+      const textos = data.textos.map(x => {
         if (typeof x === "string") return { texto: x };
         return { texto: x?.texto || "", tipo: x?.tipo || "geral", titulo: x?.titulo || "" };
       }).filter(x => x.texto);
+      if (textos.length) salvarCacheDicasChat(chave, textos);
+      return textos;
     } catch (err) {
       if (timer) clearTimeout(timer);
       return [];
@@ -5062,8 +5127,10 @@ if (document.readyState === "loading") {
     body.querySelectorAll("#caixaChatOutraDica").forEach((x) => x.remove());
     const texto = formatarTextoIAChat(item?.texto || item?.dica || "");
     appendMensagem(`<span class="chat-dica-titulo">Dica</span><div class="chat-dica-texto">${texto}</div>`);
+    const tokenAtual = window._caixaChatSessao || 0;
     dicaOutraTimer = setTimeout(() => {
       if (!chat.classList.contains("is-open")) return;
+      if (tokenAtual !== (window._caixaChatSessao || 0)) return;
       if (document.getElementById("caixaChatOutraDica")) return;
       const btn = document.createElement("button");
       btn.type = "button";
@@ -5076,23 +5143,27 @@ if (document.readyState === "loading") {
         dicaOutraTimer = null;
         const back = document.getElementById("caixaChatBack");
         if (back) back.remove();
+        const meuToken = window._caixaChatSessao || 0;
         appendMensagem("Outra dica", "user");
-        iniciarPensamento(() => {
-          const estoque = Array.isArray(window._caixaDicasIAEstoque) ? window._caixaDicasIAEstoque : [];
-          const idx = Number(window._caixaDicaIAIndice || 0);
-          const proxima = estoque[idx];
-          if (proxima) {
-            window._caixaDicaIAIndice = idx + 1;
-            mostrarDicaNoChat(proxima);
-            return;
-          }
-          const t = totaisChat();
-          const fallback = montarDicasFinanceiras(t);
-          const fi = Number(window._caixaDicaIndice || 0) % Math.max(fallback.length, 1);
-          window._caixaDicaIndice = fi + 1;
-          mostrarDicaNoChat({ texto: fallback[fi]?.dica || "Não apareceu nenhuma informação nova relevante nos dados atuais." });
-        });
+        const estoque = Array.isArray(window._caixaDicasIAEstoque) ? window._caixaDicasIAEstoque : [];
+        const idx = Number(window._caixaDicaIAIndice || 0);
+        const proxima = estoque[idx];
+        if (proxima) {
+          window._caixaDicaIAIndice = idx + 1;
+          mostrarDicaNoChat(proxima);
+          return;
+        }
+        // O estoque acabou. Não faz outra chamada para a mesma chave: se os
+        // números não mudaram, a resposta em cache é a mesma. Aqui usamos a
+        // reserva local e só uma nova chave volta a pedir um novo conjunto à IA.
+        if (meuToken !== (window._caixaChatSessao || 0) || !chat.classList.contains("is-open")) return;
+        const t = totaisChat();
+        const fallback = montarDicasFinanceiras(t);
+        const fi = Number(window._caixaDicaIndice || 0) % Math.max(fallback.length, 1);
+        window._caixaDicaIndice = fi + 1;
+        mostrarDicaNoChat({ texto: fallback[fi]?.dica || "Não apareceu nenhuma informação nova relevante nos dados atuais." });
       });
+      if (tokenAtual !== (window._caixaChatSessao || 0)) return;
       const back = document.getElementById("caixaChatBack");
       if (back) body.insertBefore(btn, back); else body.appendChild(btn);
       body.scrollTop = body.scrollHeight;
@@ -5153,6 +5224,7 @@ if (document.readyState === "loading") {
   }
 
   function executarAcao(id) {
+    window._caixaChatSessao = (Number(window._caixaChatSessao) || 0) + 1;
     clearTimeout(dicaOutraTimer);
     dicaOutraTimer = null;
     window._caixaDicasIAEstoque = [];
@@ -5289,12 +5361,23 @@ if (document.readyState === "loading") {
 
 
       if (id === "economia") {
-        // Pede um pequeno estoque de dicas ao backend de uma vez. Assim o
-        // modelo aplica TOM + IMERSÃO da pessoa, mas o botão "Outra dica"
-        // continua rápido e não dispara uma chamada a cada clique.
+        // Primeiro tenta o cache. O mesmo conjunto de números + perfil usa
+        // exatamente as mesmas dicas e não espera a IA novamente.
         window._caixaDicasIAEstoque = [];
         window._caixaDicaIAIndice = 0;
-        return buscarDicasIA(t).then((dicasIA) => {
+        const chave = chaveCacheDicasChat(t);
+        const cache = lerCacheDicasChat(chave);
+        if (cache?.length) {
+          window._caixaDicasIAEstoque = cache;
+          window._caixaDicaIAIndice = 1;
+          mostrarDicaNoChat(cache[0]);
+          return;
+        }
+        const sessaoEconomia = window._caixaChatSessao || 0;
+        return buscarDicasIA(t, { chave }).then((dicasIA) => {
+          // Se o usuário já mudou de assunto/perfil, a resposta atrasada não
+          // pode invadir a nova conversa.
+          if (sessaoEconomia !== (window._caixaChatSessao || 0) || !chat.classList.contains("is-open")) return;
           if (dicasIA.length) {
             window._caixaDicasIAEstoque = dicasIA;
             window._caixaDicaIAIndice = 1;
@@ -5354,6 +5437,7 @@ if (document.readyState === "loading") {
   // Recalcula tudo de novo quando a pessoa trocar Davi/Gabriel/Juntos ou os
   // dados forem sincronizados. A interface fica sempre ligada ao state atual.
   function resetarChatParaSelecao() {
+    window._caixaChatSessao = (Number(window._caixaChatSessao) || 0) + 1;
     clearTimeout(pensamentoTimer);
     clearTimeout(dicaOutraTimer);
     pensamentoTimer = null;
@@ -5383,7 +5467,21 @@ if (document.readyState === "loading") {
   });
   document.addEventListener("caixa:ia-config-atualizada", () => { window._caixaDicaIndice = 0; });
 
+  async function preaquecerDicasIA() {
+    if (!API_URL || API_URL.includes("COLE_AQUI") || !state.mesAtual || !state.anoAtual) return;
+    try {
+      const t = totaisChat();
+      const chave = chaveCacheDicasChat(t);
+      if (lerCacheDicasChat(chave)) return;
+      await buscarDicasIA(t, { chave });
+      // O resultado fica no cache. Não mexemos no estoque da conversa aqui,
+      // pois o usuário pode ter trocado de perfil ou de assunto enquanto a IA gerava.
+
+    } catch (e) {}
+  }
+
   mostrarAcoesRapidas();
+  setTimeout(() => preaquecerDicasIA(), 900);
 
   // Expor os prompts para diagnóstico/uso futuro sem chamar a IA.
   window.CAIXA_CHAT_PROMPTS = CHAT_PROMPTS;
