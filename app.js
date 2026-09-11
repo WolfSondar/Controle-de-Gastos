@@ -5562,10 +5562,9 @@ if (document.readyState === "loading") {
 
   const ACOES = [
     { id: "gastar", icon: "wallet", titulo: "Quanto ainda posso gastar?", subtitulo: "Separar benefício e saldo em conta" },
-    { id: "gastos", icon: "receipt", titulo: "Quanto já gastei?", subtitulo: "Resumo dos gastos deste mês" },
-    { id: "categorias", icon: "chart", titulo: "Onde estou gastando mais?", subtitulo: "As categorias que mais pesaram" },
-    { id: "guardado", icon: "pig", titulo: "Quanto tenho guardado?", subtitulo: "Total atual das suas caixinhas" },
-    { id: "pendencias", icon: "clock", titulo: "O que ainda falta?", subtitulo: "Contas a pagar e valores a receber" },
+        { id: "categorias", icon: "chart", titulo: "Onde estou gastando mais?", subtitulo: "As categorias que mais pesaram" },
+    { id: "guardado", icon: "pig", titulo: "Planejar uma caixinha", subtitulo: "Quanto preciso guardar para a meta" },
+    { id: "pendencias", icon: "clock", titulo: "Ainda falta pagar", subtitulo: "Veja contas, parcelas e valores pendentes" },
     { id: "economia", icon: "sparkle", titulo: "Me dê uma dica", subtitulo: "Uma orientação baseada nos seus números" }
   ];
 
@@ -5589,15 +5588,20 @@ if (document.readyState === "loading") {
     const saldoGasto = listaFinita(state.gastosVariaveis).reduce((a, i) =>
       a + (variavelContaNoSaldo(i) && !variavelEhBeneficio(i) ? Number(i.valor) || 0 : 0), 0);
     const beneficio = ganhosOrigem.beneficios - beneficioGasto;
-    const conta = ganhosOrigem.ganhos - fixosTotais - saldoGasto;
-    const saldoGeral = ganhosRecebidos - fixosPagos - variaveisPagos;
+    // Para decidir "quanto ainda posso gastar" pelo saldo em conta,
+    // partimos do saldo que já existe hoje, somamos o que ainda vai entrar
+    // (somente ganhos sem benefício) e reservamos TODOS os gastos fixos
+    // ainda não pagos, pois os fixos sempre saem do saldo em conta.
+    const saldoAtualConta = ganhosOrigem.ganhos - fixosPagos - saldoGasto;
     const aReceber = listaFinita(state.ganhos).reduce((a, i) =>
-      a + (i.recebido !== true ? Number(i.valor) || 0 : 0), 0);
+      a + (i.recebido !== true && !ganhoEhBeneficio(i) ? Number(i.valor) || 0 : 0), 0);
     const aPagarFixos = listaFinita(state.gastosFixos).reduce((a, i) =>
       a + (i.pago !== true ? Number(i.valor) || 0 : 0), 0);
     const aPagarVariaveis = listaFinita(state.gastosVariaveis).reduce((a, i) =>
-      a + (i.pago !== true && !i.lembrete ? Number(i.valor) || 0 : 0), 0);
-    return { ganhosRecebidos, ganhosOrigem, fixosPagos, fixosTotais, variaveisPagos, beneficio, conta, saldoGeral, aReceber, aPagarFixos, aPagarVariaveis };
+      a + (i.pago !== true && !i.lembrete && !variavelEhBeneficio(i) ? Number(i.valor) || 0 : 0), 0);
+    const conta = saldoAtualConta + aReceber - aPagarFixos - aPagarVariaveis;
+    const saldoGeral = ganhosRecebidos - fixosPagos - variaveisPagos;
+    return { ganhosRecebidos, ganhosOrigem, fixosPagos, fixosTotais, variaveisPagos, beneficio, saldoAtualConta, conta, saldoGeral, aReceber, aPagarFixos, aPagarVariaveis };
   }
 
   function categoriasChat() {
@@ -5669,6 +5673,11 @@ if (document.readyState === "loading") {
       <span class="caixa-chat-action-arrow">↩</span>`;
     btn.addEventListener("click", () => {
       body.querySelectorAll(".caixa-chat-message, .caixa-chat-choices, #caixaChatBack").forEach(x => x.remove());
+      quick.classList.remove("is-hidden");
+      const quickTitle = quick.previousElementSibling;
+      if (quickTitle && quickTitle.classList.contains("caixa-chat-quick-title")) quickTitle.classList.remove("is-hidden");
+      const welcome = body.querySelector(".caixa-chat-welcome");
+      if (welcome) welcome.classList.remove("is-hidden");
       body.scrollTop = 0;
       quick.scrollIntoView({ behavior: "smooth", block: "start" });
     });
@@ -5689,12 +5698,48 @@ if (document.readyState === "loading") {
       texto = `Atenção: o <strong>${nome}</strong> já passou do limite em <span class="chat-valor chat-valor-neg">${chatFmt(Math.abs(valor))}</span>.`;
     }
     const detalhes = origem === "beneficio"
-      ? `Benefícios recebidos: ${chatFmt(t.ganhosOrigem.beneficios)} · gastos no benefício: ${chatFmt(t.ganhosOrigem.beneficios - t.beneficio)}.`
-      : `Ganhos sem benefício: ${chatFmt(t.ganhosOrigem.ganhos)} · gastos fixos reservados: ${chatFmt(t.fixosTotais)} · variáveis do saldo: ${chatFmt(t.ganhosOrigem.ganhos - t.fixosTotais - t.conta)}.`;
+      ? `Disponível no benefício: ${chatFmt(t.beneficio)} · já usado no benefício: ${chatFmt(t.ganhosOrigem.beneficios - t.beneficio)}.`
+      : `Saldo agora: ${chatFmt(t.saldoAtualConta)} · a entrar: ${chatFmt(t.aReceber)} · fixos a pagar: ${chatFmt(t.aPagarFixos)} · variáveis do saldo a pagar: ${chatFmt(t.aPagarVariaveis)}.`;
     return `${texto}<span class="caixa-chat-note">${detalhes}</span>`;
   }
 
+  function respostaCaixinha(cx) {
+    const atual = typeof totalCaixinha === "function" ? totalCaixinha(cx) : ((Number(cx.valorGuardado)||0)+(Number(cx.rendimentoTotal)||0)+(Number(cx.valorGuardadoMes)||0));
+    const objetivo = Number(cx.valorObjetivo) || 0;
+    const falta = Math.max(objetivo - atual, 0);
+    const prazo = String(cx.data || "");
+    const pct = objetivo > 0 ? Math.min((atual / objetivo) * 100, 100) : 0;
+    const m = /^(\d{4})-(\d{2})-(\d{2})/.exec(prazo);
+    let meses = null;
+    let dias = null;
+    if (m) {
+      const alvo = new Date(Number(m[1]), Number(m[2]) - 1, Number(m[3]));
+      const hoje = new Date();
+      const hojeLocal = new Date(hoje.getFullYear(), hoje.getMonth(), hoje.getDate());
+      dias = Math.ceil((alvo - hojeLocal) / 86400000);
+      if (dias > 0) meses = Math.max(1, Math.ceil(dias / 30.4375));
+    }
+    let plano;
+    if (!objetivo) plano = `Essa caixinha tem data, mas ainda está sem <strong>objetivo financeiro</strong> definido.`;
+    else if (!falta) plano = `<strong>Meta concluída!</strong> Você já chegou ao objetivo de ${chatFmt(objetivo)}.`;
+    else if (dias !== null && dias <= 0) plano = `O prazo de <strong>${formatarDataCurta(prazo)}</strong> já passou e ainda faltam <strong class="chat-valor chat-valor-neg">${chatFmt(falta)}</strong> para a meta.`;
+    else {
+      const mensal = falta / meses;
+      plano = `Para chegar em <strong>${chatFmt(objetivo)}</strong> até <strong>${formatarDataCurta(prazo)}</strong>, você precisa guardar cerca de <strong class="chat-valor chat-valor-gold">${chatFmt(mensal)}</strong> por mês.`;
+    }
+    const icone = normalizarNomeIcone(cx.icone || "");
+    const iconeHtml = icone ? `<img src="${esc(urlIconeCaixinha(icone))}" alt="" class="chat-goal-icon-img" onerror="this.onerror=null;this.src='';this.parentElement.innerHTML=ICONE_COFRINHO;">` : ICONE_COFRINHO;
+    return `<div class="chat-goal-result"><div class="chat-goal-result-top"><span class="chat-goal-result-icon" style="--pct:${pct}%"><span>${iconeHtml}</span></span><div><strong>${esc(cx.nome || "Caixinha")}</strong><small>Meta em ${formatarDataCurta(prazo)}</small></div><b>${Math.round(pct)}%</b></div><div class="chat-goal-result-track"><i style="width:${pct}%"></i></div><div class="chat-goal-result-numbers"><span>Guardado <strong>${chatFmt(atual)}</strong></span><span>Falta <strong>${chatFmt(falta)}</strong></span></div><div class="chat-goal-result-plan">${plano}</div></div>`;
+  }
+
   function executarAcao(id) {
+    quick.classList.add("is-hidden");
+    const quickTitle = quick.previousElementSibling;
+    if (quickTitle && quickTitle.classList.contains("caixa-chat-quick-title")) quickTitle.classList.add("is-hidden");
+    const welcome = body.querySelector(".caixa-chat-welcome");
+    if (welcome) welcome.classList.add("is-hidden");
+    const oldBack = document.getElementById("caixaChatBack");
+    if (oldBack) oldBack.remove();
     if (id === "gastar") {
       appendMensagem("Claro. <strong>De onde sairia esse próximo gasto?</strong>");
       const escolhas = document.createElement("div");
@@ -5708,6 +5753,7 @@ if (document.readyState === "loading") {
         btn.className = "caixa-chat-choice";
         btn.innerHTML = `<span><strong>${titulo}</strong><small>${sub}</small></span><span class="choice-value">${chatFmt(quantia)}</span>`;
         btn.addEventListener("click", () => {
+          escolhas.remove();
           appendMensagem(titulo, "user");
           iniciarPensamento(() => appendMensagem(calcularRespostaGastar(valor)));
         });
@@ -5721,11 +5767,6 @@ if (document.readyState === "loading") {
     iniciarPensamento(() => {
       const t = totaisChat();
 
-      if (id === "gastos") {
-        const total = t.fixosPagos + t.variaveisPagos;
-        appendMensagem(`Até agora, você já gastou <strong class="chat-valor chat-valor-neg">${chatFmt(total)}</strong> neste mês.<span class="caixa-chat-note">Fixos pagos: ${chatFmt(t.fixosPagos)} · variáveis pagos: ${chatFmt(t.variaveisPagos)}.</span>`);
-      }
-
       if (id === "categorias") {
         const cats = categoriasChat();
         if (!cats.length) return appendMensagem("Ainda não encontrei gastos pagos suficientes para montar esse ranking.");
@@ -5734,17 +5775,50 @@ if (document.readyState === "loading") {
       }
 
       if (id === "guardado") {
-        const total = typeof somaTotalCaixinhas === "function" ? somaTotalCaixinhas(state.caixinhas || []) : 0;
-        const qtd = listaFinita(state.caixinhas).length;
-        appendMensagem(`Hoje você tem <strong class="chat-valor chat-valor-gold">${chatFmt(total)}</strong> guardado em <strong>${qtd}</strong> ${qtd === 1 ? "caixinha" : "caixinhas"}.<span class="caixa-chat-note">O total considera o valor guardado, rendimentos e aportes do mês, seguindo a mesma lógica do app.</span>`);
+        const comData = listaFinita(state.caixinhas).filter(cx => String(cx.data || "").trim());
+        if (!comData.length) {
+          appendMensagem(`Não encontrei nenhuma caixinha com <strong>data de objetivo</strong> cadastrada ainda.<span class="caixa-chat-note">Cadastre uma data na caixinha para eu calcular quanto você precisa guardar por mês.</span>`);
+          return;
+        }
+        appendMensagem(`<strong>Qual caixinha você quer planejar?</strong><span class="caixa-chat-note">Mostrando apenas caixinhas que têm uma data definida.</span>`);
+        const escolhas = document.createElement("div");
+        escolhas.className = "caixa-chat-choices caixa-chat-caixinhas-choices";
+        comData.forEach((cx, idx) => {
+          const atual = typeof totalCaixinha === "function" ? totalCaixinha(cx) : ((Number(cx.valorGuardado)||0)+(Number(cx.rendimentoTotal)||0)+(Number(cx.valorGuardadoMes)||0));
+          const objetivo = Number(cx.valorObjetivo) || 0;
+          const pct = objetivo > 0 ? Math.min((atual / objetivo) * 100, 100) : 0;
+          const falta = Math.max(objetivo - atual, 0);
+          const icone = normalizarNomeIcone(cx.icone || "");
+          const iconeHtml = icone
+            ? `<img src="${esc(urlIconeCaixinha(icone))}" alt="" class="chat-goal-icon-img" onerror="this.onerror=null;this.src='';this.parentElement.innerHTML=ICONE_COFRINHO;">`
+            : ICONE_COFRINHO;
+          const btn = document.createElement("button");
+          btn.type = "button";
+          btn.className = "caixa-chat-goal-choice";
+          btn.innerHTML = `<span class="chat-goal-choice-icon ${objetivo > 0 ? "has-goal" : ""}" style="--pct:${pct}%"><span>${iconeHtml}</span></span><span class="chat-goal-choice-main"><strong>${esc(cx.nome || "Caixinha")}</strong><small>${formatarDataCurta(cx.data)} · ${objetivo > 0 ? `${chatFmt(atual)} de ${chatFmt(objetivo)}` : "sem objetivo definido"}</small>${objetivo > 0 ? `<span class="chat-goal-mini-track"><i style="width:${pct}%"></i></span>` : ""}</span><span class="chat-goal-choice-arrow">›</span>`;
+          btn.addEventListener("click", () => {
+            appendMensagem(cx.nome || "Caixinha", "user");
+            iniciarPensamento(() => appendMensagem(respostaCaixinha(cx)));
+            escolhas.remove();
+          });
+          escolhas.appendChild(btn);
+        });
+        body.appendChild(escolhas);
+        body.scrollTop = body.scrollHeight;
       }
 
       if (id === "pendencias") {
         const fixosPendentes = listaFinita(state.gastosFixos).filter(i => i.pago !== true && (Number(i.valor) || 0) > 0);
         const variaveisPendentes = listaFinita(state.gastosVariaveis).filter(i => i.pago !== true && !i.lembrete && (Number(i.valor) || 0) > 0);
         const totalPend = t.aPagarFixos + t.aPagarVariaveis;
-        const linhasFixos = fixosPendentes.map(i => `<li><span>${esc(i.nome || "Gasto fixo")}</span><strong class="chat-valor chat-valor-neg">${chatFmt(i.valor)}</strong></li>`).join("");
-        const linhasVariaveis = variaveisPendentes.map(i => `<li><span>${esc(i.nome || "Gasto variável")}</span><strong class="chat-valor chat-valor-neg">${chatFmt(i.valor)}</strong></li>`).join("");
+        const linhaPendente = (i, tipo) => {
+          const parcela = tipo === "fixo" && /^\d+\s*\/\s*\d+$/.test(String(i.parcela || "").trim())
+            ? `<span class="chat-pendente-parcela">Parcela ${esc(String(i.parcela).trim())}</span>` : "";
+          const data = formatarDataCurta(i.data);
+          return `<li><span class="chat-pendente-main"><strong>${esc(i.nome || (tipo === "fixo" ? "Gasto fixo" : "Gasto variável"))}</strong><small>${parcela}${data ? `${parcela ? " · " : ""}${data}` : ""}</small></span><strong class="chat-valor chat-valor-neg">${chatFmt(i.valor)}</strong></li>`;
+        };
+        const linhasFixos = fixosPendentes.map(i => linhaPendente(i, "fixo")).join("");
+        const linhasVariaveis = variaveisPendentes.map(i => linhaPendente(i, "variavel")).join("");
         const detalhes = [
           fixosPendentes.length ? `<div class="caixa-chat-lista-titulo">Gastos fixos</div><ul class="caixa-chat-pendencias-lista">${linhasFixos}</ul>` : "",
           variaveisPendentes.length ? `<div class="caixa-chat-lista-titulo">Gastos variáveis</div><ul class="caixa-chat-pendencias-lista">${linhasVariaveis}</ul>` : ""
