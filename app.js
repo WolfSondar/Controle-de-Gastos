@@ -1692,8 +1692,11 @@ function somaTotalCaixinhas(lista) { return (lista || []).reduce((acc, cx) => ac
 // como "lembrete" (compra do mês que vem, paga adiantada: já foi debitada
 // no mês em que foi paga, então não conta de novo aqui). Ver fecharMes() no
 // Code.gs e o comentário em variavelContaNoSaldo().
+function gastoVariavelEhReal(item) {
+  return !ehLancamentoDeCaixinha(item?.nome);
+}
 function somaVariaveisPagas(lista) {
-  return lista.reduce((acc, i) => acc + (i.pago === true && i.lembrete !== true ? Number(i.valor) || 0 : 0), 0);
+  return lista.reduce((acc, i) => acc + (gastoVariavelEhReal(i) && i.pago === true && i.lembrete !== true ? Number(i.valor) || 0 : 0), 0);
 }
 
 function ehLancamentoDeCaixinha(nome) { return typeof nome === "string" && nome.indexOf("Guardado: ") === 0; }
@@ -1730,9 +1733,10 @@ function renderTotais() {
   const totalFixosPagos = somaFixosPagos(state.gastosFixos);
   const totalFixosAPagar = totalFixosGeral - totalFixosPagos;
 
-  const totalVariaveisGeral = soma(state.gastosVariaveis);
-  const totalVariaveisPagos = somaVariaveisPagas(state.gastosVariaveis);
-  const totalVariaveisAPagar = totalVariaveisGeral - totalVariaveisPagos;
+  const gastosVariaveisReais = state.gastosVariaveis.filter(gastoVariavelEhReal);
+  const totalVariaveisGeral = soma(gastosVariaveisReais);
+  const totalVariaveisPagos = somaVariaveisPagas(gastosVariaveisReais);
+  const totalVariaveisAPagar = Math.max(0, totalVariaveisGeral - totalVariaveisPagos);
 
   // "Guardado" aqui é o quanto entrou nas caixinhas ESSE mês — igual aos
   // outros 3 cards do topo (Ganhos/Fixos/Variáveis), que também são do mês
@@ -3159,6 +3163,7 @@ function agregarCategoriasDoAno(meses, pessoa) {
         : [pessoa === "gabriel" ? m.categoriasGabriel || {} : m.categoriasDavi || {}];
     mapas.forEach((mapa) => {
       Object.keys(mapa).forEach((cat) => {
+        if (String(cat).trim().toLowerCase() === "metas") return;
         total[cat] = (total[cat] || 0) + (Number(mapa[cat]) || 0);
       });
     });
@@ -3273,7 +3278,7 @@ function renderSplit() {
 
   const totalGanhos = somaComStatus(state.ganhos, "recebido");
   const gastoPorPessoa = { davi: 0, gabriel: 0 };
-  [...state.gastosFixos.filter(fixoEhPago), ...state.gastosVariaveis.filter(variavelContaNoSaldo)].forEach((item) => {
+  [...state.gastosFixos.filter(fixoEhPago), ...state.gastosVariaveis.filter((item) => gastoVariavelEhReal(item) && variavelContaNoSaldo(item))].forEach((item) => {
     if (item.pessoa === "davi" || item.pessoa === "gabriel") {
       gastoPorPessoa[item.pessoa] += Number(item.valor) || 0;
     }
@@ -3365,7 +3370,7 @@ function renderJuntosView() {
   if (fixosEl) fixosEl.innerHTML = ["davi", "gabriel"].map((p) => cardJuntos(p, somaFixosPagos(fixosPorPessoa[p]), soma(fixosPorPessoa[p]), "expense")).join("");
 
   const variaveisEl = document.getElementById("juntosVariaveis");
-  if (variaveisEl) variaveisEl.innerHTML = ["davi", "gabriel"].map((p) => cardJuntos(p, somaVariaveisPagas(variaveisPorPessoa[p]), soma(variaveisPorPessoa[p]), "expense")).join("");
+  if (variaveisEl) variaveisEl.innerHTML = ["davi", "gabriel"].map((p) => cardJuntos(p, somaVariaveisPagas(variaveisPorPessoa[p]), soma(variaveisPorPessoa[p].filter(gastoVariavelEhReal)), "expense")).join("");
 }
 
 function spanCentro(valorFormatado) {
@@ -4725,7 +4730,6 @@ if (document.readyState === "loading") {
     { id: "gastar", icon: "wallet", titulo: "Quanto ainda posso gastar?", subtitulo: "Separar benefício e saldo em conta" },
         { id: "categorias", icon: "chart", titulo: "Onde estou gastando mais?", subtitulo: "As categorias que mais pesaram" },
     { id: "guardado", icon: "pig", titulo: "Planejar uma caixinha", subtitulo: "Quanto preciso guardar para a meta" },
-    { id: "saude", icon: "heart", titulo: "Meu mês está saudável?", subtitulo: "Um diagnóstico rápido do seu caixa" },
     { id: "mudou", icon: "chart", titulo: "O que mais mudou este mês?", subtitulo: "Compare com o mês anterior" },
     { id: "pendencias", icon: "clock", titulo: "Ainda falta pagar", subtitulo: "Veja contas, parcelas e valores pendentes" },
     { id: "economia", icon: "sparkle", titulo: "Me dê uma dica", subtitulo: "Uma orientação baseada nos seus números" }
@@ -4748,9 +4752,9 @@ if (document.readyState === "loading") {
     const fixosTotais = listaFinita(state.gastosFixos).reduce((a, i) => a + (Number(i.valor) || 0), 0);
     const variaveisPagos = somaVariaveisPagas(state.gastosVariaveis || []);
     const beneficioGasto = listaFinita(state.gastosVariaveis).reduce((a, i) =>
-      a + (variavelContaNoSaldo(i) && variavelEhBeneficio(i) ? Number(i.valor) || 0 : 0), 0);
+      a + (gastoVariavelEhReal(i) && variavelContaNoSaldo(i) && variavelEhBeneficio(i) ? Number(i.valor) || 0 : 0), 0);
     const saldoGasto = listaFinita(state.gastosVariaveis).reduce((a, i) =>
-      a + (variavelContaNoSaldo(i) && !variavelEhBeneficio(i) ? Number(i.valor) || 0 : 0), 0);
+      a + (gastoVariavelEhReal(i) && variavelContaNoSaldo(i) && !variavelEhBeneficio(i) ? Number(i.valor) || 0 : 0), 0);
     const beneficio = ganhosOrigem.beneficios - beneficioGasto;
     // Para decidir "quanto ainda posso gastar" pelo saldo em conta,
     // partimos do saldo que já existe hoje, somamos o que ainda vai entrar
@@ -4762,14 +4766,14 @@ if (document.readyState === "loading") {
     const aPagarFixos = listaFinita(state.gastosFixos).reduce((a, i) =>
       a + (i.pago !== true ? Number(i.valor) || 0 : 0), 0);
     const aPagarVariaveis = listaFinita(state.gastosVariaveis).reduce((a, i) =>
-      a + (i.pago !== true && !i.lembrete && !variavelEhBeneficio(i) ? Number(i.valor) || 0 : 0), 0);
+      a + (gastoVariavelEhReal(i) && i.pago !== true && !i.lembrete && !variavelEhBeneficio(i) ? Number(i.valor) || 0 : 0), 0);
     // Para "quanto posso gastar", reservamos todas as contas ainda abertas,
     // inclusive as já lançadas para o próximo mês. Isso é diferente de dizer
     // que elas vencem agora: o detalhamento abaixo separa mês atual de futuro.
     const aPagarFixosEsseMes = listaFinita(state.gastosFixos).reduce((a, i) =>
       a + (i.pago !== true && !ehFuturoDoMesAtual(i) ? Number(i.valor) || 0 : 0), 0);
     const aPagarVariaveisEsseMes = listaFinita(state.gastosVariaveis).reduce((a, i) =>
-      a + (i.pago !== true && !i.lembrete && !variavelEhBeneficio(i) && !ehFuturoDoMesAtual(i) ? Number(i.valor) || 0 : 0), 0);
+      a + (gastoVariavelEhReal(i) && i.pago !== true && !i.lembrete && !variavelEhBeneficio(i) && !ehFuturoDoMesAtual(i) ? Number(i.valor) || 0 : 0), 0);
     const aPagarFixosFuturos = Math.max(0, aPagarFixos - aPagarFixosEsseMes);
     const aPagarVariaveisFuturos = Math.max(0, aPagarVariaveis - aPagarVariaveisEsseMes);
     const conta = saldoAtualConta + aReceber - aPagarFixos - aPagarVariaveis;
@@ -4785,7 +4789,7 @@ if (document.readyState === "loading") {
       porCat[cat] = (porCat[cat] || 0) + (Number(i.valor) || 0);
     });
     listaFinita(state.gastosVariaveis).forEach(i => {
-      if (!variavelContaNoSaldo(i)) return;
+      if (!gastoVariavelEhReal(i) || !variavelContaNoSaldo(i)) return;
       const cat = String(i.tipo || "Outros").trim() || "Outros";
       porCat[cat] = (porCat[cat] || 0) + (Number(i.valor) || 0);
     });
@@ -4903,96 +4907,52 @@ if (document.readyState === "loading") {
     const contasFuturas = (Number(t.aPagarFixosFuturos) || 0) + (Number(t.aPagarVariaveisFuturos) || 0);
 
     if (t.aReceber > 0 && totalContasAbertas > 0) {
-      dicas.push({
-        dica: `Com a entrada de <span class="chat-valor chat-valor-pos">${chatFmt(t.aReceber)}</span>, seu saldo projetado vai para <span class="chat-valor chat-valor-pos">${chatFmt(saldoProjetado)}</span>. Reservando <span class="chat-valor chat-valor-neg">${chatFmt(totalContasAbertas)}</span> para as contas abertas, a folga projetada fica em <span class="chat-valor chat-valor-pos">${chatFmt(Math.max(folgaProjetada, 0))}</span>.`,
-        recomendacao: contasDesteMes > 0
-          ? `Quando o dinheiro entrar, quite primeiro os <span class="chat-valor chat-valor-neg">${chatFmt(contasDesteMes)}</span> que vencem neste mês${contasFuturas > 0 ? ` e deixe <span class="chat-valor chat-valor-pos">${chatFmt(contasFuturas)}</span> já reservados para depois.` : "."}`
-          : "Mantenha as contas futuras reservadas antes de considerar essa folga como dinheiro livre.",
-      });
+      dicas.push({ dica: `Com a entrada de <span class="chat-valor chat-valor-pos">${chatFmt(t.aReceber)}</span>, seu saldo projetado vai para <span class="chat-valor chat-valor-pos">${chatFmt(saldoProjetado)}</span>. Depois de considerar <span class="chat-valor chat-valor-neg">${chatFmt(totalContasAbertas)}</span> em contas abertas, a folga projetada fica em <span class="chat-valor chat-valor-pos">${chatFmt(Math.max(folgaProjetada, 0))}</span>.` });
     }
     if (contasFuturas > 0 && totalContasAbertas > 0) {
-      dicas.push({
-        dica: `Dos <span class="chat-valor chat-valor-neg">${chatFmt(totalContasAbertas)}</span> ainda abertos, <span class="chat-valor chat-valor-pos">${chatFmt(contasFuturas)}</span> estão lançados para meses futuros. Eles já fazem parte do seu planejamento, mas não vencem agora.`,
-        recomendacao: "Se o dinheiro para essas contas já estiver disponível, deixe essa parte separada para não consumir a folga por engano.",
-      });
+      dicas.push({ dica: `Dos <span class="chat-valor chat-valor-neg">${chatFmt(totalContasAbertas)}</span> em contas abertas, <span class="chat-valor chat-valor-neg">${chatFmt(contasFuturas)}</span> só vencem nos próximos meses. Eles já estão no planejamento, mas não são contas deste mês.` });
     }
     if (contasDesteMes > 0) {
-      dicas.push({
-        dica: `Ainda existem <span class="chat-valor chat-valor-neg">${chatFmt(contasDesteMes)}</span> em compromissos que vencem neste mês.`,
-        recomendacao: `Use esse valor como referência antes de assumir novos gastos neste mês.`,
-      });
+      dicas.push({ dica: `Neste mês, ainda existem <span class="chat-valor chat-valor-neg">${chatFmt(contasDesteMes)}</span> em compromissos com vencimento agora.` });
     }
     if (t.aPagarVariaveisEsseMes > 0) {
-      dicas.push({
-        dica: `Você já tem <span class="chat-valor chat-valor-neg">${chatFmt(t.aPagarVariaveisEsseMes)}</span> em gastos variáveis deste mês que ainda não foram pagos.`,
-        recomendacao: `Reserve esse valor antes de tratar o restante do saldo como dinheiro livre.`,
-      });
+      dicas.push({ dica: `Ainda estão pendentes <span class="chat-valor chat-valor-neg">${chatFmt(t.aPagarVariaveisEsseMes)}</span> em gastos variáveis deste mês.` });
     }
     if (maior && maior[1] > 0 && totalGastos > 0) {
       const percentual = Math.round((maior[1] / totalGastos) * 100);
-      dicas.push({
-        dica: `A categoria <strong>${esc(maior[0])}</strong> lidera seus gastos pagos com <span class="chat-valor chat-valor-neg">${chatFmt(maior[1])}</span>, cerca de ${percentual}% do total.`,
-        recomendacao: percentual >= 30 ? `Se quiser reduzir gastos, essa é a primeira categoria que vale revisar.` : "Vale acompanhar se essa concentração se repete no próximo mês.",
-      });
+      dicas.push({ dica: `A categoria <strong>${esc(maior[0])}</strong> lidera os gastos pagos do mês com <span class="chat-valor chat-valor-neg">${chatFmt(maior[1])}</span>, cerca de ${percentual}% do total.` });
     }
     if (cats.length >= 2 && cats[0][1] > 0 && cats[1][1] > 0) {
       const diferenca = cats[0][1] - cats[1][1];
-      if (diferenca > 0) {
-        dicas.push({
-          dica: `A categoria <strong>${esc(cats[0][0])}</strong> está ${chatFmt(diferenca)} acima de <strong>${esc(cats[1][0])}</strong> nos gastos pagos.`,
-          recomendacao: "Se a diferença veio de um gasto pontual, não precisa cortar essa categoria; observe se ela se repete.",
-        });
-      }
+      if (diferenca > 0) dicas.push({ dica: `<strong>${esc(cats[0][0])}</strong> ficou <span class="chat-valor chat-valor-neg">${chatFmt(diferenca)}</span> acima de <strong>${esc(cats[1][0])}</strong> nos gastos pagos.` });
     }
-    if (t.beneficio > 0) {
-      dicas.push({
-        dica: `Ainda há <span class="chat-valor chat-valor-gold">${chatFmt(t.beneficio)}</span> disponíveis no benefício.`,
-        recomendacao: "Use essa origem nos gastos que realmente podem sair dela e preserve o saldo normal para as contas da conta corrente.",
-      });
-    }
-    if (t.aReceber > 0) {
-      dicas.push({
-        dica: `Você ainda espera receber <span class="chat-valor chat-valor-pos">${chatFmt(t.aReceber)}</span>. Esse dinheiro ainda não entrou no saldo de hoje.`,
-        recomendacao: "Planeje com a data da entrada em mente e evite contar com esse valor antes de recebê-lo.",
-      });
-    }
-    if (totalEntradas > 0 && totalGastos > totalEntradas) {
-      dicas.push({
-        dica: `Os gastos pagos já somam <span class="chat-valor chat-valor-neg">${chatFmt(totalGastos)}</span>, enquanto as entradas recebidas somam <span class="chat-valor chat-valor-pos">${chatFmt(totalEntradas)}</span>.`,
-        recomendacao: "Segure novos gastos até as próximas entradas melhorarem essa diferença.",
-      });
-    }
+    if (t.beneficio > 0) dicas.push({ dica: `Ainda há <span class="chat-valor chat-valor-gold">${chatFmt(t.beneficio)}</span> disponíveis no benefício.` });
+    if (t.aReceber > 0) dicas.push({ dica: `Você ainda espera receber <span class="chat-valor chat-valor-pos">${chatFmt(t.aReceber)}</span>. Esse valor ainda não entrou no saldo de hoje.` });
+    if (totalEntradas > 0 && totalGastos > totalEntradas) dicas.push({ dica: `Os gastos pagos já somam <span class="chat-valor chat-valor-neg">${chatFmt(totalGastos)}</span>, enquanto as entradas recebidas somam <span class="chat-valor chat-valor-pos">${chatFmt(totalEntradas)}</span>.` });
     const metas = metasChat();
     if (metas.length) {
       const meta = metas[0];
       const pct = meta.objetivo > 0 ? Math.min(100, Math.round(meta.atual / meta.objetivo * 100)) : 0;
-      dicas.push({
-        dica: `A caixinha <strong>${esc(meta.nome)}</strong> está em ${pct}% da meta, com <span class="chat-valor chat-valor-gold">${chatFmt(meta.atual)}</span> de <span class="chat-valor chat-valor-gold">${chatFmt(meta.objetivo)}</span>.`,
-        recomendacao: meta.falta > 0 ? `Ainda faltam ${chatFmt(meta.falta)} para chegar ao objetivo.` : "Essa meta já foi atingida; você pode decidir se mantém a reserva ou parte para a próxima meta.",
-      });
+      dicas.push({ dica: `A caixinha <strong>${esc(meta.nome)}</strong> está em ${pct}% da meta, com <span class="chat-valor chat-valor-gold">${chatFmt(meta.atual)}</span> de <span class="chat-valor chat-valor-gold">${chatFmt(meta.objetivo)}</span>.` });
     }
     if (t.saldoAtualConta > 0 && totalContasAbertas > 0) {
       const comprometido = Math.min(100, Math.round(totalContasAbertas / Math.max(t.saldoAtualConta + t.aReceber, 1) * 100));
-      dicas.push({
-        dica: `As contas abertas representam cerca de ${comprometido}% do dinheiro projetado para entrar e já disponível.`,
-        recomendacao: "Olhe para o valor restante depois das reservas, não apenas para o saldo mostrado hoje.",
-      });
+      dicas.push({ dica: `As contas abertas correspondem a cerca de ${comprometido}% do dinheiro que já está disponível ou ainda vai entrar.` });
     }
     if (dicas.length === 0) {
       dicas.push(
-        { dica: "Seu mês está sem um alerta financeiro forte nos dados atuais.", recomendacao: "Aproveite para manter uma margem antes de transformar todo o saldo livre em novos gastos." },
-        { dica: "O melhor número para acompanhar não é só o saldo de hoje, mas o que sobra depois dos compromissos já conhecidos." },
-        { dica: "Uma boa reserva transforma uma sobra eventual em uma margem para os próximos meses." }
+        { dica: "Os números deste mês estão relativamente estáveis; não apareceu nenhum alerta forte nos dados atuais." },
+        { dica: "Sua melhor referência é o valor que sobra depois dos compromissos conhecidos, e não apenas o saldo mostrado hoje." },
+        { dica: "Uma margem guardada hoje pode dar mais espaço para lidar com uma despesa inesperada amanhã." }
       );
     }
-    return dicas.map(d => ({ ...d, dica: aplicarTomChat(d.dica), recomendacao: d.recomendacao ? aplicarTomChat(d.recomendacao) : "" }));
+    return dicas.map(d => ({ ...d, dica: aplicarTomChat(d.dica) }));
   }
 
   function mostrarDicaNoChat(item) {
     clearTimeout(dicaOutraTimer);
     body.querySelectorAll("#caixaChatOutraDica").forEach((x) => x.remove());
-    const recomendacao = item && item.recomendacao ? `<div class="chat-recomendacao-bloco"><span class="chat-recomendacao-titulo">Recomendação</span><div>${item.recomendacao}</div></div>` : "";
-    appendMensagem(`<div class="chat-dica-bloco"><span class="chat-dica-titulo">Dica</span><div>${item?.dica || ""}</div></div>${recomendacao}`);
+    appendMensagem(`<div class="chat-dica-bloco"><span class="chat-dica-titulo">Dica</span><div>${item?.dica || ""}</div></div>`);
     dicaOutraTimer = setTimeout(() => {
       if (!chat.classList.contains("is-open")) return;
       const btn = document.createElement("button");
@@ -5073,6 +5033,9 @@ if (document.readyState === "loading") {
   }
 
   function executarAcao(id) {
+    clearTimeout(dicaOutraTimer);
+    dicaOutraTimer = null;
+    body.querySelectorAll("#caixaChatOutraDica").forEach(x => x.remove());
     quick.classList.add("is-hidden");
     const quickTitle = quick.previousElementSibling;
     if (quickTitle && quickTitle.classList.contains("caixa-chat-quick-title")) quickTitle.classList.add("is-hidden");
@@ -5145,56 +5108,7 @@ if (document.readyState === "loading") {
         });
         body.appendChild(escolhas);
 
-        const ajuda = document.createElement("button");
-        ajuda.type = "button";
-        ajuda.className = "caixa-chat-action caixa-chat-goal-help-card";
-        ajuda.innerHTML = `<span class="caixa-chat-action-icon">${IC.sparkle}</span><span class="caixa-chat-action-text"><strong>Me ajude a definir a meta</strong><small>Eu te faço algumas perguntas antes de calcular o plano</small></span><span class="caixa-chat-action-arrow">›</span>`;
-        ajuda.addEventListener("click", () => {
-          appendMensagem("Me ajude a definir a meta", "user");
-          escolhas.remove();
-          ajuda.remove();
-          iniciarPensamento(() => {
-            const card = document.createElement("div");
-            card.className = "caixa-chat-choices caixa-chat-meta-choices";
-            card.innerHTML = `<div class="caixa-chat-lista-titulo">O que você já sabe?</div>`;
-            [
-              ["valor", "Já sei quanto quero guardar", "Tenho um valor-alvo em mente"],
-              ["prazo", "Já sei quando quero alcançar", "Tenho uma data ou prazo definido"],
-              ["ambos", "Tenho valor e prazo", "Quero calcular quanto guardar por mês"],
-              ["nenhum", "Ainda não sei", "Quero uma sugestão de meta para começar"]
-            ].forEach(([idMeta, tituloMeta, subtituloMeta]) => {
-              const b = document.createElement("button");
-              b.type = "button";
-              b.className = "caixa-chat-action";
-              b.innerHTML = `<span class="caixa-chat-action-icon">${idMeta === "nenhum" ? IC.sparkle : IC.pig}</span><span class="caixa-chat-action-text"><strong>${tituloMeta}</strong><small>${subtituloMeta}</small></span><span class="caixa-chat-action-arrow">›</span>`;
-              b.addEventListener("click", () => {
-                appendMensagem(tituloMeta, "user");
-                card.remove();
-                iniciarPensamento(() => appendMensagem(idMeta === "nenhum"
-                  ? `Vamos começar pelo mais útil: escolha uma das suas caixinhas com meta ou crie uma nova e eu calculo um valor mensal de referência a partir do prazo.`
-                  : idMeta === "valor"
-                    ? `Perfeito. Me diga o valor que você quer alcançar e eu cruzo esse objetivo com o que já está guardado e com o prazo disponível.`
-                    : idMeta === "prazo"
-                      ? `Ótimo. Com a data em mãos, eu consigo transformar o prazo em uma meta mensal e mostrar o valor necessário para chegar lá.`
-                      : `Perfeito. Com valor e prazo eu consigo mostrar a parcela mensal necessária e quanto já foi cumprido da meta.`));
-              });
-              card.appendChild(b);
-            });
-            body.appendChild(card);
-            body.scrollTop = body.scrollHeight;
-          });
-        });
-        body.appendChild(ajuda);
         body.scrollTop = body.scrollHeight;
-      }
-
-      if (id === "saude") {
-        const margem = Number(t.conta) || 0;
-        const compromissos = (Number(t.aPagarFixosEsseMes) || 0) + (Number(t.aPagarVariaveisEsseMes) || 0);
-        let titulo = "SAUDÁVEL", texto = `Depois das entradas e das contas conhecidas, sua margem projetada é de <span class="chat-valor chat-valor-pos">${chatFmt(margem)}</span>.`, rec = "Uma parte dessa margem pode virar reserva sem comprometer os compromissos conhecidos.";
-        if (margem < 0) { titulo = "ATENÇÃO"; texto = `O fluxo projetado está <span class="chat-valor chat-valor-neg">${chatFmt(Math.abs(margem))}</span> abaixo do necessário para cobrir as contas abertas.`; rec = "Evite novos gastos até confirmar as próximas entradas e cobrir os compromissos."; }
-        else if (margem < Math.max(100, compromissos * .15)) { titulo = "APERTADO"; texto = `Depois das contas abertas, sobra uma margem projetada de <span class="chat-valor chat-valor-pos">${chatFmt(margem)}</span>.`; rec = "Mantenha essa margem protegida e evite assumir novas parcelas por enquanto."; }
-        appendMensagem(`<div class="chat-dica-bloco"><span class="chat-dica-titulo">${titulo}</span><div>${texto}</div></div><div class="chat-recomendacao-bloco"><span class="chat-recomendacao-titulo">Recomendação</span><div>${rec}</div></div>`);
       }
 
       if (id === "mudou") {
@@ -5206,13 +5120,18 @@ if (document.readyState === "loading") {
           const top = lista[0];
           const nomes = { gastos:"gastos", ganhos:"ganhos", guardado:"valor guardado" };
           const dir = top.delta >= 0 ? "subiu" : "caiu";
-          appendMensagem(`<div class="chat-dica-bloco"><span class="chat-dica-titulo">MAIOR MUDANÇA</span><div>Seus <strong>${nomes[top.k]}</strong> ${dir} <span class="chat-valor ${top.k === "gastos" ? "chat-valor-neg" : "chat-valor-pos"}">${chatFmt(Math.abs(top.delta))}</span> em relação a ${esc(ant.nome)}.</div></div>${top.k === "gastos" && top.delta > 0 ? `<div class="chat-recomendacao-bloco"><span class="chat-recomendacao-titulo">Recomendação</span><div>Vale olhar as categorias que puxaram esse aumento antes de assumir novos gastos.</div></div>` : ""}`);
+          const frases = {
+            gastos: `O que mais mudou foi o seu gasto: ele ${dir} <span class="chat-valor chat-valor-neg">${chatFmt(Math.abs(top.delta))}</span> em relação a ${esc(ant.nome)}.`,
+            ganhos: `O que mais mudou foram as entradas: elas ${dir} <span class="chat-valor chat-valor-pos">${chatFmt(Math.abs(top.delta))}</span> em relação a ${esc(ant.nome)}.`,
+            guardado: `O que mais mudou foi o valor guardado: ele ${dir} <span class="chat-valor chat-valor-gold">${chatFmt(Math.abs(top.delta))}</span> em relação a ${esc(ant.nome)}.`
+          };
+          appendMensagem(frases[top.k] || `A maior mudança foi em ${nomes[top.k]}, que ${dir} ${chatFmt(Math.abs(top.delta))} em relação a ${esc(ant.nome)}.`);
         }
       }
 
       if (id === "pendencias") {
         const fixosPendentes = listaFinita(state.gastosFixos).filter(i => i.pago !== true && (Number(i.valor) || 0) > 0);
-        const variaveisPendentes = listaFinita(state.gastosVariaveis).filter(i => i.pago !== true && !i.lembrete && (Number(i.valor) || 0) > 0);
+        const variaveisPendentes = listaFinita(state.gastosVariaveis).filter(i => gastoVariavelEhReal(i) && i.pago !== true && !i.lembrete && (Number(i.valor) || 0) > 0);
         const totalPend = t.aPagarFixos + t.aPagarVariaveis;
         const linhaPendente = (i, tipo) => {
           const parcelaRaw = tipo === "fixo" && /^\d+\s*\/\s*\d+$/.test(String(i.parcela || "").trim())
@@ -5244,7 +5163,6 @@ if (document.readyState === "loading") {
         const indice = Number(window._caixaDicaIndice || 0) % Math.max(dicas.length, 1);
         const dicaAtual = dicas[indice] || {
           dica: "Seu orçamento fica mais seguro quando o dinheiro comprometido fica separado do valor realmente livre.",
-          recomendacao: "",
         };
         window._caixaDicaIndice = indice + 1;
         mostrarDicaNoChat(dicaAtual);
