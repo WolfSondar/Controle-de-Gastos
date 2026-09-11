@@ -1,4 +1,4 @@
-/* ============================================================
+   /* ============================================================
    CAIXA — tema "livro-caixa" (passbook de banco antigo)
    Paleta: verde-tinta escuro + papel creme + dourado + tinta vermelha
    ============================================================ */
@@ -4260,4 +4260,28 @@ body.sem-entrada-listas .item-list-row { animation: none !important; }
 
 @media (max-width:560px){
   .caixa-chat-cadastro-form { margin-left:0; margin-right:0; }
+}
+
+
+
+/* Caixa — select compacto dentro do chat de cadastro */
+.caixa-chat-select-wrap{
+  display:flex;gap:8px;align-items:center;margin:9px 0 12px;padding:9px;
+  border:1px solid var(--line);border-radius:14px;background:var(--paper);
+  animation:caixa-chat-message-in .22s ease both;
+}
+.caixa-chat-select{
+  flex:1;min-width:0;height:42px;padding:0 34px 0 12px;border:1px solid var(--line-soft);
+  border-radius:11px;background:var(--bg,#fff);color:var(--text);font:inherit;font-size:12px;
+  outline:none;cursor:pointer;
+}
+.caixa-chat-select:focus{border-color:rgba(185,134,47,.6);box-shadow:0 0 0 3px rgba(185,134,47,.10)}
+.caixa-chat-select-btn{
+  flex:0 0 auto;height:42px;padding:0 14px;border:1px solid rgba(185,134,47,.28);
+  border-radius:11px;background:rgba(185,134,47,.11);color:inherit;font-size:11px;font-weight:800;cursor:pointer;
+}
+.caixa-chat-select-btn:hover{background:rgba(185,134,47,.17)}
+@media(max-width:560px){
+  .caixa-chat-select-wrap{display:grid;grid-template-columns:1fr;margin-left:0;margin-right:0}
+  .caixa-chat-select-btn{width:100%}
 }
