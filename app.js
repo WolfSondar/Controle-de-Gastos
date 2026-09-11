@@ -4849,7 +4849,18 @@ if (document.readyState === "loading") {
       <span class="caixa-chat-action-text"><strong>Escolher outra coisa</strong><small>Voltar para as ações rápidas</small></span>
       <span class="caixa-chat-action-arrow">↩</span>`;
     btn.addEventListener("click", () => {
-      body.querySelectorAll(".caixa-chat-message, .caixa-chat-choices, #caixaChatBack").forEach(x => x.remove());
+      // Voltar ao menu encerra completamente o contexto da resposta anterior.
+      // Isso também invalida o timer de "Outra dica", para que ele nunca
+      // apareça sozinho no menu depois que o usuário já mudou de assunto.
+      window._caixaChatSessao = (Number(window._caixaChatSessao) || 0) + 1;
+      clearTimeout(pensamentoTimer);
+      clearTimeout(dicaOutraTimer);
+      pensamentoTimer = null;
+      dicaOutraTimer = null;
+      window._caixaDicasIAEstoque = [];
+      window._caixaDicaIAIndice = 0;
+      thinking.classList.add("is-hidden");
+      body.querySelectorAll(".caixa-chat-message, .caixa-chat-choices, #caixaChatBack, .caixa-chat-outra-dica").forEach(x => x.remove());
       quick.classList.remove("is-hidden");
       const quickTitle = quick.previousElementSibling;
       if (quickTitle && quickTitle.classList.contains("caixa-chat-quick-title")) quickTitle.classList.remove("is-hidden");
