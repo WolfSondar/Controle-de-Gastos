@@ -4064,3 +4064,84 @@ body.sem-entrada-listas .item-list-row { animation: none !important; }
   .fab-criar { transition:none; }
   .goal-bar-fill::before { animation:none; }
 }
+
+/* ==========================================================
+   V8 — criação e dicas do Assistente
+   ========================================================== */
+/* O + compartilha exatamente o eixo horizontal da IA e fica imediatamente
+   acima dela em desktop e mobile. */
+.fab-criar {
+  right: max(18px, calc((100vw - 560px) / 2 - 64px));
+  bottom: calc(92px + env(safe-area-inset-bottom));
+  z-index: 1200;
+}
+.fab-criar.is-hidden { display: none !important; }
+
+/* A criação precisa cobrir qualquer botão flutuante, inclusive a IA. */
+#criacaoBackdrop { z-index: 2400 !important; }
+#criacaoBackdrop .modal { z-index: 2401; }
+
+.chat-dica-bloco {
+  padding: 11px 12px;
+  line-height: 1.5;
+}
+.chat-recomendacao-bloco {
+  margin-top: 8px;
+  padding: 10px 12px;
+  line-height: 1.5;
+}
+.chat-dica-bloco .chat-valor,
+.chat-recomendacao-bloco .chat-valor {
+  white-space: nowrap;
+}
+.chat-valor-pos { color: var(--income) !important; font-weight: 800; }
+.chat-valor-neg { color: var(--expense) !important; font-weight: 800; }
+.chat-valor-gold { color: var(--gold-deep) !important; font-weight: 800; }
+.caixa-chat-outra-dica {
+  align-self: flex-start;
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  margin: 2px 15px 9px;
+  padding: 8px 11px;
+  border: 1px solid rgba(185,134,47,.28);
+  border-radius: 999px;
+  background: rgba(185,134,47,.08);
+  color: var(--gold-deep);
+  font: 750 11px/1 inherit;
+  cursor: pointer;
+  box-shadow: 0 3px 10px rgba(22,51,44,.05);
+  animation: chat-outra-dica-entrar .28s ease both;
+}
+.caixa-chat-outra-dica svg { width: 14px; height: 14px; }
+.caixa-chat-outra-dica span:last-child { opacity: .6; }
+.caixa-chat-outra-dica:hover { background: rgba(185,134,47,.13); border-color: rgba(185,134,47,.42); }
+.caixa-chat-outra-dica:active { transform: scale(.97); }
+@keyframes chat-outra-dica-entrar {
+  from { opacity: 0; transform: translateY(5px) scale(.96); }
+  to { opacity: 1; transform: translateY(0) scale(1); }
+}
+
+/* Partículas um pouco mais orgânicas: continuam discretíssimas, mas aparecem
+   tanto na barra da aba Caixinhas quanto nas mini-barras do Resumo. */
+.goal-bar-fill::before {
+  background-image:
+    radial-gradient(circle at 8% 42%, rgba(255,248,220,.66) 0 1px, transparent 1.7px),
+    radial-gradient(circle at 23% 68%, rgba(255,255,255,.46) 0 .9px, transparent 1.6px),
+    radial-gradient(circle at 39% 28%, rgba(255,250,228,.58) 0 1px, transparent 1.7px),
+    radial-gradient(circle at 56% 64%, rgba(255,255,255,.42) 0 .9px, transparent 1.6px),
+    radial-gradient(circle at 73% 35%, rgba(255,248,220,.58) 0 1px, transparent 1.7px),
+    radial-gradient(circle at 89% 60%, rgba(255,255,255,.48) 0 .9px, transparent 1.6px);
+  background-size: 140px 100%, 180px 100%, 125px 100%, 205px 100%, 155px 100%, 230px 100%;
+  opacity: .22;
+}
+
+@media (max-width: 700px) {
+  .fab-criar {
+    right: 16px;
+    bottom: calc(140px + env(safe-area-inset-bottom));
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  .caixa-chat-outra-dica { animation: none; }
+}
