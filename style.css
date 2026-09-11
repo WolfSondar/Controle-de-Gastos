@@ -469,9 +469,9 @@ button, input { font-family: inherit; }
 /* Barra estilo "HP" de jogo: gradiente fluindo em loop suave, com um
    brilho vítreo por cima. Só gradiente, sem textura de listras. */
 .goal-bar-fill { position: relative; height: 100%; border-radius: 100px; background: linear-gradient(90deg, var(--gold-deep), var(--gold)); transition: width 0.6s cubic-bezier(.2,.8,.2,1); overflow: hidden; }
-.goal-bar-fill::after { content: ""; position: absolute; top: 0; bottom: 0; left: -42%; width: 38%; border-radius: inherit; background: linear-gradient(90deg, transparent, rgba(255,255,255,.48), transparent); transform: skewX(-18deg); animation: goal-bar-brilho 2.8s ease-in-out infinite; pointer-events: none; }
+.goal-bar-fill::after { content: ""; position: absolute; top: 0; bottom: 0; left: -18%; width: 24%; border-radius: inherit; background: linear-gradient(90deg, transparent, rgba(255,255,255,.34), transparent); transform: skewX(-18deg); animation: goal-bar-brilho 4.6s linear infinite; pointer-events: none; }
 .goal-bar-fill.completo { background: linear-gradient(90deg, #2f5f42, var(--income)); }
-@keyframes goal-bar-brilho { 0%, 20% { transform: translateX(0) skewX(-18deg); opacity: 0; } 35% { opacity: 1; } 68%, 100% { transform: translateX(390%) skewX(-18deg); opacity: 0; } }
+@keyframes goal-bar-brilho { 0% { transform: translateX(0) skewX(-18deg); opacity: 0; } 10% { opacity: .8; } 78% { opacity: .8; } 100% { transform: translateX(520%) skewX(-18deg); opacity: 0; } }
 @media (prefers-reduced-motion: reduce) {
   .goal-bar-fill { animation: none; }
 }
@@ -3927,7 +3927,7 @@ body.sem-entrada-listas .item-list-row { animation: none !important; }
 .chat-pendente-main { min-width:0; display:flex; flex-direction:column; gap:3px; }
 .chat-pendente-main strong { overflow:hidden; text-overflow:ellipsis; white-space:nowrap; font-size:10.5px; }
 .chat-pendente-main small { color:var(--muted); font-size:8.8px; }
-.chat-pendente-parcela { display:inline-block; font-weight:800; color:var(--gold-deep); }
+.chat-pendente-parcela { display:inline-block; margin-right:5px; font-weight:800; color:var(--gold-deep); white-space:nowrap; }
 
 #caixaChatBack { animation: caixa-back-in .35s cubic-bezier(.2,.8,.2,1) both; }
 @keyframes caixa-back-in { from { opacity:0; transform:translateY(7px); } to { opacity:1; transform:none; } }
@@ -3959,3 +3959,5 @@ body.sem-entrada-listas .item-list-row { animation: none !important; }
 @media (prefers-reduced-motion: reduce) {
   .goal-bar-fill::after { animation: none; }
 }
+
+.caixa-chat-fab.is-hidden { display: none !important; }
