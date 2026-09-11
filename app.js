@@ -823,13 +823,7 @@ async function carregarDados() {
     if (Object.values(mudancas).some(Boolean)) {
       renderIncremental(mudancas);
     }
-    const prefetch = prefetchOutrasPessoas(pessoaRequisitada);
-    // Se este dispositivo ainda não tinha cache financeiro, prepara o estoque
-    // inicial da IA para Davi, Gabriel e Juntos em segundo plano. Assim o
-    // primeiro acesso não fica preso a uma única mensagem/pessoa.
-    if (!cache) {
-      prefetch.then(() => prepararInsightsIniciaisSemCache(pessoaRequisitada)).catch(() => {});
-    }
+    prefetchOutrasPessoas(pessoaRequisitada);
   } catch (err) {
     if (state.pessoaAtual !== pessoaRequisitada) return;
     // Caiu a conexão no meio da busca: mesmo tratamento calmo do offline
@@ -901,12 +895,6 @@ async function salvarBloco(action, payload) {
       if (data && data.ok === false) throw new Error(data.error || "Erro desconhecido");
     }
     setSyncState("idle");
-    // Toda alteração financeira salva com sucesso atualiza o próximo lote de
-    // insights. O debounce junta várias gravações da mesma ação (ex.: caixinha
-    // + lançamento automático) em uma única chamada ao Gemini.
-    if (["saveGanhos", "saveGastosFixos", "saveGastosVariaveis", "saveCaixinhas"].includes(action)) {
-      agendarInsightPorAlteracaoFinanceira();
-    }
   } catch (err) {
     if (ehErroDeRede(err) && ultimoPayload !== null) {
       await enfileirarOffline(pessoaDoEnvio, action, ultimoPayload);
@@ -1000,7 +988,6 @@ async function flushFilaOffline() {
     flushEmAndamento = false;
     const restante = await atualizarIndicadorOffline();
     if (restante === 0) setSyncState("idle");
-    if (houveAlteracaoFinanceira) agendarInsightPorAlteracaoFinanceira();
   }
 }
 
@@ -1045,7 +1032,6 @@ async function trocarPessoa(pessoa) {
   prevTotals.variaveis = null;
   prevTotals.guardado = null;
   prevTotals.saldo = null;
-  exibirInsightCacheOuPlaceholder();
   renderPessoaSwitch();
   atualizarVisibilidadeEdicao();
   atualizarVisibilidadeSplitCard();
@@ -1362,7 +1348,6 @@ async function criarGanhoAReceberDivisao(credor, devedor, nomeOriginal, valor, t
     setCache(credor, { ...(cache || {}), ganhos: lista });
     if (state.pessoaAtual === credor) state.ganhos = lista;
     removerCache("ambos");
-    agendarInsightPorAlteracaoFinanceira();
     return true;
   } catch { return false; }
 }
@@ -1381,7 +1366,6 @@ async function atualizarGanhoDivisao(credor, devedor, nomeOriginal, valor, data,
     setCache(credor, { ...(cache || {}), ganhos: lista });
     if (state.pessoaAtual === credor) state.ganhos = lista;
     removerCache("ambos");
-    agendarInsightPorAlteracaoFinanceira();
     return true;
   } catch { return false; }
 }
@@ -1520,7 +1504,6 @@ async function transferirEntrePessoas(de, para, nome, valor, tipo) {
     if (state.pessoaAtual === de) state.gastosVariaveis = listaVariaveisDe;
     if (state.pessoaAtual === para) state.ganhos = listaGanhosPara;
     removerCache("ambos");
-    agendarInsightPorAlteracaoFinanceira();
 
     return true;
   } catch (err) {
@@ -3139,911 +3122,6 @@ function renderCategorias() {
 }
 
 // ---------------------------------------------------------------------
-// INSIGHT — frase curta gerada com IA (Gemini, via Code.gs — ver
-// gerarInsightComGemini), atualizada sozinha sempre que os dados
-// terminam de sincronizar com a planilha (não tem mais botão manual).
-// ---------------------------------------------------------------------
-
-// Categorias pagas do mês em aberto (mesma regra do card "Visão por categoria")
-function categoriasMesAtual() {
-  const mapa = {};
-  [...state.gastosFixos.filter(fixoEhPago), ...state.gastosVariaveis.filter(variavelContaNoSaldo)].forEach((item) => {
-    const cat = (item.tipo && String(item.tipo).trim()) || "Outros";
-    mapa[cat] = (mapa[cat] || 0) + (Number(item.valor) || 0);
-  });
-  return mapa;
-}
-
-// Todos os meses já fechados no HISTORICO, em ordem cronológica
-function mesesHistoricoOrdenados() {
-  const anos = (state.historico && state.historico.anos) || [];
-  const lista = [];
-  anos.forEach((bloco) => (bloco.meses || []).forEach((m) => lista.push(Object.assign({ ano: bloco.ano }, m))));
-  lista.sort((a, b) => (a.ano - b.ano) || (a.mes - b.mes));
-  return lista;
-}
-
-function mesAnteriorHistorico() {
-  const lista = mesesHistoricoOrdenados();
-  return lista.length ? lista[lista.length - 1] : null;
-}
-
-// Todos os meses fechados de um ano específico (histórico), em ordem.
-function mesesDoAnoHistorico(ano) {
-  return mesesHistoricoOrdenados().filter((m) => m.ano === ano);
-}
-
-// O mesmo número de mês do ano anterior (ex: Agosto/2026 -> Agosto/2025),
-// se já existir fechado no histórico — pra comparação "mesmo mês, ano
-// passado" (diferente de mesAnteriorHistorico, que é só o mês imediatamente
-// anterior). Usa state.mesAtual/anoAtual, então já muda sozinho quando o
-// ano vira — nunca tem um ano fixo escrito no código.
-function mesmoMesAnoAnteriorHistorico() {
-  if (!state.mesAtual || !state.anoAtual) return null;
-  return mesesHistoricoOrdenados().find((m) => m.mes === state.mesAtual && m.ano === state.anoAtual - 1) || null;
-}
-
-// Soma de todos os meses FECHADOS de um ano (ganhos/gastos/guardado) — usada
-// tanto pro ano em andamento (soma com o mês atual à parte, ver
-// montarResumoParaInsight) quanto pro ano anterior completo.
-function totaisDoAnoHistorico(ano) {
-  const meses = mesesDoAnoHistorico(ano);
-  return {
-    ano,
-    mesesFechados: meses.length,
-    ganhos: meses.reduce((acc, m) => acc + totalGanhosDeUmMesHistorico(m), 0),
-    gastos: meses.reduce((acc, m) => acc + totalDebitosDeUmMesHistorico(m), 0),
-    guardado: meses.reduce((acc, m) => acc + totalGuardadoNoMesDeUmMesHistorico(m), 0),
-  };
-}
-
-// As três funções abaixo já resolvem sozinhas Davi/Gabriel/Ambos, olhando
-// pra state.pessoaAtual — assim quem chama não precisa se preocupar com isso.
-function categoriasDeUmMesHistorico(mesObj) {
-  if (!mesObj) return {};
-  if (state.pessoaAtual === "davi") return Object.assign({}, mesObj.categoriasDavi);
-  if (state.pessoaAtual === "gabriel") return Object.assign({}, mesObj.categoriasGabriel);
-  const mapa = Object.assign({}, mesObj.categoriasDavi);
-  Object.entries(mesObj.categoriasGabriel || {}).forEach(([cat, v]) => { mapa[cat] = (mapa[cat] || 0) + v; });
-  return mapa;
-}
-function totalGanhosDeUmMesHistorico(mesObj) {
-  if (!mesObj) return 0;
-  if (state.pessoaAtual === "davi") return mesObj.ganhosDavi || 0;
-  if (state.pessoaAtual === "gabriel") return mesObj.ganhosGabriel || 0;
-  return (mesObj.ganhosDavi || 0) + (mesObj.ganhosGabriel || 0);
-}
-function totalDebitosDeUmMesHistorico(mesObj) {
-  if (!mesObj) return 0;
-  if (state.pessoaAtual === "davi") return mesObj.debitosDavi || 0;
-  if (state.pessoaAtual === "gabriel") return mesObj.debitosGabriel || 0;
-  return (mesObj.debitosDavi || 0) + (mesObj.debitosGabriel || 0);
-}
-function totalGuardadoNoMesDeUmMesHistorico(mesObj) {
-  if (!mesObj) return 0;
-  if (state.pessoaAtual === "davi") return mesObj.guardadoMesDavi || 0;
-  if (state.pessoaAtual === "gabriel") return mesObj.guardadoMesGabriel || 0;
-  return (mesObj.guardadoMesDavi || 0) + (mesObj.guardadoMesGabriel || 0);
-}
-// Diferente da função acima (que lê só o DEPÓSITO daquele mês): esta lê o
-// TOTAL acumulado nas caixinhas no momento em que aquele mês foi fechado
-// (guardadoDavi/guardadoGabriel no HISTORICO — o mesmo "saldo real", não um
-// delta). É a partir dessas fotografias que dá pra calcular quanto as
-// caixinhas realmente cresceram num período, descontando qualquer saque no
-// meio do caminho (ver totalGuardadoLiquidoNoPeriodo).
-function totalGuardadoAcumuladoDeUmMesHistorico(mesObj) {
-  if (!mesObj) return 0;
-  if (state.pessoaAtual === "davi") return mesObj.guardadoDavi || 0;
-  if (state.pessoaAtual === "gabriel") return mesObj.guardadoGabriel || 0;
-  return (mesObj.guardadoDavi || 0) + (mesObj.guardadoGabriel || 0);
-}
-// Total acumulado no fechamento do ÚLTIMO mês fechado de um ano — serve de
-// "linha de base" pra saber quanto tinha guardado no fim daquele ano. Null
-// quando não existe nenhum mês fechado daquele ano no histórico (ex: antes
-// do usuário começar a usar o app).
-function totalGuardadoNoFimDoAno(ano) {
-  const meses = mesesDoAnoHistorico(ano);
-  if (!meses.length) return null;
-  return totalGuardadoAcumuladoDeUmMesHistorico(meses[meses.length - 1]);
-}
-// Crescimento LÍQUIDO das caixinhas entre o fim de um ano e um total de
-// referência (o de hoje, ou o fim de outro ano) — total final menos total
-// inicial. Diferente de somar os "guardado no mês" de cada mês do período
-// (o que a gente fazia antes): aquilo soma só os DEPÓSITOS e ignora
-// qualquer saque no meio do caminho, então dava um número maior do que a
-// pessoa realmente tem hoje se ela guardou num mês e tirou no mês seguinte.
-// Se não existir linha de base (nenhum mês fechado ainda naquele ano
-// anterior), assume que começou do zero.
-function totalGuardadoLiquidoNoPeriodo(totalFinal, ano) {
-  const base = totalGuardadoNoFimDoAno(ano);
-  return totalFinal - (base === null ? 0 : base);
-}
-
-
-// ---- Insight com IA (gerado sozinho a cada sincronização) --------------
-
-// No modo "Juntos" (ambos), as transferências entre as duas pessoas viram
-// um gasto (na saída) e um ganho (na chegada) com nome "Transferência p/
-// NOME: ..." / "Transferência de NOME: ...". Detecta essas linhas pra
-// contar pra IA — assim ela pode comentar quando alguém ajudou o outro.
-function transferenciasDoMes() {
-  if (state.pessoaAtual !== "ambos") return [];
-  const regex = /^Transferência p\/ (.+?): (.*)$/i;
-  return state.gastosVariaveis
-    .map((item) => {
-      const m = regex.exec(item.nome || "");
-      if (!m) return null;
-      return {
-        de: PESSOA_LABEL[item.pessoa] || item.pessoa || "?",
-        para: m[1].trim(),
-        descricao: m[2].trim(),
-        valor: Number(item.valor) || 0,
-      };
-    })
-    .filter(Boolean);
-}
-
-// Detalhe de cada caixinha (meta e/ou investimento) — dá pra IA falar de
-// progresso de meta e rendimento de forma específica, não só um total.
-// valorGuardado aqui já é o total "de verdade" (mesma conta de totalCaixinha,
-// usada em todo o resto do app pra exibir "quanto tem guardado"): base +
-// rendimentoTotal + valorGuardadoMes. Antes mandava só a base pra IA, que
-// ficava sem saber quanto realmente tinha guardado e calculava errado
-// quanto faltava pra bater a meta.
-function calcularPlanejamentoPrazoCaixinha(iso, falta) {
-  const m = /^(\d{4})-(\d{2})-(\d{2})/.exec(String(iso || ""));
-  if (!m) return null;
-  const alvo = new Date(Number(m[1]), Number(m[2]) - 1, Number(m[3]));
-  const hoje = new Date();
-  const hojeLocal = new Date(hoje.getFullYear(), hoje.getMonth(), hoje.getDate());
-  const dias = Math.round((alvo - hojeLocal) / 86400000);
-  if (dias < 0) return { diasAtePrazo: dias, mesesAtePrazo: 0, necessarioPorMes: null };
-  const meses = Math.max(1, Math.ceil(dias / 30.4375));
-  return {
-    diasAtePrazo: dias,
-    mesesAtePrazo: meses,
-    necessarioPorMes: falta > 0 ? falta / meses : 0,
-  };
-}
-
-function caixinhasDetalhadasParaInsight() {
-  return (state.caixinhas || []).map((cx) => {
-    const temMeta = Number(cx.valorObjetivo) > 0;
-    const totalGuardadoDeVerdade = totalCaixinha(cx);
-    const falta = temMeta ? Math.max(Number(cx.valorObjetivo) - totalGuardadoDeVerdade, 0) : 0;
-    const planejamento = cx.data ? calcularPlanejamentoPrazoCaixinha(cx.data, falta) : null;
-    const guardadoNesseMes = Number(cx.valorGuardadoMes) || 0;
-    return {
-      nome: cx.nome,
-      valorGuardado: totalGuardadoDeVerdade,
-      valorObjetivo: temMeta ? Number(cx.valorObjetivo) : null,
-      faltaParaMeta: temMeta ? falta : null,
-      percentualDaMeta: temMeta ? Math.round((totalGuardadoDeVerdade / Number(cx.valorObjetivo)) * 100) : null,
-      rendimentoTotal: Number(cx.rendimentoTotal) || 0,
-      guardadoNesseMes,
-      prazo: cx.data || null,
-      diasAtePrazo: planejamento ? planejamento.diasAtePrazo : null,
-      mesesAtePrazo: planejamento ? planejamento.mesesAtePrazo : null,
-      necessarioGuardarPorMes: planejamento ? planejamento.necessarioPorMes : null,
-      diferencaParaMediaMensalNesteMes: planejamento && planejamento.necessarioPorMes !== null
-        ? Math.max(planejamento.necessarioPorMes - guardadoNesseMes, 0)
-        : null,
-    };
-  });
-}
-
-// Em que situação está um lançamento agora, pro mês em andamento — usado
-// pra IA distinguir "já pago", "ainda vai vencer esse mês", "atrasado desde
-// o mês passado" e "lançado adiantado pro mês que vem", em vez de só ver um
-// total agregado sem saber qual pedaço é o quê.
-function statusDoLancamento(item) {
-  if (item.lembrete) return "pago_adiantado";
-  if (ehDoProximoMes(item)) return "mes_que_vem";
-  if (ehFuturoDoMesAtual(item)) return "futuro";
-  if (estaPendente(item)) return ehDoMesAnterior(item) ? "atrasado" : "pendente";
-  return "pago";
-}
-function detalheItemParaInsight(item, tipoLancamento) {
-  const det = {
-    nome: item.nome,
-    valor: Number(item.valor) || 0,
-    categoria: (item.tipo && String(item.tipo).trim()) || "Outros",
-    tipoLancamento, // "fixo" (mensalidade/parcela) ou "variavel" (avulso)
-    status: statusDoLancamento(item), // pago | pendente | atrasado | mes_que_vem | pago_adiantado
-  };
-  if (tipoLancamento === "variavel") det.origem = variavelEhBeneficio(item) ? "beneficio" : "saldo";
-  // Só existe no modo "Juntos" (ver isAmbos()) — de qual das duas pessoas é
-  // esse lançamento. ESSENCIAL: sem isso a IA não tem como saber de quem é
-  // cada coisa e acaba chutando/misturando (foi assim que ela atribuiu um
-  // gasto que era só do Davi como se fosse do casal genericamente).
-  if (item.pessoa) det.pessoa = PESSOA_LABEL[item.pessoa] || item.pessoa;
-  // Só fixos têm parcela nessa planilha. Ex: "1/5" = essa é a 1ª de 5 parcelas.
-  if (item.parcela && /^\d+\s*\/\s*\d+$/.test(String(item.parcela).trim())) {
-    det.parcela = String(item.parcela).trim();
-  }
-  return det;
-}
-
-// Nome de verdade (não só categoria/total) de cada ganho recebido e de TODO
-// gasto do mês em andamento — fixo ou variável, pago ou pendente — pra IA
-// poder citar um lançamento específico (ex: "Almoço - Tia Marina"), cruzar
-// categoria entre um gasto fixo parcelado e um variável à vista da mesma
-// categoria, saber quando algo é parcelado, apontar uma conta atrasada pelo
-// nome, e (no modo Juntos) saber de qual das duas pessoas é cada lançamento
-// — em vez de só falar em totais e categorias agregadas (que é tudo que ela
-// recebia até agora). Fica de fora o que já é lançamento automático de
-// caixinha (guardar/retirar), porque isso já aparece detalhado em
-// caixinhasDetalhadasParaInsight.
-function lancamentosComNomeDoMes() {
-  const ganhoDetalhado = (g) => {
-    const det = {
-      nome: g.nome,
-      valor: Number(g.valor) || 0,
-      beneficio: ganhoEhBeneficio(g),
-    };
-    if (g.pessoa) det.pessoa = PESSOA_LABEL[g.pessoa] || g.pessoa;
-    return det;
-  };
-
-  // O bloco principal é realmente do mês em andamento. Lançamentos futuros
-  // ficam separados para a IA saber que existem, sem tratá-los como contas
-  // que vencem agora. Itens atrasados continuam no bloco atual, pois ainda
-  // são obrigações em aberto.
-  const ganhos = (state.ganhos || [])
-    .filter((g) => g.recebido === true && !ehFuturoDoMesAtual(g))
-    .map(ganhoDetalhado);
-  const ganhosFuturos = (state.ganhos || [])
-    .filter((g) => ehFuturoDoMesAtual(g))
-    .map(ganhoDetalhado);
-
-  const todosFixos = (state.gastosFixos || []).map((g) => detalheItemParaInsight(g, "fixo"));
-  const todosVariaveis = (state.gastosVariaveis || [])
-    .filter((g) => !ehLancamentoDeCaixinha(g.nome))
-    .map((g) => detalheItemParaInsight(g, "variavel"));
-  const todosGastos = todosFixos.concat(todosVariaveis);
-  const gastos = todosGastos.filter((g) => g.status !== "mes_que_vem" && g.status !== "futuro");
-  const gastosFuturos = todosGastos.filter((g) => g.status === "mes_que_vem" || g.status === "futuro");
-
-  return {
-    ganhosDoMes: ganhos.length ? ganhos : "Nenhum ganho recebido neste mês ainda",
-    gastosDoMes: gastos.length ? gastos : "Nenhum gasto deste mês lançado ainda",
-    ganhosFuturos: ganhosFuturos.length ? ganhosFuturos : "Nenhum ganho futuro lançado",
-    gastosFuturos: gastosFuturos.length ? gastosFuturos : "Nenhum gasto futuro lançado",
-  };
-}
-
-// Só faz sentido no modo "Juntos" (ver isAmbos()): o mesmo recorte do mês
-// atual, mas separado por pessoa — pra IA poder comparar quem gastou mais
-// em quê, calcular o % da renda combinada que foi pra uma categoria, etc,
-// em vez de só ver um número combinado dos dois sem saber a fatia de cada um.
-function resumoPorPessoaMesAtual() {
-  const porPessoa = {};
-  ["davi", "gabriel"].forEach((p) => {
-    const ganhosP = (state.ganhos || []).filter((g) => g.pessoa === p);
-    const fixosPagosP = (state.gastosFixos || []).filter((g) => g.pessoa === p && fixoEhPago(g));
-    const variaveisPagosP = (state.gastosVariaveis || []).filter((g) => g.pessoa === p && variavelContaNoSaldo(g));
-    const categorias = {};
-    fixosPagosP.concat(variaveisPagosP).forEach((g) => {
-      const cat = (g.tipo && String(g.tipo).trim()) || "Outros";
-      categorias[cat] = (categorias[cat] || 0) + (Number(g.valor) || 0);
-    });
-    const ganhosPorOrigemP = separarGanhosPorOrigem(ganhosP);
-    porPessoa[p] = {
-      nome: PESSOA_LABEL[p],
-      ganhosRecebidos: ganhosPorOrigemP.beneficios + ganhosPorOrigemP.ganhos,
-      beneficiosRecebidos: ganhosPorOrigemP.beneficios,
-      ganhosRecebidosSemBeneficio: ganhosPorOrigemP.ganhos,
-      gastoFixoPago: soma(fixosPagosP),
-      gastoVariavelPago: soma(variaveisPagosP),
-      categorias,
-    };
-  });
-  return porPessoa;
-}
-// Mesma ideia acima, mas pra um mês já fechado do HISTORICO (que já guarda
-// ganhos/débitos/categorias separados por Davi e por Gabriel).
-function porPessoaDeUmMesHistorico(mesObj) {
-  if (!mesObj) return null;
-  return {
-    davi: { nome: PESSOA_LABEL.davi, ganhos: mesObj.ganhosDavi || 0, gastos: mesObj.debitosDavi || 0, categorias: mesObj.categoriasDavi || {} },
-    gabriel: { nome: PESSOA_LABEL.gabriel, ganhos: mesObj.ganhosGabriel || 0, gastos: mesObj.debitosGabriel || 0, categorias: mesObj.categoriasGabriel || {} },
-  };
-}
-
-// Resumo enviado pro backend: mês atual (em andamento) vs mês passado (já
-// fechado no histórico), com o detalhe de fixos/variáveis/caixinhas por
-// inteiro — pra IA entender a "vida financeira" completa, não só totais.
-function montarResumoParaInsight() {
-  const nomePessoa = PESSOA_LABEL[state.pessoaAtual] || "Você";
-  const nomeMesAtual = (state.mesAtual && MESES_LABEL[state.mesAtual - 1]) || MESES_LABEL[new Date().getMonth()];
-  const anoAtualNum = state.anoAtual || new Date().getFullYear();
-  const mesPassadoObj = mesAnteriorHistorico();
-  const mesmoMesAnoPassadoObj = mesmoMesAnoAnteriorHistorico();
-
-  const ganhosRecebidos = somaComStatus(state.ganhos, "recebido");
-  const gastosFixosPagos = somaFixosPagos(state.gastosFixos);
-  const gastosVariaveisPagos = somaVariaveisPagas(state.gastosVariaveis);
-  const guardadoNoMes = somaCampo(state.caixinhas, "valorGuardadoMes");
-  const caixinhas = caixinhasDetalhadasParaInsight();
-  const totalRendimentoAcumulado = somaCampo(state.caixinhas, "rendimentoTotal");
-  // Total de VERDADE guardado agora, hoje — a mesma soma que aparece na aba
-  // Caixinhas. É a partir DELE (e não de nenhuma soma de meses diferentes)
-  // que a IA deve falar "quanto você tem guardado" — ver o campo
-  // totalGuardadoAtualDeVerdade logo abaixo e a explicação no prompt do Gemini.
-  const totalGuardadoAgora = somaTotalCaixinhas(state.caixinhas);
-
-  // Pendências do mês em andamento — quanto ainda falta receber/pagar, pra
-  // IA poder comentar sobre isso (ex: "ainda tem R$X a receber esse mês").
-  // Importante: um lançamento pendente com data do MÊS QUE VEM (ver
-  // ehDoProximoMes — ex: uma parcela de fixo que só vence no próximo mês,
-  // mas já foi cadastrada agora) ainda não é uma pendência DESTE mês, então
-  // fica de fora dessa soma — senão a IA falava "ainda falta pagar" um valor
-  // que só vence mês que vem.
-  function somaPendenteDoMesAtual(lista) {
-    return (lista || []).reduce((acc, item) => {
-      if (estaPendente(item) && !ehDoProximoMes(item)) return acc + (Number(item.valor) || 0);
-      return acc;
-    }, 0);
-  }
-  const ganhosAReceber = somaPendenteDoMesAtual(state.ganhos);
-  const gastosFixosAPagar = somaPendenteDoMesAtual(state.gastosFixos);
-  const gastosVariaveisAPagar = somaPendenteDoMesAtual(state.gastosVariaveis);
-
-  // Fluxo de caixa do SALDO NORMAL, separado do benefício: é esse número que
-  // a IA deve usar quando a pergunta for "quanto posso gastar de verdade?".
-  // saldoAtualEmConta = o que já existe hoje; saldoProjetadoComEntradas =
-  // hoje + entradas futuras; limiteDeGastoProjetado = depois de reservar
-  // todas as contas abertas, inclusive as já cadastradas para meses futuros.
-  const ganhosOrigemInsight = separarGanhosPorOrigem(state.ganhos);
-  const gastosSaldoPagosInsight = (state.gastosVariaveis || []).reduce((acc, item) =>
-    acc + (variavelContaNoSaldo(item) && !variavelEhBeneficio(item) ? Number(item.valor) || 0 : 0), 0);
-  const saldoAtualEmConta = ganhosOrigemInsight.ganhos - gastosFixosPagos - gastosSaldoPagosInsight;
-  const entradasFuturasDeSaldo = ganhosAReceber;
-  const contasFuturasAbertas = (state.gastosFixos || []).reduce((acc, item) =>
-    acc + (item.pago !== true && ehFuturoDoMesAtual(item) ? Number(item.valor) || 0 : 0), 0)
-    + (state.gastosVariaveis || []).reduce((acc, item) =>
-      acc + (item.pago !== true && !item.lembrete && !variavelEhBeneficio(item) && ehFuturoDoMesAtual(item) ? Number(item.valor) || 0 : 0), 0);
-  const contasAbertasTotal = gastosFixosAPagar + gastosVariaveisAPagar + contasFuturasAbertas;
-  const saldoProjetadoComEntradas = saldoAtualEmConta + entradasFuturasDeSaldo;
-  const limiteDeGastoProjetado = saldoProjetadoComEntradas - contasAbertasTotal;
-
-  // Totais do ano corrente "até agora" = todo mês já fechado nesse ano
-  // (histórico) + o mês em andamento. E o ano anterior completo, pra dar
-  // pano de fundo de "esse ano tá indo melhor/pior que o ano passado".
-  // Tudo calculado a partir de state.anoAtual, então quando o ano vira (o
-  // usuário fecha Dezembro e o app avança pra Janeiro do ano seguinte) isso
-  // passa a apontar sozinho pro ano novo, sem precisar mexer em nada aqui.
-  const totaisAnoAtualFechados = totaisDoAnoHistorico(anoAtualNum);
-  const totaisAnoAnterior = totaisDoAnoHistorico(anoAtualNum - 1);
-
-  const resumo = {
-    pessoa: nomePessoa,
-    moeda: "BRL",
-    descricaoDoPeriodo: `Comparação entre o mês atual (${nomeMesAtual}/${anoAtualNum}, ainda em andamento) e o mês passado já fechado`,
-    mesAtual: {
-      nome: nomeMesAtual,
-      ano: anoAtualNum,
-      ganhosRecebidos,
-      beneficiosRecebidos: separarGanhosPorOrigem(state.ganhos).beneficios,
-      ganhosRecebidosSemBeneficio: separarGanhosPorOrigem(state.ganhos).ganhos,
-      gastosFixosPagos,
-      gastosVariaveisPagos,
-      // Mesma fórmula do saldo mostrado na tela (renderTotais/#saldoValor):
-      // ganhos recebidos menos fixos e variáveis pagos, SEM subtrair o
-      // guardado nas caixinhas — guardar não é um gasto, o dinheiro ainda é
-      // seu. Antes subtraía guardadoNoMes aqui, o que fazia a IA falar um
-      // saldo diferente do que aparece na tela.
-      saldoDisponivelAgora: ganhosRecebidos - gastosFixosPagos - gastosVariaveisPagos,
-      saldoAtualEmConta,
-      saldoProjetadoComEntradas,
-      contasAbertasTotal,
-      limiteDeGastoProjetado,
-      guardadoNoMes,
-      categorias: categoriasMesAtual(),
-      // "Ainda falta entrar/sair" — não é gasto/ganho perdido, é só o que já
-      // está lançado mas ainda não foi marcado como recebido/pago.
-      aindaAReceberEsseMes: ganhosAReceber > 0 ? ganhosAReceber : 0,
-      aindaAPagarFixosEsseMes: gastosFixosAPagar > 0 ? gastosFixosAPagar : 0,
-      aindaAPagarVariaveisEsseMes: gastosVariaveisAPagar > 0 ? gastosVariaveisAPagar : 0,
-    },
-    mesPassado: mesPassadoObj ? {
-      nome: mesPassadoObj.nome,
-      ano: mesPassadoObj.ano,
-      ganhos: totalGanhosDeUmMesHistorico(mesPassadoObj),
-      gastos: totalDebitosDeUmMesHistorico(mesPassadoObj),
-      guardadoNoMes: totalGuardadoNoMesDeUmMesHistorico(mesPassadoObj),
-      categorias: categoriasDeUmMesHistorico(mesPassadoObj),
-    } : "Ainda não há nenhum mês fechado no histórico",
-    // Mesmo mês, um ano antes (ex: Agosto/2026 vs Agosto/2025) — diferente
-    // do mesPassado acima (que é sempre o mês imediatamente anterior). Só
-    // existe quando já tem pelo menos um ano de histórico fechado.
-    mesmoMesAnoPassado: mesmoMesAnoPassadoObj ? {
-      nome: nomeMesAtual,
-      ano: anoAtualNum - 1,
-      ganhos: totalGanhosDeUmMesHistorico(mesmoMesAnoPassadoObj),
-      gastos: totalDebitosDeUmMesHistorico(mesmoMesAnoPassadoObj),
-      guardadoNoMes: totalGuardadoNoMesDeUmMesHistorico(mesmoMesAnoPassadoObj),
-      categorias: categoriasDeUmMesHistorico(mesmoMesAnoPassadoObj),
-    } : `Ainda não há dados de ${nomeMesAtual}/${anoAtualNum - 1} no histórico`,
-    // Visão do ano inteiro — soma de todo mês já fechado nesse ano mais o
-    // mês em andamento, e o ano anterior completo (quando existir), pra IA
-    // poder falar de tendência ao longo do ano ("você já guardou X esse
-    // ano", "esse ano tá X% acima do ano passado até aqui" etc).
-    anoAtualAteAgora: {
-      ano: anoAtualNum,
-      mesesFechadosNesteAno: totaisAnoAtualFechados.mesesFechados,
-      ganhos: totaisAnoAtualFechados.ganhos + ganhosRecebidos,
-      gastos: totaisAnoAtualFechados.gastos + gastosFixosPagos + gastosVariaveisPagos,
-      // Crescimento LÍQUIDO das caixinhas neste ano (total de hoje menos o
-      // total que já estava guardado no fim do ano anterior) — não é soma
-      // de depósito mês a mês, então já desconta qualquer saque que tenha
-      // rolado no meio do caminho. Ver totalGuardadoLiquidoNoPeriodo.
-      guardado: totalGuardadoLiquidoNoPeriodo(totalGuardadoAgora, anoAtualNum - 1),
-      observacao: `Soma dos ${totaisAnoAtualFechados.mesesFechados} meses já fechados de ${anoAtualNum} mais o mês atual (${nomeMesAtual}), que ainda está em andamento`,
-    },
-    anoAnteriorCompleto: totaisAnoAnterior.mesesFechados > 0 ? {
-      ano: anoAtualNum - 1,
-      mesesFechados: totaisAnoAnterior.mesesFechados,
-      ganhos: totaisAnoAnterior.ganhos,
-      gastos: totaisAnoAnterior.gastos,
-      // Mesma lógica líquida acima, mas pro ano anterior inteiro: total
-      // guardado no fim daquele ano menos o total que já tinha no fim do
-      // ano anterior a ele.
-      guardado: totalGuardadoLiquidoNoPeriodo(totalGuardadoNoFimDoAno(anoAtualNum - 1), anoAtualNum - 2),
-    } : `Ainda não há nenhum mês fechado de ${anoAtualNum - 1} no histórico`,
-    // O total REAL guardado agora, hoje, em todas as caixinhas somadas —
-    // igual ao que aparece na aba Caixinhas. Use SEMPRE este campo quando
-    // for falar "quanto você tem guardado" ou "total guardado atualmente";
-    // nunca some valores de meses diferentes pra chegar nesse número, já
-    // que pode ter havido saques entre um mês e outro.
-    totalGuardadoAtualDeVerdade: totalGuardadoAgora,
-    caixinhas: caixinhas.length ? caixinhas : "Nenhuma caixinha cadastrada ainda",
-    rendimentoTotalAcumuladoEmTodasAsCaixinhas: totalRendimentoAcumulado,
-    lancamentosComNomeDoMesAtual: lancamentosComNomeDoMes(),
-  };
-
-  if (state.pessoaAtual === "ambos") {
-    const transferencias = transferenciasDoMes();
-    resumo.transferenciasEntreOsDoisEsseMes = transferencias.length ? transferencias : "Nenhuma transferência entre os dois esse mês";
-    // Recorte por pessoa — só existe no modo Juntos. Sem isso a IA só via
-    // números combinados dos dois e não conseguia comparar quem gastou mais
-    // em quê, nem calcular a fatia de cada um.
-    resumo.mesAtual.porPessoa = resumoPorPessoaMesAtual();
-    if (mesPassadoObj) resumo.mesPassado.porPessoa = porPessoaDeUmMesHistorico(mesPassadoObj);
-  }
-
-  return resumo;
-}
-
-// A IA marca cada valor em dinheiro indicando de que tipo ele é —
-// {{ganho:R$ 5,00}}, {{gasto:R$ 5,00}}, {{guardado:R$ 5,00}} ou
-// {{rendimento:R$ 5,00}} — e aqui a gente troca isso pela mesma cor usada
-// pra cada um no gráfico histórico (Ganhos verde, Gastos vermelho, Guardado
-// amarelo, Rendimento azul). {{+}}/{{-}} continuam existindo como fallback
-// pra valor genérico (favorável/desfavorável) que não é claramente um dos
-// quatro tipos, tipo saldo. Escapa tudo primeiro pra nunca deixar a IA
-// injetar HTML de verdade, só esses marcadores viram tag — e qualquer
-// {{...}} que sobrar fora do formato esperado só perde as chaves no final,
-// pra nunca aparecer cru na tela mesmo se a IA errar o formato.
-function renderizarTextoInsight(texto) {
-  const seguro = escapeHtml(String(texto || ""));
-  return seguro
-    .replace(/\{\{beneficio:([^{}]+)\}\}/gi, '<span class="insight-valor-beneficio">$1</span>')
-    .replace(/\{\{ganho:([^{}]+)\}\}/gi, '<span class="insight-valor-pos">$1</span>')
-    .replace(/\{\{gasto:([^{}]+)\}\}/gi, '<span class="insight-valor-neg">$1</span>')
-    .replace(/\{\{guardado:([^{}]+)\}\}/gi, '<span class="insight-valor-guardado">$1</span>')
-    .replace(/\{\{rendimento:([^{}]+)\}\}/gi, '<span class="insight-valor-rendimento">$1</span>')
-    .replace(/\{\{\+([^{}]+)\}\}/g, '<span class="insight-valor-pos">$1</span>')
-    .replace(/\{\{-([^{}]+)\}\}/g, '<span class="insight-valor-neg">$1</span>')
-    .replace(/\{\{([^{}]+)\}\}/g, "$1");
-}
-
-// Guarda o texto de IA atualmente exibido, pra não refazer o fade quando o
-// texto novo é idêntico ao que já está na tela (ver mostrarInsightTexto).
-let insightTextoAtualExibido = null;
-
-// Troca o texto/estado visual do card (carregando / ia / erro). No estado
-// "carregando" mostra 3 pontinhos animados no lugar do texto, centralizados.
-function definirVisibilidadeInsight(visivel) {
-  const card = document.getElementById("insightCard");
-  if (!card) return;
-  card.hidden = !visivel;
-  card.style.display = visivel ? "" : "none";
-}
-
-function garantirEstiloDosIndicadoresInsight() {
-  if (document.getElementById("insightDotsStyle")) return;
-  const style = document.createElement("style");
-  style.id = "insightDotsStyle";
-  style.textContent = `.insight-dots{display:flex;justify-content:center;align-items:center;gap:5px;margin-top:10px;min-height:8px}.insight-dots span{width:4px;height:4px;border-radius:999px;background:rgba(255,255,255,.24);transition:width .22s ease,background .22s ease,transform .22s ease}.insight-dots span.is-active{width:12px;background:rgba(255,255,255,.72);transform:scale(1.05)}`;
-  document.head.appendChild(style);
-}
-
-function normalizarInsight(item) {
-  const ehObjeto = item && typeof item === "object";
-  const texto = String(ehObjeto ? (item.texto || item.insight || "") : (item || "")).trim();
-  const recomendacao = String(ehObjeto ? (item.recomendacao || item.recommendation || "") : "").trim();
-  let tipo = String(ehObjeto ? (item.tipo || "") : "").trim().toLowerCase();
-  let titulo = String(ehObjeto ? (item.titulo || "") : "").trim();
-
-  // Compatibilidade com insights antigos que foram salvos como texto puro:
-  // tenta aproveitar os marcadores que a IA já usava para dar um titulo
-  // coerente até que um novo lote venha com titulo gerado pela própria IA.
-  if (!tipo || tipo === "geral") {
-    if (/\{\{gasto:/i.test(texto) || /\bgastos?\b/i.test(texto)) tipo = "gasto";
-    else if (/\{\{beneficio:/i.test(texto) || /\bbenef[ií]cio\b/i.test(texto)) tipo = "beneficio";
-    else if (/\{\{ganho:/i.test(texto) || /\b(receber|recebimento|ganho|ganhos)\b/i.test(texto)) tipo = "ganho";
-    else if (/\{\{guardado:/i.test(texto) || /\bguardad[oa]\b|caixinha/i.test(texto)) tipo = "guardado";
-    else if (/\{\{rendimento:/i.test(texto) || /\brendimento\b/i.test(texto)) tipo = "rendimento";
-  }
-  if (!titulo) {
-    const titulos = { gasto: "GASTO", ganho: "RECEBIMENTO", beneficio: "BENEFÍCIO", guardado: "CAIXINHA", rendimento: "RENDIMENTO", comparacao: "COMPARAÇÃO", planejamento: "PLANEJAMENTO", atencao: "ATENÇÃO" };
-    titulo = titulos[tipo] || "INSIGHT";
-  }
-  return { titulo, texto, recomendacao, tipo: tipo || "geral" };
-}
-
-function corDoTituloInsight(tipo) {
-  const mapa = {
-    gasto: "neg",
-    ganho: "pos",
-    beneficio: "beneficio",
-    guardado: "guardado",
-    rendimento: "rendimento",
-    atencao: "atencao",
-    comparacao: "comparacao",
-    planejamento: "planejamento",
-    geral: "geral",
-  };
-  return mapa[tipo] || "geral";
-}
-
-function garantirInteracaoInsight() {
-  const card = document.getElementById("insightCard");
-  if (!card || card.dataset.insightClick === "1") return;
-  card.dataset.insightClick = "1";
-  card.setAttribute("role", "button");
-  card.setAttribute("tabindex", "0");
-  card.setAttribute("aria-label", "Próximo insight financeiro");
-  card.addEventListener("click", () => mostrarProximoInsightDaFila());
-  card.addEventListener("keydown", (event) => {
-    if (event.key === "Enter" || event.key === " ") {
-      event.preventDefault();
-      mostrarProximoInsightDaFila();
-    }
-  });
-}
-
-function registrarFalhaInsightNoConsole(err, contexto) {
-  const diagnostico = err && err.diagnostico ? err.diagnostico : null;
-  if (diagnostico && diagnostico.length) {
-    diagnostico.forEach((item) => {
-      console.error(`[Caixa IA] Chave ${item.chave || "?"} falhou. HTTP/status: ${item.status || "desconhecido"}. Motivo: ${item.motivo || "sem detalhe"}`);
-    });
-  } else {
-    console.error(`[Caixa IA] Falha ao gerar insight${contexto ? " (" + contexto + ")" : ""}. Motivo: ${(err && err.message) || "erro desconhecido"}`, err || "");
-  }
-}
-
-function mostrarInsightTexto(insight, modo) {
-  const el = document.getElementById("insightTexto");
-  if (!el) return;
-  definirVisibilidadeInsight(true);
-  garantirInteracaoInsight();
-
-  const item = normalizarInsight(insight);
-  const texto = item.texto;
-  const tituloEl = document.getElementById("insightTitulo");
-  const titulo = item.titulo;
-  const classeTitulo = corDoTituloInsight(item.tipo);
-
-  if (modo === "ia" && texto === insightTextoAtualExibido && el.classList.contains("is-ia")) {
-    if (tituloEl) {
-      tituloEl.textContent = titulo;
-      tituloEl.className = `insight-titulo is-${classeTitulo}`;
-      tituloEl.hidden = !titulo;
-    }
-    return;
-  }
-
-  const aplicarConteudo = () => {
-    el.classList.remove("is-ia", "is-erro", "is-carregando", "is-trocando");
-    if (modo) el.classList.add(`is-${modo}`);
-    el.innerHTML = modo === "carregando"
-      ? '<span class="insight-loading" role="status" aria-label="Carregando insight"><span></span><span></span><span></span></span>'
-      : `${renderizarTextoInsight(texto)}${modo === "ia" && item.recomendacao ? `<div class="insight-recomendacao"><span>Recomendação</span><div>${renderizarTextoInsight(item.recomendacao)}</div></div>` : ""}`;
-
-    if (tituloEl) {
-      tituloEl.textContent = modo === "ia" ? titulo : "";
-      tituloEl.className = `insight-titulo is-${classeTitulo}`;
-      tituloEl.hidden = modo !== "ia" || !titulo;
-    }
-    if (modo === "ia") insightTextoAtualExibido = texto;
-  };
-
-  if (el.innerHTML.trim()) {
-    el.classList.add("is-trocando");
-    setTimeout(aplicarConteudo, 200);
-  } else {
-    aplicarConteudo();
-  }
-}
-
-const INSIGHT_CACHE_PREFIX = "caixaInsightTexto:";
-const INSIGHT_FILA_PREFIX = "caixaInsightFila:";
-const INSIGHT_INDICE_PREFIX = "caixaInsightIndice:";
-const INSIGHT_ESTOQUE_MINIMO = 2;
-const INSIGHT_LOTE_TAMANHO = 5;
-const INSIGHT_ROTACAO_MS = 15000;
-let insightGeracaoEmAndamento = false;
-let insightAlteracaoTimer = null;
-let insightGeracaoPendente = false;
-let insightRotacaoTimer = null;
-let insightInicialSemCacheEmAndamento = false;
-
-function getInsightCache(pessoa) {
-  try {
-    const bruto = localStorage.getItem(INSIGHT_CACHE_PREFIX + pessoa);
-    return bruto ? normalizarInsight(JSON.parse(bruto)) : null;
-  } catch (err) {
-    try {
-      const bruto = localStorage.getItem(INSIGHT_CACHE_PREFIX + pessoa);
-      return bruto ? normalizarInsight(bruto) : null;
-    } catch (_) { return null; }
-  }
-}
-function setInsightCache(pessoa, insight) {
-  try { localStorage.setItem(INSIGHT_CACHE_PREFIX + pessoa, JSON.stringify(normalizarInsight(insight))); } catch (err) {}
-}
-function getInsightFila(pessoa) {
-  try {
-    const lista = JSON.parse(localStorage.getItem(INSIGHT_FILA_PREFIX + pessoa) || "[]");
-    // Não limitamos a fila a 5: se houver mais insights válidos salvos de uma
-    // geração anterior, eles continuam disponíveis para o carrossel.
-    return Array.isArray(lista) ? lista.map(normalizarInsight).filter((i) => i.texto) : [];
-  } catch (err) { return []; }
-}
-function setInsightFila(pessoa, lista) {
-  try {
-    // Preserva todo o estoque válido recebido. Uma geração nova continua
-    // substituindo o estoque antigo, mas não descartamos insights extras que
-    // ainda estejam salvos e sejam válidos.
-    const filaValida = (lista || []).map(normalizarInsight).filter((i) => i.texto);
-    localStorage.setItem(INSIGHT_FILA_PREFIX + pessoa, JSON.stringify(filaValida));
-  } catch (err) {}
-}
-
-function getInsightIndice(pessoa) {
-  try { return Number(localStorage.getItem(INSIGHT_INDICE_PREFIX + pessoa) || 0) || 0; } catch (err) { return 0; }
-}
-function setInsightIndice(pessoa, indice) {
-  try { localStorage.setItem(INSIGHT_INDICE_PREFIX + pessoa, String(Math.max(0, Number(indice) || 0))); } catch (err) {}
-}
-function getTodosInsights(pessoa) {
-  const atual = getInsightCache(pessoa);
-  const fila = getInsightFila(pessoa);
-  // A geração padrão entrega 5, mas o carrossel pode aproveitar qualquer
-  // quantidade maior que já esteja salva e ainda seja válida.
-  return atual ? [atual].concat(fila) : fila.slice();
-}
-function atualizarIndicadoresInsights() {
-  garantirEstiloDosIndicadoresInsight();
-  const el = document.getElementById("insightTexto");
-  if (!el) return;
-  let dots = document.getElementById("insightDots");
-  const pessoa = state.pessoaAtual;
-  const lista = getTodosInsights(pessoa);
-  if (!lista.length) { if (dots) dots.remove(); return; }
-  const indice = Math.min(getInsightIndice(pessoa), lista.length - 1);
-  if (!dots) {
-    dots = document.createElement("div");
-    dots.id = "insightDots";
-    dots.className = "insight-dots";
-    dots.setAttribute("aria-label", "Indicador de insights");
-    el.insertAdjacentElement("afterend", dots);
-  }
-  dots.innerHTML = lista.map((_, i) => `<span class="${i === indice ? "is-active" : ""}" aria-hidden="true"></span>`).join("");
-}
-function exibirInsightCacheOuPlaceholder() {
-  const lista = getTodosInsights(state.pessoaAtual);
-  if (!lista.length) {
-    definirVisibilidadeInsight(false);
-    return;
-  }
-  const indice = Math.min(getInsightIndice(state.pessoaAtual), lista.length - 1);
-  setInsightIndice(state.pessoaAtual, indice);
-  mostrarInsightTexto(lista[indice], "ia");
-  atualizarIndicadoresInsights();
-}
-
-function invalidarFilaDeInsights(pessoa = state.pessoaAtual) {
-  setInsightFila(pessoa, []);
-}
-
-function agendarInsightPorAlteracaoFinanceira() {
-  if (isAmbos() || !navigator.onLine) return;
-  insightGeracaoPendente = true;
-  clearTimeout(insightAlteracaoTimer);
-  insightAlteracaoTimer = setTimeout(() => {
-    insightGeracaoPendente = false;
-    gerarInsightAposAlteracaoFinanceira();
-  }, 1200);
-}
-
-async function gerarInsightAposAlteracaoFinanceira() {
-  if (insightGeracaoEmAndamento || !navigator.onLine || isAmbos()) return;
-  insightGeracaoEmAndamento = true;
-  const pessoaDoPedido = state.pessoaAtual;
-  invalidarFilaDeInsights(pessoaDoPedido);
-  try {
-    const textos = await pedirLoteDeInsights(pessoaDoPedido);
-    if (state.pessoaAtual !== pessoaDoPedido) return;
-    const primeiro = textos.shift();
-    if (!primeiro) throw new Error("O Gemini não retornou um primeiro insight válido.");
-    setInsightCache(pessoaDoPedido, primeiro);
-    setInsightFila(pessoaDoPedido, textos);
-    setInsightIndice(pessoaDoPedido, 0);
-    exibirInsightCacheOuPlaceholder();
-  } catch (err) {
-    registrarFalhaInsightNoConsole(err, "alteração financeira");
-    if (err && err.ocultarInsight) definirVisibilidadeInsight(false);
-    // Mantém o último insight válido quando existe. Se as duas chaves falharem,
-    // o card é ocultado até uma próxima tentativa bem-sucedida.
-  } finally {
-    insightGeracaoEmAndamento = false;
-    if (insightGeracaoPendente) {
-      clearTimeout(insightAlteracaoTimer);
-      insightAlteracaoTimer = setTimeout(() => {
-        insightGeracaoPendente = false;
-        gerarInsightAposAlteracaoFinanceira();
-      }, 250);
-    }
-  }
-}
-
-async function pedirLoteDeInsights(pessoaDoPedido, resumoFornecido = null) {
-  if (!resumoFornecido && !state.historico) {
-    await carregarHistorico();
-    if (state.pessoaAtual !== pessoaDoPedido) throw new Error("__pessoa_trocou__");
-  }
-  const resumo = resumoFornecido || montarResumoParaInsight();
-  const res = await fetch(API_URL, {
-    method: "POST",
-    body: JSON.stringify({ action: "gerarInsightIA", pessoa: pessoaDoPedido, periodo: "mes-vs-anterior", quantidade: INSIGHT_LOTE_TAMANHO, resumo }),
-  });
-  const data = await res.json().catch(() => null);
-  // Quando o resumo foi fornecido, esta é uma geração em segundo plano para
-  // outra pessoa/perfil. Não devemos cancelar a resposta só porque o usuário
-  // continua visualizando outro perfil.
-  if (!resumoFornecido && state.pessoaAtual !== pessoaDoPedido) {
-    throw new Error("__pessoa_trocou__");
-  }
-  if (!data || data.ok === false || !Array.isArray(data.textos) || data.textos.length < 1) {
-    const erro = new Error((data && data.error) || `O Gemini retornou menos de ${INSIGHT_LOTE_TAMANHO} insights.`);
-    if (data && data.diagnostico) erro.diagnostico = data.diagnostico;
-    erro.ocultarInsight = !!(data && data.ocultarInsight);
-    throw erro;
-  }
-  return data.textos.slice(0, INSIGHT_LOTE_TAMANHO);
-}
-
-// No primeiro acesso de um dispositivo sem cache financeiro, prepara o estoque
-// de IA dos três contextos. Fazemos em sequência para não abrir três chamadas
-// simultâneas à Gemini e não sobrecarregar a API.
-function montarResumoParaDadosDePessoa(pessoa, dados) {
-  const snapshot = {
-    pessoaAtual: state.pessoaAtual,
-    ganhos: state.ganhos,
-    gastosFixos: state.gastosFixos,
-    gastosVariaveis: state.gastosVariaveis,
-    caixinhas: state.caixinhas,
-    categoriasConfig: state.categoriasConfig,
-    iconCategorias: state.iconCategorias,
-  };
-  try {
-    state.pessoaAtual = pessoa;
-    state.ganhos = dados.ganhos || [];
-    state.gastosFixos = dados.gastosFixos || [];
-    state.gastosVariaveis = dados.gastosVariaveis || [];
-    state.caixinhas = dados.caixinhas || [];
-    state.categoriasConfig = dados.categorias || null;
-    state.iconCategorias = dados.iconCategorias || [];
-    return montarResumoParaInsight();
-  } finally {
-    state.pessoaAtual = snapshot.pessoaAtual;
-    state.ganhos = snapshot.ganhos;
-    state.gastosFixos = snapshot.gastosFixos;
-    state.gastosVariaveis = snapshot.gastosVariaveis;
-    state.caixinhas = snapshot.caixinhas;
-    state.categoriasConfig = snapshot.categoriasConfig;
-    state.iconCategorias = snapshot.iconCategorias;
-  }
-}
-
-// No primeiro acesso de um dispositivo sem cache financeiro, prepara o estoque
-// de IA dos três contextos. Fazemos em sequência para não abrir três chamadas
-// simultâneas à Gemini e não sobrecarregar a API.
-async function prepararInsightsIniciaisSemCache(pessoaBase) {
-  if (insightInicialSemCacheEmAndamento || !navigator.onLine) return;
-  insightInicialSemCacheEmAndamento = true;
-  const pessoaOriginal = state.pessoaAtual;
-  try {
-    if (!state.historico) await carregarHistorico();
-    for (const pessoa of ["davi", "gabriel", "ambos"]) {
-      if (!navigator.onLine) break;
-      const dados = await getCache(pessoa);
-      if (!dados) continue;
-      // O estoque inicial esperado é de 5 insights. Se existir um estoque
-      // antigo incompleto (por exemplo, 2 insights salvos), completa/regenera
-      // esse contexto em vez de considerar o cache como suficiente.
-      const estoqueExistente = getTodosInsights(pessoa);
-      if (estoqueExistente.length >= INSIGHT_LOTE_TAMANHO) continue;
-
-      const resumoPessoa = montarResumoParaDadosDePessoa(pessoa, dados);
-      try {
-        const textos = await pedirLoteDeInsights(pessoa, resumoPessoa);
-        const primeiro = textos.shift();
-        if (primeiro) {
-          setInsightCache(pessoa, primeiro);
-          setInsightFila(pessoa, textos);
-          setInsightIndice(pessoa, 0);
-          // Se o usuário estiver neste perfil quando a geração terminar,
-          // atualiza apenas a interface; não faz uma nova chamada à IA.
-          if (state.pessoaAtual === pessoa) exibirInsightCacheOuPlaceholder();
-        }
-      } catch (_err) {
-        registrarFalhaInsightNoConsole(_err, `acesso inicial — ${pessoa}`);
-        // Uma pessoa que falhar não impede as demais de serem preparadas.
-        if (_err && _err.ocultarInsight && pessoa === pessoaOriginal) definirVisibilidadeInsight(false);
-      }
-    }
-  } finally {
-    insightInicialSemCacheEmAndamento = false;
-    if (state.pessoaAtual === pessoaOriginal) {
-      const cacheFinal = getInsightCache(pessoaOriginal) || getInsightFila(pessoaOriginal)[0];
-      if (cacheFinal) exibirInsightCacheOuPlaceholder();
-      else definirVisibilidadeInsight(false);
-    }
-  }
-}
-
-function mostrarProximoInsightDaFila() {
-  const pessoa = state.pessoaAtual;
-  const lista = getTodosInsights(pessoa);
-  if (lista.length < 2) { atualizarIndicadoresInsights(); return false; }
-  const proximoIndice = (getInsightIndice(pessoa) + 1) % lista.length;
-  setInsightIndice(pessoa, proximoIndice);
-  mostrarInsightTexto(lista[proximoIndice], "ia");
-  atualizarIndicadoresInsights();
-  // Clique manual reinicia a contagem dos 15s. Assim, se faltava 1s para
-  // a troca automática, o clique não é imediatamente seguido por outra troca.
-  iniciarRotacaoInsights();
-  return true;
-}
-
-function iniciarRotacaoInsights() {
-  clearInterval(insightRotacaoTimer);
-  insightRotacaoTimer = setInterval(() => {
-    if (!navigator.onLine || document.hidden) return;
-    // Não chama Gemini aqui. Só troca por um texto que já foi gerado.
-    mostrarProximoInsightDaFila();
-  }, INSIGHT_ROTACAO_MS);
-}
-
-function atualizarInsightComIA(opcoes = {}) {
-  // Mantido por compatibilidade com chamadas antigas. A IA só é acionada em
-  // dois casos: primeiro acesso sem cache ou mudança financeira.
-  if (opcoes.motivo === "pagina" && opcoes.semCacheInicial) {
-    prepararInsightsIniciaisSemCache(state.pessoaAtual);
-  }
-}
-
-function tentarDeNovoInsightSeErro() {
-  // Sem geração manual: o insight é atualizado apenas no primeiro acesso sem
-  // cache ou depois de uma mudança financeira salva.
-}
-
-// ---------------------------------------------------------------------
 // HISTÓRICO — página 2 do carrossel: "Gastos por categoria" do ano
 // selecionado, somando o texto "Categoria:Valor,Categoria:Valor" que o GS
 // grava em cada mês fechado (ver categoriasDavi/categoriasGabriel, vindos
@@ -4621,7 +3699,7 @@ function atualizarVisibilidadeFab() {
   const fab = document.getElementById("fabCriar");
   if (fab) {
     const ativa = document.querySelector(".tab-panel:not(.is-hidden)");
-    const podeCriar = ["ganhos", "fixos", "variaveis"].includes(ativa?.dataset.tab || "") && !isAmbos();
+    const podeCriar = ["ganhos", "fixos", "variaveis", "guardado"].includes(ativa?.dataset.tab || "") && !isAmbos();
     fab.classList.toggle("is-hidden", !podeCriar);
     fab.setAttribute("aria-hidden", String(!podeCriar));
   }
@@ -5365,8 +4443,6 @@ atualizarVisibilidadeJuntosView();
 initGavetas();
 aplicarMascaraMoedaEmTodos();
 posicionarIndicadorAba();
-exibirInsightCacheOuPlaceholder();
-iniciarRotacaoInsights();
 // Leituras da planilha acontecem na abertura da página. Depois disso, a
 // navegação e a troca de perfil usam os dados em memória/cache; alterações
 // feitas pelo usuário continuam sendo enviadas normalmente via POST.
@@ -5501,11 +4577,13 @@ const criacaoHost = document.getElementById("criacaoModalHost");
 const fabCriar = document.getElementById("fabCriar");
 const criacaoTitulo = document.getElementById("criacaoTitulo");
 const criacaoHint = document.getElementById("criacaoHint");
+const criacaoKicker = document.getElementById("criacaoKicker");
 
 const CONFIG_CRIACAO = {
   ganhos: { alvo: "collapsible-ganhos", titulo: "Novo ganho", hint: "Registre uma entrada de dinheiro e indique se ela já foi recebida." },
   fixos: { alvo: "collapsible-fixos", titulo: "Novo gasto fixo", hint: "Cadastre uma conta recorrente ou parcelada." },
   variaveis: { alvo: "collapsible-variaveis", titulo: "Novo gasto variável", hint: "Registre uma compra ou despesa do dia a dia." },
+  guardado: { alvo: "collapsible-guardado", titulo: "Nova caixinha", hint: "Crie uma reserva com nome, valor inicial, meta e prazo." },
 };
 
 function fecharCriacaoFlutuante() {
@@ -5553,6 +4631,7 @@ function abrirCriacaoFlutuante() {
   criacaoPlaceholder = document.createComment("caixa-criacao-placeholder");
   alvo.parentNode.insertBefore(criacaoPlaceholder, alvo);
   criacaoTitulo.textContent = cfg.titulo;
+  if (criacaoKicker) criacaoKicker.textContent = tab === "guardado" ? "Nova reserva" : "Novo lançamento";
   criacaoHint.textContent = cfg.hint;
   limparFormularioCriacao(alvo);
   criacaoHost.appendChild(alvo);
@@ -5631,6 +4710,7 @@ if (document.readyState === "loading") {
   ];
 
   let pensamentoTimer = null;
+  let dicaOutraTimer = null;
 
   function esc(s) {
     return String(s ?? "").replace(/[&<>"']/g, c => ({ "&":"&amp;", "<":"&lt;", ">":"&gt;", '"':"&quot;", "'":"&#39;" }[c]));
@@ -5753,6 +4833,129 @@ if (document.readyState === "loading") {
       quick.scrollIntoView({ behavior: "smooth", block: "start" });
     });
     body.appendChild(btn);
+  }
+
+  function montarDicasFinanceiras(t) {
+    const dicas = [];
+    const cats = categoriasChat();
+    const maior = cats[0];
+    const totalGastos = (Number(t.fixosPagos) || 0) + (Number(t.variaveisPagos) || 0);
+    const totalEntradas = Number(t.ganhosRecebidos) || 0;
+    const totalContasAbertas = (Number(t.aPagarFixos) || 0) + (Number(t.aPagarVariaveis) || 0);
+    const saldoProjetado = (Number(t.saldoAtualConta) || 0) + (Number(t.aReceber) || 0);
+    const folgaProjetada = saldoProjetado - totalContasAbertas;
+    const contasDesteMes = (Number(t.aPagarFixosEsseMes) || 0) + (Number(t.aPagarVariaveisEsseMes) || 0);
+    const contasFuturas = (Number(t.aPagarFixosFuturos) || 0) + (Number(t.aPagarVariaveisFuturos) || 0);
+
+    if (t.aReceber > 0 && totalContasAbertas > 0) {
+      dicas.push({
+        dica: `Com a entrada de <span class="chat-valor chat-valor-pos">${chatFmt(t.aReceber)}</span>, seu saldo projetado vai para <span class="chat-valor chat-valor-pos">${chatFmt(saldoProjetado)}</span>. Reservando <span class="chat-valor chat-valor-neg">${chatFmt(totalContasAbertas)}</span> para as contas abertas, a folga projetada fica em <span class="chat-valor chat-valor-pos">${chatFmt(Math.max(folgaProjetada, 0))}</span>.`,
+        recomendacao: contasDesteMes > 0
+          ? `Quando o dinheiro entrar, quite primeiro os <span class="chat-valor chat-valor-neg">${chatFmt(contasDesteMes)}</span> que vencem neste mês${contasFuturas > 0 ? ` e deixe <span class="chat-valor chat-valor-pos">${chatFmt(contasFuturas)}</span> já reservados para depois.` : "."}`
+          : "Mantenha as contas futuras reservadas antes de considerar essa folga como dinheiro livre.",
+      });
+    }
+    if (contasFuturas > 0 && totalContasAbertas > 0) {
+      dicas.push({
+        dica: `Dos <span class="chat-valor chat-valor-neg">${chatFmt(totalContasAbertas)}</span> ainda abertos, <span class="chat-valor chat-valor-pos">${chatFmt(contasFuturas)}</span> estão lançados para meses futuros. Eles já fazem parte do seu planejamento, mas não vencem agora.`,
+        recomendacao: "Se o dinheiro para essas contas já estiver disponível, deixe essa parte separada para não consumir a folga por engano.",
+      });
+    }
+    if (contasDesteMes > 0) {
+      dicas.push({
+        dica: `Ainda existem <span class="chat-valor chat-valor-neg">${chatFmt(contasDesteMes)}</span> em compromissos que vencem neste mês.`,
+        recomendacao: `Use esse valor como referência antes de assumir novos gastos neste mês.`,
+      });
+    }
+    if (t.aPagarVariaveisEsseMes > 0) {
+      dicas.push({
+        dica: `Você já tem <span class="chat-valor chat-valor-neg">${chatFmt(t.aPagarVariaveisEsseMes)}</span> em gastos variáveis deste mês que ainda não foram pagos.`,
+        recomendacao: `Reserve esse valor antes de tratar o restante do saldo como dinheiro livre.`,
+      });
+    }
+    if (maior && maior[1] > 0 && totalGastos > 0) {
+      const percentual = Math.round((maior[1] / totalGastos) * 100);
+      dicas.push({
+        dica: `A categoria <strong>${esc(maior[0])}</strong> lidera seus gastos pagos com <span class="chat-valor chat-valor-neg">${chatFmt(maior[1])}</span>, cerca de ${percentual}% do total.`,
+        recomendacao: percentual >= 30 ? `Se quiser reduzir gastos, essa é a primeira categoria que vale revisar.` : "Vale acompanhar se essa concentração se repete no próximo mês.",
+      });
+    }
+    if (cats.length >= 2 && cats[0][1] > 0 && cats[1][1] > 0) {
+      const diferenca = cats[0][1] - cats[1][1];
+      if (diferenca > 0) {
+        dicas.push({
+          dica: `A categoria <strong>${esc(cats[0][0])}</strong> está ${chatFmt(diferenca)} acima de <strong>${esc(cats[1][0])}</strong> nos gastos pagos.`,
+          recomendacao: "Se a diferença veio de um gasto pontual, não precisa cortar essa categoria; observe se ela se repete.",
+        });
+      }
+    }
+    if (t.beneficio > 0) {
+      dicas.push({
+        dica: `Ainda há <span class="chat-valor chat-valor-gold">${chatFmt(t.beneficio)}</span> disponíveis no benefício.`,
+        recomendacao: "Use essa origem nos gastos que realmente podem sair dela e preserve o saldo normal para as contas da conta corrente.",
+      });
+    }
+    if (t.aReceber > 0) {
+      dicas.push({
+        dica: `Você ainda espera receber <span class="chat-valor chat-valor-pos">${chatFmt(t.aReceber)}</span>. Esse dinheiro ainda não entrou no saldo de hoje.`,
+        recomendacao: "Planeje com a data da entrada em mente e evite contar com esse valor antes de recebê-lo.",
+      });
+    }
+    if (totalEntradas > 0 && totalGastos > totalEntradas) {
+      dicas.push({
+        dica: `Os gastos pagos já somam <span class="chat-valor chat-valor-neg">${chatFmt(totalGastos)}</span>, enquanto as entradas recebidas somam <span class="chat-valor chat-valor-pos">${chatFmt(totalEntradas)}</span>.`,
+        recomendacao: "Segure novos gastos até as próximas entradas melhorarem essa diferença.",
+      });
+    }
+    const metas = metasChat();
+    if (metas.length) {
+      const meta = metas[0];
+      const pct = meta.objetivo > 0 ? Math.min(100, Math.round(meta.atual / meta.objetivo * 100)) : 0;
+      dicas.push({
+        dica: `A caixinha <strong>${esc(meta.nome)}</strong> está em ${pct}% da meta, com <span class="chat-valor chat-valor-gold">${chatFmt(meta.atual)}</span> de <span class="chat-valor chat-valor-gold">${chatFmt(meta.objetivo)}</span>.`,
+        recomendacao: meta.falta > 0 ? `Ainda faltam ${chatFmt(meta.falta)} para chegar ao objetivo.` : "Essa meta já foi atingida; você pode decidir se mantém a reserva ou parte para a próxima meta.",
+      });
+    }
+    if (t.saldoAtualConta > 0 && totalContasAbertas > 0) {
+      const comprometido = Math.min(100, Math.round(totalContasAbertas / Math.max(t.saldoAtualConta + t.aReceber, 1) * 100));
+      dicas.push({
+        dica: `As contas abertas representam cerca de ${comprometido}% do dinheiro projetado para entrar e já disponível.`,
+        recomendacao: "Olhe para o valor restante depois das reservas, não apenas para o saldo mostrado hoje.",
+      });
+    }
+    if (dicas.length === 0) {
+      dicas.push(
+        { dica: "Seu mês está sem um alerta financeiro forte nos dados atuais.", recomendacao: "Aproveite para manter uma margem antes de transformar todo o saldo livre em novos gastos." },
+        { dica: "O melhor número para acompanhar não é só o saldo de hoje, mas o que sobra depois dos compromissos já conhecidos." },
+        { dica: "Uma boa reserva transforma uma sobra eventual em uma margem para os próximos meses." }
+      );
+    }
+    return dicas;
+  }
+
+  function mostrarDicaNoChat(item) {
+    clearTimeout(dicaOutraTimer);
+    body.querySelectorAll("#caixaChatOutraDica").forEach((x) => x.remove());
+    const recomendacao = item && item.recomendacao ? `<div class="chat-recomendacao-bloco"><span class="chat-recomendacao-titulo">Recomendação</span><div>${item.recomendacao}</div></div>` : "";
+    appendMensagem(`<div class="chat-dica-bloco"><span class="chat-dica-titulo">Dica</span><div>${item?.dica || ""}</div></div>${recomendacao}`);
+    dicaOutraTimer = setTimeout(() => {
+      if (!chat.classList.contains("is-open")) return;
+      const btn = document.createElement("button");
+      btn.type = "button";
+      btn.id = "caixaChatOutraDica";
+      btn.className = "caixa-chat-outra-dica";
+      btn.innerHTML = `${IC.sparkle}<span>Outra dica</span><span aria-hidden="true">↗</span>`;
+      btn.addEventListener("click", () => {
+        btn.remove();
+        const t = totaisChat();
+        const dicas = montarDicasFinanceiras(t);
+        const indice = Number(window._caixaDicaIndice || 0) % Math.max(dicas.length, 1);
+        window._caixaDicaIndice = indice + 1;
+        mostrarDicaNoChat(dicas[indice]);
+      });
+      body.appendChild(btn);
+      body.scrollTop = body.scrollHeight;
+    }, 5000);
   }
 
   function calcularRespostaGastar(origem) {
@@ -5894,7 +5097,7 @@ if (document.readyState === "loading") {
           const proximoMes = ehDoProximoMes(i)
             ? `<span class="chat-pendente-proximo">Mês que vem</span>` : "";
           const data = formatarDataCurta(i.data);
-          return `<li><span class="chat-pendente-main"><strong>${esc(i.nome || (tipo === "fixo" ? "Gasto fixo" : "Gasto variável"))} ${parcela}</strong><small>${[proximoMes, data ? `<span>${data}</span>` : ""].filter(Boolean).join(" · ")}</small></span><strong class="chat-valor chat-valor-neg">${chatFmt(i.valor)}</strong></li>`;
+          return `<li><span class="chat-pendente-main"><strong><span class="chat-pendente-nome">${esc(i.nome || (tipo === "fixo" ? "Gasto fixo" : "Gasto variável"))}</span>${parcela}</strong><small>${[proximoMes, data ? `<span>${data}</span>` : ""].filter(Boolean).join(" · ")}</small></span><strong class="chat-valor chat-valor-neg">${chatFmt(i.valor)}</strong></li>`;
         };
         const linhasFixos = fixosPendentes.map(i => linhaPendente(i, "fixo")).join("");
         const linhasVariaveis = variaveisPendentes.map(i => linhaPendente(i, "variavel")).join("");
@@ -5913,40 +5116,14 @@ if (document.readyState === "loading") {
 
 
       if (id === "economia") {
-        const cats = categoriasChat();
-        const maior = cats[0];
-        const totalGastos = (Number(t.fixosPagos) || 0) + (Number(t.variaveisPagos) || 0);
-        const totalEntradas = Number(t.ganhosRecebidos) || 0;
-        const totalContasAbertas = Number(t.aPagarFixos) + Number(t.aPagarVariaveis);
-        const saldoProjetado = Number(t.saldoAtualConta) + Number(t.aReceber);
-        const contasDesteMes = Number(t.aPagarFixosEsseMes) + Number(t.aPagarVariaveisEsseMes);
-        const contasFuturas = Number(t.aPagarFixosFuturos) + Number(t.aPagarVariaveisFuturos);
-        const folgaProjetada = saldoProjetado - totalContasAbertas;
-
-        let dica = "Seu orçamento fica mais seguro quando o dinheiro já comprometido fica separado do valor livre.";
-        let recomendacao = "Antes de criar um gasto novo, confira o limite projetado depois das contas.";
-
-        if (t.aReceber > 0 && totalContasAbertas > 0) {
-          dica = `Com a entrada de <span class="chat-valor chat-valor-pos">${chatFmt(t.aReceber)}</span>, seu saldo projetado vai para <span class="chat-valor chat-valor-pos">${chatFmt(saldoProjetado)}</span>. Depois de reservar <span class="chat-valor chat-valor-neg">${chatFmt(totalContasAbertas)}</span> para as contas abertas, sobra uma folga projetada de <span class="chat-valor chat-valor-pos">${chatFmt(Math.max(folgaProjetada,0))}</span>.`;
-          recomendacao = contasDesteMes > 0
-            ? `Quando o dinheiro entrar, priorize os <span class="chat-valor chat-valor-neg">${chatFmt(contasDesteMes)}</span> que vencem neste mês. ${contasFuturas > 0 ? `Os ${chatFmt(contasFuturas)} restantes são compromissos futuros, então vale deixá-los reservados.` : `Depois disso, a folga projetada fica em ${chatFmt(Math.max(folgaProjetada,0))}.`}`
-            : `Quando o dinheiro entrar, mantenha as contas futuras reservadas e use a folga de <span class="chat-valor chat-valor-pos">${chatFmt(Math.max(folgaProjetada,0))}</span> com um objetivo definido.`;
-        } else if (t.aPagarVariaveisEsseMes > 0) {
-          dica = `Ainda há <span class="chat-valor chat-valor-neg">${chatFmt(t.aPagarVariaveisEsseMes)}</span> em gastos variáveis deste mês que não foram pagos.`;
-          recomendacao = `Reserve esse valor antes de considerar o restante do saldo como dinheiro livre para novos gastos.`;
-        } else if (maior && maior[1] > 0) {
-          const percentual = totalGastos > 0 ? Math.round((maior[1] / totalGastos) * 100) : 0;
-          dica = `A categoria <strong>${esc(maior[0])}</strong> foi a que mais consumiu seu dinheiro, com <span class="chat-valor chat-valor-neg">${chatFmt(maior[1])}</span> (${percentual}% dos gastos pagos).`;
-          recomendacao = `Se essa categoria não era prioridade, estabeleça um teto para o próximo período e compare o resultado com este mês.`;
-        } else if (t.beneficio > 0) {
-          dica = `Você ainda tem <span class="chat-valor chat-valor-gold">${chatFmt(t.beneficio)}</span> disponíveis no benefício.`;
-          recomendacao = `Use o benefício primeiro nos gastos que realmente podem sair dessa origem e preserve o saldo normal para as contas que dependem dele.`;
-        } else if (totalEntradas > 0 && totalGastos > totalEntradas) {
-          dica = `Até agora, os gastos pagos somam <span class="chat-valor chat-valor-neg">${chatFmt(totalGastos)}</span>, acima das entradas recebidas de <span class="chat-valor chat-valor-pos">${chatFmt(totalEntradas)}</span>.`;
-          recomendacao = `Evite assumir novas despesas até as próximas entradas compensarem essa diferença.`;
-        }
-
-        appendMensagem(`<div class="chat-dica-bloco"><span class="chat-dica-titulo">Dica</span><div>${dica}</div></div><div class="chat-recomendacao-bloco"><span class="chat-recomendacao-titulo">Recomendação</span><div>${recomendacao}</div></div>`);
+        const dicas = montarDicasFinanceiras(t);
+        const indice = Number(window._caixaDicaIndice || 0) % Math.max(dicas.length, 1);
+        const dicaAtual = dicas[indice] || {
+          dica: "Seu orçamento fica mais seguro quando o dinheiro comprometido fica separado do valor realmente livre.",
+          recomendacao: "",
+        };
+        window._caixaDicaIndice = indice + 1;
+        mostrarDicaNoChat(dicaAtual);
       }
     });
   }
@@ -5992,7 +5169,9 @@ if (document.readyState === "loading") {
   // dados forem sincronizados. A interface fica sempre ligada ao state atual.
   function resetarChatParaSelecao() {
     clearTimeout(pensamentoTimer);
+    clearTimeout(dicaOutraTimer);
     pensamentoTimer = null;
+    dicaOutraTimer = null;
     thinking.classList.add("is-hidden");
     body.querySelectorAll(".caixa-chat-message, .caixa-chat-choices, #caixaChatBack").forEach(x => x.remove());
     quick.classList.remove("is-hidden");
