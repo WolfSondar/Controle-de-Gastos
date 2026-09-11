@@ -603,6 +603,7 @@ const state = {
   historicoAnoSelecionado: new Date().getFullYear(),
   categoriasConfig: null, // [{nome, cor}] vindo da aba CONFIGS, ou null pra usar a lista padrão
   iconCategorias: [], // regras [{categoria, padroes}] vindas da aba CONFIGS
+  iaConfig: null, // imersão/tom compartilhados com o assistente local
 };
 
 function renderMesAtual() {
@@ -630,6 +631,23 @@ function vibrar(ms = 10) {
 
 function isAmbos() {
   return state.pessoaAtual === "ambos";
+}
+
+async function carregarConfigIA() {
+  if (!API_URL || API_URL.includes("COLE_AQUI")) return null;
+  try {
+    const salvo = JSON.parse(localStorage.getItem("caixa-ia-config-v1") || "null");
+    if (salvo && salvo.expira > Date.now() && salvo.data) { state.iaConfig = salvo.data; return salvo.data; }
+  } catch (err) {}
+  try {
+    const res = await fetch(`${API_URL}?pessoa=iaConfig`);
+    const data = await res.json();
+    if (!data || data.ok === false) throw new Error(data?.error || "Erro ao carregar configuração da IA");
+    state.iaConfig = data;
+    try { localStorage.setItem("caixa-ia-config-v1", JSON.stringify({ data, expira: Date.now() + 30000 })); } catch (err) {}
+    document.dispatchEvent(new CustomEvent("caixa:ia-config-atualizada"));
+    return data;
+  } catch (err) { return state.iaConfig || null; }
 }
 
 async function getCache(pessoa) { return idbGet(IDB_LOJA_CACHE, CACHE_PREFIX + pessoa); }
@@ -4448,6 +4466,7 @@ posicionarIndicadorAba();
 // feitas pelo usuário continuam sendo enviadas normalmente via POST.
 carregarDados();
 carregarHistorico();
+carregarConfigIA();
 setTimeout(mostrarDicaAcoesConjuntoSeNecessario, 1200);
 
 // Listener do novo Seletor de Ano no Histórico
@@ -4698,13 +4717,16 @@ if (document.readyState === "loading") {
     chart: '<svg viewBox="0 0 24 24" fill="none"><path d="M4 19V5M4 19h16" stroke="currentColor" stroke-width="1.7" stroke-linecap="round"/><path d="m7 15 3-4 3 2 5-7" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/></svg>',
     pig: '<svg viewBox="0 0 24 24" fill="none"><path d="M5 11.5c0-3.3 3-5.5 7-5.5h2c3.2 0 5.5 1.8 6 4.5l1.5 1v3l-2 .4c-.5 1.5-1.6 2.5-3 3.1V20h-2v-1.4c-.8.2-1.7.3-2.6.3s-1.8-.1-2.6-.3V20h-2v-2.2C5.8 16.9 5 14.5 5 11.5Z" stroke="currentColor" stroke-width="1.5" stroke-linejoin="round"/><circle cx="15.5" cy="10" r=".9" fill="currentColor"/><path d="M4 12H2.5M18 8.5V6.8" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/></svg>',
     clock: '<svg viewBox="0 0 24 24" fill="none"><circle cx="12" cy="12" r="8.5" stroke="currentColor" stroke-width="1.7"/><path d="M12 7v5l3.2 2" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"/></svg>',
-    sparkle: '<svg viewBox="0 0 24 24" fill="none"><path d="m12 3 1.7 5.3L19 10l-5.3 1.7L12 17l-1.7-5.3L5 10l5.3-1.7L12 3ZM19 16l.7 2.3L22 19l-2.3.7L19 22l-.7-2.3L16 19l2.3-.7L19 16Z" stroke="currentColor" stroke-width="1.5" stroke-linejoin="round"/></svg>'
+    sparkle: '<svg viewBox="0 0 24 24" fill="none"><path d="m12 3 1.7 5.3L19 10l-5.3 1.7L12 17l-1.7-5.3L5 10l5.3-1.7L12 3ZM19 16l.7 2.3L22 19l-.7-2.3L16 19l2.3-.7L19 16Z" stroke="currentColor" stroke-width="1.5" stroke-linejoin="round"/></svg>',
+    heart: '<svg viewBox="0 0 24 24" fill="none"><path d="M20.8 8.9c0 5.3-8.8 10.2-8.8 10.2S3.2 14.2 3.2 8.9C3.2 6.4 5 4.5 7.4 4.5c1.7 0 3.1.9 4.6 2.5 1.5-1.6 2.9-2.5 4.6-2.5 2.4 0 4.2 1.9 4.2 4.4Z" stroke="currentColor" stroke-width="1.5" stroke-linejoin="round"/></svg>'
   };
 
   const ACOES = [
     { id: "gastar", icon: "wallet", titulo: "Quanto ainda posso gastar?", subtitulo: "Separar benefício e saldo em conta" },
         { id: "categorias", icon: "chart", titulo: "Onde estou gastando mais?", subtitulo: "As categorias que mais pesaram" },
     { id: "guardado", icon: "pig", titulo: "Planejar uma caixinha", subtitulo: "Quanto preciso guardar para a meta" },
+    { id: "saude", icon: "heart", titulo: "Meu mês está saudável?", subtitulo: "Um diagnóstico rápido do seu caixa" },
+    { id: "mudou", icon: "chart", titulo: "O que mais mudou este mês?", subtitulo: "Compare com o mês anterior" },
     { id: "pendencias", icon: "clock", titulo: "Ainda falta pagar", subtitulo: "Veja contas, parcelas e valores pendentes" },
     { id: "economia", icon: "sparkle", titulo: "Me dê uma dica", subtitulo: "Uma orientação baseada nos seus números" }
   ];
@@ -4835,6 +4857,39 @@ if (document.readyState === "loading") {
     body.appendChild(btn);
   }
 
+  function tomChat() {
+    const cfg = state.iaConfig || {};
+    if (state.pessoaAtual === "ambos") return { tom: "", imersao: [...(cfg.ambos || [])] };
+    const pessoa = state.pessoaAtual === "gabriel" ? "gabriel" : "davi";
+    return { tom: pessoa === "gabriel" ? (cfg.tomGabriel || "") : (cfg.tomDavi || ""), imersao: [...(cfg[pessoa] || []), ...(cfg.ambos || [])] };
+  }
+  function aplicarTomChat(texto) {
+    const { tom } = tomChat();
+    let base = String(texto || "");
+    if (!tom) return base;
+    const t = tom.toLowerCase();
+    if (/gamer|jogo|internet|meme|zoeira|informal|descontra/.test(t)) {
+      base = base.replace(/^Com /, "Boa: com ").replace(/^Ainda existem/, "Ainda tem").replace(/^Ainda há/, "Ainda tem");
+    }
+    if (/formal|sério|serio|objetivo|profissional/.test(t)) base = base.replace(/^Boa: /, "").replace(/Ainda tem/g, "Ainda existem");
+    return base;
+  }
+  function compararMesAnteriorChat() {
+    const anos = listaFinita(state.historico?.anos);
+    if (!state.mesAtual || !state.anoAtual || !anos.length) return null;
+    let pm = state.mesAtual - 1, pa = state.anoAtual;
+    if (pm === 0) { pm = 12; pa--; }
+    const bloco = anos.find(a => Number(a.ano) === pa);
+    const mes = bloco?.meses?.find(m => Number(m.mes) === pm);
+    if (!mes) return null;
+    const get = (campo) => {
+      if (state.pessoaAtual === "ambos") return (Number(mes[`${campo}Davi`]) || 0) + (Number(mes[`${campo}Gabriel`]) || 0);
+      const suf = state.pessoaAtual === "gabriel" ? "Gabriel" : "Davi";
+      return Number(mes[`${campo}${suf}`]) || 0;
+    };
+    return { ganhos: get("ganhos"), gastos: get("debitos"), guardado: get("guardadoMes"), nome: mes.nome || "mês anterior" };
+  }
+
   function montarDicasFinanceiras(t) {
     const dicas = [];
     const cats = categoriasChat();
@@ -4930,7 +4985,7 @@ if (document.readyState === "loading") {
         { dica: "Uma boa reserva transforma uma sobra eventual em uma margem para os próximos meses." }
       );
     }
-    return dicas;
+    return dicas.map(d => ({ ...d, dica: aplicarTomChat(d.dica), recomendacao: d.recomendacao ? aplicarTomChat(d.recomendacao) : "" }));
   }
 
   function mostrarDicaNoChat(item) {
@@ -4947,13 +5002,19 @@ if (document.readyState === "loading") {
       btn.innerHTML = `${IC.sparkle}<span>Outra dica</span><span aria-hidden="true">↗</span>`;
       btn.addEventListener("click", () => {
         btn.remove();
-        const t = totaisChat();
-        const dicas = montarDicasFinanceiras(t);
-        const indice = Number(window._caixaDicaIndice || 0) % Math.max(dicas.length, 1);
-        window._caixaDicaIndice = indice + 1;
-        mostrarDicaNoChat(dicas[indice]);
+        const back = document.getElementById("caixaChatBack");
+        if (back) back.remove();
+        appendMensagem("Outra dica", "user");
+        iniciarPensamento(() => {
+          const t = totaisChat();
+          const dicas = montarDicasFinanceiras(t);
+          const indice = Number(window._caixaDicaIndice || 0) % Math.max(dicas.length, 1);
+          window._caixaDicaIndice = indice + 1;
+          mostrarDicaNoChat(dicas[indice]);
+        });
       });
-      body.appendChild(btn);
+      const back = document.getElementById("caixaChatBack");
+      if (back) body.insertBefore(btn, back); else body.appendChild(btn);
       body.scrollTop = body.scrollHeight;
     }, 5000);
   }
@@ -5083,7 +5144,70 @@ if (document.readyState === "loading") {
           escolhas.appendChild(btn);
         });
         body.appendChild(escolhas);
+
+        const ajuda = document.createElement("button");
+        ajuda.type = "button";
+        ajuda.className = "caixa-chat-action caixa-chat-goal-help-card";
+        ajuda.innerHTML = `<span class="caixa-chat-action-icon">${IC.sparkle}</span><span class="caixa-chat-action-text"><strong>Me ajude a definir a meta</strong><small>Eu te faço algumas perguntas antes de calcular o plano</small></span><span class="caixa-chat-action-arrow">›</span>`;
+        ajuda.addEventListener("click", () => {
+          appendMensagem("Me ajude a definir a meta", "user");
+          escolhas.remove();
+          ajuda.remove();
+          iniciarPensamento(() => {
+            const card = document.createElement("div");
+            card.className = "caixa-chat-choices caixa-chat-meta-choices";
+            card.innerHTML = `<div class="caixa-chat-lista-titulo">O que você já sabe?</div>`;
+            [
+              ["valor", "Já sei quanto quero guardar", "Tenho um valor-alvo em mente"],
+              ["prazo", "Já sei quando quero alcançar", "Tenho uma data ou prazo definido"],
+              ["ambos", "Tenho valor e prazo", "Quero calcular quanto guardar por mês"],
+              ["nenhum", "Ainda não sei", "Quero uma sugestão de meta para começar"]
+            ].forEach(([idMeta, tituloMeta, subtituloMeta]) => {
+              const b = document.createElement("button");
+              b.type = "button";
+              b.className = "caixa-chat-action";
+              b.innerHTML = `<span class="caixa-chat-action-icon">${idMeta === "nenhum" ? IC.sparkle : IC.pig}</span><span class="caixa-chat-action-text"><strong>${tituloMeta}</strong><small>${subtituloMeta}</small></span><span class="caixa-chat-action-arrow">›</span>`;
+              b.addEventListener("click", () => {
+                appendMensagem(tituloMeta, "user");
+                card.remove();
+                iniciarPensamento(() => appendMensagem(idMeta === "nenhum"
+                  ? `Vamos começar pelo mais útil: escolha uma das suas caixinhas com meta ou crie uma nova e eu calculo um valor mensal de referência a partir do prazo.`
+                  : idMeta === "valor"
+                    ? `Perfeito. Me diga o valor que você quer alcançar e eu cruzo esse objetivo com o que já está guardado e com o prazo disponível.`
+                    : idMeta === "prazo"
+                      ? `Ótimo. Com a data em mãos, eu consigo transformar o prazo em uma meta mensal e mostrar o valor necessário para chegar lá.`
+                      : `Perfeito. Com valor e prazo eu consigo mostrar a parcela mensal necessária e quanto já foi cumprido da meta.`));
+              });
+              card.appendChild(b);
+            });
+            body.appendChild(card);
+            body.scrollTop = body.scrollHeight;
+          });
+        });
+        body.appendChild(ajuda);
         body.scrollTop = body.scrollHeight;
+      }
+
+      if (id === "saude") {
+        const margem = Number(t.conta) || 0;
+        const compromissos = (Number(t.aPagarFixosEsseMes) || 0) + (Number(t.aPagarVariaveisEsseMes) || 0);
+        let titulo = "SAUDÁVEL", texto = `Depois das entradas e das contas conhecidas, sua margem projetada é de <span class="chat-valor chat-valor-pos">${chatFmt(margem)}</span>.`, rec = "Uma parte dessa margem pode virar reserva sem comprometer os compromissos conhecidos.";
+        if (margem < 0) { titulo = "ATENÇÃO"; texto = `O fluxo projetado está <span class="chat-valor chat-valor-neg">${chatFmt(Math.abs(margem))}</span> abaixo do necessário para cobrir as contas abertas.`; rec = "Evite novos gastos até confirmar as próximas entradas e cobrir os compromissos."; }
+        else if (margem < Math.max(100, compromissos * .15)) { titulo = "APERTADO"; texto = `Depois das contas abertas, sobra uma margem projetada de <span class="chat-valor chat-valor-pos">${chatFmt(margem)}</span>.`; rec = "Mantenha essa margem protegida e evite assumir novas parcelas por enquanto."; }
+        appendMensagem(`<div class="chat-dica-bloco"><span class="chat-dica-titulo">${titulo}</span><div>${texto}</div></div><div class="chat-recomendacao-bloco"><span class="chat-recomendacao-titulo">Recomendação</span><div>${rec}</div></div>`);
+      }
+
+      if (id === "mudou") {
+        const ant = compararMesAnteriorChat();
+        if (!ant) { appendMensagem(`<strong>Ainda não tenho um mês fechado anterior suficiente para comparar.</strong><span class="caixa-chat-note">Assim que o histórico tiver o mês anterior, eu consigo apontar a mudança mais relevante.</span>`); }
+        else {
+          const atual = { gastos: (Number(t.fixosPagos)||0)+(Number(t.variaveisPagos)||0), ganhos: Number(t.ganhosRecebidos)||0, guardado: Number(t.totalGuardadoNoMes)||0 };
+          const lista = Object.keys(atual).map(k => ({ k, delta: atual[k] - ant[k] })).sort((a,b)=>Math.abs(b.delta)-Math.abs(a.delta));
+          const top = lista[0];
+          const nomes = { gastos:"gastos", ganhos:"ganhos", guardado:"valor guardado" };
+          const dir = top.delta >= 0 ? "subiu" : "caiu";
+          appendMensagem(`<div class="chat-dica-bloco"><span class="chat-dica-titulo">MAIOR MUDANÇA</span><div>Seus <strong>${nomes[top.k]}</strong> ${dir} <span class="chat-valor ${top.k === "gastos" ? "chat-valor-neg" : "chat-valor-pos"}">${chatFmt(Math.abs(top.delta))}</span> em relação a ${esc(ant.nome)}.</div></div>${top.k === "gastos" && top.delta > 0 ? `<div class="chat-recomendacao-bloco"><span class="chat-recomendacao-titulo">Recomendação</span><div>Vale olhar as categorias que puxaram esse aumento antes de assumir novos gastos.</div></div>` : ""}`);
+        }
       }
 
       if (id === "pendencias") {
@@ -5191,7 +5315,9 @@ if (document.readyState === "loading") {
   document.addEventListener("caixa:perfil-trocado", () => {
     resetarChatParaSelecao();
     fecharChat();
+    carregarConfigIA();
   });
+  document.addEventListener("caixa:ia-config-atualizada", () => { window._caixaDicaIndice = 0; });
 
   mostrarAcoesRapidas();
 
