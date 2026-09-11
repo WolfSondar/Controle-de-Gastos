@@ -258,7 +258,7 @@ button, input { font-family: inherit; }
 /* Mesma paleta do gráfico histórico (Ganhos/Gastos/Guardado/Rendimento),
    em tom "on-ink" pra ficar legível no fundo escuro do card de insight. */
 .insight-valor-guardado { color: #d9ab5c; font-weight: 700; white-space: nowrap; }
-.insight-valor-rendimento { color: #c4a7ee; font-weight: 700; white-space: nowrap; }
+.insight-valor-rendimento { color: #7fb8d9; font-weight: 700; white-space: nowrap; }
 
 /* Três pontinhos centralizados, animação de "carregando" enquanto a IA
    ainda não respondeu — substitui o texto "Analisando os números…". */
@@ -362,7 +362,7 @@ button, input { font-family: inherit; }
 .item-tag-cat { background: var(--tag-bg); color: var(--ink-text); }
 .item-tag-parcela { color: var(--gold-deep); background: rgba(185,134,47,0.16); }
 .item-tag-lembrete { color: var(--income); background: var(--income-bg); }
-.item-tag-rendimento { color: #c4a7ee; background: rgba(196,167,238,0.16); }
+.item-tag-rendimento { color: var(--gold-deep); background: rgba(185,134,47,0.16); }
 .item-tag-perda { color: var(--expense); background: var(--expense-bg); }
 .item-tag-proximo { color: var(--expense); background: var(--expense-bg); }
 .item-tag-atrasado { color: var(--on-ink); background: var(--expense); font-weight: 800; }
@@ -2535,6 +2535,12 @@ body.sem-entrada-listas .item-list-row { animation: none !important; }
 .ledger-item.income-saldo { border-left-color: var(--income); }
 .ledger-item.income-beneficio { border-left-color: var(--benefit); }
 .ledger-icon.income-beneficio { background: var(--benefit-bg); color: var(--benefit-deep); }
+/* Guardado na caixinha não é um gasto comum: usa um ícone de reserva e o dourado das caixinhas. */
+.ledger-icon.guardado {
+  background: rgba(185,134,47,.13);
+  color: var(--gold-deep);
+}
+.ledger-icon.guardado svg { width: 19px; height: 19px; }
 .ledger-valor.income-beneficio { color: var(--benefit-deep) !important; }
 .ganhos-legenda { display: flex; gap: 12px; margin-top: -9px; margin-bottom: 12px; }
 .ganho-legenda-item { display: inline-flex; align-items: center; gap: 6px; font-size: 10.5px; color: var(--muted); font-weight: 650; }
@@ -3018,7 +3024,7 @@ body.sem-entrada-listas .item-list-row { animation: none !important; }
   background: transparent;
 }
 .insight-titulo.is-rendimento {
-  color: #c4a7ee;
+  color: #7fb8d9;
   background: transparent;
 }
 .insight-titulo.is-atencao {
@@ -3302,78 +3308,3 @@ body.sem-entrada-listas .item-list-row { animation: none !important; }
 }
 .hero-stat-subvalor.gold { color: #d9ab5c; }
 .hero-stat-subvalor:empty { display: none; }
-
-/* Ganhos — separa o total recebido por origem dentro do próprio card. */
-.hero-stat-ganhos { min-width: 0; }
-.saldo-origens {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  margin-top: 1px;
-  min-width: 0;
-}
-.saldo-origem {
-  display: flex;
-  align-items: baseline;
-  gap: 4px;
-  min-width: 0;
-  white-space: nowrap;
-}
-.saldo-origem > span {
-  font-family: var(--font-mono);
-  font-size: 9.5px;
-  font-weight: 700;
-}
-.saldo-origem-label {
-  font-family: var(--font-sans) !important;
-  font-size: 9px !important;
-  font-weight: 700 !important;
-}
-.saldo-origem-beneficio > span:last-child { color: var(--benefit) !important; }
-.saldo-origem-beneficio .saldo-origem-label { color: var(--benefit) !important; }
-.saldo-origem-saldo > span:last-child { color: #8fd4ab; }
-.saldo-origem-saldo .saldo-origem-label { color: #8fd4ab; }
-.saldo-origem + .saldo-origem {
-  padding-left: 8px;
-  border-left: 1px solid rgba(255,255,255,.16);
-}
-
-.hero-stat-origens {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  margin-top: 1px;
-  min-width: 0;
-}
-.hero-stat-origem {
-  display: flex;
-  align-items: baseline;
-  gap: 4px;
-  min-width: 0;
-  white-space: nowrap;
-}
-.hero-stat-origem > span {
-  font-family: var(--font-mono);
-  font-size: 9.5px;
-  font-weight: 700;
-}
-.hero-stat-origem > small {
-  font-size: 8.5px;
-  text-transform: uppercase;
-  letter-spacing: .05em;
-}
-.hero-stat-origem-beneficio > span { color: var(--benefit) !important; }
-.hero-stat-origem-ganho > span { color: #8fd4ab; }
-.hero-stat-origem + .hero-stat-origem {
-  padding-left: 8px;
-  border-left: 1px solid rgba(255,255,255,.16);
-}
-
-/* O saldo agora mostra o restante disponível por origem. */
-.saldo-origem-valor.negative { color: #e08a6e !important; }
-@media (max-width: 400px) {
-  .hero-stat-origens { gap: 6px; }
-  .hero-stat-origem + .hero-stat-origem { padding-left: 6px; }
-  .hero-stat-origem > span { font-size: 9px; }
-  .hero-stat-origem > small { font-size: 8px; }
-}
