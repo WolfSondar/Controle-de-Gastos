@@ -5522,3 +5522,313 @@ if (document.readyState === "loading") {
   inicializarPickersIcones();
   carregarIconesCaixinhas();
 }
+
+
+/* ============================================================
+   CAIXA — ASSISTENTE FINANCEIRO LOCAL
+   "IA" de respostas rápidas:
+   - prompts/intenções ficam pré-carregados no navegador;
+   - os números são calculados do state atual;
+   - não chama Gemini/API para cada clique;
+   - o pequeno atraso é propositalmente visual, para parecer "pensando".
+   ============================================================ */
+
+(function inicializarAssistenteCaixa() {
+  const fab = document.getElementById("caixaChatFab");
+  const chat = document.getElementById("caixaChat");
+  const close = document.getElementById("caixaChatClose");
+  const body = document.getElementById("caixaChatBody");
+  const quick = document.getElementById("caixaChatQuick");
+  const thinking = document.getElementById("caixaChatThinking");
+  if (!fab || !chat || !close || !body || !quick || !thinking) return;
+
+  const CHAT_PROMPTS = {
+    gastar: "Você é o assistente financeiro do Caixa. Descubra de qual origem o usuário quer gastar (benefício ou saldo em conta) e informe quanto ainda pode gastar no mês atual. Use somente os números calculados pelo aplicativo. Não invente valores.",
+    gastos: "Você é o assistente financeiro do Caixa. Mostre quanto já foi gasto no mês, separando gastos fixos, variáveis e o total.",
+    categorias: "Você é o assistente financeiro do Caixa. Identifique as categorias que mais consumiram dinheiro no mês atual e apresente as três maiores, sem inventar dados.",
+    guardado: "Você é o assistente financeiro do Caixa. Informe quanto existe atualmente nas caixinhas e destaque metas, se houver.",
+    pendencias: "Você é o assistente financeiro do Caixa. Mostre o que ainda falta pagar e o que ainda falta receber neste mês.",
+    mes: "Você é o assistente financeiro do Caixa. Faça um retrato curto do mês atual: ganhos recebidos, gastos pagos, saldo disponível e pendências.",
+    metas: "Você é o assistente financeiro do Caixa. Mostre o andamento das caixinhas com meta, quanto falta e o prazo quando existir.",
+    economia: "Você é o assistente financeiro do Caixa. Dê uma orientação curta e prática baseada nos dados atuais, sem julgamento e sem inventar informações."
+  };
+
+  const IC = {
+    wallet: '<svg viewBox="0 0 24 24" fill="none"><path d="M4 7.5A2.5 2.5 0 0 1 6.5 5H20v14H6.5A2.5 2.5 0 0 1 4 16.5v-9Z" stroke="currentColor" stroke-width="1.7"/><path d="M4 8h16M16 12h4" stroke="currentColor" stroke-width="1.7" stroke-linecap="round"/><circle cx="16.5" cy="12" r=".8" fill="currentColor"/></svg>',
+    receipt: '<svg viewBox="0 0 24 24" fill="none"><path d="m6 3 2 1.2L10 3l2 1.2L14 3l2 1.2L18 3v18l-2-1.2-2 1.2-2-1.2-2 1.2-2-1.2L6 21V3Z" stroke="currentColor" stroke-width="1.6" stroke-linejoin="round"/><path d="M9 8h6M9 12h6M9 16h4" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/></svg>',
+    chart: '<svg viewBox="0 0 24 24" fill="none"><path d="M4 19V5M4 19h16" stroke="currentColor" stroke-width="1.7" stroke-linecap="round"/><path d="m7 15 3-4 3 2 5-7" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/></svg>',
+    pig: '<svg viewBox="0 0 24 24" fill="none"><path d="M5 11.5c0-3.3 3-5.5 7-5.5h2c3.2 0 5.5 1.8 6 4.5l1.5 1v3l-2 .4c-.5 1.5-1.6 2.5-3 3.1V20h-2v-1.4c-.8.2-1.7.3-2.6.3s-1.8-.1-2.6-.3V20h-2v-2.2C5.8 16.9 5 14.5 5 11.5Z" stroke="currentColor" stroke-width="1.5" stroke-linejoin="round"/><circle cx="15.5" cy="10" r=".9" fill="currentColor"/><path d="M4 12H2.5M18 8.5V6.8" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/></svg>',
+    clock: '<svg viewBox="0 0 24 24" fill="none"><circle cx="12" cy="12" r="8.5" stroke="currentColor" stroke-width="1.7"/><path d="M12 7v5l3.2 2" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"/></svg>',
+    sparkle: '<svg viewBox="0 0 24 24" fill="none"><path d="m12 3 1.7 5.3L19 10l-5.3 1.7L12 17l-1.7-5.3L5 10l5.3-1.7L12 3ZM19 16l.7 2.3L22 19l-2.3.7L19 22l-.7-2.3L16 19l2.3-.7L19 16Z" stroke="currentColor" stroke-width="1.5" stroke-linejoin="round"/></svg>'
+  };
+
+  const ACOES = [
+    { id: "gastar", icon: "wallet", titulo: "Quanto ainda posso gastar?", subtitulo: "Separar benefício e saldo em conta" },
+    { id: "gastos", icon: "receipt", titulo: "Quanto já gastei?", subtitulo: "Resumo dos gastos deste mês" },
+    { id: "categorias", icon: "chart", titulo: "Onde estou gastando mais?", subtitulo: "As categorias que mais pesaram" },
+    { id: "guardado", icon: "pig", titulo: "Quanto tenho guardado?", subtitulo: "Total atual das suas caixinhas" },
+    { id: "pendencias", icon: "clock", titulo: "O que ainda falta?", subtitulo: "Contas a pagar e valores a receber" },
+    { id: "mes", icon: "sparkle", titulo: "Como está meu mês?", subtitulo: "Um raio-X rápido das finanças" },
+    { id: "metas", icon: "pig", titulo: "Como estão minhas metas?", subtitulo: "Progresso das caixinhas com objetivo" },
+    { id: "economia", icon: "sparkle", titulo: "Me dê uma dica", subtitulo: "Uma orientação baseada nos seus números" }
+  ];
+
+  let pensamentoTimer = null;
+
+  function esc(s) {
+    return String(s ?? "").replace(/[&<>"']/g, c => ({ "&":"&amp;", "<":"&lt;", ">":"&gt;", '"':"&quot;", "'":"&#39;" }[c]));
+  }
+  function chatFmt(n) { return typeof fmt === "function" ? fmt(Number(n) || 0) : Number(n || 0).toLocaleString("pt-BR", { style:"currency", currency:"BRL" }); }
+  function naoNegativo(n) { return Math.max(0, Number(n) || 0); }
+  function listaFinita(lista) { return Array.isArray(lista) ? lista : []; }
+
+  function totaisChat() {
+    const ganhosRecebidos = somaComStatus(state.ganhos || [], "recebido");
+    const ganhosOrigem = separarGanhosPorOrigem(state.ganhos || []);
+    const fixosPagos = somaFixosPagos(state.gastosFixos || []);
+    const variaveisPagos = somaVariaveisPagas(state.gastosVariaveis || []);
+    const beneficioGasto = listaFinita(state.gastosVariaveis).reduce((a, i) =>
+      a + (variavelContaNoSaldo(i) && variavelEhBeneficio(i) ? Number(i.valor) || 0 : 0), 0);
+    const saldoGasto = listaFinita(state.gastosVariaveis).reduce((a, i) =>
+      a + (variavelContaNoSaldo(i) && !variavelEhBeneficio(i) ? Number(i.valor) || 0 : 0), 0);
+    const beneficio = ganhosOrigem.beneficios - beneficioGasto;
+    const conta = ganhosOrigem.ganhos - fixosPagos - saldoGasto;
+    const saldoGeral = ganhosRecebidos - fixosPagos - variaveisPagos;
+    const aReceber = listaFinita(state.ganhos).reduce((a, i) =>
+      a + (i.recebido !== true ? Number(i.valor) || 0 : 0), 0);
+    const aPagarFixos = listaFinita(state.gastosFixos).reduce((a, i) =>
+      a + (i.pago !== true ? Number(i.valor) || 0 : 0), 0);
+    const aPagarVariaveis = listaFinita(state.gastosVariaveis).reduce((a, i) =>
+      a + (i.pago !== true && !i.lembrete ? Number(i.valor) || 0 : 0), 0);
+    return { ganhosRecebidos, ganhosOrigem, fixosPagos, variaveisPagos, beneficio, conta, saldoGeral, aReceber, aPagarFixos, aPagarVariaveis };
+  }
+
+  function categoriasChat() {
+    const porCat = {};
+    listaFinita(state.gastosFixos).forEach(i => {
+      if (i.pago !== true) return;
+      const cat = String(i.tipo || "Outros").trim() || "Outros";
+      porCat[cat] = (porCat[cat] || 0) + (Number(i.valor) || 0);
+    });
+    listaFinita(state.gastosVariaveis).forEach(i => {
+      if (!variavelContaNoSaldo(i)) return;
+      const cat = String(i.tipo || "Outros").trim() || "Outros";
+      porCat[cat] = (porCat[cat] || 0) + (Number(i.valor) || 0);
+    });
+    return Object.entries(porCat).sort((a,b) => b[1] - a[1]);
+  }
+
+  function metasChat() {
+    return listaFinita(state.caixinhas)
+      .map(cx => {
+        const atual = typeof totalCaixinha === "function" ? totalCaixinha(cx) : ((Number(cx.valorGuardado)||0)+(Number(cx.rendimentoTotal)||0)+(Number(cx.valorGuardadoMes)||0));
+        const objetivo = Number(cx.valorObjetivo) || 0;
+        return { nome: cx.nome || "Caixinha", atual, objetivo, falta: Math.max(objetivo - atual, 0), prazo: cx.data || "" };
+      })
+      .filter(x => x.objetivo > 0)
+      .sort((a,b) => (b.atual / b.objetivo) - (a.atual / a.objetivo));
+  }
+
+  function appendMensagem(html, quem = "bot") {
+    const wrap = document.createElement("div");
+    wrap.className = `caixa-chat-message ${quem}`;
+    const bubble = document.createElement("div");
+    bubble.className = "caixa-chat-bubble";
+    bubble.innerHTML = html;
+    wrap.appendChild(bubble);
+    // Remove the quick actions only from the welcome area; subsequent answers
+    // get their own compact "voltar" action.
+    body.appendChild(wrap);
+    body.scrollTop = body.scrollHeight;
+    return wrap;
+  }
+
+  function mostrarAcoesRapidas() {
+    quick.innerHTML = "";
+    ACOES.forEach(acao => {
+      const btn = document.createElement("button");
+      btn.type = "button";
+      btn.className = "caixa-chat-action";
+      btn.dataset.chatAcao = acao.id;
+      btn.innerHTML = `
+        <span class="caixa-chat-action-icon">${IC[acao.icon]}</span>
+        <span class="caixa-chat-action-text"><strong>${esc(acao.titulo)}</strong><small>${esc(acao.subtitulo)}</small></span>
+        <span class="caixa-chat-action-arrow">›</span>`;
+      quick.appendChild(btn);
+    });
+  }
+
+  function mostrarMenuCompacto() {
+    const anterior = document.getElementById("caixaChatBack");
+    if (anterior) anterior.remove();
+    const btn = document.createElement("button");
+    btn.type = "button";
+    btn.id = "caixaChatBack";
+    btn.className = "caixa-chat-action";
+    btn.style.marginTop = "4px";
+    btn.innerHTML = `
+      <span class="caixa-chat-action-icon">${IC.sparkle}</span>
+      <span class="caixa-chat-action-text"><strong>Escolher outra coisa</strong><small>Voltar para as ações rápidas</small></span>
+      <span class="caixa-chat-action-arrow">↩</span>`;
+    btn.addEventListener("click", () => {
+      const respostas = body.querySelectorAll(".caixa-chat-message");
+      respostas.forEach(x => x.remove());
+      body.scrollTop = 0;
+      quick.scrollIntoView({ behavior: "smooth", block: "start" });
+    });
+    body.appendChild(btn);
+  }
+
+  function calcularRespostaGastar(origem) {
+    const t = totaisChat();
+    const valor = origem === "beneficio" ? t.beneficio : t.conta;
+    const nome = origem === "beneficio" ? "benefício" : "saldo em conta";
+    const classe = origem === "beneficio" ? "chat-valor-gold" : "chat-valor-pos";
+    let texto;
+    if (valor > 0) {
+      texto = `Você ainda pode gastar <span class="${classe} chat-valor">${chatFmt(valor)}</span> usando o <strong>${nome}</strong> neste mês.`;
+    } else if (valor === 0) {
+      texto = `Neste momento, o <strong>${nome}</strong> está em <span class="chat-valor chat-valor-neg">${chatFmt(0)}</span>. Melhor não contar com essa origem para novos gastos.`;
+    } else {
+      texto = `Atenção: o <strong>${nome}</strong> já passou do limite em <span class="chat-valor chat-valor-neg">${chatFmt(Math.abs(valor))}</span>.`;
+    }
+    const detalhes = origem === "beneficio"
+      ? `Benefícios recebidos: ${chatFmt(t.ganhosOrigem.beneficios)} · gastos no benefício: ${chatFmt(t.ganhosOrigem.beneficios - t.beneficio)}.`
+      : `Ganhos sem benefício: ${chatFmt(t.ganhosOrigem.ganhos)} · fixos + variáveis do saldo: ${chatFmt(t.ganhosOrigem.ganhos - t.conta)}.`;
+    return `${texto}<span class="caixa-chat-note">${detalhes}</span>`;
+  }
+
+  function executarAcao(id) {
+    if (id === "gastar") {
+      appendMensagem("Claro. <strong>De onde sairia esse próximo gasto?</strong>");
+      const escolhas = document.createElement("div");
+      escolhas.className = "caixa-chat-choices";
+      [
+        ["beneficio", "Benefício", "Usar o valor disponível do benefício", totaisChat().beneficio],
+        ["saldo", "Saldo em conta", "Usar o dinheiro do saldo normal", totaisChat().conta]
+      ].forEach(([valor, titulo, sub, quantia]) => {
+        const btn = document.createElement("button");
+        btn.type = "button";
+        btn.className = "caixa-chat-choice";
+        btn.innerHTML = `<span><strong>${titulo}</strong><small>${sub}</small></span><span class="choice-value">${chatFmt(quantia)}</span>`;
+        btn.addEventListener("click", () => {
+          appendMensagem(titulo, "user");
+          iniciarPensamento(() => appendMensagem(calcularRespostaGastar(valor)));
+        });
+        escolhas.appendChild(btn);
+      });
+      body.appendChild(escolhas);
+      body.scrollTop = body.scrollHeight;
+      return;
+    }
+
+    iniciarPensamento(() => {
+      const t = totaisChat();
+
+      if (id === "gastos") {
+        const total = t.fixosPagos + t.variaveisPagos;
+        appendMensagem(`Até agora, você já gastou <strong class="chat-valor chat-valor-neg">${chatFmt(total)}</strong> neste mês.<span class="caixa-chat-note">Fixos pagos: ${chatFmt(t.fixosPagos)} · variáveis pagos: ${chatFmt(t.variaveisPagos)}.</span>`);
+      }
+
+      if (id === "categorias") {
+        const cats = categoriasChat();
+        if (!cats.length) return appendMensagem("Ainda não encontrei gastos pagos suficientes para montar esse ranking.");
+        const top = cats.slice(0,3).map((x,i) => `${i+1}. <strong>${esc(x[0])}</strong> — <span class="chat-valor chat-valor-neg">${chatFmt(x[1])}</span>`).join("<br>");
+        appendMensagem(`<strong>Onde mais saiu dinheiro:</strong><br>${top}<span class="caixa-chat-note">Considerei os gastos que efetivamente contam no mês atual.</span>`);
+      }
+
+      if (id === "guardado") {
+        const total = typeof somaTotalCaixinhas === "function" ? somaTotalCaixinhas(state.caixinhas || []) : 0;
+        const qtd = listaFinita(state.caixinhas).length;
+        appendMensagem(`Hoje você tem <strong class="chat-valor chat-valor-gold">${chatFmt(total)}</strong> guardado em <strong>${qtd}</strong> ${qtd === 1 ? "caixinha" : "caixinhas"}.<span class="caixa-chat-note">O total considera o valor guardado, rendimentos e aportes do mês, seguindo a mesma lógica do app.</span>`);
+      }
+
+      if (id === "pendencias") {
+        const pend = t.aPagarFixos + t.aPagarVariaveis;
+        appendMensagem(`Ainda faltam <strong class="chat-valor chat-valor-neg">${chatFmt(pend)}</strong> em gastos lançados como pendentes e há <strong class="chat-valor chat-valor-pos">${chatFmt(t.aReceber)}</strong> para receber.<span class="caixa-chat-note">Fixos a pagar: ${chatFmt(t.aPagarFixos)} · variáveis a pagar: ${chatFmt(t.aPagarVariaveis)}.</span>`);
+      }
+
+      if (id === "mes") {
+        appendMensagem(`<strong>Seu mês, em uma olhada:</strong><br>Ganhos recebidos: <span class="chat-valor chat-valor-pos">${chatFmt(t.ganhosRecebidos)}</span><br>Gastos pagos: <span class="chat-valor chat-valor-neg">${chatFmt(t.fixosPagos + t.variaveisPagos)}</span><br>Saldo disponível: <span class="chat-valor chat-valor-pos">${chatFmt(t.saldoGeral)}</span><br>Guardado agora: <span class="chat-valor chat-valor-gold">${chatFmt(typeof somaTotalCaixinhas === "function" ? somaTotalCaixinhas(state.caixinhas || []) : 0)}</span><span class="caixa-chat-note">Ainda a receber: ${chatFmt(t.aReceber)} · ainda a pagar: ${chatFmt(t.aPagarFixos + t.aPagarVariaveis)}.</span>`);
+      }
+
+      if (id === "metas") {
+        const metas = metasChat();
+        if (!metas.length) return appendMensagem("Você ainda não tem uma caixinha com objetivo definido.");
+        const linhas = metas.slice(0,4).map(m => {
+          const pct = Math.min(100, Math.round((m.atual / m.objetivo) * 100));
+          const prazo = m.prazo ? ` · prazo ${esc(typeof formatarDataCurta === "function" ? formatarDataCurta(m.prazo) : m.prazo)}` : "";
+          return `<strong>${esc(m.nome)}</strong>: ${pct}% — falta <span class="chat-valor chat-valor-gold">${chatFmt(m.falta)}</span>${prazo}`;
+        }).join("<br>");
+        appendMensagem(linhas);
+      }
+
+      if (id === "economia") {
+        const cats = categoriasChat();
+        const maior = cats[0];
+        let dica = "Seu melhor próximo passo é manter os lançamentos atualizados; assim o Caixa consegue te dar respostas cada vez mais úteis.";
+        if (maior && maior[1] > 0) {
+          dica = `Hoje, <strong>${esc(maior[0])}</strong> é a categoria que mais pesou, com <span class="chat-valor chat-valor-neg">${chatFmt(maior[1])}</span>. Se quiser economizar sem mexer no essencial, esse é o primeiro lugar que eu revisaria.`;
+        }
+        appendMensagem(`Minha dica: ${dica}<span class="caixa-chat-note">É uma leitura dos seus números atuais, não uma regra financeira.</span>`);
+      }
+    });
+  }
+
+  function iniciarPensamento(cb) {
+    clearTimeout(pensamentoTimer);
+    thinking.classList.remove("is-hidden");
+    body.scrollTop = body.scrollHeight;
+    pensamentoTimer = setTimeout(() => {
+      thinking.classList.add("is-hidden");
+      cb();
+      mostrarMenuCompacto();
+    }, 620);
+  }
+
+  function abrirChat() {
+    chat.classList.add("is-open");
+    chat.setAttribute("aria-hidden", "false");
+    fab.setAttribute("aria-expanded", "true");
+    const first = quick.querySelector("button");
+    if (first) setTimeout(() => first.focus(), 80);
+  }
+  function fecharChat() {
+    chat.classList.remove("is-open");
+    chat.setAttribute("aria-hidden", "true");
+    fab.setAttribute("aria-expanded", "false");
+  }
+
+  fab.addEventListener("click", () => chat.classList.contains("is-open") ? fecharChat() : abrirChat());
+  close.addEventListener("click", fecharChat);
+
+  quick.addEventListener("click", e => {
+    const btn = e.target.closest("[data-chat-acao]");
+    if (!btn) return;
+    executarAcao(btn.dataset.chatAcao);
+  });
+
+  document.addEventListener("keydown", e => {
+    if (e.key === "Escape" && chat.classList.contains("is-open")) fecharChat();
+  });
+
+  // Recalcula tudo de novo quando a pessoa trocar Davi/Gabriel/Juntos ou os
+  // dados forem sincronizados. A interface fica sempre ligada ao state atual.
+  document.addEventListener("click", e => {
+    if (e.target.closest(".person-btn")) {
+      setTimeout(() => {
+        if (chat.classList.contains("is-open")) {
+          const respostas = body.querySelectorAll(".caixa-chat-message");
+          respostas.forEach(x => x.remove());
+          const escolha = body.querySelector(".caixa-chat-choices");
+          if (escolha) escolha.remove();
+        }
+      }, 120);
+    }
+  });
+
+  mostrarAcoesRapidas();
+
+  // Expor os prompts para diagnóstico/uso futuro sem chamar a IA.
+  window.CAIXA_CHAT_PROMPTS = CHAT_PROMPTS;
+})();
