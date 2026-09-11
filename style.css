@@ -4199,3 +4199,26 @@ body.sem-entrada-listas .item-list-row { animation: none !important; }
 .caixa-chat-meta-choices {
   margin-top: 8px;
 }
+
+/* V12 — dicas do chat são mensagens normais, não cartões dentro de cartões. */
+.chat-dica-bloco {
+  padding: 0;
+  margin: 0;
+  background: transparent;
+  border: 0;
+  border-radius: 0;
+}
+.chat-dica-titulo {
+  display: block;
+  margin: 0 0 5px;
+  color: var(--gold-deep);
+  font-size: 9px;
+  font-weight: 900;
+  letter-spacing: .11em;
+  text-transform: uppercase;
+}
+.chat-dica-texto {
+  color: inherit;
+  line-height: 1.55;
+}
+.caixa-chat-bubble .chat-valor-yield { color: var(--yield) !important; font-weight: 800; }
