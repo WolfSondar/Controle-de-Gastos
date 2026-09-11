@@ -4456,3 +4456,20 @@ body.sem-entrada-listas .item-list-row { animation: none !important; }
 .caixa-chat-icon-empty { padding:18px 8px 12px;text-align:center;color:var(--muted);font-size:11px; }
 @media(max-width:560px){ .caixa-chat-icon-grid{grid-template-columns:repeat(6,minmax(0,1fr));max-height:205px;} }
 @media(prefers-reduced-motion:reduce){ .fab-criar{transition:none}.fab-criar.is-hidden{transition:none}.caixa-chat-icon-choice{transition:none} }
+
+/* V25 — seleção de ícone no cadastro: a resposta do usuário mostra
+   somente a prévia do ícone, sem transformar o nome em texto no balão. */
+.caixa-chat-icon-selected {
+  display: inline-flex;
+  width: 34px;
+  height: 34px;
+  align-items: center;
+  justify-content: center;
+  vertical-align: middle;
+}
+.caixa-chat-icon-selected img {
+  width: 34px;
+  height: 34px;
+  object-fit: contain;
+  display: block;
+}
