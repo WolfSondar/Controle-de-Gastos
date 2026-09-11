@@ -4661,7 +4661,6 @@ if (document.readyState === "loading") {
 
   const ACOES = [
     { id: "gastar", icon: "wallet", titulo: "Quanto ainda posso gastar?", subtitulo: "Separar benefício e saldo em conta" },
-    { id: "simular", icon: "calculator", titulo: "Simular um gasto", subtitulo: "Veja o impacto no saldo ou benefício" },
     { id: "categorias", icon: "chart", titulo: "Onde estou gastando mais?", subtitulo: "As categorias que mais pesaram" },
     { id: "guardado", icon: "pig", titulo: "Progresso das caixinhas", subtitulo: "Metas, prazos e quanto falta guardar" },
     { id: "mudou", icon: "chart", titulo: "O que mais mudou este mês?", subtitulo: "Compare com o mês anterior" },
@@ -4794,7 +4793,7 @@ if (document.readyState === "loading") {
       window._caixaDicasIAEstoque = [];
       window._caixaDicaIAIndice = 0;
       thinking.classList.add("is-hidden");
-      body.querySelectorAll(".caixa-chat-message, .caixa-chat-choices, #caixaChatBack, .caixa-chat-outra-dica").forEach(x => x.remove());
+      body.querySelectorAll(".caixa-chat-message, .caixa-chat-choices, .caixa-chat-select-wrap, .caixa-chat-simulador-form, #caixaChatBack, .caixa-chat-outra-dica").forEach(x => x.remove());
       quick.classList.remove("is-hidden");
       const quickTitle = quick.previousElementSibling;
       if (quickTitle && quickTitle.classList.contains("caixa-chat-quick-title")) quickTitle.classList.remove("is-hidden");
@@ -5186,76 +5185,6 @@ if (document.readyState === "loading") {
     return `<div class="chat-goal-result"><div class="chat-goal-result-top"><span class="chat-goal-result-icon" style="--pct:${pct}%"><span>${iconeHtml}</span></span><div><strong>${esc(cx.nome || "Caixinha")}</strong><small>Meta em ${formatarDataCurta(prazo)}</small></div><b>${Math.round(pct)}%</b></div><div class="chat-goal-result-track"><i style="width:${pct}%"></i></div><div class="chat-goal-result-numbers"><span>Guardado <strong>${chatFmt(atual)}</strong></span><span>Falta <strong>${chatFmt(falta)}</strong></span></div><div class="chat-goal-result-plan">${plano}</div></div>`;
   }
 
-  function abrirSimuladorNoChat() {
-    appendMensagem("Claro. <strong>De onde sairia esse gasto?</strong>");
-    const escolhas = document.createElement("div");
-    escolhas.className = "caixa-chat-choices";
-    const t = totaisChat();
-    [
-      ["saldo", "Saldo em conta", "Usa o valor disponível para novos gastos", t.conta, "chat-valor-pos"],
-      ["beneficio", "Benefício", "Usa somente o saldo disponível do benefício", t.beneficio, "chat-valor-gold"]
-    ].forEach(([origem, titulo, sub, quantia, classe]) => {
-      const btn = document.createElement("button");
-      btn.type = "button";
-      btn.className = "caixa-chat-choice";
-      btn.innerHTML = `<span><strong>${titulo}</strong><small>${sub}</small></span><span class="choice-value ${classe}">${chatFmt(quantia)}</span>`;
-      btn.addEventListener("click", () => {
-        escolhas.remove();
-        appendMensagem(titulo, "user");
-        const campo = document.createElement("div");
-        campo.className = "caixa-chat-simulador-form";
-        campo.innerHTML = `
-          <div class="caixa-chat-simulador-context">
-            <span>Disponível para essa origem</span>
-            <strong class="${origem === "beneficio" ? "chat-valor-gold" : "chat-valor-pos"}">${chatFmt(origem === "beneficio" ? t.beneficio : t.conta)}</strong>
-          </div>
-          <label class="caixa-chat-simulador-input">
-            <span>Quanto você pretende gastar?</span>
-            <input type="text" inputmode="decimal" autocomplete="off" placeholder="Ex.: 300,00" aria-label="Valor a simular">
-          </label>
-          <button type="button" class="caixa-chat-simulador-btn">Enviar</button>
-        `;
-        body.appendChild(campo);
-        const input = campo.querySelector("input");
-        const btnEnviar = campo.querySelector("button");
-        const parse = (v) => {
-          if (typeof parseValor === "function") return parseValor(v);
-          const s = String(v || "").replace(/\./g, "").replace(",", ".");
-          return Number(s) || 0;
-        };
-        const responder = () => {
-          const valor = parse(input.value);
-          if (!(valor > 0)) return;
-          campo.remove();
-          appendMensagem(chatFmt(valor), "user");
-          const agora = totaisChat();
-          const disponivel = origem === "beneficio" ? agora.beneficio : agora.conta;
-          const depois = disponivel - valor;
-          let resposta;
-          if (origem === "beneficio") {
-            resposta = depois >= 0
-              ? `Se você gastar <span class="chat-valor chat-valor-neg">${chatFmt(valor)}</span> pelo benefício, ainda ficarão <span class="chat-valor chat-valor-gold">${chatFmt(depois)}</span> disponíveis nele.<span class="caixa-chat-note">O benefício é analisado separadamente e não reduz o saldo normal da conta.</span>`
-              : `Puxa vida… esse gasto de <span class="chat-valor chat-valor-neg">${chatFmt(valor)}</span> passaria <span class="chat-valor chat-valor-neg">${chatFmt(Math.abs(depois))}</span> do benefício disponível.<span class="caixa-chat-note">O benefício é analisado separadamente do saldo normal da conta.</span>`;
-          } else {
-            resposta = depois >= 0
-              ? `Se você gastar <span class="chat-valor chat-valor-neg">${chatFmt(valor)}</span>, ainda ficarão <span class="chat-valor chat-valor-pos">${chatFmt(depois)}</span> disponíveis para o saldo em conta.<span class="caixa-chat-note">Considerei saldo de hoje + entradas previstas − contas abertas, incluindo valores futuros já lançados no planejamento.</span>`
-              : `Atenção: um gasto de <span class="chat-valor chat-valor-neg">${chatFmt(valor)}</span> passaria <span class="chat-valor chat-valor-neg">${chatFmt(Math.abs(depois))}</span> do que está disponível para o saldo em conta.<span class="caixa-chat-note">Considerei o limite de gasto projetado e as obrigações já lançadas no planejamento.</span>`;
-          }
-          appendMensagem(resposta);
-          mostrarMenuCompacto();
-        };
-        input.addEventListener("keydown", e => { if (e.key === "Enter") responder(); });
-        btnEnviar.addEventListener("click", responder);
-        setTimeout(() => input.focus(), 40);
-        body.scrollTop = body.scrollHeight;
-      });
-      escolhas.appendChild(btn);
-    });
-    body.appendChild(escolhas);
-    body.scrollTop = body.scrollHeight;
-  }
-
-
   function executarAcao(id) {
     window._caixaChatSessao = (Number(window._caixaChatSessao) || 0) + 1;
     clearTimeout(dicaOutraTimer);
@@ -5270,11 +5199,6 @@ if (document.readyState === "loading") {
     if (welcome) welcome.classList.add("is-hidden");
     const oldBack = document.getElementById("caixaChatBack");
     if (oldBack) oldBack.remove();
-    if (id === "simular") {
-      abrirSimuladorNoChat();
-      return;
-    }
-
     if (id === "gastar") {
       appendMensagem("Claro. <strong>De onde sairia esse próximo gasto?</strong>");
       const escolhas = document.createElement("div");
@@ -5332,7 +5256,6 @@ if (document.readyState === "loading") {
           btn.className = "caixa-chat-goal-choice";
           btn.innerHTML = `<span class="chat-goal-choice-icon ${objetivo > 0 ? "has-goal" : ""}" style="--pct:${pct}%"><span>${iconeHtml}</span></span><span class="chat-goal-choice-main"><strong>${esc(cx.nome || "Caixinha")}</strong><small>${formatarDataCurta(cx.data)} · ${objetivo > 0 ? `${chatFmt(atual)} de ${chatFmt(objetivo)}` : "sem objetivo definido"}</small>${objetivo > 0 ? `<span class="chat-goal-mini-track"><i style="width:${pct}%"></i></span>` : ""}</span><span class="chat-goal-choice-arrow">›</span>`;
           btn.addEventListener("click", () => {
-            appendMensagem(cx.nome || "Caixinha", "user");
             iniciarPensamento(() => appendMensagem(respostaCaixinha(cx)));
             escolhas.remove();
           });
@@ -5452,7 +5375,11 @@ if (document.readyState === "loading") {
       btn.type = "button";
       btn.className = `caixa-chat-choice ${extraClass}`;
       btn.innerHTML = `<span><strong>${esc(titulo)}</strong>${sub ? `<small>${esc(sub)}</small>` : ""}</span>${opts.showArrow === false ? "" : `<span class="caixa-chat-choice-arrow">›</span>`}`;
-      btn.addEventListener("click", () => { wrap.remove(); callback(valor, titulo); });
+      btn.addEventListener("click", () => {
+        wrap.remove();
+        appendMensagem(esc(titulo), "user");
+        callback(valor, titulo);
+      });
       wrap.appendChild(btn);
     });
     body.appendChild(wrap);
@@ -5460,14 +5387,56 @@ if (document.readyState === "loading") {
     return wrap;
   }
 
+  function selectChat(label, opcoes, callback, opts = {}) {
+    appendMensagem(`<strong>${esc(label)}</strong>`);
+    const wrap = document.createElement("div");
+    wrap.className = `caixa-chat-select-wrap ${opts.className || ""}`;
+    const select = document.createElement("select");
+    select.className = "caixa-chat-select";
+    select.setAttribute("aria-label", label);
+    const placeholder = document.createElement("option");
+    placeholder.value = "";
+    placeholder.textContent = opts.placeholder || "Selecione uma opção…";
+    placeholder.disabled = true;
+    placeholder.selected = true;
+    select.appendChild(placeholder);
+    opcoes.forEach(op => {
+      const [valor, titulo] = op;
+      const option = document.createElement("option");
+      option.value = String(valor);
+      option.textContent = titulo;
+      select.appendChild(option);
+    });
+    const enviar = document.createElement("button");
+    enviar.type = "button";
+    enviar.className = "caixa-chat-select-btn";
+    enviar.textContent = "Continuar";
+    const concluir = () => {
+      if (select.value === "") { select.focus(); return; }
+      const titulo = select.options[select.selectedIndex]?.textContent || select.value;
+      wrap.remove();
+      appendMensagem(titulo, "user");
+      callback(select.value, titulo);
+    };
+    select.addEventListener("change", () => { if (opts.autoSubmit) concluir(); });
+    select.addEventListener("keydown", e => { if (e.key === "Enter") concluir(); });
+    enviar.addEventListener("click", concluir);
+    wrap.append(select, enviar);
+    body.appendChild(wrap);
+    body.scrollTop = body.scrollHeight;
+    setTimeout(() => select.focus(), 40);
+    return wrap;
+  }
+
   function campoChat(label, placeholder, callback, opts = {}) {
     const wrap = document.createElement("div");
     wrap.className = `caixa-chat-simulador-form caixa-chat-cadastro-form ${opts.className || ""}`;
     const inputType = opts.type || "text";
+    const valorInicial = opts.value != null ? `value="${esc(opts.value)}"` : "";
     wrap.innerHTML = `
       <label class="caixa-chat-simulador-input">
         <span>${esc(label)}</span>
-        <input type="${inputType}" ${opts.inputmode ? `inputmode="${opts.inputmode}"` : ""} autocomplete="${opts.autocomplete || "off"}" placeholder="${esc(placeholder || "")}" aria-label="${esc(label)}">
+        <input type="${inputType}" ${opts.inputmode ? `inputmode="${opts.inputmode}"` : ""} autocomplete="${opts.autocomplete || "off"}" placeholder="${esc(placeholder || "")}" aria-label="${esc(label)}" ${valorInicial}>
       </label>
       <button type="button" class="caixa-chat-simulador-btn">Enviar</button>`;
     body.appendChild(wrap);
@@ -5507,7 +5476,7 @@ if (document.readyState === "loading") {
 
   function perguntaDataCadastro(callback, label = "Qual é a data?") {
     appendMensagem(`<strong>${esc(label)}</strong>`);
-    campoChat(label, "AAAA-MM-DD", valor => callback(valor || dataHojeISO()), { type: "date", autocomplete: "off" });
+    campoChat(label, "", valor => callback(valor || dataHojeISO()), { type: "date", autocomplete: "off", value: dataHojeISO() });
   }
 
   function perguntaStatusCadastro(label, positivo, negativo, callback) {
@@ -5540,83 +5509,88 @@ if (document.readyState === "loading") {
 
     appendMensagem("Claro! Vamos registrar isso juntos. <strong>O que você quer adicionar?</strong>");
     escolhaChat([
-      ["fixo", "Gasto fixo", "Conta recorrente ou compra parcelada"],
-      ["variavel", "Gasto variável", "Compra ou despesa do dia a dia"],
+      ["gasto", "Gasto", "Algo que você comprou, pagou ou parcelou"],
       ["ganho", "Ganho", "Dinheiro que entrou ou vai entrar"],
       ["caixinha", "Caixinha", "Reserva, meta ou dinheiro guardado"]
     ], tipo => {
       cadastroAtivo.tipo = tipo;
-      if (tipo === "fixo") fluxoFixo();
-      if (tipo === "variavel") fluxoVariavel();
+      if (tipo === "gasto") fluxoGasto();
       if (tipo === "ganho") fluxoGanho();
       if (tipo === "caixinha") fluxoCaixinha();
     });
 
-    function fluxoFixo() {
-      appendMensagem("Vamos ao <strong>gasto fixo</strong>. Qual é o nome da conta ou compra?");
-      campoChat("Nome do gasto", "Ex.: Faculdade, aluguel, celular…", nome => {
+    function fluxoGasto() {
+      appendMensagem("Vamos ao <strong>gasto</strong>. O que foi?");
+      campoChat("O que foi?", "Ex.: Mercado, Amazon, aluguel…", nome => {
         cadastroAtivo.nome = nome;
-        campoValorCadastro("Qual é o valor total?", valor => {
+        campoValorCadastro("Qual foi o valor?", valor => {
           cadastroAtivo.valor = valor;
-          categoriasEscolhiveis((cat) => {
-            cadastroAtivo.tipo = cat;
-            appendMensagem("Esse gasto é <strong>recorrente</strong>, <strong>à vista</strong> ou <strong>parcelado</strong>?");
-            escolhaChat([
-              ["recorrente", "Recorrente", "Repete todo mês, sem prazo para acabar"],
-              ["avista", "À vista", "Uma única cobrança"],
-              ["parcelado", "Parcelado", "Dividido em parcelas"]
-            ], modalidade => {
-              cadastroAtivo.modalidade = modalidade;
-              if (modalidade === "parcelado") {
-                appendMensagem("Em quantas <strong>parcelas</strong>?");
-                escolhaChat(Array.from({length:23}, (_,i)=>[String(i+2), `${i+2}x`, ""]), qtd => {
-                  cadastroAtivo.parcelas = Number(qtd);
-                  perguntaDataCadastro(data => { cadastroAtivo.data = data; statusFixo(); });
-                });
-              } else {
-                cadastroAtivo.parcelas = modalidade === "avista" ? 1 : 0;
-                perguntaDataCadastro(data => { cadastroAtivo.data = data; statusFixo(); });
-              }
-            });
+          appendMensagem("Esse gasto é <strong>fixo</strong> ou <strong>variável</strong>?");
+          escolhaChat([
+            ["fixo", "Gasto fixo", "Conta recorrente ou compra parcelada"],
+            ["variavel", "Gasto variável", "Compra ou despesa do dia a dia"]
+          ], tipoGasto => {
+            cadastroAtivo.tipoGasto = tipoGasto;
+            if (tipoGasto === "fixo") fluxoGastoFixo();
+            else fluxoGastoVariavel();
           });
         });
       });
     }
+
+    function fluxoGastoFixo() {
+      categoriasEscolhiveis(cat => {
+        cadastroAtivo.categoria = cat;
+        appendMensagem("Esse gasto é <strong>recorrente</strong>, <strong>à vista</strong> ou <strong>parcelado</strong>?");
+        escolhaChat([
+          ["recorrente", "Recorrente", "Repete todo mês, sem prazo para acabar"],
+          ["avista", "À vista", "Uma única cobrança"],
+          ["parcelado", "Parcelado", "Dividido em parcelas"]
+        ], modalidade => {
+          cadastroAtivo.modalidade = modalidade;
+          if (modalidade === "parcelado") {
+            selectChat("Em quantas parcelas?", Array.from({length:23}, (_,i)=>[String(i+2), `${i+2}x`]), qtd => {
+              cadastroAtivo.parcelas = Number(qtd);
+              perguntaDataCadastro(data => { cadastroAtivo.data = data; statusFixo(); });
+            }, { placeholder: "Escolha o número de parcelas…" });
+          } else {
+            cadastroAtivo.parcelas = modalidade === "avista" ? 1 : 0;
+            perguntaDataCadastro(data => { cadastroAtivo.data = data; statusFixo(); });
+          }
+        });
+      });
+    }
+
     function statusFixo() {
       perguntaStatusCadastro("Essa conta já foi paga?", "Sim, já paguei", "Não, está pendente", pago => {
         const n = cadastroAtivo.parcelas || 0;
         const valor = n > 0 ? Math.round((cadastroAtivo.valor / n) * 100) / 100 : cadastroAtivo.valor;
         const parcela = n > 0 ? `1/${n}` : "";
-        opFixos.add(cadastroAtivo.nome, valor, { pago, tipo: cadastroAtivo.tipo, data: dataDoLancamento(cadastroAtivo.data), parcela });
-        finalizarCadastro("Gasto fixo adicionado", `${esc(cadastroAtivo.nome)} · <span class="chat-valor chat-valor-neg">${chatFmt(valor)}</span>${n > 1 ? ` · parcela 1/${n}` : ""}.`);
+        opFixos.add(cadastroAtivo.nome, valor, { pago, tipo: cadastroAtivo.categoria, data: dataDoLancamento(cadastroAtivo.data), parcela });
+        finalizarCadastro("Gasto adicionado", `${esc(cadastroAtivo.nome)} · <span class="chat-valor chat-valor-neg">${chatFmt(valor)}</span>${n > 1 ? ` · parcela 1/${n}` : ""}.`);
       });
     }
-    function fluxoVariavel() {
-      appendMensagem("Vamos ao <strong>gasto variável</strong>. O que você comprou ou pagou?");
-      campoChat("Nome do gasto", "Ex.: Mercado, almoço, presente…", nome => {
-        cadastroAtivo.nome = nome;
-        campoValorCadastro("Qual foi o valor?", valor => {
-          cadastroAtivo.valor = valor;
-          categoriasEscolhiveis(cat => {
-            cadastroAtivo.tipo = cat;
-            appendMensagem("De onde saiu esse dinheiro?");
-            escolhaChat([
-              ["saldo", "Saldo em conta", "Sai do saldo normal"],
-              ["beneficio", "Benefício", "Sai do saldo do benefício"]
-            ], origem => {
-              cadastroAtivo.origem = origem;
-              perguntaDataCadastro(data => {
-                cadastroAtivo.data = data;
-                perguntaStatusCadastro("Essa compra já foi paga?", "Sim, já paguei", "Não, está pendente", pago => {
-                  opVariaveis.add(cadastroAtivo.nome, cadastroAtivo.valor, { pago, tipo: cadastroAtivo.tipo, data: dataDoLancamento(cadastroAtivo.data), origem: cadastroAtivo.origem });
-                  finalizarCadastro("Gasto variável adicionado", `${esc(cadastroAtivo.nome)} · <span class="chat-valor chat-valor-neg">${chatFmt(cadastroAtivo.valor)}</span>.`);
-                });
-              });
+
+    function fluxoGastoVariavel() {
+      categoriasEscolhiveis(cat => {
+        cadastroAtivo.categoria = cat;
+        appendMensagem("De onde saiu esse dinheiro?");
+        escolhaChat([
+          ["saldo", "Saldo em conta", "Sai do saldo normal"],
+          ["beneficio", "Benefício", "Sai do saldo do benefício"]
+        ], origem => {
+          cadastroAtivo.origem = origem;
+          perguntaDataCadastro(data => {
+            cadastroAtivo.data = data;
+            perguntaStatusCadastro("Essa compra já foi paga?", "Sim, já paguei", "Não, está pendente", pago => {
+              opVariaveis.add(cadastroAtivo.nome, cadastroAtivo.valor, { pago, tipo: cadastroAtivo.categoria, data: dataDoLancamento(cadastroAtivo.data), origem: cadastroAtivo.origem });
+              finalizarCadastro("Gasto adicionado", `${esc(cadastroAtivo.nome)} · <span class="chat-valor chat-valor-neg">${chatFmt(cadastroAtivo.valor)}</span>.`);
             });
           });
         });
       });
     }
+
     function fluxoGanho() {
       appendMensagem("Vamos registrar o <strong>ganho</strong>. Qual é o nome dessa entrada?");
       campoChat("Nome do ganho", "Ex.: Salário, vale, benefício…", nome => {
@@ -5640,6 +5614,7 @@ if (document.readyState === "loading") {
         });
       });
     }
+
     function fluxoCaixinha() {
       appendMensagem("Vamos criar a <strong>caixinha</strong>. Como você quer chamá-la?");
       campoChat("Nome da caixinha", "Ex.: Reserva de emergência, viagem…", nome => {
@@ -5696,6 +5671,10 @@ if (document.readyState === "loading") {
     chat.classList.remove("is-open");
     chat.setAttribute("aria-hidden", "true");
     fab.setAttribute("aria-expanded", "false");
+    // Fechar encerra o contexto atual. Ao abrir novamente pela IA, nunca
+    // reaparece uma pergunta/formulário do cadastro anterior.
+    resetarChatParaSelecao();
+    cadastroAtivo = null;
   }
 
   fab.addEventListener("click", () => chat.classList.contains("is-open") ? fecharChat() : abrirChat());
@@ -5728,7 +5707,7 @@ if (document.readyState === "loading") {
     window._caixaDicasIAEstoque = [];
     window._caixaDicaIAIndice = 0;
     thinking.classList.add("is-hidden");
-    body.querySelectorAll(".caixa-chat-message, .caixa-chat-choices, #caixaChatBack").forEach(x => x.remove());
+    body.querySelectorAll(".caixa-chat-message, .caixa-chat-choices, .caixa-chat-select-wrap, .caixa-chat-simulador-form, #caixaChatBack").forEach(x => x.remove());
     quick.classList.remove("is-hidden");
     const quickTitle = quick.previousElementSibling;
     if (quickTitle && quickTitle.classList.contains("caixa-chat-quick-title")) quickTitle.classList.remove("is-hidden");
