@@ -459,6 +459,18 @@ function dataHojeISO() {
   return `${ano}-${mes}-${dia}`;
 }
 
+// Quando um lançamento é criado para hoje, guarda a hora junto da data.
+// Para datas futuras/passadas, mantém somente a data escolhida.
+function dataDoLancamento(data) {
+  const dataLimpa = String(data || "").trim();
+  if (!dataLimpa || dataLimpa !== dataHojeISO()) return dataLimpa;
+  const agora = new Date();
+  const hora = String(agora.getHours()).padStart(2, "0");
+  const minuto = String(agora.getMinutes()).padStart(2, "0");
+  const segundo = String(agora.getSeconds()).padStart(2, "0");
+  return `${dataLimpa}T${hora}:${minuto}:${segundo}`;
+}
+
 function preencherDatasComHoje() {
   document.querySelectorAll('.add-form input[type="date"].input-data').forEach((el) => {
     if (!el.value) el.value = dataHojeISO();
@@ -4623,7 +4635,7 @@ on("formGanhos", "submit", (e) => {
   const valor = parseValor(f.valor.value);
   if (!nome || !(valor > 0)) return;
   const recebido = f.recebido ? f.recebido.checked : false;
-  const data = f.data ? f.data.value : "";
+  const data = dataDoLancamento(f.data ? f.data.value : "");
   opGanhos.add(nome, valor, { recebido, data });
   f.reset();
   if (typeof fecharCriacaoFlutuante === "function") fecharCriacaoFlutuante();
@@ -4645,7 +4657,7 @@ on("formFixos", "submit", (e) => {
   if (!nome || !(valorTotal > 0)) return;
   const pago = f.pago ? f.pago.checked : false;
   const tipo = f.tipo ? f.tipo.value : "";
-  const data = f.data ? f.data.value : "";
+  const data = dataDoLancamento(f.data ? f.data.value : "");
 
   // "valor" no formulário agora é o valor INTEGRAL da compra — o select de
   // parcelas decide como ele é dividido antes de salvar (cada linha guarda
@@ -4677,7 +4689,7 @@ on("formVariaveis", "submit", (e) => {
   if (!nome || !(valor > 0)) return;
   const pago = f.pago ? f.pago.checked : false;
   const tipo = f.tipo ? f.tipo.value : "";
-  const data = f.data ? f.data.value : "";
+  const data = dataDoLancamento(f.data ? f.data.value : "");
   const origem = f.origem && f.origem.value === "beneficio" ? "beneficio" : "saldo";
   opVariaveis.add(nome, valor, { pago, tipo, data, origem });
   f.reset();
