@@ -5347,8 +5347,8 @@ if (document.readyState === "loading") {
           const valorClasse = top.k === "ganhos" ? "chat-valor-pos" : top.k === "guardado" ? "chat-valor-gold" : "chat-valor-neg";
           const frases = {
             gastos: top.delta >= 0
-              ? `Ora, ora! Até agora, você gastou <span class="chat-valor chat-valor-neg">${atualFmt}</span> neste mês. Em ${nomeMes}, os gastos pagos foram <span class="chat-valor chat-valor-neg">${chatFmt(ant.gastos)}</span>, então neste mês você está <span class="chat-valor chat-valor-neg">${diferencaFmt}</span> acima daquele valor.`
-              : `Ora, ora! Até agora, você gastou <span class="chat-valor chat-valor-neg">${atualFmt}</span> neste mês. Em ${nomeMes}, os gastos pagos foram <span class="chat-valor chat-valor-neg">${chatFmt(ant.gastos)}</span>, então neste mês você está <span class="chat-valor chat-valor-pos">${diferencaFmt}</span> abaixo daquele valor.`,
+              ? `Olhando o mês atual contra ${nomeMes}, seus gastos pagos estão <span class="chat-valor ${valorClasse}">${diferencaFmt}</span> acima. Até agora, você gastou <span class="chat-valor chat-valor-neg">${atualFmt}</span> neste mês.`
+              : `Olhando o mês atual contra ${nomeMes}, seus gastos pagos estão <span class="chat-valor ${valorClasse}">${diferencaFmt}</span> abaixo. Até agora, você gastou <span class="chat-valor chat-valor-neg">${atualFmt}</span> neste mês.`,
             ganhos: top.delta >= 0
               ? `A maior mudança veio das entradas: você recebeu <span class="chat-valor chat-valor-pos">${diferencaFmt}</span> a mais do que em ${nomeMes}. Neste mês, as entradas recebidas somam <span class="chat-valor chat-valor-pos">${atualFmt}</span>.`
               : `A maior mudança veio das entradas: você recebeu <span class="chat-valor chat-valor-neg">${diferencaFmt}</span> a menos do que em ${nomeMes}. Neste mês, as entradas recebidas somam <span class="chat-valor chat-valor-pos">${atualFmt}</span>.`,
@@ -5522,4 +5522,501 @@ if (document.readyState === "loading") {
 
   // Expor os prompts para diagnóstico/uso futuro sem chamar a IA.
   window.CAIXA_CHAT_PROMPTS = CHAT_PROMPTS;
+})();
+
+
+
+/* =====================================================================
+   CAIXA 2.0 — CAMADA DE EXPERIÊNCIA / PLANEJAMENTO
+   Tudo aqui é calculado no navegador a partir do state atual.
+   Não altera a lógica de fechamento nem trata "Guardado:" como gasto real.
+   ===================================================================== */
+(function inicializarCaixa20() {
+  "use strict";
+
+  const $ = (id) => document.getElementById(id);
+  const smart = $("caixaSmart");
+  if (!smart) return;
+
+  const dinheiro = (n) => typeof fmt === "function" ? fmt(Number(n) || 0) :
+    Number(n || 0).toLocaleString("pt-BR", { style:"currency", currency:"BRL" });
+
+  const textoSeguro = (s) => String(s ?? "").replace(/[&<>"']/g, c =>
+    ({ "&":"&amp;", "<":"&lt;", ">":"&gt;", '"':"&quot;", "'":"&#39;" }[c]));
+
+  function hojeBase() {
+    const d = new Date();
+    d.setHours(0,0,0,0);
+    return d;
+  }
+
+  function isoMes(item) {
+    const m = /^(\d{4})-(\d{2})/.exec(String(item?.data || ""));
+    return m ? { ano:Number(m[1]), mes:Number(m[2]) } : null;
+  }
+
+  function itemFuturo(item) {
+    if (typeof ehFuturoDoMesAtual === "function" && state.mesAtual && state.anoAtual) {
+      return ehFuturoDoMesAtual(item);
+    }
+    const p = isoMes(item), d = hojeBase();
+    return p ? (p.ano > d.getFullYear() || (p.ano === d.getFullYear() && p.mes > d.getMonth()+1)) : false;
+  }
+
+  function itemMesAtual(item) {
+    const p = isoMes(item);
+    const ano = state.anoAtual || hojeBase().getFullYear();
+    const mes = state.mesAtual || (hojeBase().getMonth()+1);
+    return !!p && p.ano === ano && p.mes === mes;
+  }
+
+  function reaisVariaveis() {
+    return (state.gastosVariaveis || []).filter((g) =>
+      typeof gastoVariavelEhReal === "function" ? gastoVariavelEhReal(g) : !String(g?.nome || "").startsWith("Guardado: ")
+    );
+  }
+
+  function totais() {
+    const ganhos = state.ganhos || [];
+    const fixos = state.gastosFixos || [];
+    const variaveis = reaisVariaveis();
+
+    const ganhosRecebidos = ganhos.reduce((s,g) => s + (g.recebido === true ? Number(g.valor)||0 : 0), 0);
+    const aReceber = ganhos.reduce((s,g) => s + (g.recebido !== true ? Number(g.valor)||0 : 0), 0);
+
+    const fixosPagos = fixos.reduce((s,g) => s + (g.pago === true ? Number(g.valor)||0 : 0), 0);
+    const fixosAbertos = fixos.reduce((s,g) => s + (g.pago !== true ? Number(g.valor)||0 : 0), 0);
+
+    const variaveisPagos = variaveis.reduce((s,g) =>
+      s + (g.pago === true && g.lembrete !== true ? Number(g.valor)||0 : 0), 0);
+    const variaveisAbertos = variaveis.reduce((s,g) =>
+      s + (g.pago !== true ? Number(g.valor)||0 : 0), 0);
+
+    const saldoHoje = ganhosRecebidos - fixosPagos - variaveisPagos;
+    const aberto = fixosAbertos + variaveisAbertos;
+    const projetado = saldoHoje + aReceber - aberto;
+
+    const abertoAtual = fixos
+      .filter(g => g.pago !== true && !itemFuturo(g))
+      .reduce((s,g) => s + (Number(g.valor)||0), 0)
+      + variaveis
+      .filter(g => g.pago !== true && !itemFuturo(g))
+      .reduce((s,g) => s + (Number(g.valor)||0), 0);
+
+    const abertoFuturo = Math.max(0, aberto - abertoAtual);
+
+    return {
+      ganhosRecebidos, aReceber, fixosPagos, fixosAbertos,
+      variaveisPagos, variaveisAbertos, saldoHoje, aberto,
+      abertoAtual, abertoFuturo, projetado
+    };
+  }
+
+  function renderSmart() {
+    const t = totais();
+    const disponivel = t.projetado;
+
+    const set = (id, value) => { const el = $(id); if (el) el.textContent = value; };
+    set("smartDisponivel", dinheiro(disponivel));
+    set("smartProjetado", dinheiro(t.projetado));
+    set("smartReceber", dinheiro(t.aReceber));
+    set("smartAberto", dinheiro(t.aberto));
+
+    const disp = $("smartDisponivel");
+    if (disp) {
+      disp.classList.toggle("is-negative", disponivel < 0);
+      disp.classList.toggle("is-positive", disponivel > 0);
+    }
+
+    set("smartDisponivelHelp",
+      disponivel >= 0
+        ? "Já considerando as entradas e os compromissos em aberto."
+        : "Há mais compromissos previstos do que dinheiro projetado.");
+    set("smartReceberHelp",
+      t.aReceber > 0 ? `${dinheiro(t.aReceber)} ainda não entrou.` : "Sem entradas pendentes.");
+    set("smartAbertoHelp",
+      t.aberto > 0
+        ? (t.abertoFuturo > 0
+          ? `${dinheiro(t.abertoAtual)} neste mês · ${dinheiro(t.abertoFuturo)} depois.`
+          : `${dinheiro(t.abertoAtual)} neste mês.`)
+        : "Sem compromissos pendentes.");
+  }
+
+  function categoriaTotais() {
+    const map = new Map();
+    for (const g of reaisVariaveis()) {
+      if (g.pago !== true) continue;
+      const cat = String(g.tipo || "Outro").trim() || "Outro";
+      map.set(cat, (map.get(cat)||0) + (Number(g.valor)||0));
+    }
+    for (const g of state.gastosFixos || []) {
+      if (g.pago !== true || itemFuturo(g)) continue;
+      const cat = String(g.tipo || "Contas").trim() || "Contas";
+      map.set(cat, (map.get(cat)||0) + (Number(g.valor)||0));
+    }
+    return [...map.entries()].sort((a,b)=>b[1]-a[1]);
+  }
+
+  function renderRadar() {
+    const t = totais();
+    const list = $("smartRadarList");
+    if (!list) return;
+    const itens = [];
+
+    if (t.projetado < 0) {
+      itens.push({
+        cls:"alerta",
+        icon:"!",
+        titulo:"Seu mês está apertado",
+        texto:`Os compromissos em aberto superam o dinheiro projetado em ${dinheiro(Math.abs(t.projetado))}.`
+      });
+    } else if (t.projetado > 0) {
+      itens.push({
+        cls:"positivo",
+        icon:"✓",
+        titulo:"Há margem depois dos compromissos",
+        texto:`Depois de considerar entradas e contas em aberto, a projeção fica em ${dinheiro(t.projetado)}.`
+      });
+    }
+
+    if (t.aReceber > 0) {
+      itens.push({
+        cls:"entrada",
+        icon:"↑",
+        titulo:"Há dinheiro a caminho",
+        texto:`Você ainda tem ${dinheiro(t.aReceber)} em entradas não recebidas.`
+      });
+    }
+
+    if (t.abertoAtual > 0) {
+      itens.push({
+        cls:"conta",
+        icon:"•",
+        titulo:"Compromissos deste mês",
+        texto:`Ainda faltam ${dinheiro(t.abertoAtual)} em contas deste mês. Valores futuros ficam separados.`
+      });
+    }
+
+    const cats = categoriaTotais();
+    if (cats.length >= 2 && cats[0][1] > 0) {
+      const total = cats.reduce((s,x)=>s+x[1],0);
+      const pct = total ? Math.round(cats[0][1] / total * 100) : 0;
+      itens.push({
+        cls:"categoria",
+        icon:"⌁",
+        titulo:`${cats[0][0]} está liderando seus gastos`,
+        texto:`Essa categoria representa cerca de ${pct}% dos gastos pagos considerados no mês.`
+      });
+    }
+
+    const metas = (state.caixinhas || []).filter(cx => Number(cx.valorObjetivo) > 0);
+    if (metas.length) {
+      const quase = metas
+        .map(cx => {
+          const atual = typeof totalCaixinha === "function" ? totalCaixinha(cx) : (Number(cx.valorGuardado)||0);
+          const alvo = Number(cx.valorObjetivo)||0;
+          return {cx, pct: alvo ? atual/alvo : 0, falta: Math.max(0, alvo-atual)};
+        })
+        .filter(x => x.pct >= 0.8 && x.pct < 1)
+        .sort((a,b)=>b.pct-a.pct)[0];
+      if (quase) {
+        itens.push({
+          cls:"meta",
+          icon:"★",
+          titulo:`A caixinha "${quase.cx.nome}" está quase lá`,
+          texto:`Faltam ${dinheiro(quase.falta)} para atingir a meta.`
+        });
+      }
+    }
+
+    if (!itens.length) {
+      itens.push({
+        cls:"positivo",
+        icon:"✓",
+        titulo:"Tudo tranquilo por aqui",
+        texto:"Ainda não encontrei nenhum ponto que mereça atenção especial."
+      });
+    }
+
+    list.innerHTML = itens.slice(0,5).map(i => `
+      <article class="smart-radar-item ${i.cls}">
+        <span class="smart-radar-icon">${textoSeguro(i.icon)}</span>
+        <div><strong>${textoSeguro(i.titulo)}</strong><p>${textoSeguro(i.texto)}</p></div>
+      </article>
+    `).join("");
+  }
+
+  function abrirCamada(classe, titulo, conteudo, onReady) {
+    const old = document.getElementById("caixa20Overlay");
+    if (old) old.remove();
+
+    const overlay = document.createElement("div");
+    overlay.id = "caixa20Overlay";
+    overlay.className = "caixa20-overlay";
+    overlay.innerHTML = `
+      <div class="caixa20-modal ${classe}" role="dialog" aria-modal="true" aria-label="${textoSeguro(titulo)}">
+        <div class="caixa20-modal-head">
+          <div><span class="smart-kicker">Caixa</span><h2>${textoSeguro(titulo)}</h2></div>
+          <button type="button" class="caixa20-close" aria-label="Fechar">×</button>
+        </div>
+        <div class="caixa20-modal-body">${conteudo}</div>
+      </div>
+    `;
+    document.body.appendChild(overlay);
+
+    const fechar = () => {
+      overlay.classList.remove("is-visible");
+      setTimeout(()=>overlay.remove(),180);
+    };
+    overlay.querySelector(".caixa20-close").addEventListener("click", fechar);
+    overlay.addEventListener("click", e => { if (e.target === overlay) fechar(); });
+    overlay._fechar = fechar;
+    requestAnimationFrame(()=>overlay.classList.add("is-visible"));
+    if (onReady) onReady(overlay, fechar);
+  }
+
+  function abrirBusca() {
+    abrirCamada("caixa20-search", "Buscar no Caixa", `
+      <label class="caixa20-search-box">
+        <span>⌕</span>
+        <input id="caixa20SearchInput" type="search" placeholder="Ex.: mercado, aluguel, 120,00…" autocomplete="off">
+      </label>
+      <div class="caixa20-search-filters">
+        <button type="button" class="is-active" data-search-filter="todos">Tudo</button>
+        <button type="button" data-search-filter="ganhos">Ganhos</button>
+        <button type="button" data-search-filter="fixos">Fixos</button>
+        <button type="button" data-search-filter="variaveis">Variáveis</button>
+        <button type="button" data-search-filter="caixinhas">Caixinhas</button>
+      </div>
+      <div class="caixa20-search-results" id="caixa20SearchResults">
+        <div class="caixa20-empty">Digite para pesquisar seus lançamentos.</div>
+      </div>
+    `, (overlay) => {
+      const input = overlay.querySelector("#caixa20SearchInput");
+      const result = overlay.querySelector("#caixa20SearchResults");
+      let filtro = "todos";
+
+      function dados() {
+        const arr = [];
+        (state.ganhos||[]).forEach((x,i)=>arr.push({...x,_grupo:"ganhos",_rotulo:"Ganho",_idx:i}));
+        (state.gastosFixos||[]).forEach((x,i)=>arr.push({...x,_grupo:"fixos",_rotulo:"Fixo",_idx:i}));
+        reaisVariaveis().forEach((x,i)=>arr.push({...x,_grupo:"variaveis",_rotulo:"Variável",_idx:i}));
+        (state.caixinhas||[]).forEach((x,i)=>arr.push({
+          nome:x.nome, valor:typeof totalCaixinha==="function"?totalCaixinha(x):Number(x.valorGuardado)||0,
+          data:x.data,_grupo:"caixinhas",_rotulo:"Caixinha",_idx:i
+        }));
+        return arr;
+      }
+
+      function desenhar() {
+        const q = String(input.value||"").trim().toLowerCase();
+        const normal = s => String(s||"").normalize("NFD").replace(/[\u0300-\u036f]/g,"").toLowerCase();
+        const busca = normal(q);
+        const encontrados = dados().filter(x => {
+          if (filtro !== "todos" && x._grupo !== filtro) return false;
+          if (!busca) return false;
+          return normal(`${x.nome} ${x.tipo||""} ${x.data||""} ${x.valor||""}`).includes(busca);
+        }).sort((a,b)=>String(b.data||"").localeCompare(String(a.data||""))).slice(0,50);
+
+        if (!busca) {
+          result.innerHTML = '<div class="caixa20-empty">Digite para pesquisar seus lançamentos.</div>';
+          return;
+        }
+        if (!encontrados.length) {
+          result.innerHTML = '<div class="caixa20-empty">Não encontrei nada com esse termo.</div>';
+          return;
+        }
+        result.innerHTML = encontrados.map(x => `
+          <button type="button" class="caixa20-result" data-grupo="${x._grupo}">
+            <span class="caixa20-result-icon">${x._grupo==="ganhos"?"↑":x._grupo==="caixinhas"?"◇":"−"}</span>
+            <span class="caixa20-result-main"><strong>${textoSeguro(x.nome)}</strong><small>${textoSeguro(x._rotulo)}${x.tipo?` · ${textoSeguro(x.tipo)}`:""}${x.data?` · ${textoSeguro(String(x.data).slice(0,10))}`:""}</small></span>
+            <b>${dinheiro(x.valor)}</b>
+          </button>
+        `).join("");
+        result.querySelectorAll(".caixa20-result").forEach(btn => btn.addEventListener("click", ()=>{
+          const tab = btn.dataset.grupo;
+          const nav = document.querySelector(`.tab-btn[data-tab="${tab==="caixinhas"?"guardado":tab}"]`);
+          if (nav) nav.click();
+          overlay._fechar();
+        }));
+      }
+
+      input.addEventListener("input", desenhar);
+      overlay.querySelectorAll("[data-search-filter]").forEach(btn => btn.addEventListener("click",()=>{
+        overlay.querySelectorAll("[data-search-filter]").forEach(b=>b.classList.remove("is-active"));
+        btn.classList.add("is-active");
+        filtro = btn.dataset.searchFilter;
+        desenhar();
+      }));
+      input.focus();
+    });
+  }
+
+  function abrirCalendario() {
+    const d = hojeBase();
+    const ano = state.anoAtual || d.getFullYear();
+    const mes = state.mesAtual || d.getMonth()+1;
+    let cursor = new Date(ano, mes-1, 1);
+
+    abrirCamada("caixa20-calendar", "Calendário financeiro", `
+      <div class="caixa20-calendar-nav">
+        <button type="button" id="calPrev" aria-label="Mês anterior">‹</button>
+        <strong id="calTitle"></strong>
+        <button type="button" id="calNext" aria-label="Próximo mês">›</button>
+      </div>
+      <div class="caixa20-calendar-week"><span>DOM</span><span>SEG</span><span>TER</span><span>QUA</span><span>QUI</span><span>SEX</span><span>SÁB</span></div>
+      <div class="caixa20-calendar-grid" id="calGrid"></div>
+      <div class="caixa20-calendar-legend"><span><i class="income"></i>Entrada</span><span><i class="expense"></i>Conta</span><span><i class="gold"></i>Caixinha</span></div>
+    `, (overlay) => {
+      const title = overlay.querySelector("#calTitle");
+      const grid = overlay.querySelector("#calGrid");
+
+      function desenhar() {
+        title.textContent = `${MESES_LABEL[cursor.getMonth()]} ${cursor.getFullYear()}`;
+        const first = new Date(cursor.getFullYear(), cursor.getMonth(), 1);
+        const last = new Date(cursor.getFullYear(), cursor.getMonth()+1, 0);
+        const offset = first.getDay();
+        const totalDays = last.getDate();
+        const map = new Map();
+
+        const add = (data, tipo, nome, valor) => {
+          const m = /^(\d{4})-(\d{2})-(\d{2})/.exec(String(data||""));
+          if (!m) return;
+          if (Number(m[1]) !== cursor.getFullYear() || Number(m[2]) !== cursor.getMonth()+1) return;
+          const dia = Number(m[3]);
+          const key = String(dia);
+          const cur = map.get(key) || {income:0,expense:0,gold:0,names:[]};
+          if (tipo==="income") cur.income += Number(valor)||0;
+          else if (tipo==="gold") cur.gold += Number(valor)||0;
+          else cur.expense += Number(valor)||0;
+          if (cur.names.length < 3) cur.names.push(`${nome} · ${dinheiro(valor)}`);
+          map.set(key, cur);
+        };
+
+        (state.ganhos||[]).forEach(g=>add(g.data,"income",g.nome,g.valor));
+        (state.gastosFixos||[]).filter(g=>gastoVariavelEhReal?true:true).forEach(g=>{
+          if (g.pago !== true) add(g.data,"expense",g.nome,g.valor);
+        });
+        reaisVariaveis().forEach(g=>{
+          if (g.pago !== true) add(g.data,"expense",g.nome,g.valor);
+        });
+        (state.caixinhas||[]).forEach(cx=>{
+          if (Number(cx.valorGuardadoMes)>0) add(cx.data || "", "gold", cx.nome, cx.valorGuardadoMes);
+        });
+
+        const cells = [];
+        for (let i=0;i<offset;i++) cells.push('<span class="cal-day cal-empty"></span>');
+        for (let dia=1;dia<=totalDays;dia++) {
+          const x = map.get(String(dia));
+          const hoje = dia===d.getDate() && cursor.getMonth()===d.getMonth() && cursor.getFullYear()===d.getFullYear();
+          const titleTxt = x?.names?.join(" | ") || "";
+          cells.push(`
+            <button type="button" class="cal-day ${hoje?"is-today":""} ${x?"has-events":""}" title="${textoSeguro(titleTxt)}">
+              <span>${dia}</span>
+              ${x?`<i class="cal-dots">${x.income>0?"●":""}${x.expense>0?"●":""}${x.gold>0?"●":""}</i>`:""}
+            </button>
+          `);
+        }
+        grid.innerHTML = cells.join("");
+      }
+
+      overlay.querySelector("#calPrev").addEventListener("click",()=>{ cursor = new Date(cursor.getFullYear(),cursor.getMonth()-1,1); desenhar(); });
+      overlay.querySelector("#calNext").addEventListener("click",()=>{ cursor = new Date(cursor.getFullYear(),cursor.getMonth()+1,1); desenhar(); });
+      desenhar();
+    });
+  }
+
+  function abrirSimulador() {
+    abrirCamada("caixa20-sim", "Simular um gasto", `
+      <p class="caixa20-lead">Veja quanto uma compra mudaria o seu dinheiro disponível, sem registrar nada.</p>
+      <label class="caixa20-field"><span>Quanto você pretende gastar?</span><input id="simValor" inputmode="decimal" placeholder="0,00" autocomplete="off"></label>
+      <div class="caixa20-sim-result" id="simResult">
+        <div><span>Disponível hoje</span><strong id="simAntes">R$ 0,00</strong></div>
+        <div><span>Depois da compra</span><strong id="simDepois">R$ 0,00</strong></div>
+        <div class="caixa20-sim-reading" id="simLeitura">Digite um valor para ver o impacto.</div>
+      </div>
+      <button type="button" class="btn btn-gold" id="simFechar">Voltar</button>
+    `, (overlay, fechar) => {
+      const input = overlay.querySelector("#simValor");
+      const antes = overlay.querySelector("#simAntes");
+      const depois = overlay.querySelector("#simDepois");
+      const leitura = overlay.querySelector("#simLeitura");
+      const t = totais();
+
+      function parseMoney(v) {
+        if (typeof parseValor === "function") return parseValor(v);
+        const s=String(v||"").replace(/\./g,"").replace(",",".");
+        return Number(s)||0;
+      }
+
+      function update() {
+        const valor = parseMoney(input.value);
+        const d = t.projetado - valor;
+        antes.textContent = dinheiro(t.projetado);
+        depois.textContent = dinheiro(d);
+        depois.classList.toggle("is-negative", d < 0);
+        if (!valor) leitura.textContent = "Digite um valor para ver o impacto.";
+        else if (d < 0) leitura.textContent = `Puxa vida… essa compra passaria ${dinheiro(Math.abs(d))} do valor projetado.`;
+        else if (d < 150) leitura.textContent = `Caberia, mas deixaria uma margem bem apertada de ${dinheiro(d)}.`;
+        else leitura.textContent = `Caberia e ainda deixaria ${dinheiro(d)} depois dos compromissos previstos.`;
+      }
+      input.addEventListener("input", update);
+      overlay.querySelector("#simFechar").addEventListener("click", fechar);
+      input.focus();
+      update();
+    });
+  }
+
+  function abrirRadar() {
+    const radar = $("smartRadar");
+    if (!radar) return;
+    renderRadar();
+    radar.classList.add("is-open");
+    radar.scrollIntoView({behavior:"smooth", block:"nearest"});
+  }
+
+  $("smartRadarClose")?.addEventListener("click", () => $("smartRadar")?.classList.remove("is-open"));
+  $("smartRefresh")?.addEventListener("click", () => {
+    renderSmart();
+    renderRadar();
+    const b = $("smartRefresh");
+    b.classList.add("is-spinning");
+    setTimeout(()=>b.classList.remove("is-spinning"),500);
+  });
+
+  smart.querySelectorAll("[data-smart-action]").forEach(btn => btn.addEventListener("click", ()=>{
+    const a = btn.dataset.smartAction;
+    if (a==="radar") abrirRadar();
+    if (a==="calendario") abrirCalendario();
+    if (a==="simulador") abrirSimulador();
+    if (a==="buscar") abrirBusca();
+  }));
+
+  // Atalho rápido: "/" abre busca, sem interferir quando o usuário estiver digitando.
+  document.addEventListener("keydown", (e)=>{
+    const tag = document.activeElement?.tagName;
+    if (e.key === "/" && !["INPUT","TEXTAREA","SELECT"].includes(tag)) {
+      e.preventDefault(); abrirBusca();
+    }
+    if (e.key === "Escape") {
+      const o = $("caixa20Overlay");
+      if (o && typeof o._fechar==="function") o._fechar();
+      $("smartRadar")?.classList.remove("is-open");
+    }
+  });
+
+  // Re-render após alterações: intercepta o renderAll sem tocar no cálculo original.
+  // O código original chama renderAll() muitas vezes; aqui apenas atualizamos o
+  // painel se ele já existir.
+  const renderOriginal = window.renderAll;
+  if (typeof renderOriginal === "function") {
+    window.renderAll = function(...args) {
+      const out = renderOriginal.apply(this,args);
+      try { renderSmart(); } catch (_) {}
+      return out;
+    };
+  }
+
+  renderSmart();
+  renderRadar();
 })();
