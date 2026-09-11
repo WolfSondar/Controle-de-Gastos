@@ -468,10 +468,10 @@ button, input { font-family: inherit; }
 .goal-bar-track::before { content: ""; position: absolute; inset: 0; background-image: linear-gradient(90deg, var(--paper-deep) 1px, transparent 1px); background-size: 25% 100%; background-position: -1px 0; opacity: 0.5; pointer-events: none; z-index: 1; }
 /* Barra estilo "HP" de jogo: gradiente fluindo em loop suave, com um
    brilho vítreo por cima. Só gradiente, sem textura de listras. */
-.goal-bar-fill { position: relative; height: 100%; border-radius: 100px; background-image: linear-gradient(90deg, var(--gold-deep) 0%, var(--gold) 40%, #f6df9f 50%, var(--gold) 60%, var(--gold-deep) 100%); background-size: 240% 100%; transition: width 0.6s cubic-bezier(.2,.8,.2,1); animation: goal-bar-fluir 3.2s linear infinite; }
-.goal-bar-fill::after { content: ""; position: absolute; inset: 0; border-radius: inherit; background: linear-gradient(180deg, rgba(255,255,255,0.4), rgba(255,255,255,0) 55%); pointer-events: none; }
-.goal-bar-fill.completo { background-image: linear-gradient(90deg, #2f5f42 0%, var(--income) 40%, #a7e3bd 50%, var(--income) 60%, #2f5f42 100%); }
-@keyframes goal-bar-fluir { 0% { background-position: 0% 0; } 100% { background-position: -240% 0; } }
+.goal-bar-fill { position: relative; height: 100%; border-radius: 100px; background: linear-gradient(90deg, var(--gold-deep), var(--gold)); transition: width 0.6s cubic-bezier(.2,.8,.2,1); overflow: hidden; }
+.goal-bar-fill::after { content: ""; position: absolute; top: 0; bottom: 0; left: -42%; width: 38%; border-radius: inherit; background: linear-gradient(90deg, transparent, rgba(255,255,255,.48), transparent); transform: skewX(-18deg); animation: goal-bar-brilho 2.8s ease-in-out infinite; pointer-events: none; }
+.goal-bar-fill.completo { background: linear-gradient(90deg, #2f5f42, var(--income)); }
+@keyframes goal-bar-brilho { 0%, 20% { transform: translateX(0) skewX(-18deg); opacity: 0; } 35% { opacity: 1; } 68%, 100% { transform: translateX(390%) skewX(-18deg); opacity: 0; } }
 @media (prefers-reduced-motion: reduce) {
   .goal-bar-fill { animation: none; }
 }
@@ -3935,4 +3935,27 @@ body.sem-entrada-listas .item-list-row { animation: none !important; }
 @media (prefers-reduced-motion: reduce) {
   .caixa-chat-message, .caixa-chat-bubble, .caixa-chat-goal-result, .caixa-chat-pendencias-lista li, #caixaChatBack { animation:none !important; }
   .caixa-chat-action, .caixa-chat-choice, .caixa-chat-goal-choice { transition:none !important; }
+}
+
+
+/* Picker de ícones: o menu é viewport-fixed. Evitamos transform no modal,
+   pois um ancestral transformado cria um novo containing block e pode jogar
+   o picker para fora da tela em celulares. */
+.modal { transform: none !important; }
+
+.chat-pendente-proximo {
+  display: inline-flex; align-items: center; width: fit-content;
+  padding: 2px 7px; border-radius: 999px;
+  background: rgba(185,134,47,.14); color: var(--gold-deep);
+  font-weight: 800;
+}
+
+.ledger-valor.guardado {
+  color: var(--gold-deep) !important;
+  font-weight: 750;
+}
+.ledger-icon.guardado { color: var(--gold-deep) !important; }
+
+@media (prefers-reduced-motion: reduce) {
+  .goal-bar-fill::after { animation: none; }
 }
