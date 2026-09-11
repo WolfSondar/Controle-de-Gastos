@@ -395,7 +395,7 @@ function gerarInsightComOpenAI(corpoGemini, periodo) {
     model: OPENAI_MODEL,
     input: [{ role: "user", content: [{ type: "input_text", text: prompt }] }],
     temperature: 0.95,
-    max_output_tokens: 4000,
+    max_output_tokens: 2400,
     text: {
       format: {
         type: "json_schema",
@@ -438,7 +438,7 @@ function gerarInsightComOpenAI(corpoGemini, periodo) {
 
   const textos = (extrairTextosOpenAI(data) || []).map(function(t) { return String(t || "").trim(); }).filter(Boolean);
   if (textos.length < QUANTIDADE_INSIGHTS_POR_PEDIDO) {
-    return { ok: false, error: "A OpenAI não devolveu os 5 insights completos neste momento.", status: 200 };
+    return { ok: false, error: "A OpenAI não devolveu os 10 insights completos neste momento.", status: 200 };
   }
   return { ok: true, textos: textos.slice(0, QUANTIDADE_INSIGHTS_POR_PEDIDO), periodo: periodo || null, tentativas: [{ chave: (opcoesModo && opcoesModo.indiceChave) || null, status: 200, motivo: "OK" }] };
 }
@@ -682,7 +682,7 @@ function gerarInsightComGemini(pessoa, periodo, resumo, opcoesModo) {
       "NÃO termine todos os insights com a mesma sugestão ou o mesmo tipo de conselho (por exemplo, não repita algo como 'que tal começar uma reserva' em mais de um item). Só sugira uma ação quando ela realmente fizer sentido pro dado específico daquele insight, e varie sempre a forma de dizer. Vários dos insights nem precisam ter sugestão nenhuma — às vezes só constatar o dado já basta.",
       "Tom leve, direto, específico e motivador — pode ter humor leve quando fizer sentido, sem ironia pesada nem tom de sermão.",
       "NUNCA presuma ou insinue julgamento sobre o MOTIVO de uma compra — não escreva coisas como 'espero que valha cada centavo', 'espero que essa aventura valha a pena', 'vale o investimento?', 'cuidado pra não desequilibrar o orçamento', 'não deixe isso pesar no bolso' ou qualquer variação que sugira que o gasto precisa se justificar, provar seu valor ou que a pessoa devia se policiar por ter gastado com algo que gosta. A pessoa não te deve explicação de por que comprou algo, e gastar com o que dá prazer (jogo, lazer, hobby, capricho) não é um problema a ser questionado, alertado ou monitorado com cautela — só o próprio dado (valor, categoria, comparação com outro período) fala por si, sem nenhum comentário de prudência grudado nele. Só é aceitável um tom de alerta real quando os PRÓPRIOS DADOS mostrarem um problema concreto e objetivo (ex: saldo disponível do mês ficou negativo, ou uma conta está 'atrasada') — nunca como reação a um valor alto sozinho ou a um gasto de lazer/hobby específico.",
-      "Sempre que citar um valor em dinheiro, formate como reais no padrão brasileiro (vírgula decimal, sempre com 2 casas — ex: R$ 5,00 ou R$ 1.234,56) e marque TODO valor com chaves duplas indicando de que tipo ele é, pra cada um aparecer com a mesma cor usada no gráfico histórico do app (Ganhos=verde, Gastos=vermelho, Guardado=amarelo, Rendimento=azul): {{ganho:R$ 5,00}} pra qualquer valor de ganho/recebimento; {{gasto:R$ 5,00}} pra qualquer valor de gasto/despesa (fixo, variável, de uma categoria, pendência a pagar); {{guardado:R$ 5,00}} pra valor ligado a caixinha — quanto já guardou, quanto falta pra bater a meta, o valor da própria meta; {{rendimento:R$ 5,00}} especificamente pro quanto uma caixinha/investimento rendeu. Só use {{+R$ 5,00}} (favorável) ou {{-R$ 5,00}} (desfavorável) pro raro caso de um valor que não seja claramente nenhum dos quatro tipos, como um saldo geral. Exemplo real de frase: \"Você guardou {{guardado:R$ 150,00}} esse mês, seu Rendimento foi de {{rendimento:R$ 12,30}}, mas o Gasto com transporte subiu {{gasto:R$ 80,00}} em relação ao mês passado.\" NUNCA escreva um valor em reais sem um desses marcadores ao redor, e NUNCA deixe de indicar o tipo quando o valor claramente for um dos quatro — isso é o que importa mais, mais do que decidir se é bom ou ruim. PROIBIDO abreviar um valor monetário de qualquer forma (nunca escreva algo como \"R$ 3k\", \"R$ 2.5k\" ou \"3 mil reais\") — o valor dentro do marcador é sempre o número completo e exato, no formato R$ 0,00. Essa regra vale SEMPRE, mesmo que o tom/persona configurado pra essa pessoa seja informal, gamer ou de internet — a persona muda só o vocabulário ao redor do número, nunca o próprio número ou o marcador dele.",
+      "Sempre que citar um valor em dinheiro, formate como reais no padrão brasileiro (vírgula decimal, sempre com 2 casas — ex: R$ 5,00 ou R$ 1.234,56) e marque TODO valor com chaves duplas indicando de que tipo ele é, pra cada um aparecer com a mesma cor usada no gráfico histórico do app (Ganhos=verde, Benefício=azul, Gastos=vermelho, Guardado=amarelo, Rendimento=roxo): {{ganho:R$ 5,00}} pra qualquer valor de ganho/recebimento normal; {{beneficio:R$ 5,00}} OBRIGATORIAMENTE pra qualquer valor de ganho/recebimento cujo campo beneficio=true no resumo, inclusive quando a frase disser que o valor veio de benefícios; {{gasto:R$ 5,00}} pra qualquer valor de gasto/despesa (fixo, variável, de uma categoria, pendência a pagar); {{guardado:R$ 5,00}} pra valor ligado a caixinha — quanto já guardou, quanto falta pra bater a meta, o valor da própria meta; {{rendimento:R$ 5,00}} especificamente pro quanto uma caixinha/investimento rendeu. Só use {{+R$ 5,00}} (favorável) ou {{-R$ 5,00}} (desfavorável) pro raro caso de um valor que não seja claramente nenhum dos cinco tipos, como um saldo geral. Exemplo real de frase: \"Você recebeu {{beneficio:R$ 508,30}} em benefícios, seu Rendimento foi de {{rendimento:R$ 12,30}}, mas o Gasto com transporte subiu {{gasto:R$ 80,00}} em relação ao mês passado.\" NUNCA escreva um valor em reais sem um desses marcadores ao redor, e NUNCA deixe de indicar o tipo quando o valor claramente for um dos cinco — isso é o que importa mais, mais do que decidir se é bom ou ruim. PROIBIDO abreviar um valor monetário de qualquer forma (nunca escreva algo como \"R$ 3k\", \"R$ 2.5k\" ou \"3 mil reais\") — o valor dentro do marcador é sempre o número completo e exato, no formato R$ 0,00. Essa regra vale SEMPRE, mesmo que o tom/persona configurado pra essa pessoa seja informal, gamer ou de internet — a persona muda só o vocabulário ao redor do número, nunca o próprio número ou o marcador dele.",
       "NUNCA use as expressões 'no azul' ou 'no vermelho' pra falar de saldo — os marcadores acima já indicam a cor certa, não precisa de metáfora de cor no texto.",
       "Se algum dado relevante estiver ausente, nulo ou zerado no resumo, apenas ignore-o — não invente número.",
       "Não use markdown, no máximo 1 emoji por insight. Cada item do array deve ser um objeto válido contendo somente titulo, texto e tipo; não coloque aspas extras, numeração, prefixos como 'Insight:' ou qualquer texto fora do array JSON.",
@@ -729,7 +729,7 @@ function gerarInsightComGemini(pessoa, periodo, resumo, opcoesModo) {
       ],
       generationConfig: {
         temperature: 0.95,
-        maxOutputTokens: 4000,
+        maxOutputTokens: 2400,
         responseMimeType: "application/json",
         responseSchema: {
           type: "ARRAY",
@@ -822,31 +822,26 @@ function gerarInsightComGemini(pessoa, periodo, resumo, opcoesModo) {
     let insightsValidos = Array.isArray(lista) ? lista.map(normalizarInsightGerado).filter(Boolean) : [];
 
     // Mesmo com responseSchema, nunca confiamos cegamente na quantidade devolvida.
-    // Se vier menos que 5, fazemos até duas tentativas extras reforçando a exigência.
-    // Isso é especialmente importante no modo Juntos, em que o prompt é mais
-    // comprido por trazer o recorte separado de Davi e Gabriel.
+    // Se vier menos que 5, fazemos uma segunda tentativa reforçando a exigência.
     if (insightsValidos.length < QUANTIDADE_INSIGHTS_POR_PEDIDO) {
-      for (let tentativaExtra = 0; tentativaExtra < 2 && insightsValidos.length < QUANTIDADE_INSIGHTS_POR_PEDIDO; tentativaExtra++) {
-        try {
-          const corpoRetry = JSON.parse(JSON.stringify(corpo));
-          corpoRetry.contents[0].parts[0].text += "\n\nATENÇÃO CRÍTICA: a resposta anterior ficou incompleta. Você DEVE devolver AGORA exatamente 5 objetos independentes no array, cada um com titulo, texto e tipo válidos. Não devolva 2, 3 ou 4. Reduza o texto de cada insight se necessário para caber, mas preserve os 5 ângulos diferentes.";
-          const resRetry = UrlFetchApp.fetch(url, Object.assign({}, opcoesFetch, { payload: JSON.stringify(corpoRetry) }));
-          const statusRetry = resRetry.getResponseCode();
-          let dataRetry = {};
-          try { dataRetry = JSON.parse(resRetry.getContentText() || "{}"); } catch (errParseRetry) { dataRetry = {}; }
-          if (statusRetry === 200) {
-            const textoRetry = dataRetry.candidates && dataRetry.candidates[0] && dataRetry.candidates[0].content && dataRetry.candidates[0].content.parts && dataRetry.candidates[0].content.parts[0] && dataRetry.candidates[0].content.parts[0].text;
-            if (textoRetry) {
-              try {
-                const parsedRetry = JSON.parse(textoRetry);
-                const listaRetry = Array.isArray(parsedRetry) ? parsedRetry : (parsedRetry && Array.isArray(parsedRetry.insights) ? parsedRetry.insights : null);
-                const candidatosRetry = Array.isArray(listaRetry) ? listaRetry.map(normalizarInsightGerado).filter(Boolean) : [];
-                if (candidatosRetry.length >= insightsValidos.length) insightsValidos = candidatosRetry;
-              } catch (errParseRetry2) {}
-            }
+      try {
+        const corpoRetry = JSON.parse(JSON.stringify(corpo));
+        corpoRetry.contents[0].parts[0].text += "\n\nATENÇÃO: sua resposta anterior não trouxe 5 objetos válidos. Ignore a resposta anterior e gere AGORA exatamente 5 objetos independentes, cada um com titulo, texto e tipo válidos.";
+        const resRetry = UrlFetchApp.fetch(url, Object.assign({}, opcoesFetch, { payload: JSON.stringify(corpoRetry) }));
+        const statusRetry = resRetry.getResponseCode();
+        let dataRetry = {};
+        try { dataRetry = JSON.parse(resRetry.getContentText() || "{}"); } catch (errParseRetry) { dataRetry = {}; }
+        if (statusRetry === 200) {
+          const textoRetry = dataRetry.candidates && dataRetry.candidates[0] && dataRetry.candidates[0].content && dataRetry.candidates[0].content.parts && dataRetry.candidates[0].content.parts[0] && dataRetry.candidates[0].content.parts[0].text;
+          if (textoRetry) {
+            try {
+              const parsedRetry = JSON.parse(textoRetry);
+              const listaRetry = Array.isArray(parsedRetry) ? parsedRetry : (parsedRetry && Array.isArray(parsedRetry.insights) ? parsedRetry.insights : null);
+              insightsValidos = Array.isArray(listaRetry) ? listaRetry.map(normalizarInsightGerado).filter(Boolean) : [];
+            } catch (errParseRetry2) { insightsValidos = []; }
           }
-        } catch (errRetry) {}
-      }
+        }
+      } catch (errRetry) {}
     }
 
     if (insightsValidos.length < QUANTIDADE_INSIGHTS_POR_PEDIDO) {
