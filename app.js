@@ -1904,6 +1904,19 @@ function ehDoProximoMes(item) {
   return ano === proxAno && mes === proxMes;
 }
 
+// Verdadeiro para qualquer lançamento datado depois do mês que está aberto
+// no app. Isso é diferente de ehDoProximoMes(): a IA e os cálculos de
+// pendências precisam saber que um item de daqui a dois meses (ou mais)
+// também NÃO é uma conta que vence neste mês.
+function ehFuturoDoMesAtual(item) {
+  if (!state.mesAtual || !state.anoAtual) return false;
+  const m = /^(\d{4})-(\d{2})/.exec(String(item.data || ""));
+  if (!m) return false;
+  const ano = Number(m[1]);
+  const mes = Number(m[2]);
+  return ano > state.anoAtual || (ano === state.anoAtual && mes > state.mesAtual);
+}
+
 // Verdadeiro se a DATA do item cair antes do mês atual do app (ficou pra
 // trás — ex: um gasto variável do mês passado que não foi pago e por isso
 // repetiu/rolou pro mês atual).
@@ -2682,7 +2695,7 @@ function renderCaixinhas() {
 
 const ICONE_GANHO = `<svg viewBox="0 0 24 24" fill="none"><path d="M12 19V5M5 12l7-7 7 7" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>`;
 const ICONE_GASTO = `<svg viewBox="0 0 24 24" fill="none"><path d="M12 5v14M5 12l7 7 7-7" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>`;
-const ICONE_GUARDADO = `<svg viewBox="0 0 24 24" fill="none" aria-hidden="true"><path d="M4 6.5A2.5 2.5 0 0 1 6.5 4h11A2.5 2.5 0 0 1 20 6.5v2A2.5 2.5 0 0 1 17.5 11h-11A2.5 2.5 0 0 1 4 8.5v-2Z" stroke="currentColor" stroke-width="1.7"/><path d="M4 10.5A2.5 2.5 0 0 1 6.5 8h11A2.5 2.5 0 0 1 20 10.5v2A2.5 2.5 0 0 1 17.5 15h-11A2.5 2.5 0 0 1 4 12.5v-2ZM4 14.5A2.5 2.5 0 0 1 6.5 12h11a2.5 2.5 0 0 1 2.5 2.5v2A2.5 2.5 0 0 1 17.5 19h-11A2.5 2.5 0 0 1 4 16.5v-2Z" stroke="currentColor" stroke-width="1.7"/><path d="M16 7.5h.01M16 11.5h.01M16 15.5h.01" stroke="currentColor" stroke-width="2.4" stroke-linecap="round"/></svg>`;
+const ICONE_GUARDADO = `<svg viewBox="0 0 24 24" fill="none" aria-hidden="true"><rect x="4" y="4" width="16" height="16" rx="2.5" stroke="currentColor" stroke-width="1.7"/><path d="M12 7v7" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/><path d="m8.8 11.7 3.2 3.2 3.2-3.2" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/></svg>`;
 
 function itensRecentesPorCategoria(lista, tipo, tag) {
   return (lista || []).map((i) => ({ ...i, tipo, tag }));
@@ -2764,7 +2777,7 @@ function renderRecentes() {
         <span class="ledger-nome">${escapeHtml(item.nome)} ${tagPessoa(item)}</span>
         <span class="ledger-tag">${escapeHtml(item.tag)}</span>
       </div>
-      <span class="ledger-valor ${item.tipo}${benefit ? " income-beneficio" : ""}${guardado ? " guardado" : ""}">${item.tipo === "income" ? "+" : (guardado ? "" : "−")} ${fmt(item.valor)}</span>
+      <span class="ledger-valor ${item.tipo}${benefit ? " income-beneficio" : ""}${guardado ? " guardado" : ""}">${guardado ? `<span class="ledger-valor-guardado-icone" aria-hidden="true">${ICONE_GUARDADO}</span>` : (item.tipo === "income" ? "+" : "−")} ${fmt(item.valor)}</span>
     `;
     ledger.appendChild(row);
   });
@@ -3324,6 +3337,7 @@ function caixinhasDetalhadasParaInsight() {
 function statusDoLancamento(item) {
   if (item.lembrete) return "pago_adiantado";
   if (ehDoProximoMes(item)) return "mes_que_vem";
+  if (ehFuturoDoMesAtual(item)) return "futuro";
   if (estaPendente(item)) return ehDoMesAnterior(item) ? "atrasado" : "pendente";
   return "pago";
 }
@@ -3359,25 +3373,40 @@ function detalheItemParaInsight(item, tipoLancamento) {
 // caixinha (guardar/retirar), porque isso já aparece detalhado em
 // caixinhasDetalhadasParaInsight.
 function lancamentosComNomeDoMes() {
+  const ganhoDetalhado = (g) => {
+    const det = {
+      nome: g.nome,
+      valor: Number(g.valor) || 0,
+      beneficio: ganhoEhBeneficio(g),
+    };
+    if (g.pessoa) det.pessoa = PESSOA_LABEL[g.pessoa] || g.pessoa;
+    return det;
+  };
+
+  // O bloco principal é realmente do mês em andamento. Lançamentos futuros
+  // ficam separados para a IA saber que existem, sem tratá-los como contas
+  // que vencem agora. Itens atrasados continuam no bloco atual, pois ainda
+  // são obrigações em aberto.
   const ganhos = (state.ganhos || [])
-    .filter((g) => g.recebido === true)
-    .map((g) => {
-      const det = {
-        nome: g.nome,
-        valor: Number(g.valor) || 0,
-        beneficio: ganhoEhBeneficio(g),
-      };
-      if (g.pessoa) det.pessoa = PESSOA_LABEL[g.pessoa] || g.pessoa;
-      return det;
-    });
-  const gastosFixos = (state.gastosFixos || []).map((g) => detalheItemParaInsight(g, "fixo"));
-  const gastosVariaveis = (state.gastosVariaveis || [])
+    .filter((g) => g.recebido === true && !ehFuturoDoMesAtual(g))
+    .map(ganhoDetalhado);
+  const ganhosFuturos = (state.ganhos || [])
+    .filter((g) => ehFuturoDoMesAtual(g))
+    .map(ganhoDetalhado);
+
+  const todosFixos = (state.gastosFixos || []).map((g) => detalheItemParaInsight(g, "fixo"));
+  const todosVariaveis = (state.gastosVariaveis || [])
     .filter((g) => !ehLancamentoDeCaixinha(g.nome))
     .map((g) => detalheItemParaInsight(g, "variavel"));
-  const gastos = gastosFixos.concat(gastosVariaveis);
+  const todosGastos = todosFixos.concat(todosVariaveis);
+  const gastos = todosGastos.filter((g) => g.status !== "mes_que_vem" && g.status !== "futuro");
+  const gastosFuturos = todosGastos.filter((g) => g.status === "mes_que_vem" || g.status === "futuro");
+
   return {
-    ganhosDoMes: ganhos.length ? ganhos : "Nenhum ganho recebido ainda esse mês",
-    gastosDoMes: gastos.length ? gastos : "Nenhum gasto lançado ainda esse mês",
+    ganhosDoMes: ganhos.length ? ganhos : "Nenhum ganho recebido neste mês ainda",
+    gastosDoMes: gastos.length ? gastos : "Nenhum gasto deste mês lançado ainda",
+    ganhosFuturos: ganhosFuturos.length ? ganhosFuturos : "Nenhum ganho futuro lançado",
+    gastosFuturos: gastosFuturos.length ? gastosFuturos : "Nenhum gasto futuro lançado",
   };
 }
 
@@ -3458,6 +3487,24 @@ function montarResumoParaInsight() {
   const gastosFixosAPagar = somaPendenteDoMesAtual(state.gastosFixos);
   const gastosVariaveisAPagar = somaPendenteDoMesAtual(state.gastosVariaveis);
 
+  // Fluxo de caixa do SALDO NORMAL, separado do benefício: é esse número que
+  // a IA deve usar quando a pergunta for "quanto posso gastar de verdade?".
+  // saldoAtualEmConta = o que já existe hoje; saldoProjetadoComEntradas =
+  // hoje + entradas futuras; limiteDeGastoProjetado = depois de reservar
+  // todas as contas abertas, inclusive as já cadastradas para meses futuros.
+  const ganhosOrigemInsight = separarGanhosPorOrigem(state.ganhos);
+  const gastosSaldoPagosInsight = (state.gastosVariaveis || []).reduce((acc, item) =>
+    acc + (variavelContaNoSaldo(item) && !variavelEhBeneficio(item) ? Number(item.valor) || 0 : 0), 0);
+  const saldoAtualEmConta = ganhosOrigemInsight.ganhos - gastosFixosPagos - gastosSaldoPagosInsight;
+  const entradasFuturasDeSaldo = ganhosAReceber;
+  const contasFuturasAbertas = (state.gastosFixos || []).reduce((acc, item) =>
+    acc + (item.pago !== true && ehFuturoDoMesAtual(item) ? Number(item.valor) || 0 : 0), 0)
+    + (state.gastosVariaveis || []).reduce((acc, item) =>
+      acc + (item.pago !== true && !item.lembrete && !variavelEhBeneficio(item) && ehFuturoDoMesAtual(item) ? Number(item.valor) || 0 : 0), 0);
+  const contasAbertasTotal = gastosFixosAPagar + gastosVariaveisAPagar + contasFuturasAbertas;
+  const saldoProjetadoComEntradas = saldoAtualEmConta + entradasFuturasDeSaldo;
+  const limiteDeGastoProjetado = saldoProjetadoComEntradas - contasAbertasTotal;
+
   // Totais do ano corrente "até agora" = todo mês já fechado nesse ano
   // (histórico) + o mês em andamento. E o ano anterior completo, pra dar
   // pano de fundo de "esse ano tá indo melhor/pior que o ano passado".
@@ -3485,6 +3532,10 @@ function montarResumoParaInsight() {
       // seu. Antes subtraía guardadoNoMes aqui, o que fazia a IA falar um
       // saldo diferente do que aparece na tela.
       saldoDisponivelAgora: ganhosRecebidos - gastosFixosPagos - gastosVariaveisPagos,
+      saldoAtualEmConta,
+      saldoProjetadoComEntradas,
+      contasAbertasTotal,
+      limiteDeGastoProjetado,
       guardadoNoMes,
       categorias: categoriasMesAtual(),
       // "Ainda falta entrar/sair" — não é gasto/ganho perdido, é só o que já
@@ -5551,12 +5602,12 @@ if (document.readyState === "loading") {
   if (!fab || !chat || !close || !body || !quick || !thinking) return;
 
   const CHAT_PROMPTS = {
-    gastar: "Você é o assistente financeiro do Caixa. Descubra de qual origem o usuário quer gastar (benefício ou saldo em conta) e informe quanto ainda pode gastar no mês atual. Use somente os números calculados pelo aplicativo. Não invente valores.",
+    gastar: "Você é o assistente financeiro do Caixa. Descubra de qual origem o usuário quer gastar (benefício ou saldo em conta) e, para o saldo normal, informe quanto realmente pode gastar depois de considerar as entradas que ainda vão cair e todas as contas abertas que precisam ser reservadas. O saldo atual exibido no cartão é apenas o saldo de hoje; não o confunda com o limite de gasto projetado. Use somente os números calculados pelo aplicativo.",
     gastos: "Você é o assistente financeiro do Caixa. Mostre quanto já foi gasto no mês, separando gastos fixos, variáveis e o total.",
     categorias: "Você é o assistente financeiro do Caixa. Identifique as categorias que mais consumiram dinheiro no mês atual e apresente as três maiores, sem inventar dados.",
     guardado: "Você é o assistente financeiro do Caixa. Informe quanto existe atualmente nas caixinhas e destaque metas, se houver.",
-    pendencias: "Você é o assistente financeiro do Caixa. Mostre o que ainda falta pagar e o que ainda falta receber neste mês.",
-    economia: "Você é o assistente financeiro do Caixa. Dê uma orientação curta e prática baseada nos dados atuais, sem julgamento e sem inventar informações."
+    pendencias: "Você é o assistente financeiro do Caixa. Mostre o que ainda falta pagar e o que ainda falta receber neste mês, distinguindo claramente contas deste mês de lançamentos com vencimento no mês que vem ou depois. Nunca trate uma conta futura como se vencesse agora.",
+    economia: "Você é o assistente financeiro do Caixa. Dê uma orientação curta e prática baseada nos dados atuais, distinguindo saldo de hoje, entradas futuras, contas deste mês e contas futuras. Se calcular quanto sobra, use o fluxo projetado correto e não invente informações."
   };
 
   const IC = {
@@ -5607,9 +5658,18 @@ if (document.readyState === "loading") {
       a + (i.pago !== true ? Number(i.valor) || 0 : 0), 0);
     const aPagarVariaveis = listaFinita(state.gastosVariaveis).reduce((a, i) =>
       a + (i.pago !== true && !i.lembrete && !variavelEhBeneficio(i) ? Number(i.valor) || 0 : 0), 0);
+    // Para "quanto posso gastar", reservamos todas as contas ainda abertas,
+    // inclusive as já lançadas para o próximo mês. Isso é diferente de dizer
+    // que elas vencem agora: o detalhamento abaixo separa mês atual de futuro.
+    const aPagarFixosEsseMes = listaFinita(state.gastosFixos).reduce((a, i) =>
+      a + (i.pago !== true && !ehFuturoDoMesAtual(i) ? Number(i.valor) || 0 : 0), 0);
+    const aPagarVariaveisEsseMes = listaFinita(state.gastosVariaveis).reduce((a, i) =>
+      a + (i.pago !== true && !i.lembrete && !variavelEhBeneficio(i) && !ehFuturoDoMesAtual(i) ? Number(i.valor) || 0 : 0), 0);
+    const aPagarFixosFuturos = Math.max(0, aPagarFixos - aPagarFixosEsseMes);
+    const aPagarVariaveisFuturos = Math.max(0, aPagarVariaveis - aPagarVariaveisEsseMes);
     const conta = saldoAtualConta + aReceber - aPagarFixos - aPagarVariaveis;
     const saldoGeral = ganhosRecebidos - fixosPagos - variaveisPagos;
-    return { ganhosRecebidos, ganhosOrigem, fixosPagos, fixosTotais, variaveisPagos, beneficio, saldoAtualConta, conta, saldoGeral, aReceber, aPagarFixos, aPagarVariaveis };
+    return { ganhosRecebidos, ganhosOrigem, fixosPagos, fixosTotais, variaveisPagos, beneficio, saldoAtualConta, conta, saldoGeral, aReceber, aPagarFixos, aPagarVariaveis, aPagarFixosEsseMes, aPagarVariaveisEsseMes, aPagarFixosFuturos, aPagarVariaveisFuturos };
   }
 
   function categoriasChat() {
@@ -5694,25 +5754,25 @@ if (document.readyState === "loading") {
 
   function calcularRespostaGastar(origem) {
     const t = totaisChat();
-    const valor = origem === "beneficio" ? t.beneficio : t.saldoAtualConta;
+    const valor = origem === "beneficio" ? t.beneficio : t.conta;
     const nome = origem === "beneficio" ? "benefício" : "saldo em conta";
     const classe = origem === "beneficio" ? "chat-valor-gold" : "chat-valor-pos";
     let texto;
-    if (valor > 0) {
-      texto = origem === "beneficio"
-        ? `Você ainda pode gastar <span class="${classe} chat-valor">${chatFmt(valor)}</span> usando o <strong>${nome}</strong> neste mês.`
-        : `Hoje você tem <span class="${classe} chat-valor">${chatFmt(valor)}</span> no <strong>${nome}</strong>.`;
+    if (origem === "beneficio") {
+      if (valor > 0) texto = `Você ainda pode gastar <span class="${classe} chat-valor">${chatFmt(valor)}</span> usando o <strong>${nome}</strong> neste mês.`;
+      else texto = `Neste momento, o <strong>${nome}</strong> está em <span class="chat-valor chat-valor-neg">${chatFmt(0)}</span>.`;
+    } else if (valor > 0) {
+      texto = `Depois de considerar o que ainda entra e todas as contas que faltam pagar, você pode gastar até <span class="${classe} chat-valor">${chatFmt(valor)}</span>.`;
     } else if (valor === 0) {
-      texto = `Neste momento, o <strong>${nome}</strong> está em <span class="chat-valor chat-valor-neg">${chatFmt(0)}</span>.`;
+      texto = `Depois de considerar o que ainda entra e todas as contas que faltam pagar, sua margem para novos gastos é <span class="chat-valor chat-valor-neg">${chatFmt(0)}</span>.`;
     } else {
-      texto = `Atenção: o <strong>${nome}</strong> está negativo em <span class="chat-valor chat-valor-neg">${chatFmt(Math.abs(valor))}</span>.`;
+      texto = `Atenção: depois de considerar o que ainda entra e todas as contas que faltam pagar, faltam <span class="chat-valor chat-valor-neg">${chatFmt(Math.abs(valor))}</span> para fechar todas as obrigações.`;
     }
     if (origem === "beneficio") {
       const detalhes = `Disponível no benefício: ${chatFmt(t.beneficio)} · já usado no benefício: ${chatFmt(t.ganhosOrigem.beneficios - t.beneficio)}.`;
       return `${texto}<span class="caixa-chat-note">${detalhes}</span>`;
     }
-    const detalhes = [`a entrar: ${chatFmt(t.aReceber)}`, `fixos a pagar: ${chatFmt(t.aPagarFixos)}`];
-    if (t.aPagarVariaveis > 0) detalhes.push(`variáveis do saldo a pagar: ${chatFmt(t.aPagarVariaveis)}`);
+    const detalhes = [`saldo atual: ${chatFmt(t.saldoAtualConta)}`, `a entrar: ${chatFmt(t.aReceber)}`, `contas reservadas: ${chatFmt(t.aPagarFixos + t.aPagarVariaveis)}`];
     return `${texto}<span class="caixa-chat-note">${detalhes.join(" · ")}.</span>`;
   }
 
@@ -5825,13 +5885,13 @@ if (document.readyState === "loading") {
         const variaveisPendentes = listaFinita(state.gastosVariaveis).filter(i => i.pago !== true && !i.lembrete && (Number(i.valor) || 0) > 0);
         const totalPend = t.aPagarFixos + t.aPagarVariaveis;
         const linhaPendente = (i, tipo) => {
-          const parcela = tipo === "fixo" && /^\d+\s*\/\s*\d+$/.test(String(i.parcela || "").trim())
-            ? `<span class="chat-pendente-parcela">Parcela ${esc(String(i.parcela).trim())}</span>` : "";
+          const parcelaRaw = tipo === "fixo" && /^\d+\s*\/\s*\d+$/.test(String(i.parcela || "").trim())
+            ? String(i.parcela).trim().replace(/\s+/g, "") : "";
+          const parcela = parcelaRaw ? `<span class="chat-pendente-parcela">(${esc(parcelaRaw)})</span>` : "";
           const proximoMes = ehDoProximoMes(i)
             ? `<span class="chat-pendente-proximo">Mês que vem</span>` : "";
           const data = formatarDataCurta(i.data);
-          const meta = [parcela, proximoMes, data ? `<span>${data}</span>` : ""].filter(Boolean).join(" · ");
-          return `<li><span class="chat-pendente-main"><strong>${parcela}${esc(i.nome || (tipo === "fixo" ? "Gasto fixo" : "Gasto variável"))}</strong><small>${[proximoMes, data ? `<span>${data}</span>` : ""].filter(Boolean).join(" · ")}</small></span><strong class="chat-valor chat-valor-neg">${chatFmt(i.valor)}</strong></li>`;
+          return `<li><span class="chat-pendente-main"><strong>${esc(i.nome || (tipo === "fixo" ? "Gasto fixo" : "Gasto variável"))} ${parcela}</strong><small>${[proximoMes, data ? `<span>${data}</span>` : ""].filter(Boolean).join(" · ")}</small></span><strong class="chat-valor chat-valor-neg">${chatFmt(i.valor)}</strong></li>`;
         };
         const linhasFixos = fixosPendentes.map(i => linhaPendente(i, "fixo")).join("");
         const linhasVariaveis = variaveisPendentes.map(i => linhaPendente(i, "variavel")).join("");
@@ -5840,7 +5900,12 @@ if (document.readyState === "loading") {
           variaveisPendentes.length ? `<div class="caixa-chat-lista-titulo">Gastos variáveis</div><ul class="caixa-chat-pendencias-lista">${linhasVariaveis}</ul>` : ""
         ].join("");
         const vazio = !detalhes ? `<div class="caixa-chat-empty">Nenhum gasto pendente encontrado.</div>` : detalhes;
-        appendMensagem(`<strong>Ainda falta pagar ${chatFmt(totalPend)}.</strong>${vazio}<span class="caixa-chat-note">Também há ${chatFmt(t.aReceber)} para receber.</span>`);
+        const totalDesteMes = t.aPagarFixosEsseMes + t.aPagarVariaveisEsseMes;
+        const totalFuturo = t.aPagarFixosFuturos + t.aPagarVariaveisFuturos;
+        const notaPendencias = totalFuturo > 0
+          ? `Deste total, ${chatFmt(totalDesteMes)} vencem neste mês e ${chatFmt(totalFuturo)} são contas futuras já lançadas.`
+          : `Todas as contas pendentes de ${chatFmt(totalDesteMes)} vencem neste mês.`;
+        appendMensagem(`<strong>Ainda falta pagar ${chatFmt(totalPend)} no total.</strong>${vazio}<span class="caixa-chat-note">${notaPendencias} Também há ${chatFmt(t.aReceber)} para receber.</span>`);
       }
 
 
@@ -5850,38 +5915,44 @@ if (document.readyState === "loading") {
         const totalGastos = (Number(t.fixosPagos) || 0) + (Number(t.variaveisPagos) || 0);
         const totalEntradas = Number(t.ganhosRecebidos) || 0;
         const dicas = [];
+        const totalContasAbertas = t.aPagarFixos + t.aPagarVariaveis;
+        const saldoProjetadoComEntradas = t.saldoAtualConta + t.aReceber;
+        const contasFuturas = t.aPagarFixosFuturos + t.aPagarVariaveisFuturos;
+        const contasDesteMes = t.aPagarFixosEsseMes + t.aPagarVariaveisEsseMes;
 
-        if (t.aPagarFixos > 0 && t.saldoAtualConta < t.aPagarFixos) {
-          const faltaCobrir = t.aPagarFixos - t.saldoAtualConta;
-          dicas.push(`Seu saldo atual é de <span class="chat-valor chat-valor-pos">${chatFmt(t.saldoAtualConta)}</span>, mas ainda existem <span class="chat-valor chat-valor-neg">${chatFmt(t.aPagarFixos)}</span> em contas fixas. Antes de assumir novos gastos, eu priorizaria cobrir essa diferença de <strong>${chatFmt(faltaCobrir)}</strong>.`);
+        if (t.aReceber > 0 && totalContasAbertas > 0) {
+          const folgaProjetada = saldoProjetadoComEntradas - totalContasAbertas;
+          const futuroTexto = contasFuturas > 0
+            ? ` — desse total, <strong>${chatFmt(contasFuturas)}</strong> são lançamentos com vencimento depois deste mês.`
+            : ".";
+          dicas.push(`Com a entrada de <span class="chat-valor chat-valor-pos">${chatFmt(t.aReceber)}</span>, seu saldo projetado sobe para <span class="chat-valor chat-valor-pos">${chatFmt(saldoProjetadoComEntradas)}</span>, cobrindo as contas em aberto de <span class="chat-valor chat-valor-neg">${chatFmt(totalContasAbertas)}</span>${futuroTexto} <strong>Recomendação:</strong> quando o valor entrar, quite o que vence neste mês (${chatFmt(contasDesteMes)}) e deixe o restante das contas já reservado; depois de considerar tudo, a folga projetada fica em <span class="chat-valor chat-valor-pos">${chatFmt(folgaProjetada)}</span>.`);
         }
         if (t.aReceber > 0) {
-          dicas.push(`Você ainda tem <span class="chat-valor chat-valor-pos">${chatFmt(t.aReceber)}</span> para receber. Uma boa regra é não tratar esse dinheiro como disponível antes de ele realmente entrar na conta.`);
+          dicas.push(`Você ainda tem <span class="chat-valor chat-valor-pos">${chatFmt(t.aReceber)}</span> para receber. O melhor é tratar esse valor como entrada projetada até ele cair na conta, e não como saldo livre antes da hora.`);
         }
-        if (t.aPagarFixos > 0 && t.saldoAtualConta >= t.aPagarFixos) {
-          const sobraAposFixos = t.saldoAtualConta - t.aPagarFixos;
-          dicas.push(`Depois de reservar os <span class="chat-valor chat-valor-neg">${chatFmt(t.aPagarFixos)}</span> de contas fixas, seu saldo atual deixa <span class="chat-valor chat-valor-pos">${chatFmt(sobraAposFixos)}</span> de margem. Eu usaria essa margem como limite pessoal, não como dinheiro livre.`);
+        if (totalContasAbertas > 0 && t.aPagarFixosEsseMes > 0) {
+          dicas.push(`Neste mês, há <span class="chat-valor chat-valor-neg">${chatFmt(t.aPagarFixosEsseMes)}</span> em contas fixas que vencem agora. Além delas, existem <span class="chat-valor chat-valor-neg">${chatFmt(contasFuturas)}</span> em lançamentos futuros já cadastrados — não misture as duas datas ao analisar o mês.`);
+        }
+        if (t.aPagarVariaveisEsseMes > 0) {
+          dicas.push(`Ainda existem <span class="chat-valor chat-valor-neg">${chatFmt(t.aPagarVariaveisEsseMes)}</span> em gastos variáveis pendentes deste mês. Vale manter esse valor reservado antes de transformar o restante em dinheiro disponível.`);
         }
         if (t.beneficio > 0) {
-          dicas.push(`Você ainda tem <span class="chat-valor chat-valor-gold">${chatFmt(t.beneficio)}</span> disponíveis no benefício. Se esse dinheiro tem uso específico, separar mentalmente essa verba do saldo normal ajuda a não misturar os dois.`);
-        }
-        if (t.aPagarVariaveis > 0) {
-          dicas.push(`Há <span class="chat-valor chat-valor-neg">${chatFmt(t.aPagarVariaveis)}</span> de gastos variáveis ainda pendentes. Antes de uma compra nova, vale deixar esse valor reservado.`);
+          dicas.push(`Você ainda tem <span class="chat-valor chat-valor-gold">${chatFmt(t.beneficio)}</span> disponíveis no benefício. Separar essa verba do saldo normal deixa mais claro quanto realmente está livre para cada tipo de gasto.`);
         }
         if (maior && maior[1] > 0) {
           const percentual = totalGastos > 0 ? Math.round((maior[1] / totalGastos) * 100) : 0;
-          dicas.push(`<strong>${esc(maior[0])}</strong> representa cerca de <strong>${percentual}%</strong> dos seus gastos pagos no período, com <span class="chat-valor chat-valor-neg">${chatFmt(maior[1])}</span>. Não significa que você precise cortar essa categoria — é só o ponto que mais influencia seu orçamento hoje.`);
+          dicas.push(`<strong>${esc(maior[0])}</strong> representa cerca de <strong>${percentual}%</strong> dos seus gastos pagos no período, com <span class="chat-valor chat-valor-neg">${chatFmt(maior[1])}</span>. Esse é o maior peso do seu orçamento hoje, sem precisar presumir que seja um problema.`);
         }
         if (totalEntradas > 0 && totalGastos > totalEntradas) {
-          dicas.push(`Até agora, seus gastos pagos somam <span class="chat-valor chat-valor-neg">${chatFmt(totalGastos)}</span>, acima das entradas recebidas de <span class="chat-valor chat-valor-pos">${chatFmt(totalEntradas)}</span>. Eu evitaria aumentar o ritmo de gastos até essa diferença diminuir.`);
+          dicas.push(`Até agora, seus gastos pagos somam <span class="chat-valor chat-valor-neg">${chatFmt(totalGastos)}</span>, acima das entradas recebidas de <span class="chat-valor chat-valor-pos">${chatFmt(totalEntradas)}</span>.`);
         }
         const caixinhasComMeta = metasChat();
         if (caixinhasComMeta.length) {
           const meta = caixinhasComMeta[0];
-          dicas.push(`Sua caixinha <strong>${esc(meta.nome)}</strong> está em <strong>${Math.round(Math.min(meta.atual / meta.objetivo * 100, 100))}%</strong> da meta. Se quiser acelerar sem apertar o mês, é melhor definir um valor fixo mensal do que guardar valores aleatórios.`);
+          dicas.push(`Sua caixinha <strong>${esc(meta.nome)}</strong> está em <strong>${Math.round(Math.min(meta.atual / meta.objetivo * 100, 100))}%</strong> da meta. Se fizer sentido para o seu fluxo, um valor mensal fixo ajuda a acompanhar o prazo sem apertar o restante do orçamento.`);
         }
         if (!dicas.length) {
-          dicas.push(`Seu melhor próximo passo é manter uma pequena margem entre o que entra e o que sai. Mesmo sem uma despesa problemática agora, evitar comprometer todo o saldo reduz a chance de aperto no fim do mês.`);
+          dicas.push(`Seu melhor próximo passo é manter uma margem entre o que entra e o que sai. O Caixa fica mais previsível quando o dinheiro já comprometido não é confundido com saldo livre.`);
         }
         window._caixaDicaIndice = (Number(window._caixaDicaIndice) || 0) % dicas.length;
         const dica = dicas[window._caixaDicaIndice++];
@@ -5929,17 +6000,23 @@ if (document.readyState === "loading") {
 
   // Recalcula tudo de novo quando a pessoa trocar Davi/Gabriel/Juntos ou os
   // dados forem sincronizados. A interface fica sempre ligada ao state atual.
+  function resetarChatParaSelecao() {
+    clearTimeout(pensamentoTimer);
+    pensamentoTimer = null;
+    thinking.classList.add("is-hidden");
+    body.querySelectorAll(".caixa-chat-message, .caixa-chat-choices, #caixaChatBack").forEach(x => x.remove());
+    quick.classList.remove("is-hidden");
+    const quickTitle = quick.previousElementSibling;
+    if (quickTitle && quickTitle.classList.contains("caixa-chat-quick-title")) quickTitle.classList.remove("is-hidden");
+    const welcome = body.querySelector(".caixa-chat-welcome");
+    if (welcome) welcome.classList.remove("is-hidden");
+    body.scrollTop = 0;
+  }
+
   document.addEventListener("click", e => {
     if (e.target.closest(".person-btn")) {
+      resetarChatParaSelecao();
       fecharChat();
-      setTimeout(() => {
-        if (chat.classList.contains("is-open")) {
-          const respostas = body.querySelectorAll(".caixa-chat-message");
-          respostas.forEach(x => x.remove());
-          const escolha = body.querySelector(".caixa-chat-choices");
-          if (escolha) escolha.remove();
-        }
-      }, 120);
     }
   });
 
