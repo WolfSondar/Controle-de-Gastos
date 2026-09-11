@@ -5548,8 +5548,6 @@ if (document.readyState === "loading") {
     categorias: "Você é o assistente financeiro do Caixa. Identifique as categorias que mais consumiram dinheiro no mês atual e apresente as três maiores, sem inventar dados.",
     guardado: "Você é o assistente financeiro do Caixa. Informe quanto existe atualmente nas caixinhas e destaque metas, se houver.",
     pendencias: "Você é o assistente financeiro do Caixa. Mostre o que ainda falta pagar e o que ainda falta receber neste mês.",
-    mes: "Você é o assistente financeiro do Caixa. Faça um retrato curto do mês atual: ganhos recebidos, gastos pagos, saldo disponível e pendências.",
-    metas: "Você é o assistente financeiro do Caixa. Mostre o andamento das caixinhas com meta, quanto falta e o prazo quando existir.",
     economia: "Você é o assistente financeiro do Caixa. Dê uma orientação curta e prática baseada nos dados atuais, sem julgamento e sem inventar informações."
   };
 
@@ -5568,8 +5566,6 @@ if (document.readyState === "loading") {
     { id: "categorias", icon: "chart", titulo: "Onde estou gastando mais?", subtitulo: "As categorias que mais pesaram" },
     { id: "guardado", icon: "pig", titulo: "Quanto tenho guardado?", subtitulo: "Total atual das suas caixinhas" },
     { id: "pendencias", icon: "clock", titulo: "O que ainda falta?", subtitulo: "Contas a pagar e valores a receber" },
-    { id: "mes", icon: "sparkle", titulo: "Como está meu mês?", subtitulo: "Um raio-X rápido das finanças" },
-    { id: "metas", icon: "pig", titulo: "Como estão minhas metas?", subtitulo: "Progresso das caixinhas com objetivo" },
     { id: "economia", icon: "sparkle", titulo: "Me dê uma dica", subtitulo: "Uma orientação baseada nos seus números" }
   ];
 
@@ -5586,13 +5582,14 @@ if (document.readyState === "loading") {
     const ganhosRecebidos = somaComStatus(state.ganhos || [], "recebido");
     const ganhosOrigem = separarGanhosPorOrigem(state.ganhos || []);
     const fixosPagos = somaFixosPagos(state.gastosFixos || []);
+    const fixosTotais = listaFinita(state.gastosFixos).reduce((a, i) => a + (Number(i.valor) || 0), 0);
     const variaveisPagos = somaVariaveisPagas(state.gastosVariaveis || []);
     const beneficioGasto = listaFinita(state.gastosVariaveis).reduce((a, i) =>
       a + (variavelContaNoSaldo(i) && variavelEhBeneficio(i) ? Number(i.valor) || 0 : 0), 0);
     const saldoGasto = listaFinita(state.gastosVariaveis).reduce((a, i) =>
       a + (variavelContaNoSaldo(i) && !variavelEhBeneficio(i) ? Number(i.valor) || 0 : 0), 0);
     const beneficio = ganhosOrigem.beneficios - beneficioGasto;
-    const conta = ganhosOrigem.ganhos - fixosPagos - saldoGasto;
+    const conta = ganhosOrigem.ganhos - fixosTotais - saldoGasto;
     const saldoGeral = ganhosRecebidos - fixosPagos - variaveisPagos;
     const aReceber = listaFinita(state.ganhos).reduce((a, i) =>
       a + (i.recebido !== true ? Number(i.valor) || 0 : 0), 0);
@@ -5600,7 +5597,7 @@ if (document.readyState === "loading") {
       a + (i.pago !== true ? Number(i.valor) || 0 : 0), 0);
     const aPagarVariaveis = listaFinita(state.gastosVariaveis).reduce((a, i) =>
       a + (i.pago !== true && !i.lembrete ? Number(i.valor) || 0 : 0), 0);
-    return { ganhosRecebidos, ganhosOrigem, fixosPagos, variaveisPagos, beneficio, conta, saldoGeral, aReceber, aPagarFixos, aPagarVariaveis };
+    return { ganhosRecebidos, ganhosOrigem, fixosPagos, fixosTotais, variaveisPagos, beneficio, conta, saldoGeral, aReceber, aPagarFixos, aPagarVariaveis };
   }
 
   function categoriasChat() {
@@ -5671,8 +5668,7 @@ if (document.readyState === "loading") {
       <span class="caixa-chat-action-text"><strong>Escolher outra coisa</strong><small>Voltar para as ações rápidas</small></span>
       <span class="caixa-chat-action-arrow">↩</span>`;
     btn.addEventListener("click", () => {
-      const respostas = body.querySelectorAll(".caixa-chat-message");
-      respostas.forEach(x => x.remove());
+      body.querySelectorAll(".caixa-chat-message, .caixa-chat-choices, #caixaChatBack").forEach(x => x.remove());
       body.scrollTop = 0;
       quick.scrollIntoView({ behavior: "smooth", block: "start" });
     });
@@ -5694,7 +5690,7 @@ if (document.readyState === "loading") {
     }
     const detalhes = origem === "beneficio"
       ? `Benefícios recebidos: ${chatFmt(t.ganhosOrigem.beneficios)} · gastos no benefício: ${chatFmt(t.ganhosOrigem.beneficios - t.beneficio)}.`
-      : `Ganhos sem benefício: ${chatFmt(t.ganhosOrigem.ganhos)} · fixos + variáveis do saldo: ${chatFmt(t.ganhosOrigem.ganhos - t.conta)}.`;
+      : `Ganhos sem benefício: ${chatFmt(t.ganhosOrigem.ganhos)} · gastos fixos reservados: ${chatFmt(t.fixosTotais)} · variáveis do saldo: ${chatFmt(t.ganhosOrigem.ganhos - t.fixosTotais - t.conta)}.`;
     return `${texto}<span class="caixa-chat-note">${detalhes}</span>`;
   }
 
@@ -5744,24 +5740,19 @@ if (document.readyState === "loading") {
       }
 
       if (id === "pendencias") {
-        const pend = t.aPagarFixos + t.aPagarVariaveis;
-        appendMensagem(`Ainda faltam <strong class="chat-valor chat-valor-neg">${chatFmt(pend)}</strong> em gastos lançados como pendentes e há <strong class="chat-valor chat-valor-pos">${chatFmt(t.aReceber)}</strong> para receber.<span class="caixa-chat-note">Fixos a pagar: ${chatFmt(t.aPagarFixos)} · variáveis a pagar: ${chatFmt(t.aPagarVariaveis)}.</span>`);
+        const fixosPendentes = listaFinita(state.gastosFixos).filter(i => i.pago !== true && (Number(i.valor) || 0) > 0);
+        const variaveisPendentes = listaFinita(state.gastosVariaveis).filter(i => i.pago !== true && !i.lembrete && (Number(i.valor) || 0) > 0);
+        const totalPend = t.aPagarFixos + t.aPagarVariaveis;
+        const linhasFixos = fixosPendentes.map(i => `<li><span>${esc(i.nome || "Gasto fixo")}</span><strong class="chat-valor chat-valor-neg">${chatFmt(i.valor)}</strong></li>`).join("");
+        const linhasVariaveis = variaveisPendentes.map(i => `<li><span>${esc(i.nome || "Gasto variável")}</span><strong class="chat-valor chat-valor-neg">${chatFmt(i.valor)}</strong></li>`).join("");
+        const detalhes = [
+          fixosPendentes.length ? `<div class="caixa-chat-lista-titulo">Gastos fixos</div><ul class="caixa-chat-pendencias-lista">${linhasFixos}</ul>` : "",
+          variaveisPendentes.length ? `<div class="caixa-chat-lista-titulo">Gastos variáveis</div><ul class="caixa-chat-pendencias-lista">${linhasVariaveis}</ul>` : ""
+        ].join("");
+        const vazio = !detalhes ? `<div class="caixa-chat-empty">Nenhum gasto pendente encontrado.</div>` : detalhes;
+        appendMensagem(`<strong>Ainda falta pagar ${chatFmt(totalPend)}.</strong>${vazio}<span class="caixa-chat-note">Também há ${chatFmt(t.aReceber)} para receber.</span>`);
       }
 
-      if (id === "mes") {
-        appendMensagem(`<strong>Seu mês, em uma olhada:</strong><br>Ganhos recebidos: <span class="chat-valor chat-valor-pos">${chatFmt(t.ganhosRecebidos)}</span><br>Gastos pagos: <span class="chat-valor chat-valor-neg">${chatFmt(t.fixosPagos + t.variaveisPagos)}</span><br>Saldo disponível: <span class="chat-valor chat-valor-pos">${chatFmt(t.saldoGeral)}</span><br>Guardado agora: <span class="chat-valor chat-valor-gold">${chatFmt(typeof somaTotalCaixinhas === "function" ? somaTotalCaixinhas(state.caixinhas || []) : 0)}</span><span class="caixa-chat-note">Ainda a receber: ${chatFmt(t.aReceber)} · ainda a pagar: ${chatFmt(t.aPagarFixos + t.aPagarVariaveis)}.</span>`);
-      }
-
-      if (id === "metas") {
-        const metas = metasChat();
-        if (!metas.length) return appendMensagem("Você ainda não tem uma caixinha com objetivo definido.");
-        const linhas = metas.slice(0,4).map(m => {
-          const pct = Math.min(100, Math.round((m.atual / m.objetivo) * 100));
-          const prazo = m.prazo ? ` · prazo ${esc(typeof formatarDataCurta === "function" ? formatarDataCurta(m.prazo) : m.prazo)}` : "";
-          return `<strong>${esc(m.nome)}</strong>: ${pct}% — falta <span class="chat-valor chat-valor-gold">${chatFmt(m.falta)}</span>${prazo}`;
-        }).join("<br>");
-        appendMensagem(linhas);
-      }
 
       if (id === "economia") {
         const cats = categoriasChat();
