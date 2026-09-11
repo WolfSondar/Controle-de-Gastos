@@ -225,7 +225,8 @@
         <div class="goal-mini-list" id="resumoCaixinhas">
           <p class="empty-state">Carregando caixinhas…</p>
         </div>
-
+      </div>
+    </section>
 
     <!-- GANHOS -->
     <section class="tab-panel is-hidden" id="tab-ganhos" data-tab="ganhos">
@@ -688,21 +689,10 @@
 <div class="toast" id="toast"></div>
 
 <!-- FAB de criação: aparece apenas em Ganhos, Fixos e Variáveis -->
-<button type="button" class="fab-criar is-hidden" id="fabCriar" aria-label="Adicionar lançamento">
+<button type="button" class="fab-criar" id="fabCriar" aria-label="Adicionar lançamento">
   <svg viewBox="0 0 24 24" fill="none" aria-hidden="true"><path d="M12 5v14M5 12h14" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"/></svg>
   <span>Adicionar</span>
 </button>
-
-<!-- Modal único de criação; o formulário real da aba é movido para cá ao abrir -->
-<div class="modal-backdrop is-hidden" id="criacaoBackdrop">
-  <div class="modal modal-criacao" role="dialog" aria-modal="true" aria-labelledby="criacaoTitulo">
-    <button type="button" class="modal-fechar-x" id="criacaoFechar" aria-label="Fechar">×</button>
-    <div class="criacao-kicker">Novo lançamento</div>
-    <h3 id="criacaoTitulo">Adicionar</h3>
-    <p class="section-hint" id="criacaoHint"></p>
-    <div id="criacaoModalHost"></div>
-  </div>
-</div>
 
 <!-- CAIXA — CHAT FINANCEIRO IA -->
 <button type="button" class="caixa-chat-fab" id="caixaChatFab" aria-label="Abrir assistente financeiro" aria-expanded="false">
