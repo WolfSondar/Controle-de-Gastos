@@ -4240,3 +4240,24 @@ body.sem-entrada-listas .item-list-row { animation: none !important; }
 .caixa-chat-simulador-btn:active { transform:scale(.985); }
 .caixa-chat-choice .chat-valor-pos { color:var(--income); }
 .caixa-chat-choice .chat-valor-gold { color:var(--gold-deep); }
+
+
+/* V20 — os formulários antigos continuam no DOM para preservar os listeners,
+   mas a entrada de novos lançamentos agora acontece somente pelo chat. */
+.tab-panel[data-tab="ganhos"] .collapsible,
+.tab-panel[data-tab="fixos"] .collapsible,
+.tab-panel[data-tab="variaveis"] .collapsible,
+.tab-panel[data-tab="guardado"] .collapsible { display:none !important; }
+
+.caixa-chat-cadastro-form { margin-top:9px; }
+.caixa-chat-cadastro-form .caixa-chat-simulador-input input[type="date"] { font-family:var(--font-mono); }
+.caixa-chat-choice-arrow { margin-left:auto; opacity:.48; font-size:20px; line-height:1; }
+.caixa-chat-cadastro-form .caixa-chat-simulador-btn { margin-top:8px; }
+
+/* Botão de criação segue o mesmo regime do botão IA: flutua em qualquer aba,
+   inclusive no Resumo, e só some no modo Juntos. */
+.fab-criar { z-index: 9200; }
+
+@media (max-width:560px){
+  .caixa-chat-cadastro-form { margin-left:0; margin-right:0; }
+}
