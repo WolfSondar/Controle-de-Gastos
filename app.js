@@ -1536,6 +1536,9 @@ function ganhoEhRecebido(item) { return item.recebido === true; }
 /* Benefício é qualquer ganho cujo nome contenha "beneficio", com ou sem
    acento e inclusive dentro de palavras como "Multibeneficio". */
 function ganhoEhBeneficio(item) {
+  const origem = String(item && item.origem || "").toLowerCase();
+  if (origem === "beneficio") return true;
+  if (origem === "saldo") return false;
   const nome = String(item && item.nome || "")
     .normalize("NFD")
     .replace(/[\u0300-\u036f]/g, "")
@@ -3721,8 +3724,7 @@ function posicionarIndicadorAba() {
 function atualizarVisibilidadeFab() {
   const fab = document.getElementById("fabCriar");
   if (fab) {
-    const ativa = document.querySelector(".tab-panel:not(.is-hidden)");
-    const podeCriar = ["ganhos", "fixos", "variaveis", "guardado"].includes(ativa?.dataset.tab || "") && !isAmbos();
+    const podeCriar = !isAmbos();
     fab.classList.toggle("is-hidden", !podeCriar);
     fab.setAttribute("aria-hidden", String(!podeCriar));
   }
@@ -4591,84 +4593,14 @@ function initChartTooltip() {
 
 // ---------------------------------------------------------------------
 // BOTÃO FLUTUANTE DE CRIAÇÃO
-// Usa os próprios formulários existentes: ao abrir, o formulário da aba
-// ativa é movido temporariamente para dentro de uma notinha-modal. Assim
-// não existem formulários duplicados nem listeners paralelos.
-let criacaoOrigem = null;
-let criacaoPlaceholder = null;
-const criacaoBackdrop = document.getElementById("criacaoBackdrop");
-const criacaoHost = document.getElementById("criacaoModalHost");
+// O + não abre mais um formulário separado: ele abre o mesmo Assistente Caixa
+// em modo de cadastro conversacional. Isso mantém uma única experiência de
+// entrada e evita formulários duplicados espalhados pelas abas.
 const fabCriar = document.getElementById("fabCriar");
-const criacaoTitulo = document.getElementById("criacaoTitulo");
-const criacaoHint = document.getElementById("criacaoHint");
-const criacaoKicker = document.getElementById("criacaoKicker");
-
-const CONFIG_CRIACAO = {
-  ganhos: { alvo: "collapsible-ganhos", titulo: "Novo ganho", hint: "Registre uma entrada de dinheiro e indique se ela já foi recebida." },
-  fixos: { alvo: "collapsible-fixos", titulo: "Novo gasto fixo", hint: "Cadastre uma conta recorrente ou parcelada." },
-  variaveis: { alvo: "collapsible-variaveis", titulo: "Novo gasto variável", hint: "Registre uma compra ou despesa do dia a dia." },
-  guardado: { alvo: "collapsible-guardado", titulo: "Nova caixinha", hint: "Crie uma reserva com nome, valor inicial, meta e prazo." },
-};
-
-function fecharCriacaoFlutuante() {
-  if (!criacaoBackdrop) return;
-  const alvo = criacaoOrigem;
-  if (alvo) {
-    alvo.classList.add("is-collapsed");
-    if (criacaoPlaceholder && criacaoPlaceholder.parentNode) {
-      criacaoPlaceholder.parentNode.insertBefore(alvo, criacaoPlaceholder);
-      criacaoPlaceholder.remove();
-    }
-  }
-  criacaoOrigem = null;
-  criacaoPlaceholder = null;
-  if (criacaoHost) criacaoHost.replaceChildren();
-  criacaoBackdrop.classList.add("is-hidden");
-}
-
-function limparFormularioCriacao(alvo) {
-  if (!alvo) return;
-  const form = alvo.querySelector("form");
-  if (form) form.reset();
-  alvo.querySelectorAll(".input-erro").forEach((el) => el.classList.remove("input-erro"));
-  if (alvo.id !== "collapsible-guardado") preencherDatasComHoje();
-  if (alvo.id === "collapsible-guardado") aplicarPreviewIcone(document.getElementById("caixinhaIconPickerCriar"), "");
-}
-
-function restaurarCriacaoAnterior() {
-  if (criacaoOrigem) fecharCriacaoFlutuante();
-  else if (criacaoHost) criacaoHost.replaceChildren();
-}
-
-function abrirCriacaoFlutuante() {
-  // Nunca permita que um formulário anterior sobreviva dentro do modal.
-  // Cada abertura começa com exatamente um formulário, da aba atual.
-  restaurarCriacaoAnterior();
-  const ativa = document.querySelector(".tab-panel:not(.is-hidden)");
-  const tab = ativa?.dataset.tab;
-  const cfg = CONFIG_CRIACAO[tab];
-  if (!cfg || !criacaoHost || !criacaoBackdrop) return;
-  const alvo = document.getElementById(cfg.alvo);
-  if (!alvo) return;
-
-  criacaoOrigem = alvo;
-  criacaoPlaceholder = document.createComment("caixa-criacao-placeholder");
-  alvo.parentNode.insertBefore(criacaoPlaceholder, alvo);
-  criacaoTitulo.textContent = cfg.titulo;
-  if (criacaoKicker) criacaoKicker.textContent = tab === "guardado" ? "Nova reserva" : "Novo lançamento";
-  criacaoHint.textContent = cfg.hint;
-  limparFormularioCriacao(alvo);
-  criacaoHost.appendChild(alvo);
-  alvo.classList.remove("is-collapsed");
-  criacaoBackdrop.classList.remove("is-hidden");
-  const primeiro = alvo.querySelector("input, select, textarea, button[type=submit]");
-  requestAnimationFrame(() => primeiro?.focus({ preventScroll: true }));
-}
-
-fabCriar?.addEventListener("click", abrirCriacaoFlutuante);
+fabCriar?.addEventListener("click", () => {
+  document.dispatchEvent(new CustomEvent("caixa:abrirCadastroChat"));
+});
 atualizarVisibilidadeFab();
-document.getElementById("criacaoFechar")?.addEventListener("click", fecharCriacaoFlutuante);
-criacaoBackdrop?.addEventListener("click", (e) => { if (e.target === criacaoBackdrop) fecharCriacaoFlutuante(); });
 
 // Inicializa! (Limpando execuções duplicadas caso você recarregue a página)
 if (!document.body.dataset.tooltipInit) {
@@ -5270,60 +5202,50 @@ if (document.readyState === "loading") {
       btn.addEventListener("click", () => {
         escolhas.remove();
         appendMensagem(titulo, "user");
-        const tAtual = totaisChat();
-        const disponivel = origem === "beneficio" ? tAtual.beneficio : tAtual.conta;
         const campo = document.createElement("div");
         campo.className = "caixa-chat-simulador-form";
         campo.innerHTML = `
           <div class="caixa-chat-simulador-context">
             <span>Disponível para essa origem</span>
-            <strong class="${origem === "beneficio" ? "chat-valor-gold" : "chat-valor-pos"}">${chatFmt(disponivel)}</strong>
+            <strong class="${origem === "beneficio" ? "chat-valor-gold" : "chat-valor-pos"}">${chatFmt(origem === "beneficio" ? t.beneficio : t.conta)}</strong>
           </div>
           <label class="caixa-chat-simulador-input">
             <span>Quanto você pretende gastar?</span>
-            <input type="text" inputmode="decimal" autocomplete="off" placeholder="0,00" aria-label="Valor a simular">
+            <input type="text" inputmode="decimal" autocomplete="off" placeholder="Ex.: 300,00" aria-label="Valor a simular">
           </label>
-          <button type="button" class="caixa-chat-simulador-btn">Simular</button>
+          <button type="button" class="caixa-chat-simulador-btn">Enviar</button>
         `;
         body.appendChild(campo);
         const input = campo.querySelector("input");
-        const btnSimular = campo.querySelector("button");
+        const btnEnviar = campo.querySelector("button");
         const parse = (v) => {
           if (typeof parseValor === "function") return parseValor(v);
           const s = String(v || "").replace(/\./g, "").replace(",", ".");
           return Number(s) || 0;
         };
-        const enviar = () => {
+        const responder = () => {
           const valor = parse(input.value);
-          if (!(valor > 0)) {
-            input.focus();
-            input.classList.add("is-invalid");
-            setTimeout(() => input.classList.remove("is-invalid"), 500);
-            return;
-          }
+          if (!(valor > 0)) return;
           campo.remove();
           appendMensagem(chatFmt(valor), "user");
-          const token = window._caixaChatSessao || 0;
-          iniciarPensamento(() => {
-            if (token !== (window._caixaChatSessao || 0)) return;
-            const agora = totaisChat();
-            const disponivelAgora = origem === "beneficio" ? agora.beneficio : agora.conta;
-            const depois = disponivelAgora - valor;
-            if (origem === "beneficio") {
-              if (depois >= 0) {
-                return `Se você gastar <span class="chat-valor chat-valor-neg">${chatFmt(valor)}</span> pelo benefício, ainda ficarão <span class="chat-valor chat-valor-gold">${chatFmt(depois)}</span> disponíveis nele.<span class="caixa-chat-note">O benefício é analisado separadamente e não reduz o saldo normal da conta.</span>`;
-              }
-              return `Puxa vida… esse gasto de <span class="chat-valor chat-valor-neg">${chatFmt(valor)}</span> passaria <span class="chat-valor chat-valor-neg">${chatFmt(Math.abs(depois))}</span> do benefício disponível.<span class="caixa-chat-note">O benefício é analisado separadamente do saldo normal da conta.</span>`;
-            }
-            if (depois >= 0) {
-              return `Depois de reservar as obrigações previstas, um gasto de <span class="chat-valor chat-valor-neg">${chatFmt(valor)}</span> deixaria <span class="chat-valor chat-valor-pos">${chatFmt(depois)}</span> disponíveis para o saldo em conta.<span class="caixa-chat-note">Considerei o limite de gasto projetado: saldo de hoje + entradas previstas − contas abertas, incluindo valores futuros já lançados no planejamento.</span>`;
-            }
-            return `Atenção: um gasto de <span class="chat-valor chat-valor-neg">${chatFmt(valor)}</span> passaria <span class="chat-valor chat-valor-neg">${chatFmt(Math.abs(depois))}</span> do que está disponível para o saldo em conta.<span class="caixa-chat-note">Considerei o limite de gasto projetado e as obrigações já lançadas no planejamento.</span>`;
-          });
+          const agora = totaisChat();
+          const disponivel = origem === "beneficio" ? agora.beneficio : agora.conta;
+          const depois = disponivel - valor;
+          let resposta;
+          if (origem === "beneficio") {
+            resposta = depois >= 0
+              ? `Se você gastar <span class="chat-valor chat-valor-neg">${chatFmt(valor)}</span> pelo benefício, ainda ficarão <span class="chat-valor chat-valor-gold">${chatFmt(depois)}</span> disponíveis nele.<span class="caixa-chat-note">O benefício é analisado separadamente e não reduz o saldo normal da conta.</span>`
+              : `Puxa vida… esse gasto de <span class="chat-valor chat-valor-neg">${chatFmt(valor)}</span> passaria <span class="chat-valor chat-valor-neg">${chatFmt(Math.abs(depois))}</span> do benefício disponível.<span class="caixa-chat-note">O benefício é analisado separadamente do saldo normal da conta.</span>`;
+          } else {
+            resposta = depois >= 0
+              ? `Se você gastar <span class="chat-valor chat-valor-neg">${chatFmt(valor)}</span>, ainda ficarão <span class="chat-valor chat-valor-pos">${chatFmt(depois)}</span> disponíveis para o saldo em conta.<span class="caixa-chat-note">Considerei saldo de hoje + entradas previstas − contas abertas, incluindo valores futuros já lançados no planejamento.</span>`
+              : `Atenção: um gasto de <span class="chat-valor chat-valor-neg">${chatFmt(valor)}</span> passaria <span class="chat-valor chat-valor-neg">${chatFmt(Math.abs(depois))}</span> do que está disponível para o saldo em conta.<span class="caixa-chat-note">Considerei o limite de gasto projetado e as obrigações já lançadas no planejamento.</span>`;
+          }
+          appendMensagem(resposta);
+          mostrarMenuCompacto();
         };
-        input.addEventListener("input", () => input.classList.remove("is-invalid"));
-        input.addEventListener("keydown", e => { if (e.key === "Enter") enviar(); });
-        btnSimular.addEventListener("click", enviar);
+        input.addEventListener("keydown", e => { if (e.key === "Enter") responder(); });
+        btnEnviar.addEventListener("click", responder);
         setTimeout(() => input.focus(), 40);
         body.scrollTop = body.scrollHeight;
       });
@@ -5332,6 +5254,7 @@ if (document.readyState === "loading") {
     body.appendChild(escolhas);
     body.scrollTop = body.scrollHeight;
   }
+
 
   function executarAcao(id) {
     window._caixaChatSessao = (Number(window._caixaChatSessao) || 0) + 1;
@@ -5490,11 +5413,7 @@ if (document.readyState === "loading") {
         }
         const sessaoEconomia = window._caixaChatSessao || 0;
         const textoPensamento = thinking.querySelector("em");
-        if (textoPensamento) textoPensamento.textContent = state.pessoaAtual === "davi"
-          ? "Ora, ora… vou dar uma olhadinha cuidadosa nos seus números…"
-          : state.pessoaAtual === "gabriel"
-            ? "Só um momento… estou preparando uma dica com seus números…"
-            : "Só um momento… estou preparando uma dica para vocês…";
+        if (textoPensamento) textoPensamento.textContent = "Só um instante… estou organizando os números para você…";
         return buscarDicasIA(t, { chave }).then((dicasIA) => {
           // Se o usuário já mudou de assunto/perfil, a resposta atrasada não
           // pode invadir a nova conversa.
@@ -5512,6 +5431,241 @@ if (document.readyState === "loading") {
         });
       }
     });
+  }
+
+
+  // -------------------------------------------------------------------
+  // CADASTRO CONVERSACIONAL
+  // O botão + usa este fluxo para TODOS os tipos de lançamento. Cada
+  // pergunta aparece como uma mensagem do assistente, com cards e/ou
+  // campo de resposta. O salvamento usa as mesmas operações dos formulários
+  // antigos, portanto a planilha e as regras existentes continuam iguais.
+  // -------------------------------------------------------------------
+  let cadastroAtivo = null;
+
+  function escolhaChat(opcoes, callback, opts = {}) {
+    const wrap = document.createElement("div");
+    wrap.className = `caixa-chat-choices ${opts.className || ""}`;
+    opcoes.forEach(op => {
+      const [valor, titulo, sub = "", extraClass = ""] = op;
+      const btn = document.createElement("button");
+      btn.type = "button";
+      btn.className = `caixa-chat-choice ${extraClass}`;
+      btn.innerHTML = `<span><strong>${esc(titulo)}</strong>${sub ? `<small>${esc(sub)}</small>` : ""}</span>${opts.showArrow === false ? "" : `<span class="caixa-chat-choice-arrow">›</span>`}`;
+      btn.addEventListener("click", () => { wrap.remove(); callback(valor, titulo); });
+      wrap.appendChild(btn);
+    });
+    body.appendChild(wrap);
+    body.scrollTop = body.scrollHeight;
+    return wrap;
+  }
+
+  function campoChat(label, placeholder, callback, opts = {}) {
+    const wrap = document.createElement("div");
+    wrap.className = `caixa-chat-simulador-form caixa-chat-cadastro-form ${opts.className || ""}`;
+    const inputType = opts.type || "text";
+    wrap.innerHTML = `
+      <label class="caixa-chat-simulador-input">
+        <span>${esc(label)}</span>
+        <input type="${inputType}" ${opts.inputmode ? `inputmode="${opts.inputmode}"` : ""} autocomplete="${opts.autocomplete || "off"}" placeholder="${esc(placeholder || "")}" aria-label="${esc(label)}">
+      </label>
+      <button type="button" class="caixa-chat-simulador-btn">Enviar</button>`;
+    body.appendChild(wrap);
+    const input = wrap.querySelector("input");
+    const enviar = () => {
+      const valor = String(input.value || "").trim();
+      if (!valor && !opts.allowEmpty) { input.focus(); return; }
+      wrap.remove();
+      appendMensagem(valor || "Pular", "user");
+      callback(valor);
+    };
+    input.addEventListener("keydown", e => { if (e.key === "Enter") enviar(); });
+    wrap.querySelector("button").addEventListener("click", enviar);
+    setTimeout(() => input.focus(), 40);
+    body.scrollTop = body.scrollHeight;
+    return wrap;
+  }
+
+  function campoValorCadastro(label, callback, opts = {}) {
+    return campoChat(label, opts.placeholder || "Ex.: 300,00", valor => {
+      const n = parseValor(valor);
+      if (!(n > 0) && !opts.allowZero) {
+        appendMensagem("Preciso de um valor maior que zero para continuar.");
+        return campoValorCadastro(label, callback, opts);
+      }
+      callback(n);
+    }, { inputmode: "decimal", placeholder: opts.placeholder || "Ex.: 300,00" });
+  }
+
+  function categoriasEscolhiveis(callback) {
+    const cats = typeof categoriasAtuais === "function" ? categoriasAtuais() : CATEGORIAS_PADRAO;
+    const op = cats.map(c => [c, c, ""]);
+    op.push(["__sem_categoria", "Sem categoria", "Deixar sem categoria"]);
+    appendMensagem("E em qual <strong>categoria</strong> ele entra?");
+    escolhaChat(op, (valor, titulo) => callback(valor === "__sem_categoria" ? "" : valor, titulo));
+  }
+
+  function perguntaDataCadastro(callback, label = "Qual é a data?") {
+    appendMensagem(`<strong>${esc(label)}</strong>`);
+    campoChat(label, "AAAA-MM-DD", valor => callback(valor || dataHojeISO()), { type: "date", autocomplete: "off" });
+  }
+
+  function perguntaStatusCadastro(label, positivo, negativo, callback) {
+    appendMensagem(`<strong>${esc(label)}</strong>`);
+    escolhaChat([[true, positivo, ""], [false, negativo, ""]], callback);
+  }
+
+  function finalizarCadastro(titulo, mensagem) {
+    appendMensagem(`<strong>${esc(titulo)}</strong><br>${mensagem}`);
+    mostrarMenuCompacto();
+    cadastroAtivo = null;
+  }
+
+  function iniciarCadastroConversacional() {
+    if (isAmbos()) {
+      appendMensagem("No modo <strong>Juntos</strong>, o cadastro individual fica indisponível. Escolha Davi ou Gabriel para adicionar um lançamento.");
+      return;
+    }
+    window._caixaChatSessao = (Number(window._caixaChatSessao) || 0) + 1;
+    clearTimeout(dicaOutraTimer);
+    dicaOutraTimer = null;
+    body.querySelectorAll("#caixaChatOutraDica").forEach(x => x.remove());
+    quick.classList.add("is-hidden");
+    const quickTitle = quick.previousElementSibling;
+    if (quickTitle && quickTitle.classList.contains("caixa-chat-quick-title")) quickTitle.classList.add("is-hidden");
+    const welcome = body.querySelector(".caixa-chat-welcome");
+    if (welcome) welcome.classList.add("is-hidden");
+    body.querySelectorAll("#caixaChatBack").forEach(x => x.remove());
+    cadastroAtivo = { etapa: "tipo" };
+
+    appendMensagem("Claro! Vamos registrar isso juntos. <strong>O que você quer adicionar?</strong>");
+    escolhaChat([
+      ["fixo", "Gasto fixo", "Conta recorrente ou compra parcelada"],
+      ["variavel", "Gasto variável", "Compra ou despesa do dia a dia"],
+      ["ganho", "Ganho", "Dinheiro que entrou ou vai entrar"],
+      ["caixinha", "Caixinha", "Reserva, meta ou dinheiro guardado"]
+    ], tipo => {
+      cadastroAtivo.tipo = tipo;
+      if (tipo === "fixo") fluxoFixo();
+      if (tipo === "variavel") fluxoVariavel();
+      if (tipo === "ganho") fluxoGanho();
+      if (tipo === "caixinha") fluxoCaixinha();
+    });
+
+    function fluxoFixo() {
+      appendMensagem("Vamos ao <strong>gasto fixo</strong>. Qual é o nome da conta ou compra?");
+      campoChat("Nome do gasto", "Ex.: Faculdade, aluguel, celular…", nome => {
+        cadastroAtivo.nome = nome;
+        campoValorCadastro("Qual é o valor total?", valor => {
+          cadastroAtivo.valor = valor;
+          categoriasEscolhiveis((cat) => {
+            cadastroAtivo.tipo = cat;
+            appendMensagem("Esse gasto é <strong>recorrente</strong>, <strong>à vista</strong> ou <strong>parcelado</strong>?");
+            escolhaChat([
+              ["recorrente", "Recorrente", "Repete todo mês, sem prazo para acabar"],
+              ["avista", "À vista", "Uma única cobrança"],
+              ["parcelado", "Parcelado", "Dividido em parcelas"]
+            ], modalidade => {
+              cadastroAtivo.modalidade = modalidade;
+              if (modalidade === "parcelado") {
+                appendMensagem("Em quantas <strong>parcelas</strong>?");
+                escolhaChat(Array.from({length:23}, (_,i)=>[String(i+2), `${i+2}x`, ""]), qtd => {
+                  cadastroAtivo.parcelas = Number(qtd);
+                  perguntaDataCadastro(data => { cadastroAtivo.data = data; statusFixo(); });
+                });
+              } else {
+                cadastroAtivo.parcelas = modalidade === "avista" ? 1 : 0;
+                perguntaDataCadastro(data => { cadastroAtivo.data = data; statusFixo(); });
+              }
+            });
+          });
+        });
+      });
+    }
+    function statusFixo() {
+      perguntaStatusCadastro("Essa conta já foi paga?", "Sim, já paguei", "Não, está pendente", pago => {
+        const n = cadastroAtivo.parcelas || 0;
+        const valor = n > 0 ? Math.round((cadastroAtivo.valor / n) * 100) / 100 : cadastroAtivo.valor;
+        const parcela = n > 0 ? `1/${n}` : "";
+        opFixos.add(cadastroAtivo.nome, valor, { pago, tipo: cadastroAtivo.tipo, data: dataDoLancamento(cadastroAtivo.data), parcela });
+        finalizarCadastro("Gasto fixo adicionado", `${esc(cadastroAtivo.nome)} · <span class="chat-valor chat-valor-neg">${chatFmt(valor)}</span>${n > 1 ? ` · parcela 1/${n}` : ""}.`);
+      });
+    }
+    function fluxoVariavel() {
+      appendMensagem("Vamos ao <strong>gasto variável</strong>. O que você comprou ou pagou?");
+      campoChat("Nome do gasto", "Ex.: Mercado, almoço, presente…", nome => {
+        cadastroAtivo.nome = nome;
+        campoValorCadastro("Qual foi o valor?", valor => {
+          cadastroAtivo.valor = valor;
+          categoriasEscolhiveis(cat => {
+            cadastroAtivo.tipo = cat;
+            appendMensagem("De onde saiu esse dinheiro?");
+            escolhaChat([
+              ["saldo", "Saldo em conta", "Sai do saldo normal"],
+              ["beneficio", "Benefício", "Sai do saldo do benefício"]
+            ], origem => {
+              cadastroAtivo.origem = origem;
+              perguntaDataCadastro(data => {
+                cadastroAtivo.data = data;
+                perguntaStatusCadastro("Essa compra já foi paga?", "Sim, já paguei", "Não, está pendente", pago => {
+                  opVariaveis.add(cadastroAtivo.nome, cadastroAtivo.valor, { pago, tipo: cadastroAtivo.tipo, data: dataDoLancamento(cadastroAtivo.data), origem: cadastroAtivo.origem });
+                  finalizarCadastro("Gasto variável adicionado", `${esc(cadastroAtivo.nome)} · <span class="chat-valor chat-valor-neg">${chatFmt(cadastroAtivo.valor)}</span>.`);
+                });
+              });
+            });
+          });
+        });
+      });
+    }
+    function fluxoGanho() {
+      appendMensagem("Vamos registrar o <strong>ganho</strong>. Qual é o nome dessa entrada?");
+      campoChat("Nome do ganho", "Ex.: Salário, vale, benefício…", nome => {
+        cadastroAtivo.nome = nome;
+        campoValorCadastro("Qual é o valor?", valor => {
+          cadastroAtivo.valor = valor;
+          appendMensagem("Esse ganho pertence ao <strong>saldo em conta</strong> ou ao <strong>benefício</strong>?");
+          escolhaChat([
+            ["saldo", "Saldo em conta", "Entra no saldo normal"],
+            ["beneficio", "Benefício", "Entra no saldo do benefício"]
+          ], origem => {
+            cadastroAtivo.origem = origem;
+            perguntaDataCadastro(data => {
+              cadastroAtivo.data = data;
+              perguntaStatusCadastro("Esse dinheiro já foi recebido?", "Sim, já recebi", "Ainda vou receber", recebido => {
+                opGanhos.add(cadastroAtivo.nome, cadastroAtivo.valor, { recebido, data: dataDoLancamento(cadastroAtivo.data), origem: cadastroAtivo.origem });
+                finalizarCadastro("Ganho adicionado", `${esc(cadastroAtivo.nome)} · <span class="chat-valor chat-valor-pos">${chatFmt(cadastroAtivo.valor)}</span>.`);
+              });
+            });
+          });
+        });
+      });
+    }
+    function fluxoCaixinha() {
+      appendMensagem("Vamos criar a <strong>caixinha</strong>. Como você quer chamá-la?");
+      campoChat("Nome da caixinha", "Ex.: Reserva de emergência, viagem…", nome => {
+        cadastroAtivo.nome = nome;
+        campoValorCadastro("Quanto já quer guardar nela?", valor => {
+          cadastroAtivo.valorInicial = valor;
+          appendMensagem("Qual é o <strong>objetivo</strong> dessa caixinha? (Opcional)");
+          campoChat("Objetivo", "Ex.: 5000,00 — ou deixe em branco", valorObjetivo => {
+            cadastroAtivo.valorObjetivo = valorObjetivo ? parseValor(valorObjetivo) : 0;
+            appendMensagem("Você quer colocar um <strong>prazo</strong> para essa meta? (Opcional)");
+            campoChat("Prazo", "Escolha uma data ou deixe em branco", data => {
+              cadastroAtivo.data = data || "";
+              appendMensagem("Quer escolher um <strong>ícone</strong> para ela? (Opcional)");
+              const icones = (Array.isArray(iconesCaixinhas) ? iconesCaixinhas : []).slice(0,8);
+              const op = icones.map(nomeIcone => [nomeIcone, nomeIconeBonito(nomeIcone), ""]);
+              op.push(["", "Sem ícone", "Usar o padrão"]);
+              escolhaChat(op, icone => {
+                cadastroAtivo.icone = icone;
+                addCaixinha(cadastroAtivo.nome, cadastroAtivo.valorInicial, cadastroAtivo.valorObjetivo, cadastroAtivo.icone, cadastroAtivo.data);
+                finalizarCadastro("Caixinha criada", `${esc(cadastroAtivo.nome)} · guardado inicial de <span class="chat-valor chat-valor-gold">${chatFmt(cadastroAtivo.valorInicial)}</span>.`);
+              });
+            }, { type: "date", allowEmpty: true });
+          }, { inputmode: "decimal", allowEmpty: true });
+        }, { allowZero: true });
+      });
+    }
   }
 
   function iniciarPensamento(cb, mensagem = "Só um instante… estou organizando os números para você…") {
@@ -5546,6 +5700,12 @@ if (document.readyState === "loading") {
 
   fab.addEventListener("click", () => chat.classList.contains("is-open") ? fecharChat() : abrirChat());
   close.addEventListener("click", fecharChat);
+
+  document.addEventListener("caixa:abrirCadastroChat", () => {
+    abrirChat();
+    resetarChatParaSelecao();
+    iniciarCadastroConversacional();
+  });
 
   quick.addEventListener("click", e => {
     const btn = e.target.closest("[data-chat-acao]");
