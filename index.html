@@ -236,25 +236,7 @@
           <p class="section-hint">Tudo que entra: salário, bônus, presentes, o que for.</p>
         </div>
       </div>
-
-      <div class="collapsible is-collapsed" id="collapsible-ganhos">
-        <div class="collapsible-inner">
-          <form class="add-form" id="formGanhos">
-            <input type="text" name="nome" placeholder="Descrição (ex: Salário)" required maxlength="60" />
-            <div class="form-row">
-              <input type="text" name="valor" placeholder="0,00" inputmode="decimal" autocomplete="off" required />
-              <input type="date" name="data" class="input-data" aria-label="Data do ganho" />
-            </div>
-            <label class="checkbox-inline">
-              <input type="checkbox" name="recebido" />
-              Já recebi esse valor
-            </label>
-            <button type="submit" class="btn btn-income">Adicionar ganho</button>
-          </form>
-        </div>
-      </div>
-
-      <ul class="item-list" id="listaGanhos"></ul>
+<ul class="item-list" id="listaGanhos"></ul>
     </section>
 
     <!-- GASTOS FIXOS -->
@@ -265,57 +247,7 @@
           <p class="section-hint">Contas que se repetem todo mês: assinaturas, mensalidades, contas, faturas.</p>
         </div>
       </div>
-
-      <div class="collapsible is-collapsed" id="collapsible-fixos">
-        <div class="collapsible-inner">
-          <form class="add-form" id="formFixos">
-            <input type="text" name="nome" placeholder="Descrição (ex: Faculdade)" required maxlength="60" />
-            <div class="form-row">
-              <input type="text" name="valor" placeholder="Valor total da compra" inputmode="decimal" autocomplete="off" required />
-              <select name="tipo" class="input-categoria" aria-label="Categoria">
-                <option value="">Categoria (opcional)</option>
-              </select>
-            </div>
-            <div class="form-row">
-              <input type="date" name="data" class="input-data" aria-label="Data do gasto fixo" />
-              <select name="parcelas" class="input-parcelas" aria-label="Número de parcelas">
-            <option value="0">Recorrente (sem prazo pra acabar)</option>
-            <option value="1" selected>1x (À vista)</option>
-            <option value="2">2x</option>
-            <option value="3">3x</option>
-            <option value="4">4x</option>
-            <option value="5">5x</option>
-            <option value="6">6x</option>
-            <option value="7">7x</option>
-            <option value="8">8x</option>
-            <option value="9">9x</option>
-            <option value="10">10x</option>
-            <option value="11">11x</option>
-            <option value="12">12x</option>
-            <option value="13">13x</option>
-            <option value="14">14x</option>
-            <option value="15">15x</option>
-            <option value="16">16x</option>
-            <option value="17">17x</option>
-            <option value="18">18x</option>
-            <option value="19">19x</option>
-            <option value="20">20x</option>
-            <option value="21">21x</option>
-            <option value="22">22x</option>
-            <option value="23">23x</option>
-            <option value="24">24x</option>
-              </select>
-            </div>
-            <label class="checkbox-inline">
-              <input type="checkbox" name="pago" />
-              Já paguei essa conta
-            </label>
-            <button type="submit" class="btn btn-expense">Adicionar gasto fixo</button>
-          </form>
-        </div>
-      </div>
-
-      <ul class="item-list" id="listaFixos"></ul>
+<ul class="item-list" id="listaFixos"></ul>
     </section>
 
     <!-- GASTOS VARIÁVEIS -->
@@ -326,34 +258,7 @@
           <p class="section-hint">Compras avulsas do dia a dia.</p>
         </div>
       </div>
-
-      <div class="collapsible is-collapsed" id="collapsible-variaveis">
-        <div class="collapsible-inner">
-          <form class="add-form" id="formVariaveis">
-            <input type="text" name="nome" placeholder="Descrição (ex: Presente)" required maxlength="60" />
-            <div class="form-row">
-              <input type="text" name="valor" placeholder="0,00" inputmode="decimal" autocomplete="off" required />
-              <select name="tipo" class="input-categoria" aria-label="Categoria">
-                <option value="">Categoria (opcional)</option>
-              </select>
-            </div>
-            <div class="form-row">
-              <input type="date" name="data" class="input-data" aria-label="Data do gasto variável" />
-              <select name="origem" class="input-origem" aria-label="Origem do dinheiro" title="Escolha de qual saldo esse gasto será descontado no fechamento do mês">
-                <option value="saldo" selected>Sairá do Saldo</option>
-                <option value="beneficio">Sairá do Benefício</option>
-              </select>
-            </div>
-            <label class="checkbox-inline">
-              <input type="checkbox" name="pago" />
-              Já paguei essa compra
-            </label>
-            <button type="submit" class="btn btn-expense">Adicionar gasto variável</button>
-          </form>
-        </div>
-      </div>
-
-      <ul class="item-list" id="listaVariaveis"></ul>
+<ul class="item-list" id="listaVariaveis"></ul>
     </section>
 
 
@@ -365,32 +270,7 @@
           <p class="section-hint">Caixinhas, investimentos e metas.</p>
         </div>
       </div>
-
-      <div class="collapsible is-collapsed" id="collapsible-guardado">
-        <div class="collapsible-inner">
-          <form class="add-form" id="formCaixinhas">
-            <input type="text" name="nome" placeholder="Nome (ex: Reserva de emergência)" required maxlength="60" />
-            <div class="form-row">
-              <input type="text" name="valorInicial" placeholder="Valor inicial guardado, R$" inputmode="decimal" autocomplete="off" required />
-              <input type="text" name="valorObjetivo" placeholder="Objetivo, R$ (opcional)" inputmode="decimal" autocomplete="off" />
-            </div>
-            <div class="form-row">
-              <input type="date" name="data" class="input-data-caixinha" aria-label="Prazo da caixinha" />
-              <div class="caixinha-icon-picker" id="caixinhaIconPickerCriar" data-picker-for="criar">
-              <button type="button" class="caixinha-icon-picker-trigger" aria-label="Selecionar ícone da caixinha" aria-haspopup="listbox" aria-expanded="false">
-                <span class="caixinha-icon-picker-preview is-default">Escolher ícone</span>
-                <span class="caixinha-icon-picker-chevron" aria-hidden="true">⌄</span>
-              </button>
-              <div class="caixinha-icon-picker-menu" role="listbox" aria-label="Ícones disponíveis"></div>
-                <input type="hidden" name="icone" value="" />
-              </div>
-            </div>
-            <button type="submit" class="btn btn-gold">Criar caixinha</button>
-          </form>
-        </div>
-      </div>
-
-      <div class="goal-list" id="listaCaixinhas"></div>
+<div class="goal-list" id="listaCaixinhas"></div>
     </section>
 
     <!-- HISTÓRICO -->
@@ -688,7 +568,7 @@
 
 <div class="toast" id="toast"></div>
 
-<!-- FAB de criação: aparece apenas em Ganhos, Fixos e Variáveis -->
+<!-- FAB de criação: entrada conversacional global; segue a mesma visibilidade da IA -->
 <button type="button" class="fab-criar" id="fabCriar" aria-label="Adicionar lançamento">
   <svg viewBox="0 0 24 24" fill="none" aria-hidden="true"><path d="M12 5v14M5 12h14" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"/></svg>
   <span>Adicionar</span>
