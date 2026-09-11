@@ -1735,8 +1735,6 @@ function renderTotais() {
   const saldoEl = document.getElementById("saldoValor");
   const beneficiosEl = document.getElementById("saldoBeneficios");
   const ganhosSaldoEl = document.getElementById("saldoGanhos");
-  const beneficioRestanteEl = document.getElementById("saldoBeneficioRestante");
-  const saldoRestanteEl = document.getElementById("saldoRestante");
 
   const primeiraVez = prevTotals.saldo === null;
 
@@ -1812,37 +1810,27 @@ function renderTotais() {
 
   saldoEl.classList.toggle("negative", saldo < 0);
 
-  // No card Ganhos mostramos apenas os valores que ainda restam de cada origem,
-  // sem textos auxiliares. Benefício = benefícios recebidos − variáveis pagas
-  // marcadas como benefício. Saldo = ganhos normais recebidos − fixos pagos −
-  // variáveis pagas do saldo.
+  // A composição abaixo do saldo é contextual: não mostramos uma origem
+  // zerada e nunca deixamos o separador sozinho. Assim, se só houver
+  // Benefício ou só houver Ganhos, aparece apenas o que existe; se ambos
+  // forem zero, toda a linha desaparece.
+  if (beneficiosEl) beneficiosEl.textContent = fmt(ganhosPorOrigem.beneficios);
+  if (ganhosSaldoEl) ganhosSaldoEl.textContent = fmt(ganhosPorOrigem.ganhos);
 
-  const gastosVariaveisBeneficio = (state.gastosVariaveis || []).reduce((acc, item) => {
-    return acc + (variavelContaNoSaldo(item) && variavelEhBeneficio(item) ? (Number(item.valor) || 0) : 0);
-  }, 0);
-  const gastosVariaveisSaldo = (state.gastosVariaveis || []).reduce((acc, item) => {
-    return acc + (variavelContaNoSaldo(item) && !variavelEhBeneficio(item) ? (Number(item.valor) || 0) : 0);
-  }, 0);
-  const beneficioRestante = ganhosPorOrigem.beneficios - gastosVariaveisBeneficio;
-  const saldoRestante = ganhosPorOrigem.ganhos - totalFixosPagos - gastosVariaveisSaldo;
+  const saldoOrigensEl = document.getElementById("saldoOrigens");
+  const beneficioOrigemEl = beneficiosEl ? beneficiosEl.closest(".saldo-origem") : null;
+  const ganhoOrigemEl = ganhosSaldoEl ? ganhosSaldoEl.closest(".saldo-origem") : null;
+  const separadorOrigensEl = saldoOrigensEl ? saldoOrigensEl.querySelector(".saldo-origens-separador") : null;
+  const temBeneficio = Math.abs(Number(ganhosPorOrigem.beneficios) || 0) > 0.000001;
+  const temGanhos = Math.abs(Number(ganhosPorOrigem.ganhos) || 0) > 0.000001;
 
-  if (beneficiosEl) {
-    beneficiosEl.textContent = fmt(beneficioRestante);
-    beneficiosEl.classList.toggle("negative", beneficioRestante < 0);
-  }
-  if (ganhosSaldoEl) {
-    ganhosSaldoEl.textContent = fmt(saldoRestante);
-    ganhosSaldoEl.classList.toggle("negative", saldoRestante < 0);
-  }
-  if (beneficioRestanteEl) {
-    beneficioRestanteEl.textContent = fmt(beneficioRestante);
-    beneficioRestanteEl.classList.toggle("negative", beneficioRestante < 0);
-  }
-  if (saldoRestanteEl) {
-    saldoRestanteEl.textContent = fmt(saldoRestante);
-    saldoRestanteEl.classList.toggle("negative", saldoRestante < 0);
-  }
+  beneficioOrigemEl?.classList.toggle("is-zero", !temBeneficio);
+  ganhoOrigemEl?.classList.toggle("is-zero", !temGanhos);
+  separadorOrigensEl?.classList.toggle("is-hidden", !(temBeneficio && temGanhos));
+  saldoOrigensEl?.classList.toggle("is-vazio", !(temBeneficio || temGanhos));
 
+  const ganhosPendenteEl = document.getElementById("statGanhosPendente");
+  if (ganhosPendenteEl) ganhosPendenteEl.textContent = totalGanhosAReceber > 0 ? `+ ${fmt(totalGanhosAReceber)}` : "";
   const fixosPendenteEl = document.getElementById("statFixosPendente");
   if (fixosPendenteEl) fixosPendenteEl.textContent = totalFixosAPagar > 0 ? `− ${fmt(totalFixosAPagar)}` : "";
   const variaveisPendenteEl = document.getElementById("statVariaveisPendente");
@@ -2670,6 +2658,7 @@ function renderCaixinhas() {
 
 const ICONE_GANHO = `<svg viewBox="0 0 24 24" fill="none"><path d="M12 19V5M5 12l7-7 7 7" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>`;
 const ICONE_GASTO = `<svg viewBox="0 0 24 24" fill="none"><path d="M12 5v14M5 12l7 7 7-7" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>`;
+const ICONE_GUARDADO = `<svg viewBox="0 0 24 24" fill="none" aria-hidden="true"><path d="M5.5 8.5h13v9.25A2.25 2.25 0 0 1 16.25 20h-8.5a2.25 2.25 0 0 1-2.25-2.25V8.5Z" stroke="currentColor" stroke-width="1.8" stroke-linejoin="round"/><path d="M7 8.5V6.75A1.75 1.75 0 0 1 8.75 5h6.5A1.75 1.75 0 0 1 17 6.75V8.5M8.5 12.25h7M10 15.5h4" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/><circle cx="17.5" cy="5.75" r="2.1" fill="currentColor"/><path d="M17.5 4.7v2.1M16.45 5.75h2.1" stroke="var(--paper-deep)" stroke-width=".9" stroke-linecap="round"/></svg>`;
 
 function itensRecentesPorCategoria(lista, tipo, tag) {
   return (lista || []).map((i) => ({ ...i, tipo, tag }));
@@ -2743,9 +2732,10 @@ function renderRecentes() {
 
     const row = document.createElement("div");
     const benefit = item.tipo === "income" && ganhoEhBeneficio(item);
-    row.className = `ledger-item ${item.tipo === "income" ? (benefit ? "income-beneficio" : "income-saldo") : "expense"}`;
+    const guardado = item.tipo === "expense" && ehLancamentoDeCaixinha(item.nome);
+    row.className = `ledger-item ${item.tipo === "income" ? (benefit ? "income-beneficio" : "income-saldo") : (guardado ? "expense-guardado" : "expense")}`;
     row.innerHTML = `
-      <span class="ledger-icon ${item.tipo}${benefit ? " income-beneficio" : ""}">${item.tipo === "income" ? ICONE_GANHO : ICONE_GASTO}</span>
+      <span class="ledger-icon ${item.tipo}${benefit ? " income-beneficio" : ""}${guardado ? " guardado" : ""}">${item.tipo === "income" ? ICONE_GANHO : (guardado ? ICONE_GUARDADO : ICONE_GASTO)}</span>
       <div class="ledger-info">
         <span class="ledger-nome">${escapeHtml(item.nome)} ${tagPessoa(item)}</span>
         <span class="ledger-tag">${escapeHtml(item.tag)}</span>
@@ -3560,7 +3550,7 @@ function montarResumoParaInsight() {
 // pra nunca aparecer cru na tela mesmo se a IA errar o formato.
 function renderizarTextoInsight(texto) {
   const seguro = escapeHtml(String(texto || ""));
-  let html = seguro
+  return seguro
     .replace(/\{\{beneficio:([^{}]+)\}\}/gi, '<span class="insight-valor-beneficio">$1</span>')
     .replace(/\{\{ganho:([^{}]+)\}\}/gi, '<span class="insight-valor-pos">$1</span>')
     .replace(/\{\{gasto:([^{}]+)\}\}/gi, '<span class="insight-valor-neg">$1</span>')
@@ -3569,16 +3559,6 @@ function renderizarTextoInsight(texto) {
     .replace(/\{\{\+([^{}]+)\}\}/g, '<span class="insight-valor-pos">$1</span>')
     .replace(/\{\{-([^{}]+)\}\}/g, '<span class="insight-valor-neg">$1</span>')
     .replace(/\{\{([^{}]+)\}\}/g, "$1");
-
-  // A IA pode devolver um insight antigo sem o marcador {{beneficio:...}}.
-  // Nesses casos, quando o valor vem explicitamente ligado à origem
-  // "benefício/benefícios", pinta somente esse valor de azul.
-  html = html.replace(
-    /(\bsendo\s+)(R\$\s?[\d.]+,\d{2})(?=\s+(?:provenientes?\s+de\s+|de\s+)?benef[ií]cios?\b)/gi,
-    '$1<span class="insight-valor-beneficio">$2</span>'
-  );
-
-  return html;
 }
 
 // Guarda o texto de IA atualmente exibido, pra não refazer o fade quando o
