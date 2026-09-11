@@ -89,17 +89,6 @@
     <div class="saldo-block">
       <span class="saldo-label">Saldo disponível</span>
       <span class="saldo-valor" id="saldoValor">R$ 0,00</span>
-      <div class="saldo-origens" id="saldoOrigens" aria-label="Quanto ainda resta">
-        <span class="saldo-origem saldo-origem-beneficio">
-          <span class="saldo-origem-valor" id="saldoBeneficioRestante">R$ 0,00</span>
-          <span class="saldo-origem-label">Benefício restante</span>
-        </span>
-        <span class="saldo-origens-separador" aria-hidden="true"></span>
-        <span class="saldo-origem saldo-origem-ganho">
-          <span class="saldo-origem-valor" id="saldoGanhosRestante">R$ 0,00</span>
-          <span class="saldo-origem-label">Saldo restante</span>
-        </span>
-      </div>
     </div>
 
     <div class="collapsible is-collapsed" id="collapsible-heroStats">
@@ -108,14 +97,12 @@
           <div class="hero-stat hero-stat-ganhos">
             <span class="hero-stat-label">Ganhos</span>
             <span class="hero-stat-valor income" id="statGanhos">R$ 0,00</span>
-            <div class="hero-stat-origens" aria-label="Composição dos ganhos">
+            <div class="hero-stat-origens" aria-label="Valores restantes por origem">
               <span class="hero-stat-origem hero-stat-origem-beneficio">
                 <span id="saldoBeneficios">R$ 0,00</span>
-                <small>Benefício</small>
               </span>
               <span class="hero-stat-origem hero-stat-origem-ganho">
                 <span id="saldoGanhos">R$ 0,00</span>
-                <small>Ganhos</small>
               </span>
             </div>
           </div>
