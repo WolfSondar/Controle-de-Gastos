@@ -1747,6 +1747,8 @@ function renderTotais() {
   const saldoEl = document.getElementById("saldoValor");
   const beneficiosEl = document.getElementById("saldoBeneficios");
   const ganhosSaldoEl = document.getElementById("saldoGanhos");
+  const beneficioRestanteEl = document.getElementById("saldoBeneficioRestante");
+  const saldoRestanteEl = document.getElementById("saldoRestante");
 
   const primeiraVez = prevTotals.saldo === null;
 
@@ -1822,24 +1824,34 @@ function renderTotais() {
 
   saldoEl.classList.toggle("negative", saldo < 0);
 
-  // A composição abaixo do saldo é contextual: não mostramos uma origem
-  // zerada e nunca deixamos o separador sozinho. Assim, se só houver
-  // Benefício ou só houver Ganhos, aparece apenas o que existe; se ambos
-  // forem zero, toda a linha desaparece.
-  if (beneficiosEl) beneficiosEl.textContent = fmt(ganhosPorOrigem.beneficios);
-  if (ganhosSaldoEl) ganhosSaldoEl.textContent = fmt(ganhosPorOrigem.ganhos);
+  // Mostra o que ainda resta de cada origem. O HTML atual do saldo usa
+  // saldoBeneficioRestante e saldoRestante; os IDs saldoBeneficios/saldoGanhos
+  // continuam sendo usados no card Ganhos.
+  const gastosVariaveisBeneficio = (state.gastosVariaveis || []).reduce((acc, item) => {
+    return acc + (variavelContaNoSaldo(item) && variavelEhBeneficio(item) ? (Number(item.valor) || 0) : 0);
+  }, 0);
+  const gastosVariaveisSaldo = (state.gastosVariaveis || []).reduce((acc, item) => {
+    return acc + (variavelContaNoSaldo(item) && !variavelEhBeneficio(item) ? (Number(item.valor) || 0) : 0);
+  }, 0);
+  const beneficioRestante = ganhosPorOrigem.beneficios - gastosVariaveisBeneficio;
+  const saldoRestante = ganhosPorOrigem.ganhos - totalFixosPagos - gastosVariaveisSaldo;
 
-  const saldoOrigensEl = document.getElementById("saldoOrigens");
-  const beneficioOrigemEl = beneficiosEl ? beneficiosEl.closest(".saldo-origem") : null;
-  const ganhoOrigemEl = ganhosSaldoEl ? ganhosSaldoEl.closest(".saldo-origem") : null;
-  const separadorOrigensEl = saldoOrigensEl ? saldoOrigensEl.querySelector(".saldo-origens-separador") : null;
-  const temBeneficio = Math.abs(Number(ganhosPorOrigem.beneficios) || 0) > 0.000001;
-  const temGanhos = Math.abs(Number(ganhosPorOrigem.ganhos) || 0) > 0.000001;
-
-  beneficioOrigemEl?.classList.toggle("is-zero", !temBeneficio);
-  ganhoOrigemEl?.classList.toggle("is-zero", !temGanhos);
-  separadorOrigensEl?.classList.toggle("is-hidden", !(temBeneficio && temGanhos));
-  saldoOrigensEl?.classList.toggle("is-vazio", !(temBeneficio || temGanhos));
+  if (beneficiosEl) {
+    beneficiosEl.textContent = fmt(beneficioRestante);
+    beneficiosEl.classList.toggle("negative", beneficioRestante < 0);
+  }
+  if (ganhosSaldoEl) {
+    ganhosSaldoEl.textContent = fmt(saldoRestante);
+    ganhosSaldoEl.classList.toggle("negative", saldoRestante < 0);
+  }
+  if (beneficioRestanteEl) {
+    beneficioRestanteEl.textContent = fmt(beneficioRestante);
+    beneficioRestanteEl.classList.toggle("negative", beneficioRestante < 0);
+  }
+  if (saldoRestanteEl) {
+    saldoRestanteEl.textContent = fmt(saldoRestante);
+    saldoRestanteEl.classList.toggle("negative", saldoRestante < 0);
+  }
 
   const ganhosPendenteEl = document.getElementById("statGanhosPendente");
   if (ganhosPendenteEl) ganhosPendenteEl.textContent = totalGanhosAReceber > 0 ? `+ ${fmt(totalGanhosAReceber)}` : "";
