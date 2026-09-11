@@ -5347,8 +5347,8 @@ if (document.readyState === "loading") {
           const valorClasse = top.k === "ganhos" ? "chat-valor-pos" : top.k === "guardado" ? "chat-valor-gold" : "chat-valor-neg";
           const frases = {
             gastos: top.delta >= 0
-              ? `Olhando o mês atual contra ${nomeMes}, seus gastos pagos estão <span class="chat-valor ${valorClasse}">${diferencaFmt}</span> acima. Até agora, você gastou <span class="chat-valor chat-valor-neg">${atualFmt}</span> neste mês.`
-              : `Olhando o mês atual contra ${nomeMes}, seus gastos pagos estão <span class="chat-valor ${valorClasse}">${diferencaFmt}</span> abaixo. Até agora, você gastou <span class="chat-valor chat-valor-neg">${atualFmt}</span> neste mês.`,
+              ? `Ora, ora! Até agora, você gastou <span class="chat-valor chat-valor-neg">${atualFmt}</span> neste mês. Em ${nomeMes}, os gastos pagos foram <span class="chat-valor chat-valor-neg">${chatFmt(ant.gastos)}</span>, então neste mês você está <span class="chat-valor chat-valor-neg">${diferencaFmt}</span> acima daquele valor.`
+              : `Ora, ora! Até agora, você gastou <span class="chat-valor chat-valor-neg">${atualFmt}</span> neste mês. Em ${nomeMes}, os gastos pagos foram <span class="chat-valor chat-valor-neg">${chatFmt(ant.gastos)}</span>, então neste mês você está <span class="chat-valor chat-valor-pos">${diferencaFmt}</span> abaixo daquele valor.`,
             ganhos: top.delta >= 0
               ? `A maior mudança veio das entradas: você recebeu <span class="chat-valor chat-valor-pos">${diferencaFmt}</span> a mais do que em ${nomeMes}. Neste mês, as entradas recebidas somam <span class="chat-valor chat-valor-pos">${atualFmt}</span>.`
               : `A maior mudança veio das entradas: você recebeu <span class="chat-valor chat-valor-neg">${diferencaFmt}</span> a menos do que em ${nomeMes}. Neste mês, as entradas recebidas somam <span class="chat-valor chat-valor-pos">${atualFmt}</span>.`,
