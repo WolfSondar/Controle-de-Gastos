@@ -2535,12 +2535,6 @@ body.sem-entrada-listas .item-list-row { animation: none !important; }
 .ledger-item.income-saldo { border-left-color: var(--income); }
 .ledger-item.income-beneficio { border-left-color: var(--benefit); }
 .ledger-icon.income-beneficio { background: var(--benefit-bg); color: var(--benefit-deep); }
-/* Guardado na caixinha não é um gasto comum: usa um ícone próprio de reserva e o dourado das caixinhas. */
-.ledger-icon.guardado {
-  background: rgba(185,134,47,.13);
-  color: var(--gold-deep);
-}
-.ledger-icon.guardado svg { width: 19px; height: 19px; }
 .ledger-valor.income-beneficio { color: var(--benefit-deep) !important; }
 .ganhos-legenda { display: flex; gap: 12px; margin-top: -9px; margin-bottom: 12px; }
 .ganho-legenda-item { display: inline-flex; align-items: center; gap: 6px; font-size: 10.5px; color: var(--muted); font-weight: 650; }
@@ -3383,3 +3377,14 @@ body.sem-entrada-listas .item-list-row { animation: none !important; }
   .hero-stat-origem > span { font-size: 9px; }
   .hero-stat-origem > small { font-size: 8px; }
 }
+
+/* V16 — separa Salário e Ganhos normais dentro do card Ganhos. */
+.hero-stat-origens { gap: 0; }
+.hero-stat-origem { padding-right: 8px; }
+.hero-stat-origem + .hero-stat-origem {
+  padding-left: 8px;
+  border-left: 1px solid rgba(255,255,255,.16);
+}
+/* Salário mantém o tom verde atual; Ganhos normais recebem um tom azul-petróleo diferente do Benefício. */
+.hero-stat-origem-salario > span { color: #8fd4ab !important; }
+.hero-stat-origem-ganho > span { color: #72b7a8 !important; }
