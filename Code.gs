@@ -410,7 +410,19 @@ function gerarInsightComOpenAI(corpoGemini, periodo) {
         schema: {
           type: "object",
           properties: {
-            textos: { type: "array", minItems: QUANTIDADE_INSIGHTS_POR_PEDIDO, maxItems: QUANTIDADE_INSIGHTS_POR_PEDIDO, items: { type: "string" } }
+            textos: {
+              type: "array", minItems: QUANTIDADE_INSIGHTS_POR_PEDIDO, maxItems: QUANTIDADE_INSIGHTS_POR_PEDIDO,
+              items: {
+                type: "object",
+                properties: {
+                  titulo: { type: "string" },
+                  texto: { type: "string" },
+                  tipo: { type: "string" }
+                },
+                required: ["titulo", "texto", "tipo"],
+                additionalProperties: false
+              }
+            }
           },
           required: ["textos"],
           additionalProperties: false
@@ -442,9 +454,19 @@ function gerarInsightComOpenAI(corpoGemini, periodo) {
     return { ok: false, error: msg, status: status };
   }
 
-  const textos = (extrairTextosOpenAI(data) || []).map(function(t) { return String(t || "").trim(); }).filter(Boolean);
+  const brutos = extrairTextosOpenAI(data) || [];
+  const textos = brutos.map(function(item) {
+    if (item && typeof item === "object") {
+      const titulo = String(item.titulo || "DICA").trim().slice(0, 32);
+      const texto = String(item.texto || "").trim();
+      const tipo = String(item.tipo || "geral").trim().toLowerCase();
+      return texto ? { titulo: titulo || "DICA", texto: texto, tipo: tipo || "geral" } : null;
+    }
+    const texto = String(item || "").trim();
+    return texto ? { titulo: "DICA", texto: texto, tipo: "geral" } : null;
+  }).filter(Boolean);
   if (textos.length < QUANTIDADE_INSIGHTS_POR_PEDIDO) {
-    return { ok: false, error: "A OpenAI não devolveu os 10 insights completos neste momento.", status: 200 };
+    return { ok: false, error: "A OpenAI não devolveu os 5 insights completos neste momento.", status: 200 };
   }
   return { ok: true, textos: textos.slice(0, QUANTIDADE_INSIGHTS_POR_PEDIDO), periodo: periodo || null, tentativas: [{ chave: (opcoesModo && opcoesModo.indiceChave) || null, status: 200, motivo: "OK" }] };
 }
@@ -687,6 +709,7 @@ function gerarInsightComGemini(pessoa, periodo, resumo, opcoesModo) {
       "Seja específico: cite nomes de categorias e de caixinhas de verdade que aparecerem no resumo — não fale de forma genérica ou vaga.",
       "ORIGEM DOS GASTOS VARIÁVEIS: cada item variável em lancamentosComNomeDoMesAtual.gastosDoMes traz origem=\"saldo\" ou origem=\"beneficio\". Isso informa de qual reserva o gasto foi pago. Use essa informação quando fizer análises de composição do dinheiro, especialmente para comparar quanto do Benefício já foi utilizado e quanto do Saldo normal foi utilizado. Nunca invente a origem de um gasto; para gastos fixos, não existe esse campo e eles continuam sendo tratados como despesas do Saldo.",
       "O resumo traz lancamentosComNomeDoMesAtual.ganhosDoMes (ganhos recebidos do mês em andamento; cada item também informa beneficio=true/false seguindo a mesma regra de nome) e .gastosDoMes (gastos do mês em andamento, fixos e variáveis juntos), com o NOME DE VERDADE de cada lançamento (ex: 'Almoço - Tia Marina', 'Pokémon Pokopia'). Também pode trazer .ganhosFuturos e .gastosFuturos: esses são lançamentos com data posterior ao mês atual e DEVEM ser tratados como futuros, nunca como contas deste mês. Cada item de gastosDoMes e gastosFuturos traz: categoria; tipoLancamento ('fixo' = mensalidade/parcela recorrente, ou 'variavel' = gasto avulso); parcela (só quando for um fixo parcelado, ex: '1/5' = primeira de cinco parcelas — cite isso quando for relevante, tipo 'ainda faltam 4 parcelas'); status (pago | pendente | atrasado | mes_que_vem | futuro | pago_adiantado — 'atrasado' significa que venceu no mês passado e ainda não foi pago; 'mes_que_vem' é uma parcela/conta já lançada mas que só vence no mês seguinte; 'futuro' é uma conta ainda mais adiante; nenhum dos dois é uma pendência de agora); e, só no modo Juntos, pessoa (de qual das duas pessoas é aquele lançamento — NUNCA ignore esse campo quando ele existir, ver as regras específicas do modo Juntos abaixo). Como um fixo parcelado e um variável avulso podem ter a MESMA categoria, cruze os dois quando fizer sentido — ex: se o total de uma categoria subiu, você pode dizer que parte veio de uma parcela fixa (citando o nome e a parcela) e parte de uma compra avulsa (citando o nome), em vez de só falar no total agregado da categoria. Preste atenção nesses nomes: se um deles deixar claro de onde veio o dinheiro ou pra onde foi (uma pessoa, um lugar, uma ocasião), pode citar isso literalmente em um dos insights pra ficar mais pessoal e específico — mas só quando o nome realmente disser isso com clareza, nunca invente uma relação ou um contexto que o nome não deixa explícito, e não force esse ângulo em todo insight.",
+      "NÃO crie um bloco ou seção de 'Recomendação'. O usuário quer DICA, não um conselho genérico separado. O texto de cada insight deve soar como uma observação útil e natural da situação financeira, em diálogo com a pessoa. Pode sugerir uma ação dentro da própria frase SOMENTE quando ela for extremamente concreta, diretamente sustentada pelos números e realmente útil; na maioria dos insights, apenas explique o que os dados mostram. Nunca escreva frases condicionais vagas como 'se o dinheiro estiver disponível', 'deixe separado para não consumir a folga', 'gaste com sabedoria' ou 'organize suas finanças'. O resumo já informa exatamente o que está disponível.",
       "NÃO termine todos os insights com a mesma sugestão ou o mesmo tipo de conselho (por exemplo, não repita algo como 'que tal começar uma reserva' em mais de um item). Só sugira uma ação quando ela realmente fizer sentido pro dado específico daquele insight, e varie sempre a forma de dizer. Vários dos insights nem precisam ter sugestão nenhuma — às vezes só constatar o dado já basta.",
       "Tom leve, direto, específico e motivador — pode ter humor leve quando fizer sentido, sem ironia pesada nem tom de sermão.",
       "NUNCA presuma ou insinue julgamento sobre o MOTIVO de uma compra — não escreva coisas como 'espero que valha cada centavo', 'espero que essa aventura valha a pena', 'vale o investimento?', 'cuidado pra não desequilibrar o orçamento', 'não deixe isso pesar no bolso' ou qualquer variação que sugira que o gasto precisa se justificar, provar seu valor ou que a pessoa devia se policiar por ter gastado com algo que gosta. A pessoa não te deve explicação de por que comprou algo, e gastar com o que dá prazer (jogo, lazer, hobby, capricho) não é um problema a ser questionado, alertado ou monitorado com cautela — só o próprio dado (valor, categoria, comparação com outro período) fala por si, sem nenhum comentário de prudência grudado nele. Só é aceitável um tom de alerta real quando os PRÓPRIOS DADOS mostrarem um problema concreto e objetivo (ex: saldo disponível do mês ficou negativo, ou uma conta está 'atrasada') — nunca como reação a um valor alto sozinho ou a um gasto de lazer/hobby específico.",
@@ -709,7 +732,7 @@ function gerarInsightComGemini(pessoa, periodo, resumo, opcoesModo) {
     const regrasTom = textoTom
       ? [
           "TOM/PERSONA obrigatório pra ESTA pessoa — siga em TODOS os " + QUANTIDADE_INSIGHTS_POR_PEDIDO + " insights, do primeiro ao último, sem exceção: " + textoTom,
-          "Esse tom é sobre o JEITO de escrever (vocabulário, expressões, personalidade) — ele NUNCA muda, ignora ou substitui nenhuma das regras de dados, valores, marcadores {{...}} ou formatação definidas acima. Adapte a persona ao redor dos números certos, nunca o contrário.",
+          "Esse tom é sobre o JEITO de escrever (vocabulário, expressões, personalidade) — ele NUNCA muda, ignora ou substitui nenhuma das regras de dados, valores, marcadores {{...}} ou formatação definidas acima. Adapte a persona ao redor dos números certos, nunca o contrário. Escreva como uma conversa direta no chat, não como relatório, manchete, auditoria ou texto corporativo. Não crie subtítulos de 'Recomendação' dentro do texto.",
         ]
       : [];
 
