@@ -3305,6 +3305,39 @@ body.sem-entrada-listas .item-list-row { animation: none !important; }
 
 /* Ganhos — separa o total recebido por origem dentro do próprio card. */
 .hero-stat-ganhos { min-width: 0; }
+.saldo-origens {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-top: 1px;
+  min-width: 0;
+}
+.saldo-origem {
+  display: flex;
+  align-items: baseline;
+  gap: 4px;
+  min-width: 0;
+  white-space: nowrap;
+}
+.saldo-origem > span {
+  font-family: var(--font-mono);
+  font-size: 9.5px;
+  font-weight: 700;
+}
+.saldo-origem-label {
+  font-family: var(--font-sans) !important;
+  font-size: 9px !important;
+  font-weight: 700 !important;
+}
+.saldo-origem-beneficio > span:last-child { color: var(--benefit) !important; }
+.saldo-origem-beneficio .saldo-origem-label { color: var(--benefit) !important; }
+.saldo-origem-saldo > span:last-child { color: #8fd4ab; }
+.saldo-origem-saldo .saldo-origem-label { color: #8fd4ab; }
+.saldo-origem + .saldo-origem {
+  padding-left: 8px;
+  border-left: 1px solid rgba(255,255,255,.16);
+}
+
 .hero-stat-origens {
   display: flex;
   align-items: center;
