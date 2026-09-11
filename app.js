@@ -3560,7 +3560,7 @@ function montarResumoParaInsight() {
 // pra nunca aparecer cru na tela mesmo se a IA errar o formato.
 function renderizarTextoInsight(texto) {
   const seguro = escapeHtml(String(texto || ""));
-  return seguro
+  let html = seguro
     .replace(/\{\{beneficio:([^{}]+)\}\}/gi, '<span class="insight-valor-beneficio">$1</span>')
     .replace(/\{\{ganho:([^{}]+)\}\}/gi, '<span class="insight-valor-pos">$1</span>')
     .replace(/\{\{gasto:([^{}]+)\}\}/gi, '<span class="insight-valor-neg">$1</span>')
@@ -3569,6 +3569,16 @@ function renderizarTextoInsight(texto) {
     .replace(/\{\{\+([^{}]+)\}\}/g, '<span class="insight-valor-pos">$1</span>')
     .replace(/\{\{-([^{}]+)\}\}/g, '<span class="insight-valor-neg">$1</span>')
     .replace(/\{\{([^{}]+)\}\}/g, "$1");
+
+  // A IA pode devolver um insight antigo sem o marcador {{beneficio:...}}.
+  // Nesses casos, quando o valor vem explicitamente ligado à origem
+  // "benefício/benefícios", pinta somente esse valor de azul.
+  html = html.replace(
+    /(\bsendo\s+)(R\$\s?[\d.]+,\d{2})(?=\s+(?:provenientes?\s+de\s+|de\s+)?benef[ií]cios?\b)/gi,
+    '$1<span class="insight-valor-beneficio">$2</span>'
+  );
+
+  return html;
 }
 
 // Guarda o texto de IA atualmente exibido, pra não refazer o fade quando o
