@@ -1852,10 +1852,10 @@ function renderTotais() {
   // saldoBeneficioRestante e saldoRestante; os IDs saldoBeneficios/saldoGanhos
   // continuam sendo usados no card Ganhos.
   const gastosVariaveisBeneficio = (state.gastosVariaveis || []).reduce((acc, item) => {
-    return acc + (variavelContaNoSaldo(item) && variavelEhBeneficio(item) ? (Number(item.valor) || 0) : 0);
+    return acc + (gastoVariavelEhReal(item) && variavelContaNoSaldo(item) && variavelEhBeneficio(item) ? (Number(item.valor) || 0) : 0);
   }, 0);
   const gastosVariaveisSaldo = (state.gastosVariaveis || []).reduce((acc, item) => {
-    return acc + (variavelContaNoSaldo(item) && !variavelEhBeneficio(item) ? (Number(item.valor) || 0) : 0);
+    return acc + (gastoVariavelEhReal(item) && variavelContaNoSaldo(item) && !variavelEhBeneficio(item) ? (Number(item.valor) || 0) : 0);
   }, 0);
   const beneficioRestante = ganhosPorOrigem.beneficios - gastosVariaveisBeneficio;
   // Deve representar exatamente o mesmo "saldo em conta" usado pelo
