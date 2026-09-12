@@ -54,7 +54,7 @@ const CAIXINHA_ICON_STORAGE_KEY = "caixaIconesPersonalizados";
 const CAIXINHA_ICON_USAGE_KEY = "caixaIconesUso";
 const CAIXINHA_ICON_CACHE_NAME = "caixinha-icones-v2";
 const CAIXINHA_ICON_DIR = "IMG/";
-const CAIXINHA_ICON_GITHUB_FALLBACK = ""; // Se usar domínio próprio, informe "usuario/repositorio".
+const CAIXINHA_ICON_GITHUB_FALLBACK = "WolfSondar/Controle-de-Gastos"; // Repositório oficial dos ícones.
 
 function normalizarNomeIcone(nome) {
   return String(nome || "").split("/").pop().trim();
@@ -64,6 +64,8 @@ function urlIconeCaixinha(nome) {
   const arquivo = normalizarNomeIcone(nome);
   if (!arquivo) return "";
   if (/^https?:\/\//i.test(String(nome || ""))) return String(nome);
+  const repo = obterRepositorioGitHub();
+  if (repo) return `https://raw.githubusercontent.com/${repo}/main/IMG/${encodeURIComponent(arquivo)}`;
   return `${CAIXINHA_ICON_DIR}${encodeURIComponent(arquivo)}`;
 }
 
@@ -171,7 +173,7 @@ function categoriasDeIconesDisponiveis() {
 }
 
 function nomeIconeBonito(nome) {
-  return normalizarNomeIcone(nome).replace(/\.(png|webp)$/i, "");
+  return normalizarNomeIcone(nome).replace(/\.(png|webp|jpe?g)$/i, "");
 }
 
 function aplicarPreviewIcone(picker, nome) {
@@ -5446,6 +5448,14 @@ if (document.readyState === "loading") {
     return wrap;
   }
 
+  function formatarNomeCadastro(texto) {
+    return String(texto || "")
+      .trim()
+      .replace(/\s+/g, " ")
+      .toLocaleLowerCase("pt-BR")
+      .replace(/(^|[\s\-\u2013\u2014'])[\p{L}\p{M}]/gu, m => m.toLocaleUpperCase("pt-BR"));
+  }
+
   function campoChat(label, placeholder, callback, opts = {}) {
     if (!opts.skipQuestion) appendMensagem(`<strong>${esc(label)}</strong>`);
     const wrap = document.createElement("div");
@@ -5461,7 +5471,11 @@ if (document.readyState === "loading") {
     body.appendChild(wrap);
     const input = wrap.querySelector("input");
     const enviar = () => {
-      const valor = String(input.value || "").trim();
+      let valor = String(input.value || "").trim();
+      if (opts.formatarNome && valor) {
+        valor = formatarNomeCadastro(valor);
+        input.value = valor;
+      }
       if (!valor && !opts.allowEmpty) { input.focus(); return; }
       wrap.remove();
       if (!opts.skipResponse) appendMensagem(valor || "Pular", "user");
@@ -5475,14 +5489,72 @@ if (document.readyState === "loading") {
   }
 
   function campoValorCadastro(label, callback, opts = {}) {
-    return campoChat(label, opts.placeholder || "Ex.: 300,00", valor => {
-      const n = parseValor(valor);
-      if (!(n > 0) && !opts.allowZero) {
-        appendMensagem("Preciso de um valor maior que zero para continuar.");
-        return campoValorCadastro(label, callback, opts);
+    if (!opts.skipQuestion) appendMensagem(`<strong>${esc(label)}</strong>`);
+    const wrap = document.createElement("div");
+    wrap.className = "caixa-chat-simulador-form caixa-chat-cadastro-form caixa-chat-valor-form";
+    wrap.innerHTML = `
+      <label class="caixa-chat-simulador-input">
+        <span>${esc(label)}</span>
+        <input type="text" inputmode="decimal" autocomplete="off" placeholder="${esc(opts.placeholder || "Ex.: 300,00")}" aria-label="${esc(label)}">
+      </label>
+      <button type="button" class="caixa-chat-simulador-btn">Enviar</button>`;
+    body.appendChild(wrap);
+
+    const input = wrap.querySelector("input");
+    const enviar = wrap.querySelector("button");
+    const permitirVazio = !!opts.allowEmpty;
+
+    const formatar = () => {
+      let digitos = String(input.value || "").replace(/\D/g, "");
+      if (!digitos) {
+        input.value = "";
+        return;
       }
-      callback(n);
-    }, { inputmode: "decimal", placeholder: opts.placeholder || "Ex.: 300,00" });
+      digitos = digitos.replace(/^0+(?=\d)/, "");
+      while (digitos.length < 3) digitos = "0" + digitos;
+      const centavos = digitos.slice(-2);
+      const inteiros = digitos.slice(0, -2).replace(/\B(?=(\d{3})+(?!\d))/g, ".");
+      input.value = `R$ ${inteiros},${centavos}`;
+    };
+
+    const atualizarBotao = () => {
+      const texto = String(input.value || "").trim();
+      const numero = parseValor(texto.replace(/^R\$\s*/i, ""));
+      enviar.disabled = !((numero > 0) || (permitirVazio && texto === ""));
+      enviar.classList.toggle("is-disabled", enviar.disabled);
+    };
+
+    input.addEventListener("input", () => {
+      formatar();
+      atualizarBotao();
+    });
+
+    const concluir = () => {
+      const texto = String(input.value || "").trim();
+      const numero = texto ? parseValor(texto.replace(/^R\$\s*/i, "")) : 0;
+      if (!texto && permitirVazio) {
+        wrap.remove();
+        appendMensagem("Pular", "user");
+        callback(0);
+        return;
+      }
+      if (!(numero > 0)) {
+        input.focus();
+        input.classList.add("input-erro");
+        setTimeout(() => input.classList.remove("input-erro"), 500);
+        return;
+      }
+      wrap.remove();
+      appendMensagem(input.value, "user");
+      callback(numero);
+    };
+
+    input.addEventListener("keydown", e => { if (e.key === "Enter") concluir(); });
+    enviar.addEventListener("click", concluir);
+    atualizarBotao();
+    setTimeout(() => input.focus(), 40);
+    body.scrollTop = body.scrollHeight;
+    return wrap;
   }
 
   function categoriasEscolhiveis(callback) {
@@ -5685,7 +5757,7 @@ if (document.readyState === "loading") {
             else fluxoGastoVariavel();
           });
         });
-      });
+      }, { formatarNome: true });
     }
 
     function fluxoGastoFixo() {
@@ -5762,7 +5834,7 @@ if (document.readyState === "loading") {
             });
           });
         });
-      });
+      }, { formatarNome: true });
     }
 
     function fluxoCaixinha() {
@@ -5772,8 +5844,8 @@ if (document.readyState === "loading") {
         campoValorCadastro("Quanto já quer guardar nela?", valor => {
           cadastroAtivo.valorInicial = valor;
           appendMensagem("Vamos definir a meta da caixinha.");
-          campoChat("Objetivo", "Ex.: 5000,00 — ou deixe em branco", valorObjetivo => {
-            cadastroAtivo.valorObjetivo = valorObjetivo ? parseValor(valorObjetivo) : 0;
+          campoValorCadastro("Objetivo", valorObjetivo => {
+            cadastroAtivo.valorObjetivo = valorObjetivo || 0;
             appendMensagem("Vamos definir o prazo da meta.");
             campoChat("Prazo", "Escolha uma data ou deixe em branco", data => {
               cadastroAtivo.data = dataDoLancamento(data);
@@ -5784,9 +5856,9 @@ if (document.readyState === "loading") {
                 finalizarCadastro("Caixinha criada", `${esc(cadastroAtivo.nome)} · guardado inicial de <span class="chat-valor chat-valor-gold">${chatFmt(cadastroAtivo.valorInicial)}</span>.`);
               });
             }, { type: "date", allowEmpty: true });
-          }, { inputmode: "decimal", allowEmpty: true });
+          }, { allowEmpty: true, placeholder: "Ex.: 5.000,00 — ou deixe em branco" });
         }, { allowZero: true });
-      });
+      }, { formatarNome: true });
     }
   }
 
