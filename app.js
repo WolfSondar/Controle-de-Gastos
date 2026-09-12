@@ -1758,7 +1758,11 @@ function renderTotais() {
   const totalGuardadoNoMes = somaCampo(state.caixinhas, "valorGuardadoMes");
   // O dinheiro guardado neste mês já saiu do saldo disponível, mas continua
   // separado dos gastos. Não descontamos o acumulado de meses anteriores.
-  const saldo = totalGanhosRecebidos - totalFixosPagos - totalVariaveisPagos - totalGuardadoNoMes;
+  // Benefício e saldo em conta são origens separadas. O dinheiro guardado
+  // nas caixinhas sai somente do saldo em conta, nunca do benefício.
+  const saldoBeneficioBase = ganhosPorOrigem.beneficios;
+  const saldoContaBase = ganhosPorOrigem.ganhos - totalFixosPagos - totalVariaveisPagos - totalGuardadoNoMes;
+  const saldo = saldoBeneficioBase + saldoContaBase;
 
   const ganhosEl = document.getElementById("statGanhos");
   const fixosEl = document.getElementById("statFixos");
