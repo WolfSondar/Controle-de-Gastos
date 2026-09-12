@@ -4056,7 +4056,13 @@ function abrirModalEditar(tipo, idx, item) {
   }
   if (dataEl) {
     dataEl.classList.toggle("is-hidden", !temData);
-    dataEl.value = temData ? item.data || "" : "";
+    // input[type=date] aceita somente AAAA-MM-DD. Alguns lançamentos guardam
+    // também horário (ex.: AAAA-MM-DDTHH:mm:ss), então usamos apenas a parte
+    // da data ao abrir a edição. Se o lançamento não tiver data, permanece vazio.
+    const dataEdicao = String(item.data || "").trim();
+    dataEl.value = temData && /^\d{4}-\d{2}-\d{2}/.test(dataEdicao)
+      ? dataEdicao.slice(0, 10)
+      : "";
   }
   if (parcelaEl) {
     parcelaEl.classList.toggle("is-hidden", !temParcela);
@@ -4120,7 +4126,8 @@ on("formEditar", "submit", (e) => {
     opVariaveis.edit(idx, nome, valor, { tipo: categoria, data, origem, lembrete: false });
   } else if (tipo === "caixinhas") {
     const icone = normalizarNomeIcone(document.getElementById("editIcone")?.value || "");
-    editCaixinha(idx, nome, valor, icone);
+    const data = document.getElementById("editData").value;
+    editCaixinha(idx, nome, valor, icone, data);
   }
   fecharModalEditar();
 });
@@ -5573,8 +5580,51 @@ if (document.readyState === "loading") {
     escolhaChat([[true, positivo, ""], [false, negativo, ""]], callback);
   }
 
+  function mostrarFeedbackCadastro(titulo, mensagem) {
+    // Feedback visual fora do balão: a confirmação aparece imediatamente e
+    // transforma o cadastro em uma pequena recompensa visual, sem depender
+    // apenas da última mensagem do chat.
+    const anterior = document.getElementById("caixaCadastroFeedback");
+    if (anterior) anterior.remove();
+
+    const isGanho = /ganho/i.test(titulo);
+    const isCaixinha = /caixinha/i.test(titulo);
+    const tipo = isGanho ? "ganho" : isCaixinha ? "caixinha" : "gasto";
+    const icone = isGanho ? "↑" : isCaixinha ? "◇" : "✓";
+    const etiqueta = isGanho ? "GANHO" : isCaixinha ? "CAIXINHA" : "GASTO";
+
+    const overlay = document.createElement("div");
+    overlay.id = "caixaCadastroFeedback";
+    overlay.className = `caixa-cadastro-feedback caixa-cadastro-feedback-${tipo}`;
+    overlay.setAttribute("role", "status");
+    overlay.setAttribute("aria-live", "polite");
+    overlay.innerHTML = `
+      <div class="caixa-cadastro-feedback-confetti" aria-hidden="true">
+        <i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i>
+      </div>
+      <div class="caixa-cadastro-feedback-card">
+        <div class="caixa-cadastro-feedback-orb" aria-hidden="true"><span>${icone}</span></div>
+        <div class="caixa-cadastro-feedback-kicker"><span class="caixa-cadastro-feedback-dot"></span>${etiqueta}</div>
+        <strong class="caixa-cadastro-feedback-title">${esc(titulo.replace(/^(Gasto|Ganho|Caixinha) (adicionado|criada)$/i, "$1"))}</strong>
+        <div class="caixa-cadastro-feedback-detail">${mensagem}</div>
+        <div class="caixa-cadastro-feedback-stamp"><span>✓</span> Registrado com sucesso</div>
+      </div>`;
+
+    document.body.appendChild(overlay);
+    requestAnimationFrame(() => overlay.classList.add("is-visible"));
+
+    const remover = () => {
+      overlay.classList.remove("is-visible");
+      overlay.classList.add("is-closing");
+      setTimeout(() => overlay.remove(), 260);
+    };
+    setTimeout(remover, 2100);
+    overlay.addEventListener("click", remover, { once: true });
+  }
+
   function finalizarCadastro(titulo, mensagem) {
     appendMensagem(`<strong>${esc(titulo)}</strong><br>${mensagem}`);
+    mostrarFeedbackCadastro(titulo, mensagem);
     cadastroAtivo = null;
     appendMensagem("Quer adicionar outro lançamento?");
     escolhaChat([
