@@ -4665,3 +4665,141 @@ body.sem-entrada-listas .item-list-row { animation: none !important; }
   .caixa-cadastro-feedback.is-visible { opacity:1; }
   .caixa-cadastro-feedback.is-visible .caixa-cadastro-feedback-card { transform:none; opacity:1; }
 }
+
+/* ============================================================
+   CAIXA — CHAT IA / MODO ESCURO REFINADO
+   Os ícones das ações rápidas ficam sólidos e legíveis no dark.
+   ============================================================ */
+@media (prefers-color-scheme: dark) {
+  .caixa-chat {
+    background:
+      radial-gradient(circle at 88% 0%, rgba(217,171,92,.055), transparent 30%),
+      linear-gradient(160deg, #0c1512 0%, #09110f 100%);
+    border-color: rgba(217,171,92,.16);
+    box-shadow:
+      0 28px 80px rgba(0,0,0,.56),
+      0 8px 28px rgba(0,0,0,.34),
+      inset 0 1px 0 rgba(255,255,255,.025);
+  }
+
+  .caixa-chat-body {
+    background: linear-gradient(180deg, rgba(12,21,18,.58), rgba(7,14,12,.2));
+  }
+
+  .caixa-chat-quick-title {
+    color: #aebbb3;
+  }
+
+  .caixa-chat-action {
+    background: linear-gradient(145deg, #111d19, #0d1815) !important;
+    border-color: rgba(126,151,139,.16) !important;
+    color: #eee8dc !important;
+    box-shadow:
+      0 5px 18px rgba(0,0,0,.22),
+      inset 0 1px 0 rgba(255,255,255,.025);
+  }
+
+  .caixa-chat-action:hover {
+    background: linear-gradient(145deg, #17251f, #101d18) !important;
+    border-color: rgba(217,171,92,.46) !important;
+    box-shadow:
+      0 9px 24px rgba(0,0,0,.28),
+      0 0 0 1px rgba(217,171,92,.05),
+      inset 0 1px 0 rgba(255,255,255,.035);
+  }
+
+  /* Ícone: remove o aspecto "apagado" do tema escuro. */
+  .caixa-chat-action-icon {
+    background: linear-gradient(145deg, #1b2b24, #14221d) !important;
+    color: #d9ab5c !important;
+    border: 1px solid rgba(217,171,92,.20) !important;
+    box-shadow:
+      inset 0 1px 0 rgba(255,255,255,.045),
+      0 4px 12px rgba(0,0,0,.22);
+    opacity: 1 !important;
+  }
+
+  .caixa-chat-action-icon svg,
+  .caixa-chat-action-icon svg * {
+    color: inherit !important;
+    stroke: currentColor !important;
+    fill: none;
+    opacity: 1 !important;
+    filter: none !important;
+  }
+
+  /* Pequenas variações de cor deixam o menu mais vivo sem perder elegância. */
+  .caixa-chat-action:nth-child(2) .caixa-chat-action-icon {
+    color: #d9ab5c !important;
+    background: linear-gradient(145deg, #2a281c, #1d2019) !important;
+    border-color: rgba(217,171,92,.28) !important;
+  }
+
+  .caixa-chat-action:nth-child(3) .caixa-chat-action-icon {
+    color: #8fd4ab !important;
+    background: linear-gradient(145deg, #172920, #12201a) !important;
+    border-color: rgba(111,187,140,.22) !important;
+  }
+
+  .caixa-chat-action:nth-child(4) .caixa-chat-action-icon {
+    color: #c5a7df !important;
+    background: linear-gradient(145deg, #241e2b, #1a1821) !important;
+    border-color: rgba(197,167,223,.20) !important;
+  }
+
+  .caixa-chat-action:nth-child(5) .caixa-chat-action-icon {
+    color: #e0a58f !important;
+    background: linear-gradient(145deg, #2a201d, #201816) !important;
+    border-color: rgba(224,165,143,.20) !important;
+  }
+
+  .caixa-chat-action:nth-child(6) .caixa-chat-action-icon {
+    color: #8fc4d6 !important;
+    background: linear-gradient(145deg, #18262b, #131f23) !important;
+    border-color: rgba(143,196,214,.20) !important;
+  }
+
+  .caixa-chat-action:nth-child(7) .caixa-chat-action-icon {
+    color: #d6c27f !important;
+    background: linear-gradient(145deg, #28271d, #1e1f18) !important;
+    border-color: rgba(214,194,127,.22) !important;
+  }
+
+  .caixa-chat-action-text strong {
+    color: #eee8dc !important;
+  }
+
+  .caixa-chat-action-text small {
+    color: #9eaaa3 !important;
+  }
+
+  .caixa-chat-action-arrow {
+    color: #9eaaa3 !important;
+    opacity: .82 !important;
+  }
+
+  .caixa-chat-action::after {
+    background: linear-gradient(110deg, transparent 20%, rgba(255,255,255,.065) 48%, transparent 72%);
+  }
+
+  .caixa-chat-welcome {
+    background: linear-gradient(145deg, #121f1a, #0e1915) !important;
+    border-color: rgba(126,151,139,.14) !important;
+    box-shadow: 0 6px 18px rgba(0,0,0,.18);
+  }
+
+  .caixa-chat-welcome strong {
+    color: #eee8dc !important;
+  }
+
+  .caixa-chat-welcome p {
+    color: #9eaaa3 !important;
+  }
+
+  .caixa-chat-spark {
+    background: rgba(217,171,92,.14) !important;
+    color: #e0bb70 !important;
+    border: 1px solid rgba(217,171,92,.16);
+    box-shadow: 0 0 18px rgba(217,171,92,.06);
+  }
+}
