@@ -4745,98 +4745,15 @@ if (document.readyState === "loading") {
       .sort((a,b) => (b.atual / b.objetivo) - (a.atual / a.objetivo));
   }
 
-  function clonarCadastroAtivo() {
-    try { return cadastroAtivo ? JSON.parse(JSON.stringify(cadastroAtivo)) : null; }
-    catch (_err) { return cadastroAtivo ? { ...cadastroAtivo } : null; }
-  }
-
-  function limparDepoisDaMensagem(wrap) {
-    let no = wrap?.nextSibling;
-    while (no) {
-      const proximo = no.nextSibling;
-      no.remove();
-      no = proximo;
-    }
-  }
-
-  function abrirEditorMensagem(wrap, meta) {
-    if (!wrap || !meta || typeof meta.onEdit !== "function") return;
-
-    const valorAtual = String(meta.value ?? "");
-    const overlay = document.createElement("div");
-    overlay.className = "caixa-chat-edit-overlay";
-    overlay.setAttribute("role", "dialog");
-    overlay.setAttribute("aria-modal", "true");
-    overlay.innerHTML = `
-      <div class="caixa-chat-edit-modal">
-        <div class="caixa-chat-edit-kicker">Editar resposta</div>
-        <h3>Corrigir o que você informou</h3>
-        <p>O assistente vai continuar a partir desta resposta.</p>
-        <label class="caixa-chat-edit-field">
-          <span>Resposta</span>
-          <input type="text" class="caixa-chat-edit-input" autocomplete="off" />
-        </label>
-        <div class="caixa-chat-edit-actions">
-          <button type="button" class="btn btn-ghost caixa-chat-edit-cancel">Cancelar</button>
-          <button type="button" class="btn btn-gold caixa-chat-edit-save">Atualizar</button>
-        </div>
-      </div>`;
-
-    const input = overlay.querySelector(".caixa-chat-edit-input");
-    const fechar = () => overlay.remove();
-    const salvar = () => {
-      const novoValor = String(input.value || "").trim();
-      if (!novoValor) { input.focus(); return; }
-      cadastroAtivo = meta.cadastroAntes ? JSON.parse(JSON.stringify(meta.cadastroAntes)) : cadastroAtivo;
-      limparDepoisDaMensagem(wrap);
-      const bubble = wrap.querySelector(".caixa-chat-bubble");
-      if (bubble) bubble.innerHTML = esc(novoValor);
-      meta.value = novoValor;
-      fechar();
-      meta.onEdit(novoValor);
-    };
-
-    overlay.addEventListener("click", e => { if (e.target === overlay) fechar(); });
-    overlay.querySelector(".caixa-chat-edit-cancel").addEventListener("click", fechar);
-    overlay.querySelector(".caixa-chat-edit-save").addEventListener("click", salvar);
-    input.addEventListener("keydown", e => {
-      if (e.key === "Enter") { e.preventDefault(); salvar(); }
-      if (e.key === "Escape") fechar();
-    });
-    document.body.appendChild(overlay);
-    setTimeout(() => { input.value = valorAtual; input.focus(); input.select(); }, 20);
-  }
-
-  function appendMensagem(html, quem = "bot", editMeta = null) {
+  function appendMensagem(html, quem = "bot") {
     const wrap = document.createElement("div");
     wrap.className = `caixa-chat-message ${quem}`;
     const bubble = document.createElement("div");
     bubble.className = "caixa-chat-bubble";
     bubble.innerHTML = html;
     wrap.appendChild(bubble);
-
-    if (quem === "user" && editMeta && typeof editMeta.onEdit === "function") {
-      wrap.classList.add("is-editavel");
-      const editBtn = document.createElement("button");
-      editBtn.type = "button";
-      editBtn.className = "caixa-chat-message-edit";
-      editBtn.setAttribute("aria-label", "Editar resposta");
-      editBtn.title = "Editar resposta";
-      editBtn.innerHTML = `${ICONE_LAPIS}<span>Editar</span>`;
-      editBtn.addEventListener("click", e => {
-        e.stopPropagation();
-        abrirEditorMensagem(wrap, editMeta);
-      });
-      wrap.appendChild(editBtn);
-      bubble.setAttribute("role", "button");
-      bubble.setAttribute("tabindex", "0");
-      bubble.setAttribute("aria-label", "Editar resposta enviada");
-      bubble.addEventListener("click", () => abrirEditorMensagem(wrap, editMeta));
-      bubble.addEventListener("keydown", e => {
-        if (e.key === "Enter" || e.key === " ") { e.preventDefault(); abrirEditorMensagem(wrap, editMeta); }
-      });
-    }
-
+    // Remove the quick actions only from the welcome area; subsequent answers
+    // get their own compact "voltar" action.
     body.appendChild(wrap);
     body.scrollTop = body.scrollHeight;
     return wrap;
@@ -5464,12 +5381,8 @@ if (document.readyState === "loading") {
       btn.className = `caixa-chat-choice ${extraClass}`;
       btn.innerHTML = `<span><strong>${esc(titulo)}</strong>${sub ? `<small>${esc(sub)}</small>` : ""}</span>${opts.showArrow === false ? "" : `<span class="caixa-chat-choice-arrow">›</span>`}`;
       btn.addEventListener("click", () => {
-        const cadastroAntes = clonarCadastroAtivo();
         wrap.remove();
-        appendMensagem(esc(titulo), "user", { value: titulo, cadastroAntes, onEdit: novoTitulo => {
-          const novaOpcao = opcoes.find(op => String(op[1]) === String(novoTitulo));
-          callback(novaOpcao ? novaOpcao[0] : valor, novoTitulo);
-        }});
+        appendMensagem(esc(titulo), "user");
         callback(valor, titulo);
       });
       wrap.appendChild(btn);
@@ -5506,14 +5419,9 @@ if (document.readyState === "loading") {
     const concluir = () => {
       if (select.value === "") { select.focus(); return; }
       const titulo = select.options[select.selectedIndex]?.textContent || select.value;
-      const cadastroAntes = clonarCadastroAtivo();
-      const valorSelecionado = select.value;
       wrap.remove();
-      appendMensagem(titulo, "user", { value: titulo, cadastroAntes, onEdit: novoTitulo => {
-        const novaOpcao = opcoes.find(op => String(op[1]) === String(novoTitulo));
-        callback(novaOpcao ? novaOpcao[0] : valorSelecionado, novoTitulo);
-      }});
-      callback(valorSelecionado, titulo);
+      appendMensagem(titulo, "user");
+      callback(select.value, titulo);
     };
     select.addEventListener("change", () => { if (opts.autoSubmit) concluir(); });
     select.addEventListener("keydown", e => { if (e.key === "Enter") concluir(); });
@@ -5542,9 +5450,8 @@ if (document.readyState === "loading") {
     const enviar = () => {
       const valor = String(input.value || "").trim();
       if (!valor && !opts.allowEmpty) { input.focus(); return; }
-      const cadastroAntes = clonarCadastroAtivo();
       wrap.remove();
-      if (!opts.skipResponse) appendMensagem(valor || "Pular", "user", { value: valor || "Pular", cadastroAntes, onEdit: novoValor => callback(novoValor) });
+      if (!opts.skipResponse) appendMensagem(valor || "Pular", "user");
       callback(valor);
     };
     input.addEventListener("keydown", e => { if (e.key === "Enter") enviar(); });
@@ -5624,17 +5531,10 @@ if (document.readyState === "loading") {
         btn.addEventListener("click", () => {
           menu.remove();
           if (nome) registrarUsoIconeCaixinha(nome);
-          const cadastroAntes = clonarCadastroAtivo();
           if (nome) {
-            appendMensagem(`<span class="caixa-chat-icon-selected" title="${esc(label)}"><img src="${esc(urlIconeCaixinha(nome))}" alt="${esc(label)}"></span>`, "user", { value: label, cadastroAntes, onEdit: novoLabel => {
-              const novoNome = opcoes.find(op => String(op.label) === String(novoLabel))?.nome || "";
-              callback(novoNome, novoLabel);
-            }});
+            appendMensagem(`<span class="caixa-chat-icon-selected" title="${esc(label)}"><img src="${esc(urlIconeCaixinha(nome))}" alt="${esc(label)}"></span>`, "user");
           } else {
-            appendMensagem("Sem ícone", "user", { value: "Sem ícone", cadastroAntes, onEdit: novoLabel => {
-              const novoNome = opcoes.find(op => String(op.label) === String(novoLabel))?.nome || "";
-              callback(novoNome, novoLabel);
-            }});
+            appendMensagem("Sem ícone", "user");
           }
           callback(nome, label);
         });
@@ -5663,8 +5563,7 @@ if (document.readyState === "loading") {
     const hoje = dataHojeISO();
     campoChat(label, "", valor => {
       const data = valor || hoje;
-      const cadastroAntes = clonarCadastroAtivo();
-      appendMensagem(esc(formatarDataParaChat(data)), "user", { value: data, cadastroAntes, onEdit: novoValor => callback(novoValor || hoje) });
+      appendMensagem(esc(formatarDataParaChat(data)), "user");
       callback(data);
     }, { type: "date", autocomplete: "off", value: hoje, skipResponse: true, skipQuestion: true });
   }
@@ -5676,19 +5575,6 @@ if (document.readyState === "loading") {
 
   function finalizarCadastro(titulo, mensagem) {
     appendMensagem(`<strong>${esc(titulo)}</strong><br>${mensagem}`);
-    // Depois que o lançamento foi salvo, as respostas daquela sessão deixam
-    // de ser editáveis para evitar duplicação de lançamentos. Durante o fluxo
-    // de cadastro, cada resposta continua podendo ser corrigida.
-    body.querySelectorAll(".caixa-chat-message.is-editavel").forEach(msg => {
-      msg.classList.remove("is-editavel");
-      msg.querySelector(".caixa-chat-message-edit")?.remove();
-      const bubble = msg.querySelector(".caixa-chat-bubble");
-      if (bubble) {
-        bubble.removeAttribute("role");
-        bubble.removeAttribute("tabindex");
-        bubble.removeAttribute("aria-label");
-      }
-    });
     cadastroAtivo = null;
     appendMensagem("Quer adicionar outro lançamento?");
     escolhaChat([
