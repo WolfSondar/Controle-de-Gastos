@@ -4473,3 +4473,132 @@ body.sem-entrada-listas .item-list-row { animation: none !important; }
   object-fit: contain;
   display: block;
 }
+
+/* ============================================================
+   V27 — feedback visual gamificado após concluir um lançamento
+   A confirmação não recompensa o gasto/ganho em si; ela recompensa a
+   conclusão da ação, com uma microanimação rápida e elegante.
+   ============================================================ */
+.caixa-cadastro-feedback {
+  position: fixed;
+  inset: 0;
+  z-index: 16000;
+  display: grid;
+  place-items: center;
+  padding: 20px;
+  background: rgba(15, 25, 22, .14);
+  backdrop-filter: blur(7px) saturate(.94);
+  -webkit-backdrop-filter: blur(7px) saturate(.94);
+  opacity: 0;
+  pointer-events: none;
+  transition: opacity .22s ease;
+}
+.caixa-cadastro-feedback.is-visible { opacity: 1; pointer-events: auto; }
+.caixa-cadastro-feedback.is-closing { opacity: 0; pointer-events: none; }
+
+.caixa-cadastro-feedback-card {
+  position: relative;
+  width: min(390px, calc(100vw - 32px));
+  padding: 31px 27px 24px;
+  text-align: center;
+  border: 1px solid rgba(185,134,47,.25);
+  border-radius: 28px;
+  background: linear-gradient(155deg, rgba(255,255,255,.98), rgba(250,245,233,.98));
+  color: var(--ink-text, #16332c);
+  box-shadow: 0 28px 80px rgba(18,35,30,.22), 0 4px 18px rgba(18,35,30,.10), inset 0 1px 0 rgba(255,255,255,.9);
+  transform: translateY(18px) scale(.92);
+  opacity: 0;
+  transition: transform .42s cubic-bezier(.18,.9,.25,1.2), opacity .28s ease;
+}
+.caixa-cadastro-feedback.is-visible .caixa-cadastro-feedback-card {
+  transform: translateY(0) scale(1);
+  opacity: 1;
+}
+.caixa-cadastro-feedback.is-closing .caixa-cadastro-feedback-card {
+  transform: translateY(8px) scale(.97);
+  opacity: 0;
+  transition-duration: .24s;
+}
+
+.caixa-cadastro-feedback-orb {
+  width: 76px;
+  height: 76px;
+  margin: -65px auto 14px;
+  display: grid;
+  place-items: center;
+  border: 6px solid rgba(255,255,255,.95);
+  border-radius: 50%;
+  background: var(--gold, #b9862f);
+  color: #fff;
+  box-shadow: 0 10px 25px rgba(185,134,47,.27), 0 0 0 9px rgba(185,134,47,.08);
+  animation: caixa-feedback-pop .55s cubic-bezier(.2,1.45,.3,1) .05s both;
+}
+.caixa-cadastro-feedback-orb span { font-size: 31px; font-weight: 900; line-height: 1; }
+.caixa-cadastro-feedback-ganho .caixa-cadastro-feedback-orb { background: var(--income, #3e9a72); box-shadow: 0 10px 25px rgba(62,154,114,.27), 0 0 0 9px rgba(62,154,114,.08); }
+.caixa-cadastro-feedback-caixinha .caixa-cadastro-feedback-orb { background: var(--gold, #b9862f); }
+.caixa-cadastro-feedback-gasto .caixa-cadastro-feedback-orb { background: var(--expense, #bd5a4a); box-shadow: 0 10px 25px rgba(189,90,74,.23), 0 0 0 9px rgba(189,90,74,.07); }
+
+.caixa-cadastro-feedback-kicker {
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  margin-bottom: 6px;
+  font-size: 9px;
+  font-weight: 900;
+  letter-spacing: .16em;
+  color: var(--muted, #81796b);
+}
+.caixa-cadastro-feedback-dot { width: 6px; height: 6px; border-radius: 50%; background: currentColor; box-shadow: 0 0 0 4px rgba(185,134,47,.10); }
+.caixa-cadastro-feedback-title { display:block; font-size: 24px; line-height: 1.12; letter-spacing: -.025em; }
+.caixa-cadastro-feedback-detail { margin-top: 8px; font-size: 12px; line-height: 1.55; color: var(--muted, #81796b); }
+.caixa-cadastro-feedback-detail .chat-valor { font-weight: 900; }
+.caixa-cadastro-feedback-stamp {
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  margin-top: 17px;
+  padding: 8px 11px;
+  border-radius: 999px;
+  background: rgba(22,51,44,.055);
+  color: var(--ink-text, #16332c);
+  font-size: 10px;
+  font-weight: 800;
+}
+.caixa-cadastro-feedback-stamp span { display:grid; place-items:center; width:17px; height:17px; border-radius:50%; background:var(--income,#3e9a72); color:#fff; font-size:10px; }
+
+.caixa-cadastro-feedback-confetti { position:absolute; inset:0; overflow:hidden; pointer-events:none; }
+.caixa-cadastro-feedback-confetti i { position:absolute; top:47%; left:50%; width:7px; height:13px; border-radius:2px; background:var(--gold,#b9862f); opacity:0; animation:caixa-feedback-confetti 1.05s cubic-bezier(.15,.75,.25,1) both; }
+.caixa-cadastro-feedback-confetti i:nth-child(1){ transform:rotate(18deg); --tx:-145px; --ty:-100px; }
+.caixa-cadastro-feedback-confetti i:nth-child(2){ transform:rotate(70deg); --tx:-92px; --ty:-145px; animation-delay:.03s; }
+.caixa-cadastro-feedback-confetti i:nth-child(3){ transform:rotate(110deg); --tx:0px; --ty:-165px; animation-delay:.06s; }
+.caixa-cadastro-feedback-confetti i:nth-child(4){ transform:rotate(165deg); --tx:105px; --ty:-138px; animation-delay:.09s; }
+.caixa-cadastro-feedback-confetti i:nth-child(5){ transform:rotate(205deg); --tx:150px; --ty:-82px; animation-delay:.12s; }
+.caixa-cadastro-feedback-confetti i:nth-child(6){ transform:rotate(265deg); --tx:-155px; --ty:-28px; animation-delay:.15s; }
+.caixa-cadastro-feedback-confetti i:nth-child(7){ transform:rotate(310deg); --tx:154px; --ty:-22px; animation-delay:.18s; }
+.caixa-cadastro-feedback-confetti i:nth-child(8){ transform:rotate(345deg); --tx:78px; --ty:-154px; animation-delay:.21s; }
+
+@keyframes caixa-feedback-pop {
+  0%{transform:scale(.45) rotate(-10deg); opacity:0}
+  70%{transform:scale(1.09) rotate(2deg); opacity:1}
+  100%{transform:scale(1) rotate(0); opacity:1}
+}
+@keyframes caixa-feedback-confetti {
+  0%{opacity:0; transform:translate(-50%,-20%) scale(.4) rotate(0deg)}
+  18%{opacity:1}
+  100%{opacity:0; transform:translate(calc(-50% + var(--tx)), calc(-20% + var(--ty))) scale(1) rotate(260deg)}
+}
+
+@media(max-width:560px){
+  .caixa-cadastro-feedback { padding: 16px; }
+  .caixa-cadastro-feedback-card { width: min(350px, calc(100vw - 24px)); padding: 29px 21px 21px; border-radius: 24px; }
+  .caixa-cadastro-feedback-orb { width:68px; height:68px; margin-top:-59px; }
+  .caixa-cadastro-feedback-title { font-size:22px; }
+}
+@media(prefers-color-scheme:dark){
+  .caixa-cadastro-feedback { background: rgba(0,0,0,.38); }
+}
+@media(prefers-reduced-motion:reduce){
+  .caixa-cadastro-feedback, .caixa-cadastro-feedback-card, .caixa-cadastro-feedback-orb, .caixa-cadastro-feedback-confetti i { animation:none !important; transition:none !important; }
+  .caixa-cadastro-feedback.is-visible { opacity:1; }
+  .caixa-cadastro-feedback.is-visible .caixa-cadastro-feedback-card { transform:none; opacity:1; }
+}
