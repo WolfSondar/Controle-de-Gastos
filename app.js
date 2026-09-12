@@ -48,7 +48,7 @@ function corDaCategoria(nome, idxFallback) {
 // ---------------------------------------------------------------------
 // ÍCONES PERSONALIZADOS DAS CAIXINHAS
 // Lê automaticamente IMG/ do próprio repositório GitHub e usa apenas
-// arquivos PNG/WEBP cujo nome começa com "caixa" (ex.: caixa_zelda.png).
+// arquivos PNG/WEBP/JPG/JPEG cujo nome começa com "caixa" (ex.: caixa_zelda.png).
 // ---------------------------------------------------------------------
 const CAIXINHA_ICON_STORAGE_KEY = "caixaIconesPersonalizados";
 const CAIXINHA_ICON_USAGE_KEY = "caixaIconesUso";
@@ -69,7 +69,7 @@ function urlIconeCaixinha(nome) {
 
 function isArquivoIconeCaixinha(nome) {
   const arquivo = normalizarNomeIcone(nome);
-  return /^caixa/i.test(arquivo) && /\.(png|webp)$/i.test(arquivo);
+  return /^caixa/i.test(arquivo) && /\.(png|webp|jpe?g)$/i.test(arquivo);
 }
 
 function obterRepositorioGitHub() {
@@ -152,11 +152,11 @@ function preCachearIconesMaisUsados(lista) {
 
 function obterCategoriaIcone(nome) {
   const arquivo = normalizarNomeIcone(nome);
-  const base = arquivo.replace(/\.(png|webp)$/i, "").toLowerCase();
+  const base = arquivo.replace(/\.(png|webp|jpe?g)$/i, "").toLowerCase();
   const regras = Array.isArray(state.iconCategorias) ? state.iconCategorias : [];
   for (const regra of regras) {
     for (const padraoBruto of (regra.padroes || [])) {
-      const padrao = normalizarTextoBuscaIcone(padraoBruto).replace(/\.(png|webp)$/i, "");
+      const padrao = normalizarTextoBuscaIcone(padraoBruto).replace(/\.(png|webp|jpe?g)$/i, "");
       if (!padrao) continue;
       const prefixo = padrao.endsWith("*") ? padrao.slice(0, -1) : padrao;
       if (prefixo && base === prefixo || (prefixo && base.startsWith(prefixo))) return regra.categoria;
