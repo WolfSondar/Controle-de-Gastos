@@ -1756,7 +1756,10 @@ function renderTotais() {
   // caixinha individualmente — aqui é só a movimentação do mês.
   const totalGuardadoAtual = somaTotalCaixinhas(state.caixinhas);
   const totalGuardadoNoMes = somaCampo(state.caixinhas, "valorGuardadoMes");
-  const saldo = totalGanhosRecebidos - totalFixosPagos - totalVariaveisPagos;
+  // O que foi guardado neste mês não é gasto, mas também não está mais
+  // disponível para novos gastos. A base das caixinhas de meses anteriores
+  // não entra aqui, porque ela já pertence a períodos fechados.
+  const saldo = totalGanhosRecebidos - totalFixosPagos - totalVariaveisPagos - totalGuardadoNoMes;
 
   const ganhosEl = document.getElementById("statGanhos");
   const fixosEl = document.getElementById("statFixos");
@@ -1852,7 +1855,11 @@ function renderTotais() {
     return acc + (variavelContaNoSaldo(item) && !variavelEhBeneficio(item) ? (Number(item.valor) || 0) : 0);
   }, 0);
   const beneficioRestante = ganhosPorOrigem.beneficios - gastosVariaveisBeneficio;
-  const saldoRestante = ganhosPorOrigem.ganhos - totalFixosPagos - gastosVariaveisSaldo;
+  // Guardado nas caixinhas sai do dinheiro disponível da conta, mas não é
+  // classificado como gasto. Como o cadastro das caixinhas usa a origem
+  // "saldo", descontamos somente do saldo normal (e não do benefício).
+  const totalGuardadoNoMesDisponivel = somaCampo(state.caixinhas, "valorGuardadoMes");
+  const saldoRestante = ganhosPorOrigem.ganhos - totalFixosPagos - gastosVariaveisSaldo - totalGuardadoNoMesDisponivel;
 
   if (beneficiosEl) {
     beneficiosEl.textContent = fmt(beneficioRestante);
@@ -4660,7 +4667,7 @@ if (document.readyState === "loading") {
   if (!fab || !chat || !close || !body || !quick || !thinking) return;
 
   const CHAT_PROMPTS = {
-    gastar: "Você é o assistente financeiro do Caixa. Descubra de qual origem o usuário quer gastar (benefício ou saldo em conta) e, para o saldo normal, informe quanto realmente pode gastar depois de considerar as entradas que ainda vão cair e todas as contas abertas que precisam ser reservadas. O saldo atual exibido no cartão é apenas o saldo de hoje; não o confunda com o limite de gasto projetado. Use somente os números calculados pelo aplicativo.",
+    gastar: "Você é o assistente financeiro do Caixa. Descubra de qual origem o usuário quer gastar (benefício ou saldo em conta) e, para o saldo normal, informe quanto realmente pode gastar depois de considerar o saldo disponível, o dinheiro guardado nas caixinhas neste mês, as entradas que ainda vão cair e todas as contas abertas que precisam ser reservadas. Dinheiro guardado não é gasto, mas não está mais disponível para novos gastos. O saldo atual exibido no cartão é apenas o saldo de hoje; não o confunda com o limite de gasto projetado. Use somente os números calculados pelo aplicativo.",
     gastos: "Você é o assistente financeiro do Caixa. Mostre quanto já foi gasto no mês, separando gastos fixos, variáveis e o total.",
     categorias: "Você é o assistente financeiro do Caixa. Identifique as categorias que mais consumiram dinheiro no mês atual e apresente as três maiores, sem inventar dados.",
     guardado: "Você é o assistente financeiro do Caixa. Informe quanto existe atualmente nas caixinhas e destaque metas, se houver.",
@@ -4709,11 +4716,11 @@ if (document.readyState === "loading") {
     const saldoGasto = listaFinita(state.gastosVariaveis).reduce((a, i) =>
       a + (gastoVariavelEhReal(i) && variavelContaNoSaldo(i) && !variavelEhBeneficio(i) ? Number(i.valor) || 0 : 0), 0);
     const beneficio = ganhosOrigem.beneficios - beneficioGasto;
-    // Para decidir "quanto ainda posso gastar" pelo saldo em conta,
-    // partimos do saldo que já existe hoje, somamos o que ainda vai entrar
-    // (somente ganhos sem benefício) e reservamos TODOS os gastos fixos
-    // ainda não pagos, pois os fixos sempre saem do saldo em conta.
-    const saldoAtualConta = ganhosOrigem.ganhos - fixosPagos - saldoGasto;
+    const guardadoNoMes = somaCampo(state.caixinhas, "valorGuardadoMes");
+    // Guardar dinheiro não é um gasto, mas esse valor deixou de estar
+    // disponível no saldo da conta neste mês. As caixinhas acumuladas de
+    // meses anteriores não são descontadas novamente.
+    const saldoAtualConta = ganhosOrigem.ganhos - fixosPagos - saldoGasto - guardadoNoMes;
     const aReceber = listaFinita(state.ganhos).reduce((a, i) =>
       a + (i.recebido !== true && !ganhoEhBeneficio(i) ? Number(i.valor) || 0 : 0), 0);
     const aPagarFixos = listaFinita(state.gastosFixos).reduce((a, i) =>
@@ -4730,8 +4737,8 @@ if (document.readyState === "loading") {
     const aPagarFixosFuturos = Math.max(0, aPagarFixos - aPagarFixosEsseMes);
     const aPagarVariaveisFuturos = Math.max(0, aPagarVariaveis - aPagarVariaveisEsseMes);
     const conta = saldoAtualConta + aReceber - aPagarFixos - aPagarVariaveis;
-    const saldoGeral = ganhosRecebidos - fixosPagos - variaveisPagos;
-    return { ganhosRecebidos, ganhosOrigem, fixosPagos, fixosTotais, variaveisPagos, beneficio, saldoAtualConta, conta, saldoGeral, aReceber, aPagarFixos, aPagarVariaveis, aPagarFixosEsseMes, aPagarVariaveisEsseMes, aPagarFixosFuturos, aPagarVariaveisFuturos };
+    const saldoGeral = ganhosRecebidos - fixosPagos - variaveisPagos - guardadoNoMes;
+    return { ganhosRecebidos, ganhosOrigem, fixosPagos, fixosTotais, variaveisPagos, beneficio, saldoAtualConta, conta, saldoGeral, guardadoNoMes, aReceber, aPagarFixos, aPagarVariaveis, aPagarFixosEsseMes, aPagarVariaveisEsseMes, aPagarFixosFuturos, aPagarVariaveisFuturos };
   }
 
   function categoriasChat() {
