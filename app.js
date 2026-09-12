@@ -5691,22 +5691,19 @@ if (document.readyState === "loading") {
         cadastroAtivo.nome = nome;
         campoValorCadastro("Qual é o valor?", valor => {
           cadastroAtivo.valor = valor;
-          categoriasEscolhiveis(cat => {
-            cadastroAtivo.categoria = cat;
-            appendMensagem("Esse ganho pertence ao <strong>saldo em conta</strong> ou ao <strong>benefício</strong>?");
-            escolhaChat([
-              ["saldo", "Saldo em conta", "Entra no saldo normal"],
-              ["beneficio", "Benefício", "Entra no saldo do benefício"]
-            ], origem => {
-              cadastroAtivo.origem = origem;
-              perguntaDataCadastro(data => {
+          appendMensagem("Esse ganho pertence ao <strong>saldo em conta</strong> ou ao <strong>benefício</strong>?");
+          escolhaChat([
+            ["saldo", "Saldo em conta", "Entra no saldo normal"],
+            ["beneficio", "Benefício", "Entra no saldo do benefício"]
+          ], origem => {
+            cadastroAtivo.origem = origem;
+            perguntaDataCadastro(data => {
               cadastroAtivo.data = data;
               perguntaStatusCadastro("Esse dinheiro já foi recebido?", "Sim, já recebi", "Ainda vou receber", recebido => {
-                opGanhos.add(cadastroAtivo.nome, cadastroAtivo.valor, { recebido, data: dataDoLancamento(cadastroAtivo.data), origem: cadastroAtivo.origem, tipo: cadastroAtivo.categoria });
+                opGanhos.add(cadastroAtivo.nome, cadastroAtivo.valor, { recebido, data: dataDoLancamento(cadastroAtivo.data), origem: cadastroAtivo.origem });
                 finalizarCadastro("Ganho adicionado", `${esc(cadastroAtivo.nome)} · <span class="chat-valor chat-valor-pos">${chatFmt(cadastroAtivo.valor)}</span>.`);
               });
             });
-          });
           });
         });
       });
