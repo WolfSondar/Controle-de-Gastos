@@ -459,16 +459,22 @@ function dataHojeISO() {
   return `${ano}-${mes}-${dia}`;
 }
 
-// Quando um lançamento é criado para hoje, guarda a hora junto da data.
-// Para datas futuras/passadas, mantém somente a data escolhida.
+// Datas de lançamentos são salvas somente como dia, sem horário.
+// Mantemos o formato interno AAAA-MM-DD para não quebrar filtros,
+// ordenação e campos HTML de data; a exibição para o usuário é brasileira.
 function dataDoLancamento(data) {
   const dataLimpa = String(data || "").trim();
-  if (!dataLimpa || dataLimpa !== dataHojeISO()) return dataLimpa;
-  const agora = new Date();
-  const hora = String(agora.getHours()).padStart(2, "0");
-  const minuto = String(agora.getMinutes()).padStart(2, "0");
-  const segundo = String(agora.getSeconds()).padStart(2, "0");
-  return `${dataLimpa}T${hora}:${minuto}:${segundo}`;
+  if (!dataLimpa) return "";
+  return dataLimpa.slice(0, 10);
+}
+
+function dataBrasileira(data) {
+  const valor = String(data || "").trim();
+  const iso = valor.match(/^(\d{4})-(\d{2})-(\d{2})/);
+  if (iso) return `${iso[3]}/${iso[2]}/${iso[1]}`;
+  const br = valor.match(/^(\d{2})[\/.-](\d{2})[\/.-](\d{4})/);
+  if (br) return `${br[1]}/${br[2]}/${br[3]}`;
+  return valor;
 }
 
 function preencherDatasComHoje() {
@@ -1225,7 +1231,7 @@ function editCaixinha(index, nome, valorObjetivo, icone = "", data = "") {
   cx.valorObjetivo = valorObjetivo || 0;
   marcarAlteracaoLocal();
   cx.icone = normalizarNomeIcone(icone);
-  cx.data = String(data || "").trim();
+  cx.data = dataDoLancamento(data);
   marcarComemoracaoSeMetaBatida(cx, estavaCompleta);
   if (nomeAntigo !== nome) {
     const rotuloAntigo = `Guardado: ${nomeAntigo}`;
@@ -3888,7 +3894,7 @@ on("formCaixinhas", "submit", (e) => {
   const valorInicial = f.valorInicial.value ? parseValor(f.valorInicial.value) : 0;
   const valorObjetivo = f.valorObjetivo.value ? parseValor(f.valorObjetivo.value) : 0;
   const icone = f.icone ? normalizarNomeIcone(f.icone.value) : "";
-  const data = f.data ? String(f.data.value || "").trim() : "";
+  const data = dataDoLancamento(f.data ? f.data.value : "");
   if (!nome || valorInicial < 0) return;
   addCaixinha(nome, valorInicial, valorObjetivo, icone, data);
   f.reset();
@@ -4059,7 +4065,7 @@ function abrirModalEditar(tipo, idx, item) {
     // input[type=date] aceita somente AAAA-MM-DD. Alguns lançamentos guardam
     // também horário (ex.: AAAA-MM-DDTHH:mm:ss), então usamos apenas a parte
     // da data ao abrir a edição. Se o lançamento não tiver data, permanece vazio.
-    const dataEdicao = String(item.data || "").trim();
+    const dataEdicao = dataDoLancamento(item.data);
     dataEl.value = temData && /^\d{4}-\d{2}-\d{2}/.test(dataEdicao)
       ? dataEdicao.slice(0, 10)
       : "";
@@ -5770,7 +5776,7 @@ if (document.readyState === "loading") {
             cadastroAtivo.valorObjetivo = valorObjetivo ? parseValor(valorObjetivo) : 0;
             appendMensagem("Vamos definir o prazo da meta.");
             campoChat("Prazo", "Escolha uma data ou deixe em branco", data => {
-              cadastroAtivo.data = data || "";
+              cadastroAtivo.data = dataDoLancamento(data);
               appendMensagem("Agora escolha um ícone, se quiser.");
               escolhaIconeChat(icone => {
                 cadastroAtivo.icone = icone;
