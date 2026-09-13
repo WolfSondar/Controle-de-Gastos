@@ -5119,3 +5119,614 @@ body.sem-entrada-listas .item-list-row { animation: none !important; }
   .acao-feedback-overlay.is-visible { opacity:1; }
   .acao-feedback-overlay.is-visible .acao-feedback-card { transform:none; opacity:1; }
 }
+
+/* ============================================================
+   V29 — FEEDBACK COZY / GAMEFICAÇÃO
+   Estados: IDLE → EM ANDAMENTO → SUCESSO
+   As animações não alteram a lógica financeira.
+   ============================================================ */
+
+.acao-feedback-overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 9999;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 22px;
+  background:
+    radial-gradient(circle at 50% 36%, rgba(217,171,92,.13), transparent 28%),
+    rgba(22,51,44,.34);
+  backdrop-filter: blur(12px) saturate(1.08);
+  -webkit-backdrop-filter: blur(12px) saturate(1.08);
+  opacity: 0;
+  transition: opacity .32s ease;
+}
+.acao-feedback-overlay.is-visible { opacity: 1; }
+.acao-feedback-overlay.is-closing { opacity: 0; }
+
+.acao-feedback-card {
+  position: relative;
+  width: min(520px, calc(100vw - 36px));
+  overflow: hidden;
+  border: 1px solid rgba(185,134,47,.28);
+  border-radius: 30px;
+  padding: 25px 24px 23px;
+  text-align: center;
+  color: var(--ink-text);
+  background:
+    radial-gradient(circle at 50% -10%, rgba(217,171,92,.17), transparent 38%),
+    linear-gradient(155deg, rgba(250,245,233,.985), rgba(241,233,216,.985));
+  box-shadow:
+    0 30px 90px rgba(22,51,44,.24),
+    0 8px 26px rgba(22,51,44,.12),
+    inset 0 1px 0 rgba(255,255,255,.8);
+  transform: translateY(14px) scale(.97);
+  opacity: 0;
+  transition: transform .55s cubic-bezier(.2,.85,.25,1), opacity .4s ease;
+}
+.acao-feedback-overlay.is-visible .acao-feedback-card {
+  transform: translateY(0) scale(1);
+  opacity: 1;
+}
+.acao-feedback-card::before {
+  content: "";
+  position: absolute;
+  left: 9%;
+  right: 9%;
+  top: 0;
+  height: 1px;
+  background: linear-gradient(90deg, transparent, rgba(185,134,47,.55), transparent);
+}
+.acao-feedback-card::after {
+  content: "";
+  position: absolute;
+  width: 180px;
+  height: 180px;
+  left: 50%;
+  top: 78px;
+  transform: translateX(-50%);
+  border-radius: 50%;
+  background: radial-gradient(circle, rgba(217,171,92,.12), transparent 68%);
+  pointer-events: none;
+}
+
+.cozy-badge {
+  position: relative;
+  z-index: 2;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 5px;
+  padding: 6px 10px;
+  border: 1px solid rgba(185,134,47,.22);
+  border-radius: 999px;
+  background: rgba(185,134,47,.08);
+  color: var(--gold-deep);
+  font-family: var(--font-mono);
+  font-size: 9px;
+  font-weight: 800;
+  letter-spacing: .12em;
+  animation: cozyBadgeFloat 2.2s ease-in-out infinite;
+}
+
+.acao-feedback-kicker {
+  position: relative;
+  z-index: 2;
+  display: block;
+  margin-top: 2px;
+  color: var(--gold-deep);
+  font-family: var(--font-mono);
+  font-size: 9.5px;
+  font-weight: 800;
+  letter-spacing: .12em;
+}
+.acao-feedback-title {
+  position: relative;
+  z-index: 2;
+  display: block;
+  margin-top: 7px;
+  font-family: var(--font-display);
+  font-size: 25px;
+  font-weight: 600;
+  line-height: 1.1;
+}
+.acao-feedback-detail {
+  position: relative;
+  z-index: 2;
+  display: block;
+  margin-top: 8px;
+  color: var(--muted);
+  font-family: var(--font-mono);
+  font-size: 11px;
+}
+.acao-feedback-stamp {
+  position: relative;
+  z-index: 2;
+  display: inline-flex;
+  margin-top: 13px;
+  padding: 7px 11px;
+  border: 1px solid rgba(22,51,44,.08);
+  border-radius: 999px;
+  background: rgba(22,51,44,.045);
+  color: var(--ink-text);
+  font-size: 10px;
+  font-weight: 700;
+}
+
+/* ---------- Pessoas / avatares ---------- */
+.feedback-person {
+  position: relative;
+  z-index: 3;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 7px;
+  min-width: 72px;
+}
+.feedback-avatar {
+  width: 58px;
+  height: 58px;
+  display: grid;
+  place-items: center;
+  border-radius: 50%;
+  border: 3px solid rgba(250,245,233,.92);
+  outline: 1px solid rgba(185,134,47,.35);
+  background:
+    radial-gradient(circle at 35% 28%, rgba(255,255,255,.55), transparent 28%),
+    linear-gradient(145deg, #8db89a, #4e8068);
+  color: #faf5e9;
+  font-family: var(--font-display);
+  font-size: 23px;
+  font-weight: 700;
+  box-shadow: 0 9px 20px rgba(22,51,44,.16);
+  animation: avatarIdle 2.4s ease-in-out infinite;
+}
+.feedback-person.right .feedback-avatar,
+.transferencia-destinatario .feedback-avatar {
+  background:
+    radial-gradient(circle at 35% 28%, rgba(255,255,255,.55), transparent 28%),
+    linear-gradient(145deg, #8eafd0, #607e9c);
+}
+.feedback-person-name {
+  color: var(--ink-text);
+  font-size: 11px;
+  font-weight: 700;
+}
+
+/* ---------- Divisão ---------- */
+.divisao-feedback-stage {
+  position: relative;
+  z-index: 2;
+  height: 210px;
+  margin: 10px auto 1px;
+  max-width: 430px;
+  display: grid;
+  place-items: center;
+}
+.divisao-cena-pessoas {
+  position: relative;
+  z-index: 4;
+  width: 100%;
+  display: grid;
+  grid-template-columns: 1fr 120px 1fr;
+  align-items: center;
+}
+.divisao-centro {
+  position: relative;
+  display: grid;
+  justify-items: center;
+  min-height: 122px;
+}
+.divisao-compra-icone {
+  width: 70px;
+  height: 70px;
+  display: grid;
+  place-items: center;
+  border: 1px solid rgba(185,134,47,.3);
+  border-radius: 23px;
+  background: rgba(250,245,233,.9);
+  box-shadow: 0 10px 25px rgba(185,134,47,.14), inset 0 1px 0 white;
+  font-size: 31px;
+  animation: compraRespira 2.1s ease-in-out infinite;
+}
+.divisao-valor {
+  margin-top: -17px;
+  padding: 3px 8px;
+  border-radius: 999px;
+  background: var(--ink);
+  color: var(--on-ink);
+  font-family: var(--font-mono);
+  font-size: 9px;
+  font-weight: 700;
+  box-shadow: 0 5px 12px rgba(22,51,44,.18);
+}
+.divisao-peca {
+  position: absolute;
+  top: 21px;
+  width: 29px;
+  height: 29px;
+  display: grid;
+  place-items: center;
+  border: 2px solid #93691f;
+  border-radius: 50%;
+  background: linear-gradient(145deg, #e7c477, #b9862f);
+  color: #fff7df;
+  font-family: var(--font-mono);
+  font-size: 11px;
+  font-weight: 800;
+  opacity: 0;
+  box-shadow: 0 4px 10px rgba(185,134,47,.25);
+}
+.divisao-peca-a { left: 32px; }
+.divisao-peca-b { right: 32px; }
+
+.divisao-feedback-stage.is-dividindo .divisao-compra-icone {
+  animation: compraAbre 1.15s cubic-bezier(.2,.8,.2,1) forwards;
+}
+.divisao-feedback-stage.is-dividindo .divisao-peca-a {
+  animation: pecaVaiEsquerda 1.35s cubic-bezier(.18,.82,.2,1) forwards;
+}
+.divisao-feedback-stage.is-dividindo .divisao-peca-b {
+  animation: pecaVaiDireita 1.35s cubic-bezier(.18,.82,.2,1) forwards;
+}
+.divisao-feedback-stage.is-dividindo .feedback-person.left .feedback-avatar {
+  animation: pessoaRecebeEsquerda 1.35s ease-in-out forwards;
+}
+.divisao-feedback-stage.is-dividindo .feedback-person.right .feedback-avatar {
+  animation: pessoaRecebeDireita 1.35s ease-in-out forwards;
+}
+
+.divisao-feedback-stage.is-sucesso .divisao-compra-icone {
+  animation: sucessoCompra 1s cubic-bezier(.2,.9,.2,1) forwards;
+}
+.divisao-feedback-stage.is-sucesso .divisao-peca {
+  opacity: 1;
+  animation: moedaSucesso 1.05s cubic-bezier(.2,.85,.2,1) forwards;
+}
+.divisao-feedback-stage.is-sucesso .divisao-peca-a { left: 12px; }
+.divisao-feedback-stage.is-sucesso .divisao-peca-b { right: 12px; }
+.divisao-feedback-stage.is-sucesso .feedback-person .feedback-avatar {
+  animation: avatarSucesso .8s cubic-bezier(.2,.9,.2,1) 1;
+}
+.divisao-estrelas {
+  position: absolute;
+  inset: 22px 18%;
+  z-index: 5;
+  pointer-events: none;
+}
+.divisao-estrelas i {
+  position: absolute;
+  font-style: normal;
+  color: var(--gold-deep);
+  opacity: 0;
+}
+.divisao-estrelas i:nth-child(1){left:8%;top:35%;font-size:18px;}
+.divisao-estrelas i:nth-child(2){left:26%;top:8%;font-size:12px;}
+.divisao-estrelas i:nth-child(3){right:10%;top:32%;font-size:20px;}
+.divisao-estrelas i:nth-child(4){right:29%;bottom:13%;font-size:18px;}
+.divisao-estrelas i:nth-child(5){left:45%;top:2%;font-size:13px;}
+.divisao-feedback-stage.is-dividindo .divisao-estrelas i {
+  animation: estrelaExplode .9s ease-out forwards;
+}
+.divisao-feedback-stage.is-dividindo .divisao-estrelas i:nth-child(2){animation-delay:.12s}
+.divisao-feedback-stage.is-dividindo .divisao-estrelas i:nth-child(3){animation-delay:.2s}
+.divisao-feedback-stage.is-dividindo .divisao-estrelas i:nth-child(4){animation-delay:.28s}
+.divisao-feedback-stage.is-dividindo .divisao-estrelas i:nth-child(5){animation-delay:.36s}
+.divisao-feedback-stage.is-sucesso .divisao-estrelas i {
+  animation: estrelaSucesso 1s ease-out forwards;
+}
+
+/* ---------- Transferência ---------- */
+.transferencia-feedback-card {
+  width: min(600px, calc(100vw - 36px));
+}
+.transferencia-cena {
+  position: relative;
+  z-index: 3;
+  height: 205px;
+  display: grid;
+  grid-template-columns: 86px 1fr 86px;
+  align-items: center;
+  gap: 8px;
+  margin: 11px auto 1px;
+  max-width: 540px;
+}
+.transferencia-cena .feedback-person {
+  min-width: 0;
+}
+.transferencia-rota {
+  position: relative;
+  height: 100px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+.transferencia-trilha {
+  position: absolute;
+  left: 4px;
+  right: 4px;
+  top: 50%;
+  height: 3px;
+  overflow: hidden;
+  transform: translateY(-50%);
+  border-radius: 99px;
+  background: repeating-linear-gradient(
+    90deg,
+    rgba(185,134,47,.18) 0 7px,
+    transparent 7px 14px
+  );
+}
+.transferencia-trilha::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  width: 55%;
+  background: repeating-linear-gradient(
+    90deg,
+    rgba(185,134,47,.95) 0 7px,
+    transparent 7px 14px
+  );
+  transform: translateX(-110%);
+  animation: trilhaFluxo 1.05s linear infinite;
+}
+.transferencia-moeda {
+  position: absolute;
+  left: 4%;
+  top: 50%;
+  width: 56px;
+  height: 56px;
+  transform: translate(-50%,-50%);
+  z-index: 4;
+  filter: drop-shadow(0 9px 13px rgba(185,134,47,.22));
+}
+.transferencia-moeda-corpo {
+  width: 100%;
+  height: 100%;
+  display: grid;
+  place-items: center;
+  border: 3px solid #93691f;
+  border-radius: 50%;
+  background:
+    radial-gradient(circle at 35% 28%, rgba(255,255,255,.6), transparent 24%),
+    linear-gradient(145deg, #e9c87e, #b9862f);
+  color: #fff8e7;
+  font-family: var(--font-mono);
+  font-size: 14px;
+  font-weight: 800;
+  box-shadow:
+    inset 0 0 0 3px rgba(255,246,213,.22),
+    0 0 0 4px rgba(185,134,47,.08);
+}
+.transferencia-moeda-brilho {
+  position: absolute;
+  width: 12px;
+  height: 12px;
+  top: -5px;
+  right: -3px;
+  border-radius: 50%;
+  background: #fff4bd;
+  filter: blur(1px);
+  opacity: .8;
+  animation: moedaBrilha 1.1s ease-in-out infinite;
+}
+.transferencia-chegada {
+  position: absolute;
+  right: 2%;
+  top: 50%;
+  transform: translateY(-50%) scale(.5);
+  color: var(--gold-deep);
+  font-size: 25px;
+  opacity: 0;
+}
+
+.transferencia-cena.is-transferindo .transferencia-moeda {
+  animation: moedaViaja 1.55s cubic-bezier(.18,.8,.2,1) forwards;
+}
+.transferencia-cena.is-transferindo .transferencia-trilha::after {
+  animation-duration: .48s;
+}
+.transferencia-cena.is-transferindo .transferencia-remetente .feedback-avatar {
+  animation: remetenteEntrega .7s ease forwards;
+}
+.transferencia-cena.is-transferindo .transferencia-destinatario .feedback-avatar {
+  animation: destinatarioEspera 1s ease-in-out infinite;
+}
+
+.transferencia-cena.is-sucesso .transferencia-moeda {
+  animation: moedaChegou .85s cubic-bezier(.15,.9,.2,1) forwards;
+}
+.transferencia-cena.is-sucesso .transferencia-chegada {
+  animation: chegadaExplode .9s cubic-bezier(.15,.9,.2,1) forwards;
+}
+.transferencia-cena.is-sucesso .transferencia-destinatario .feedback-avatar {
+  animation: avatarSucesso .8s cubic-bezier(.2,.9,.2,1) 1;
+}
+.transferencia-cena.is-sucesso .transferencia-trilha::after {
+  animation: none;
+  opacity: .22;
+}
+
+@keyframes cozyBadgeFloat {
+  0%,100%{transform:translateY(0)}
+  50%{transform:translateY(-2px)}
+}
+@keyframes avatarIdle {
+  0%,100%{transform:translateY(0) rotate(0)}
+  50%{transform:translateY(-3px) rotate(-1deg)}
+}
+@keyframes compraRespira {
+  0%,100%{transform:translateY(0) rotate(0) scale(1)}
+  50%{transform:translateY(-5px) rotate(-2deg) scale(1.025)}
+}
+@keyframes compraAbre {
+  0%{transform:scale(1)}
+  35%{transform:scale(1.12) rotate(-3deg)}
+  100%{transform:scale(.76) rotate(0)}
+}
+@keyframes pecaVaiEsquerda {
+  0%{opacity:0;transform:translate(0,0) scale(.5) rotate(0)}
+  20%{opacity:1}
+  100%{opacity:1;transform:translate(-73px,58px) scale(1) rotate(-18deg)}
+}
+@keyframes pecaVaiDireita {
+  0%{opacity:0;transform:translate(0,0) scale(.5) rotate(0)}
+  20%{opacity:1}
+  100%{opacity:1;transform:translate(73px,58px) scale(1) rotate(18deg)}
+}
+@keyframes pessoaRecebeEsquerda {
+  0%,100%{transform:translateX(0)}
+  55%{transform:translateX(-5px)}
+}
+@keyframes pessoaRecebeDireita {
+  0%,100%{transform:translateX(0)}
+  55%{transform:translateX(5px)}
+}
+@keyframes estrelaExplode {
+  0%{opacity:0;transform:scale(.2)}
+  25%{opacity:1}
+  100%{opacity:0;transform:translate(var(--sx,0),var(--sy,-28px)) scale(1.1) rotate(120deg)}
+}
+.divisao-estrelas i:nth-child(1){--sx:-10px;--sy:-25px}
+.divisao-estrelas i:nth-child(2){--sx:-20px;--sy:-13px}
+.divisao-estrelas i:nth-child(3){--sx:18px;--sy:-20px}
+.divisao-estrelas i:nth-child(4){--sx:14px;--sy:18px}
+.divisao-estrelas i:nth-child(5){--sx:-4px;--sy:-31px}
+@keyframes sucessoCompra {
+  0%{transform:scale(.76)}
+  45%{transform:scale(1.12) rotate(3deg)}
+  70%{transform:scale(.96) rotate(-2deg)}
+  100%{transform:scale(1)}
+}
+@keyframes moedaSucesso {
+  0%{transform:scale(.7) translateY(10px)}
+  55%{transform:scale(1.15) translateY(-4px)}
+  100%{transform:scale(1) translateY(0)}
+}
+@keyframes avatarSucesso {
+  0%{transform:translateY(0) scale(1)}
+  35%{transform:translateY(-7px) scale(1.07)}
+  65%{transform:translateY(1px) scale(.98)}
+  100%{transform:translateY(0) scale(1)}
+}
+@keyframes trilhaFluxo {
+  to{transform:translateX(185%)}
+}
+@keyframes moedaBrilha {
+  0%,100%{transform:scale(.7);opacity:.35}
+  50%{transform:scale(1.3);opacity:1}
+}
+@keyframes moedaViaja {
+  0%{left:4%;transform:translate(-50%,-50%) rotateY(0) rotate(-2deg) scale(.92)}
+  18%{left:22%;transform:translate(-50%,-50%) rotateY(90deg) rotate(2deg) scale(1.04)}
+  42%{left:45%;transform:translate(-50%,-50%) rotateY(180deg) rotate(-2deg) scale(1)}
+  67%{left:70%;transform:translate(-50%,-50%) rotateY(270deg) rotate(2deg) scale(1.04)}
+  100%{left:96%;transform:translate(-50%,-50%) rotateY(360deg) rotate(0) scale(.98)}
+}
+@keyframes moedaChegou {
+  0%{left:96%;transform:translate(-50%,-50%) scale(.98)}
+  35%{left:96%;transform:translate(-50%,-50%) scale(1.25) rotate(-6deg)}
+  65%{left:96%;transform:translate(-50%,-50%) scale(.9) rotate(4deg)}
+  100%{left:96%;transform:translate(-50%,-50%) scale(1)}
+}
+@keyframes chegadaExplode {
+  0%{opacity:0;transform:translateY(-50%) scale(.35)}
+  30%{opacity:1;transform:translateY(-50%) scale(1.35)}
+  100%{opacity:0;transform:translateY(-50%) scale(2.5)}
+}
+@keyframes remetenteEntrega {
+  0%{transform:translateY(0) rotate(0)}
+  45%{transform:translateY(-4px) rotate(-4deg)}
+  100%{transform:translateY(0) rotate(0)}
+}
+@keyframes destinatarioEspera {
+  0%,100%{transform:translateY(0)}
+  50%{transform:translateY(-3px)}
+}
+
+/* Erro: segura a estética sem fingir sucesso. */
+.acao-feedback-overlay[data-estado="erro"] .acao-feedback-card {
+  border-color: rgba(168,72,46,.28);
+}
+.acao-feedback-overlay[data-estado="erro"] .acao-feedback-kicker {
+  color: var(--expense);
+}
+
+/* Dark mode */
+@media (prefers-color-scheme: dark) {
+  .acao-feedback-overlay {
+    background:
+      radial-gradient(circle at 50% 36%, rgba(217,171,92,.09), transparent 30%),
+      rgba(3,10,8,.72);
+    backdrop-filter: blur(16px) saturate(.9);
+    -webkit-backdrop-filter: blur(16px) saturate(.9);
+  }
+  .acao-feedback-card {
+    border-color: rgba(217,171,92,.24);
+    background:
+      radial-gradient(circle at 50% -10%, rgba(217,171,92,.10), transparent 40%),
+      linear-gradient(155deg, rgba(24,43,35,.99), rgba(12,27,22,.995));
+    box-shadow:
+      0 32px 95px rgba(0,0,0,.52),
+      0 8px 30px rgba(0,0,0,.32),
+      inset 0 1px 0 rgba(255,255,255,.045);
+  }
+  .acao-feedback-stamp {
+    border-color: rgba(241,233,216,.10);
+    background: rgba(241,233,216,.065);
+    color: #e9dfcc;
+  }
+  .divisao-compra-icone {
+    background: rgba(16,31,26,.9);
+    border-color: rgba(217,171,92,.25);
+  }
+  .transferencia-moeda-corpo {
+    color: #fff8e7;
+  }
+}
+
+@media (max-width: 560px) {
+  .acao-feedback-overlay { padding: 12px; }
+  .acao-feedback-card {
+    width: min(390px, calc(100vw - 20px));
+    border-radius: 26px;
+    padding: 21px 15px 19px;
+  }
+  .acao-feedback-title { font-size: 22px; }
+  .divisao-feedback-stage { height: 190px; }
+  .divisao-cena-pessoas { grid-template-columns: 1fr 100px 1fr; }
+  .feedback-avatar { width: 52px; height: 52px; }
+  .transferencia-cena { grid-template-columns: 66px 1fr 66px; gap: 3px; height: 185px; }
+  .transferencia-moeda { width: 50px; height: 50px; }
+  .transferencia-moeda-corpo { font-size: 12px; }
+  @keyframes pecaVaiEsquerda {
+    0%{opacity:0;transform:translate(0,0) scale(.5)}
+    20%{opacity:1}
+    100%{opacity:1;transform:translate(-60px,53px) scale(1) rotate(-18deg)}
+  }
+  @keyframes pecaVaiDireita {
+    0%{opacity:0;transform:translate(0,0) scale(.5)}
+    20%{opacity:1}
+    100%{opacity:1;transform:translate(60px,53px) scale(1) rotate(18deg)}
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .acao-feedback-overlay,
+  .acao-feedback-card,
+  .cozy-badge,
+  .feedback-avatar,
+  .divisao-compra-icone,
+  .divisao-peca,
+  .divisao-estrelas i,
+  .transferencia-trilha::after,
+  .transferencia-moeda,
+  .transferencia-moeda-brilho,
+  .transferencia-chegada {
+    animation: none !important;
+    transition: none !important;
+  }
+  .acao-feedback-overlay.is-visible,
+  .acao-feedback-overlay.is-visible .acao-feedback-card { opacity: 1; }
+  .acao-feedback-overlay.is-visible .acao-feedback-card { transform: none; }
+}
