@@ -4283,6 +4283,7 @@ on("formDividir", "submit", async (e) => {
         ? `"${nome}" lançado — ${PESSOA_LABEL[quemPagouTudo === "davi" ? "gabriel" : "davi"]} fica devendo a metade`
         : `"${nome}" dividido — metade pra cada um`
     );
+    mostrarAnimacaoDivisao({ nome, valor, quemPagouTudo });
     fecharAcoesConjunto();
     renderAll();
   } else {
@@ -4326,6 +4327,65 @@ function esconderProcessando(id) {
   if (overlay) overlay.classList.add("is-hidden");
 }
 
+/* ============================================================
+   FEEDBACK VISUAL — AÇÕES EM CONJUNTO
+   Divisão: duas partes se separam e "encaixam" em cada pessoa.
+   Transferência: usa o overlay da moeda, com direção explícita.
+   Tudo é apenas feedback visual; a lógica financeira continua igual.
+   ============================================================ */
+function mostrarAnimacaoDivisao({ nome = "", valor = 0, quemPagouTudo = null } = {}) {
+  const existente = document.getElementById("divisaoFeedbackOverlay");
+  if (existente) existente.remove();
+
+  const metade = Math.round((Number(valor) / 2) * 100) / 100;
+  const rotulo = quemPagouTudo
+    ? `${PESSOA_LABEL[quemPagouTudo]} pagou a compra`
+    : "50% para cada um";
+
+  const overlay = document.createElement("div");
+  overlay.id = "divisaoFeedbackOverlay";
+  overlay.className = "acao-feedback-overlay divisao-feedback-overlay";
+  overlay.setAttribute("role", "status");
+  overlay.setAttribute("aria-live", "polite");
+  overlay.innerHTML = `
+    <div class="acao-feedback-card divisao-feedback-card">
+      <div class="divisao-feedback-stage" aria-hidden="true">
+        <span class="divisao-part divisao-part-a">½</span>
+        <span class="divisao-part divisao-part-b">½</span>
+        <span class="divisao-spark divisao-spark-1"></span>
+        <span class="divisao-spark divisao-spark-2"></span>
+        <span class="divisao-spark divisao-spark-3"></span>
+        <span class="divisao-spark divisao-spark-4"></span>
+        <span class="divisao-line"></span>
+      </div>
+      <span class="acao-feedback-kicker">COMPRA DIVIDIDA</span>
+      <strong class="acao-feedback-title">Cada um com sua parte</strong>
+      <span class="acao-feedback-detail">${escapeHtml(nome || "Compra")} · ${fmt(metade)} para cada</span>
+      <span class="acao-feedback-stamp">${escapeHtml(rotulo)}</span>
+    </div>
+  `;
+
+  document.body.appendChild(overlay);
+  requestAnimationFrame(() => overlay.classList.add("is-visible"));
+
+  window.setTimeout(() => {
+    overlay.classList.add("is-closing");
+    window.setTimeout(() => overlay.remove(), 280);
+  }, 1250);
+}
+
+function prepararAnimacaoTransferencia(de, para) {
+  const overlay = document.getElementById("transferirOverlay");
+  if (!overlay) return;
+  overlay.classList.remove("transferencia-davi", "transferencia-gabriel");
+  overlay.classList.add(de === "davi" ? "transferencia-davi" : "transferencia-gabriel");
+
+  const texto = overlay.querySelector(".processando-texto");
+  const sub = overlay.querySelector(".processando-sub");
+  if (texto) texto.textContent = "Transferindo…";
+  if (sub) sub.textContent = `${PESSOA_LABEL[de]} → ${PESSOA_LABEL[para]}`;
+}
+
 on("formTransferir", "submit", async (e) => {
   e.preventDefault();
   const nome = document.getElementById("transferirNome").value.trim() || "Transferência";
@@ -4339,9 +4399,9 @@ on("formTransferir", "submit", async (e) => {
     btnSubmit.disabled = true;
     btnSubmit.textContent = "Transferindo…";
   }
-  mostrarProcessando("transferirOverlay");
-
   const { de, para } = direcaoTransferir;
+  prepararAnimacaoTransferencia(de, para);
+  mostrarProcessando("transferirOverlay");
   const ok = await transferirEntrePessoas(de, para, nome, valor, tipo);
 
   esconderProcessando("transferirOverlay");
