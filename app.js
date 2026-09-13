@@ -4384,22 +4384,30 @@ function montarDivisaoFeedback({ nome = "", valor = 0, quemPagouTudo = null } = 
       <div class="cozy-badge">✦ MOMENTO DO CAIXA</div>
 
       <div class="divisao-feedback-stage">
-        <div class="divisao-cloud divisao-cloud-a"></div>
-        <div class="divisao-cloud divisao-cloud-b"></div>
+        <div class="divisao-scene-glow"></div>
+        <div class="divisao-scene-line"></div>
 
         <div class="divisao-cena-pessoas">
           ${perfilFeedback("davi", "left")}
+
           <div class="divisao-centro">
-            <div class="divisao-compra-icone">🛍️</div>
-            <div class="divisao-valor">${fmt(Number(valor))}</div>
+            <div class="divisao-compra">
+              <div class="divisao-sacola" aria-hidden="true">
+                <span class="divisao-sacola-alca"></span>
+                <span class="divisao-sacola-corpo"></span>
+                <span class="divisao-sacola-detalhe"></span>
+              </div>
+              <span class="divisao-valor">${fmt(Number(valor))}</span>
+            </div>
             <span class="divisao-peca divisao-peca-a">½</span>
             <span class="divisao-peca divisao-peca-b">½</span>
           </div>
+
           ${perfilFeedback("gabriel", "right")}
         </div>
 
         <div class="divisao-estrelas" aria-hidden="true">
-          <i>✦</i><i>✧</i><i>✦</i><i>·</i><i>✧</i>
+          <i>✦</i><i>✦</i><i>✧</i><i>✦</i><i>·</i><i>✧</i>
         </div>
       </div>
 
