@@ -4267,8 +4267,16 @@ on("formDividir", "submit", async (e) => {
   const btnSubmit = document.getElementById("dividirSubmit");
   if (btnSubmit) {
     btnSubmit.disabled = true;
-    btnSubmit.textContent = "Dividindo…";
+    btnSubmit.textContent = "Preparando…";
   }
+
+  // A animação começa em estado IDLE imediatamente. A operação real só é
+  // disparada depois de 3s, como um pequeno "momento cozy" antes da ação.
+  const feedback = mostrarAnimacaoDivisao({ nome, valor, quemPagouTudo });
+
+  await new Promise((resolve) => window.setTimeout(resolve, 3000));
+  setEstadoDivisaoFeedback(feedback, "dividindo");
+  if (btnSubmit) btnSubmit.textContent = "Dividindo…";
 
   const ok = await dividirCompra(nome, valor, categoriaDividir, { tipo, data, pago, quemPagouTudo });
 
@@ -4278,15 +4286,20 @@ on("formDividir", "submit", async (e) => {
   }
 
   if (ok) {
+    setEstadoDivisaoFeedback(feedback, "sucesso");
     showToast(
       quemPagouTudo && !pago
         ? `"${nome}" lançado — ${PESSOA_LABEL[quemPagouTudo === "davi" ? "gabriel" : "davi"]} fica devendo a metade`
         : `"${nome}" dividido — metade pra cada um`
     );
-    mostrarAnimacaoDivisao({ nome, valor, quemPagouTudo });
-    fecharAcoesConjunto();
-    renderAll();
+    fecharFeedbackDepois(feedback, 1700);
+    window.setTimeout(() => {
+      fecharAcoesConjunto();
+      renderAll();
+    }, 1250);
   } else {
+    setEstadoDivisaoFeedback(feedback, "erro");
+    fecharFeedbackDepois(feedback, 1500);
     showToast("Não consegui dividir agora. Tenta de novo em instantes.");
   }
 });
@@ -4333,57 +4346,192 @@ function esconderProcessando(id) {
    Transferência: usa o overlay da moeda, com direção explícita.
    Tudo é apenas feedback visual; a lógica financeira continua igual.
    ============================================================ */
-function mostrarAnimacaoDivisao({ nome = "", valor = 0, quemPagouTudo = null } = {}) {
-  const existente = document.getElementById("divisaoFeedbackOverlay");
+function criarAcaoFeedbackBase(id, tipo) {
+  const existente = document.getElementById(id);
   if (existente) existente.remove();
 
+  const overlay = document.createElement("div");
+  overlay.id = id;
+  overlay.className = `acao-feedback-overlay ${tipo}-feedback-overlay`;
+  overlay.setAttribute("role", "status");
+  overlay.setAttribute("aria-live", "polite");
+  document.body.appendChild(overlay);
+
+  requestAnimationFrame(() => overlay.classList.add("is-visible"));
+  return overlay;
+}
+
+function perfilFeedback(pessoa, lado = "") {
+  const nome = PESSOA_LABEL[pessoa] || pessoa;
+  const inicial = nome.charAt(0).toUpperCase();
+  return `
+    <div class="feedback-person ${lado}">
+      <div class="feedback-avatar" aria-hidden="true">${inicial}</div>
+      <span class="feedback-person-name">${escapeHtml(nome)}</span>
+    </div>
+  `;
+}
+
+function montarDivisaoFeedback({ nome = "", valor = 0, quemPagouTudo = null } = {}) {
+  const overlay = criarAcaoFeedbackBase("divisaoFeedbackOverlay", "divisao");
   const metade = Math.round((Number(valor) / 2) * 100) / 100;
   const rotulo = quemPagouTudo
     ? `${PESSOA_LABEL[quemPagouTudo]} pagou a compra`
     : "50% para cada um";
 
-  const overlay = document.createElement("div");
-  overlay.id = "divisaoFeedbackOverlay";
-  overlay.className = "acao-feedback-overlay divisao-feedback-overlay";
-  overlay.setAttribute("role", "status");
-  overlay.setAttribute("aria-live", "polite");
   overlay.innerHTML = `
     <div class="acao-feedback-card divisao-feedback-card">
-      <div class="divisao-feedback-stage" aria-hidden="true">
-        <span class="divisao-part divisao-part-a">½</span>
-        <span class="divisao-part divisao-part-b">½</span>
-        <span class="divisao-spark divisao-spark-1"></span>
-        <span class="divisao-spark divisao-spark-2"></span>
-        <span class="divisao-spark divisao-spark-3"></span>
-        <span class="divisao-spark divisao-spark-4"></span>
-        <span class="divisao-line"></span>
+      <div class="cozy-badge">✦ MOMENTO DO CAIXA</div>
+
+      <div class="divisao-feedback-stage">
+        <div class="divisao-cloud divisao-cloud-a"></div>
+        <div class="divisao-cloud divisao-cloud-b"></div>
+
+        <div class="divisao-cena-pessoas">
+          ${perfilFeedback("davi", "left")}
+          <div class="divisao-centro">
+            <div class="divisao-compra-icone">🛍️</div>
+            <div class="divisao-valor">${fmt(Number(valor))}</div>
+            <span class="divisao-peca divisao-peca-a">½</span>
+            <span class="divisao-peca divisao-peca-b">½</span>
+          </div>
+          ${perfilFeedback("gabriel", "right")}
+        </div>
+
+        <div class="divisao-estrelas" aria-hidden="true">
+          <i>✦</i><i>✧</i><i>✦</i><i>·</i><i>✧</i>
+        </div>
       </div>
-      <span class="acao-feedback-kicker">COMPRA DIVIDIDA</span>
-      <strong class="acao-feedback-title">Cada um com sua parte</strong>
-      <span class="acao-feedback-detail">${escapeHtml(nome || "Compra")} · ${fmt(metade)} para cada</span>
-      <span class="acao-feedback-stamp">${escapeHtml(rotulo)}</span>
+
+      <span class="acao-feedback-kicker" data-divisao-kicker>DIVIDINDO A COMPRA</span>
+      <strong class="acao-feedback-title" data-divisao-title>Organizando as moedinhas...</strong>
+      <span class="acao-feedback-detail" data-divisao-detail>
+        ${escapeHtml(nome || "Compra")} · ${fmt(metade)} para cada
+      </span>
+      <span class="acao-feedback-stamp" data-divisao-stamp>${escapeHtml(rotulo)}</span>
     </div>
   `;
 
-  document.body.appendChild(overlay);
-  requestAnimationFrame(() => overlay.classList.add("is-visible"));
-
-  window.setTimeout(() => {
-    overlay.classList.add("is-closing");
-    window.setTimeout(() => overlay.remove(), 280);
-  }, 1250);
+  return overlay;
 }
 
-function prepararAnimacaoTransferencia(de, para) {
-  const overlay = document.getElementById("transferirOverlay");
+function setEstadoDivisaoFeedback(overlay, estado) {
   if (!overlay) return;
-  overlay.classList.remove("transferencia-davi", "transferencia-gabriel");
-  overlay.classList.add(de === "davi" ? "transferencia-davi" : "transferencia-gabriel");
+  overlay.dataset.estado = estado;
 
-  const texto = overlay.querySelector(".processando-texto");
-  const sub = overlay.querySelector(".processando-sub");
-  if (texto) texto.textContent = "Transferindo…";
-  if (sub) sub.textContent = `${PESSOA_LABEL[de]} → ${PESSOA_LABEL[para]}`;
+  const kicker = overlay.querySelector("[data-divisao-kicker]");
+  const title = overlay.querySelector("[data-divisao-title]");
+  const stage = overlay.querySelector(".divisao-feedback-stage");
+
+  if (estado === "idle") {
+    if (kicker) kicker.textContent = "PREPARANDO A DIVISÃO";
+    if (title) title.textContent = "Organizando as moedinhas...";
+    stage?.classList.remove("is-dividindo", "is-sucesso");
+  } else if (estado === "dividindo") {
+    if (kicker) kicker.textContent = "DIVIDINDO A COMPRA";
+    if (title) title.textContent = "Cada um recebe a sua parte";
+    stage?.classList.add("is-dividindo");
+    stage?.classList.remove("is-sucesso");
+  } else if (estado === "sucesso") {
+    if (kicker) kicker.textContent = "COMPRA DIVIDIDA";
+    if (title) title.textContent = "Tudo certinho! ✨";
+    stage?.classList.remove("is-dividindo");
+    stage?.classList.add("is-sucesso");
+  } else if (estado === "erro") {
+    if (kicker) kicker.textContent = "NÃO FOI POSSÍVEL DIVIDIR";
+    if (title) title.textContent = "A compra continua segura";
+    stage?.classList.remove("is-dividindo", "is-sucesso");
+  }
+}
+
+function fecharFeedbackDepois(overlay, ms = 900) {
+  window.setTimeout(() => {
+    if (!overlay) return;
+    overlay.classList.add("is-closing");
+    window.setTimeout(() => overlay.remove(), 360);
+  }, ms);
+}
+
+function mostrarAnimacaoDivisao({ nome = "", valor = 0, quemPagouTudo = null } = {}) {
+  const overlay = montarDivisaoFeedback({ nome, valor, quemPagouTudo });
+  setEstadoDivisaoFeedback(overlay, "idle");
+  return overlay;
+}
+
+function montarTransferenciaFeedback(de, para, valor) {
+  const overlay = criarAcaoFeedbackBase("transferirFeedbackOverlay", "transferencia");
+  overlay.dataset.de = de;
+  overlay.dataset.para = para;
+
+  const deNome = PESSOA_LABEL[de] || de;
+  const paraNome = PESSOA_LABEL[para] || para;
+
+  overlay.innerHTML = `
+    <div class="acao-feedback-card transferencia-feedback-card">
+      <div class="cozy-badge">✦ CORREIO DO CAIXA</div>
+
+      <div class="transferencia-cena" aria-hidden="true">
+        ${perfilFeedback(de, "transferencia-remetente")}
+
+        <div class="transferencia-rota">
+          <div class="transferencia-trilha">
+            <span></span><span></span><span></span><span></span><span></span>
+            <span></span><span></span><span></span><span></span>
+          </div>
+          <div class="transferencia-moeda">
+            <div class="transferencia-moeda-brilho"></div>
+            <div class="transferencia-moeda-corpo">R$</div>
+          </div>
+          <div class="transferencia-chegada">✦</div>
+        </div>
+
+        ${perfilFeedback(para, "transferencia-destinatario")}
+      </div>
+
+      <span class="acao-feedback-kicker" data-transfer-kicker>PREPARANDO A TRANSFERÊNCIA</span>
+      <strong class="acao-feedback-title" data-transfer-title>Segurando a moedinha...</strong>
+      <span class="acao-feedback-detail" data-transfer-detail>
+        ${escapeHtml(deNome)} → ${escapeHtml(paraNome)} · ${fmt(Number(valor))}
+      </span>
+      <span class="acao-feedback-stamp" data-transfer-stamp>Ela já vai!</span>
+    </div>
+  `;
+
+  return overlay;
+}
+
+function setEstadoTransferenciaFeedback(overlay, estado) {
+  if (!overlay) return;
+  overlay.dataset.estado = estado;
+
+  const kicker = overlay.querySelector("[data-transfer-kicker]");
+  const title = overlay.querySelector("[data-transfer-title]");
+  const stamp = overlay.querySelector("[data-transfer-stamp]");
+  const cena = overlay.querySelector(".transferencia-cena");
+
+  if (estado === "idle") {
+    if (kicker) kicker.textContent = "PREPARANDO A TRANSFERÊNCIA";
+    if (title) title.textContent = "Segurando a moedinha...";
+    if (stamp) stamp.textContent = "Ela já vai!";
+    cena?.classList.remove("is-transferindo", "is-sucesso");
+  } else if (estado === "transferindo") {
+    if (kicker) kicker.textContent = "TRANSFERINDO";
+    if (title) title.textContent = "A moedinha está a caminho";
+    if (stamp) stamp.textContent = "Vai, vai, vai! ✨";
+    cena?.classList.add("is-transferindo");
+    cena?.classList.remove("is-sucesso");
+  } else if (estado === "sucesso") {
+    if (kicker) kicker.textContent = "TRANSFERIDO COM SUCESSO";
+    if (title) title.textContent = "Chegou direitinho! ✨";
+    if (stamp) stamp.textContent = "Dinheiro entregue";
+    cena?.classList.remove("is-transferindo");
+    cena?.classList.add("is-sucesso");
+  } else if (estado === "erro") {
+    if (kicker) kicker.textContent = "TRANSFERÊNCIA NÃO CONCLUÍDA";
+    if (title) title.textContent = "A moedinha voltou para casa";
+    if (stamp) stamp.textContent = "Nenhum valor foi perdido";
+    cena?.classList.remove("is-transferindo", "is-sucesso");
+  }
 }
 
 on("formTransferir", "submit", async (e) => {
@@ -4397,24 +4545,37 @@ on("formTransferir", "submit", async (e) => {
   const btnSubmit = document.getElementById("transferirSubmit");
   if (btnSubmit) {
     btnSubmit.disabled = true;
-    btnSubmit.textContent = "Transferindo…";
+    btnSubmit.textContent = "Preparando…";
   }
+
   const { de, para } = direcaoTransferir;
-  prepararAnimacaoTransferencia(de, para);
-  mostrarProcessando("transferirOverlay");
+  const feedback = montarTransferenciaFeedback(de, para, valor);
+  setEstadoTransferenciaFeedback(feedback, "idle");
+
+  // Mesmo ritmo da divisão: 3s de "idle" antes de efetivamente enviar.
+  await new Promise((resolve) => window.setTimeout(resolve, 3000));
+
+  setEstadoTransferenciaFeedback(feedback, "transferindo");
+  if (btnSubmit) btnSubmit.textContent = "Transferindo…";
+
   const ok = await transferirEntrePessoas(de, para, nome, valor, tipo);
 
-  esconderProcessando("transferirOverlay");
   if (btnSubmit) {
     btnSubmit.disabled = false;
     btnSubmit.textContent = "Transferir";
   }
 
   if (ok) {
+    setEstadoTransferenciaFeedback(feedback, "sucesso");
     showToast(`${fmt(valor)} transferido de ${PESSOA_LABEL[de]} pra ${PESSOA_LABEL[para]}`);
-    fecharAcoesConjunto();
-    renderAll();
+    fecharFeedbackDepois(feedback, 1800);
+    window.setTimeout(() => {
+      fecharAcoesConjunto();
+      renderAll();
+    }, 1350);
   } else {
+    setEstadoTransferenciaFeedback(feedback, "erro");
+    fecharFeedbackDepois(feedback, 1500);
     showToast("Não consegui transferir agora. Tenta de novo em instantes.");
   }
 });
