@@ -4441,8 +4441,8 @@ function setEstadoDivisaoFeedback(overlay, estado) {
     stage?.classList.add("is-dividindo");
     stage?.classList.remove("is-sucesso");
   } else if (estado === "sucesso") {
-    if (kicker) kicker.textContent = "COMPRA DIVIDIDA";
-    if (title) title.textContent = "Tudo certinho! ✨";
+    if (kicker) kicker.textContent = "DIVISÃO CONCLUÍDA";
+    if (title) title.textContent = "Compra dividida com sucesso!";
     stage?.classList.remove("is-dividindo");
     stage?.classList.add("is-sucesso");
   } else if (estado === "erro") {
