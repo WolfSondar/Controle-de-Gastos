@@ -5730,3 +5730,331 @@ body.sem-entrada-listas .item-list-row { animation: none !important; }
   .acao-feedback-overlay.is-visible .acao-feedback-card { opacity: 1; }
   .acao-feedback-overlay.is-visible .acao-feedback-card { transform: none; }
 }
+
+/* ============================================================
+   V30 — POLIMENTO COZY / POPUPS DE AÇÃO
+   Foco: composição mais premium, leitura melhor e viagem da moeda
+   realmente perceptível em desktop e mobile.
+   ============================================================ */
+
+.acao-feedback-overlay {
+  padding: 24px;
+  background:
+    radial-gradient(circle at 50% 44%, rgba(213,174,94,.10), transparent 25%),
+    linear-gradient(180deg, rgba(3,12,9,.70), rgba(3,10,8,.84));
+  backdrop-filter: blur(18px) saturate(.92);
+  -webkit-backdrop-filter: blur(18px) saturate(.92);
+}
+
+.acao-feedback-card {
+  width: min(560px, calc(100vw - 40px));
+  min-height: 455px;
+  box-sizing: border-box;
+  border-radius: 32px;
+  padding: 22px 28px 25px;
+  background:
+    radial-gradient(circle at 50% 24%, rgba(217,171,92,.075), transparent 34%),
+    linear-gradient(165deg, #132b23 0%, #0d211b 100%);
+  border: 1px solid rgba(218,184,103,.26);
+  box-shadow:
+    0 35px 100px rgba(0,0,0,.48),
+    0 8px 28px rgba(0,0,0,.26),
+    inset 0 1px 0 rgba(255,255,255,.055),
+    inset 0 -1px 0 rgba(0,0,0,.22);
+  color: #f5efdf;
+}
+
+.acao-feedback-card::before {
+  left: 13%; right: 13%;
+  background: linear-gradient(90deg, transparent, rgba(231,197,119,.58), transparent);
+}
+.acao-feedback-card::after {
+  width: 260px; height: 260px;
+  top: 78px;
+  background: radial-gradient(circle, rgba(207,169,83,.075), transparent 67%);
+}
+
+.cozy-badge {
+  padding: 7px 12px;
+  border-color: rgba(217,171,92,.28);
+  background: rgba(217,171,92,.065);
+  color: #e8c979;
+  font-size: 9px;
+  letter-spacing: .14em;
+  box-shadow: inset 0 0 12px rgba(217,171,92,.025);
+}
+
+.acao-feedback-kicker {
+  margin-top: 1px;
+  color: #dcb968;
+  font-size: 9px;
+  letter-spacing: .15em;
+}
+.acao-feedback-title {
+  margin-top: 8px;
+  color: #f8f2e4;
+  font-size: clamp(23px, 4vw, 29px);
+  line-height: 1.08;
+  letter-spacing: -.015em;
+}
+.acao-feedback-detail {
+  margin-top: 9px;
+  color: rgba(232,224,207,.68);
+  font-size: 10.5px;
+}
+.acao-feedback-stamp {
+  margin-top: 14px;
+  padding: 7px 12px;
+  border-color: rgba(238,231,215,.10);
+  background: rgba(238,231,215,.055);
+  color: rgba(247,240,226,.88);
+  font-size: 9.5px;
+}
+
+/* ---------- avatars ---------- */
+.feedback-person { gap: 8px; min-width: 80px; }
+.feedback-avatar {
+  width: 64px;
+  height: 64px;
+  border: 3px solid #f1e9d8;
+  outline: 1px solid rgba(220,185,104,.42);
+  box-shadow:
+    0 11px 22px rgba(0,0,0,.24),
+    inset 0 2px 0 rgba(255,255,255,.24);
+  color: #fff9ea;
+  font-size: 25px;
+}
+.feedback-person-name {
+  color: #efe7d6;
+  font-size: 10.5px;
+}
+
+/* ---------- divisão ---------- */
+.divisao-feedback-stage {
+  height: 238px;
+  max-width: 500px;
+  margin: 12px auto 0;
+}
+.divisao-cena-pessoas {
+  grid-template-columns: 1fr 132px 1fr;
+}
+.divisao-centro { min-height: 138px; }
+.divisao-compra-icone {
+  width: 78px;
+  height: 78px;
+  border-radius: 24px;
+  border-color: rgba(218,184,103,.25);
+  background: linear-gradient(150deg, rgba(27,54,44,.98), rgba(11,29,23,.98));
+  box-shadow:
+    0 14px 30px rgba(0,0,0,.25),
+    inset 0 1px 0 rgba(255,255,255,.07),
+    0 0 0 7px rgba(218,184,103,.025);
+  font-size: 0;
+  animation-duration: 2.5s;
+}
+/* substitui o emoji por uma sacolinha desenhada, mais limpa em qualquer OS */
+.divisao-compra-icone::before {
+  content: "";
+  width: 27px;
+  height: 25px;
+  border: 2px solid #e6c674;
+  border-radius: 5px 5px 8px 8px;
+  box-sizing: border-box;
+  background: linear-gradient(180deg, rgba(230,198,116,.18), rgba(230,198,116,.04));
+  box-shadow: inset 0 0 0 1px rgba(255,255,255,.05);
+}
+.divisao-compra-icone::after {
+  content: "";
+  position: absolute;
+  width: 13px;
+  height: 9px;
+  top: 21px;
+  border: 2px solid #e6c674;
+  border-bottom: 0;
+  border-radius: 9px 9px 0 0;
+}
+.divisao-valor {
+  margin-top: -15px;
+  padding: 5px 9px;
+  background: #071711;
+  border: 1px solid rgba(218,184,103,.12);
+  color: #eee4cc;
+  font-size: 9px;
+}
+.divisao-peca {
+  width: 32px; height: 32px;
+  top: 25px;
+  border: 2px solid #9c7225;
+  background: linear-gradient(145deg, #e8c979, #b9862f);
+  box-shadow: 0 6px 14px rgba(0,0,0,.24), inset 0 1px 0 rgba(255,255,255,.26);
+  color: #fff7df;
+}
+.divisao-peca-a { left: 33px; }
+.divisao-peca-b { right: 33px; }
+
+/* mais lento e com um pequeno arco: a divisão parece uma ação, não um salto */
+@keyframes pecaVaiEsquerdaV30 {
+  0% { opacity:0; transform:translate(0,0) scale(.45) rotate(0); }
+  15% { opacity:1; transform:translate(-7px,-9px) scale(1.08) rotate(-8deg); }
+  55% { opacity:1; transform:translate(-45px,8px) scale(1.04) rotate(-14deg); }
+  100% { opacity:1; transform:translate(-76px,55px) scale(1) rotate(-20deg); }
+}
+@keyframes pecaVaiDireitaV30 {
+  0% { opacity:0; transform:translate(0,0) scale(.45) rotate(0); }
+  15% { opacity:1; transform:translate(7px,-9px) scale(1.08) rotate(8deg); }
+  55% { opacity:1; transform:translate(45px,8px) scale(1.04) rotate(14deg); }
+  100% { opacity:1; transform:translate(76px,55px) scale(1) rotate(20deg); }
+}
+.divisao-feedback-stage.is-dividindo .divisao-peca-a { animation: pecaVaiEsquerdaV30 1.9s cubic-bezier(.22,.76,.22,1) forwards; }
+.divisao-feedback-stage.is-dividindo .divisao-peca-b { animation: pecaVaiDireitaV30 1.9s cubic-bezier(.22,.76,.22,1) forwards; }
+
+/* ---------- transferência ---------- */
+.transferencia-feedback-card {
+  width: min(690px, calc(100vw - 40px));
+  min-height: 440px;
+}
+.transferencia-cena {
+  height: 225px;
+  max-width: 620px;
+  grid-template-columns: 92px 1fr 92px;
+  gap: 15px;
+  margin-top: 12px;
+}
+.transferencia-cena .feedback-person { min-width: 0; }
+.transferencia-rota {
+  height: 120px;
+  min-width: 0;
+}
+.transferencia-trilha {
+  left: 0; right: 0;
+  height: 4px;
+  background: repeating-linear-gradient(90deg, rgba(218,184,103,.13) 0 8px, transparent 8px 16px);
+  box-shadow: 0 0 0 1px rgba(218,184,103,.025);
+}
+.transferencia-trilha::before {
+  content: "";
+  position: absolute;
+  left: 0; right: 0; top: -1px;
+  height: 6px;
+  background: repeating-linear-gradient(90deg, rgba(218,184,103,.18) 0 4px, transparent 4px 15px);
+  opacity: .55;
+}
+.transferencia-trilha::after {
+  width: 34%;
+  background: repeating-linear-gradient(90deg, rgba(225,192,106,.9) 0 6px, transparent 6px 15px);
+  animation: trilhaFluxoV30 .7s linear infinite;
+}
+.transferencia-moeda {
+  width: 58px; height: 58px;
+  left: 0;
+  perspective: 500px;
+  filter: drop-shadow(0 10px 13px rgba(0,0,0,.28));
+}
+.transferencia-moeda-corpo {
+  border: 3px solid #9c7225;
+  background: radial-gradient(circle at 32% 24%, rgba(255,255,255,.7), transparent 19%), linear-gradient(145deg, #edcd7e, #b47f27);
+  box-shadow: inset 0 0 0 3px rgba(255,246,213,.20), 0 0 0 5px rgba(218,184,103,.07);
+}
+.transferencia-moeda-brilho {
+  width: 9px; height: 9px;
+  top: -4px; right: 0;
+}
+.transferencia-chegada {
+  right: -2px;
+  font-size: 28px;
+  text-shadow: 0 0 16px rgba(231,201,116,.55);
+}
+
+/* A viagem usa movimento linear + pequenos ajustes de altura. Isso evita a
+   aceleração brusca do cubic-bezier anterior, que fazia parecer um teleporte. */
+@keyframes moedaViajaV30 {
+  0% { left: 0%; top: 50%; transform: translate(-50%,-50%) rotateY(0deg) rotate(-4deg) scale(.88); }
+  12% { left: 10%; top: 47%; transform: translate(-50%,-50%) rotateY(65deg) rotate(-1deg) scale(1); }
+  25% { left: 25%; top: 43%; transform: translate(-50%,-50%) rotateY(130deg) rotate(2deg) scale(1.04); }
+  38% { left: 38%; top: 48%; transform: translate(-50%,-50%) rotateY(195deg) rotate(1deg) scale(1); }
+  50% { left: 50%; top: 53%; transform: translate(-50%,-50%) rotateY(250deg) rotate(-2deg) scale(1.03); }
+  62% { left: 62%; top: 48%; transform: translate(-50%,-50%) rotateY(310deg) rotate(1deg) scale(1); }
+  75% { left: 75%; top: 43%; transform: translate(-50%,-50%) rotateY(360deg) rotate(2deg) scale(1.04); }
+  88% { left: 90%; top: 47%; transform: translate(-50%,-50%) rotateY(430deg) rotate(-1deg) scale(1); }
+  100% { left: 100%; top: 50%; transform: translate(-50%,-50%) rotateY(500deg) rotate(0deg) scale(.98); }
+}
+@keyframes trilhaFluxoV30 { to { transform: translateX(205%); } }
+.transferencia-cena.is-transferindo .transferencia-moeda {
+  animation: moedaViajaV30 3s linear forwards;
+}
+.transferencia-cena.is-transferindo .transferencia-trilha::after {
+  animation-duration: .42s;
+}
+.transferencia-cena.is-transferindo .transferencia-remetente .feedback-avatar {
+  animation: remetenteEntregaV30 .9s ease forwards;
+}
+.transferencia-cena.is-transferindo .transferencia-destinatario .feedback-avatar {
+  animation: destinatarioEsperaV30 1.4s ease-in-out infinite;
+}
+@keyframes remetenteEntregaV30 {
+  0%,100% { transform:translateY(0) rotate(0); }
+  25% { transform:translateY(-3px) rotate(-3deg); }
+  50% { transform:translateY(0) rotate(0); }
+  70% { transform:translateY(-2px) rotate(2deg); }
+}
+@keyframes destinatarioEsperaV30 {
+  0%,100% { transform:translateY(0); }
+  50% { transform:translateY(-4px); }
+}
+
+/* ---------- mobile ---------- */
+@media (max-width: 560px) {
+  .acao-feedback-overlay { padding: 10px; }
+  .acao-feedback-card,
+  .transferencia-feedback-card {
+    width: min(410px, calc(100vw - 20px));
+    min-height: 0;
+    border-radius: 26px;
+    padding: 18px 14px 18px;
+  }
+  .acao-feedback-title { font-size: clamp(20px, 6vw, 24px); }
+  .acao-feedback-detail { font-size: 9.5px; }
+  .acao-feedback-stamp { margin-top: 11px; }
+
+  .divisao-feedback-stage {
+    height: 210px;
+    margin-top: 7px;
+  }
+  .divisao-cena-pessoas { grid-template-columns: 1fr 92px 1fr; }
+  .feedback-person { min-width: 58px; gap: 6px; }
+  .feedback-avatar { width: 52px; height: 52px; font-size: 21px; }
+  .feedback-person-name { font-size: 9.5px; }
+  .divisao-compra-icone { width: 66px; height: 66px; border-radius: 21px; }
+  .divisao-compra-icone::before { width: 23px; height: 22px; }
+  .divisao-compra-icone::after { top: 18px; width: 11px; height: 8px; }
+  .divisao-valor { font-size: 8px; margin-top: -13px; }
+  .divisao-peca { width: 28px; height: 28px; font-size: 10px; top: 20px; }
+  .divisao-peca-a { left: 25px; }
+  .divisao-peca-b { right: 25px; }
+
+  .transferencia-cena {
+    height: 210px;
+    grid-template-columns: 62px minmax(0,1fr) 62px;
+    gap: 5px;
+    margin-top: 7px;
+  }
+  .transferencia-rota { height: 105px; }
+  .transferencia-moeda { width: 48px; height: 48px; }
+  .transferencia-moeda-corpo { font-size: 11px; }
+  .transferencia-chegada { font-size: 22px; }
+}
+
+@media (max-width: 360px) {
+  .acao-feedback-card,
+  .transferencia-feedback-card { padding-left: 10px; padding-right: 10px; }
+  .divisao-cena-pessoas { grid-template-columns: 1fr 82px 1fr; }
+  .transferencia-cena { grid-template-columns: 55px minmax(0,1fr) 55px; }
+  .feedback-avatar { width: 48px; height: 48px; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .transferencia-cena.is-transferindo .transferencia-moeda {
+    animation-duration: 1s;
+  }
+  .transferencia-trilha::after { animation: none !important; }
+}
