@@ -4552,13 +4552,17 @@ on("formTransferir", "submit", async (e) => {
   const feedback = montarTransferenciaFeedback(de, para, valor);
   setEstadoTransferenciaFeedback(feedback, "idle");
 
-  // Mesmo ritmo da divisão: 3s de "idle" antes de efetivamente enviar.
+  // 3s de preparação. Depois, a animação e a operação real começam juntas.
+  // O sucesso só aparece quando os dois terminaram, evitando a moeda "teleportar"
+  // para o destino porque a operação financeira respondeu rápido demais.
   await new Promise((resolve) => window.setTimeout(resolve, 3000));
 
   setEstadoTransferenciaFeedback(feedback, "transferindo");
   if (btnSubmit) btnSubmit.textContent = "Transferindo…";
 
-  const ok = await transferirEntrePessoas(de, para, nome, valor, tipo);
+  const operacaoTransferencia = transferirEntrePessoas(de, para, nome, valor, tipo);
+  const duracaoViagem = new Promise((resolve) => window.setTimeout(resolve, 3000));
+  const [ok] = await Promise.all([operacaoTransferencia, duracaoViagem]);
 
   if (btnSubmit) {
     btnSubmit.disabled = false;
