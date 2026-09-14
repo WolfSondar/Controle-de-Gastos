@@ -1740,6 +1740,12 @@ function animarReencaixeStatus(listaId, pendingId, antes, origemKey, destinoKey,
   const dx = origemRect.left - destinoRect.left;
   const dy = origemRect.top - destinoRect.top;
 
+  // Quanto mais distante o destino, mais tempo o cartão precisa para
+  // percorrer o caminho. Isso evita o efeito de "teleporte" quando ele
+  // vai para o final de uma lista longa.
+  const distancia = Math.hypot(dx, dy);
+  const duracaoMovimento = Math.min(1050, Math.max(500, 500 + distancia * 0.45));
+
   novaLinha.style.animation = "none";
   novaLinha.style.transition = "none";
   novaLinha.style.transform = `translate3d(${dx}px, ${dy}px, 0)`;
@@ -1748,7 +1754,7 @@ function animarReencaixeStatus(listaId, pendingId, antes, origemKey, destinoKey,
 
   requestAnimationFrame(() => {
     requestAnimationFrame(() => {
-      novaLinha.style.transition = "transform 500ms cubic-bezier(.16,1,.3,1), opacity 260ms ease-out";
+      novaLinha.style.transition = `transform ${duracaoMovimento}ms cubic-bezier(.22,.78,.2,1), opacity 260ms ease-out`;
       novaLinha.style.transform = "translate3d(0,0,0)";
       novaLinha.style.opacity = "1";
     });
@@ -1762,7 +1768,7 @@ function animarReencaixeStatus(listaId, pendingId, antes, origemKey, destinoKey,
     // novamente exatamente quando o cartão termina de se encaixar.
     novaLinha.style.animation = "none";
     novaLinha.style.pointerEvents = "";
-  }, 540);
+  }, duracaoMovimento + 40);
 }
 
 function atualizarVisualStatusNaHora(linha, ligado, rotuloOn, rotuloOff) {
