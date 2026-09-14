@@ -1860,12 +1860,12 @@ function animarMudancaStatusFluida(listaId, pendingId, index, ligado, tipo, stat
     });
   };
 
-  // Pendente -> pago/recebido: primeiro confirma visualmente e só depois de
-  // 1,5 s faz a travessia. Pago/recebido -> pendente: processa imediatamente.
+  // Pendente -> pago/recebido: confirma visualmente, aguarda só 0,2 s e
+  // então faz a travessia. Pago/recebido -> pendente: processa imediatamente.
   if (ligado) {
     window.setTimeout(() => {
       try { finalizar(); } finally { statusCliquesEmProcessamento.delete(chaveStatus); resolve(); }
-    }, 1500);
+    }, 200);
   } else {
     try { finalizar(); } finally { statusCliquesEmProcessamento.delete(chaveStatus); resolve(); }
   }
