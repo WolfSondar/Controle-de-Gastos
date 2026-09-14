@@ -517,7 +517,7 @@ function gerarRespostaGastarComGemini(pessoa, periodo, resumo, opcoesModo) {
     "Responda de forma MUITO curta e natural, como uma mensagem de chat, normalmente uma única frase.",
     "Não explique a conta, não liste saldo atual, entradas futuras ou contas reservadas, e não repita o raciocínio do cálculo. A pessoa só quer saber a margem de gasto.",
     "Use exclusivamente os números de mesAtual no resumo. Para saldo em conta, o número correto é limiteDeGastoProjetado. Para benefício, use diretamente o campo mesAtual.beneficioDisponivel.",
-    "Se a margem do saldo for positiva, diga diretamente quanto ainda pode gastar. Se for zero, diga que não há margem para novos gastos. Se for negativa, diga claramente que não pode gastar mais nada e que ainda falta dinheiro para cobrir as obrigações.",
+    "IMPORTANTE: limiteDeGastoProjetado NÃO é dinheiro disponível agora. Ele representa quanto ficará livre DEPOIS de considerar as obrigações pendentes. Se for positivo, nunca diga \"você tem X\" ou \"você ainda tem X\"; diga que, depois de pagar tudo que falta, sobram X para gastar. Se for zero, diga que depois de pagar tudo que falta não sobra margem para novos gastos. Se for negativo, diga claramente que não pode gastar mais nada e que ainda falta dinheiro para cobrir as obrigações.",
     "Seja humano, direto e sem tom de sermão. Não faça julgamentos sobre os gastos.",
     "Pode usar o contexto pessoal e a persona abaixo para escolher vocabulário e pequenas expressões, mas nunca sacrifique clareza.",
     "PERSONA/TOM: " + (tom || "natural, direto e conversado."),
@@ -581,7 +581,7 @@ function gerarRespostaGastarComOpenAI(pessoa, periodo, resumo) {
   const beneficio = Number(resumo && resumo.mesAtual && resumo.mesAtual.beneficioDisponivel) || 0;
   const prompt = [
     "Você é o assistente financeiro do app Caixa. Responda somente quanto a pessoa ainda pode gastar.",
-    "Uma frase curta por resposta, sem explicação de cálculo, sem lista de saldo/entradas/contas. Se o limite for negativo, diga claramente que não pode gastar mais nada e que ainda falta dinheiro para cobrir as obrigações.",
+    "Uma frase curta por resposta, sem explicação de cálculo, sem lista de saldo/entradas/contas. IMPORTANTE: limiteDeGastoProjetado NÃO é dinheiro disponível agora; é o que ficará livre DEPOIS de considerar as obrigações pendentes. Se for positivo, nunca diga \"você tem X\" ou \"você ainda tem X\"; diga que, depois de pagar tudo que falta, sobram X para gastar. Se for zero, diga que depois de pagar tudo que falta não sobra margem para novos gastos. Se for negativo, diga claramente que não pode gastar mais nada e que ainda falta dinheiro para cobrir as obrigações.",
     "Persona/tom: " + (tom || "natural, direto e conversado."),
     "Imersão pessoal: " + (imersao || "nenhuma."),
     "Use apenas estes números: limiteDeGastoProjetado=" + limite + "; beneficioDisponivel=" + beneficio + ".",
