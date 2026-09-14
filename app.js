@@ -2464,10 +2464,11 @@ function renderPendentesDestaque(containerId, lista, tipo, statusKey, toggleFn, 
         const input = label.querySelector('input[type="checkbox"]');
         if (!input) return;
         const idx = Number(input.dataset.idx);
-        const proximo = !input.checked;
+        // O clique entra na fila; não antecipamos visualmente a mudança.
+        // Assim, se vários lançamentos forem marcados em sequência, cada um
+        // só recebe tag/carimbo quando chegar a sua vez, evitando que um
+        // render do item anterior apague/recrie o visual do próximo.
         label.dataset.statusBusy = "1";
-        input.checked = proximo;
-        atualizarVisualStatusNaHora(label.closest(".item-list-row"), proximo, tipo === "income" ? "Recebido" : "Pago", "Pendente");
         toggleFn(idx);
       });
       label.querySelector('input[type="checkbox"]')?.addEventListener("change", (event) => {
@@ -2475,7 +2476,8 @@ function renderPendentesDestaque(containerId, lista, tipo, statusKey, toggleFn, 
         if (label.dataset.statusBusy === "1") return;
         const input = event.currentTarget;
         label.dataset.statusBusy = "1";
-        atualizarVisualStatusNaHora(label.closest(".item-list-row"), input.checked, tipo === "income" ? "Recebido" : "Pago", "Pendente");
+        // A alteração por teclado também entra na mesma fila, sem aplicar
+        // carimbo/status antes da vez desse lançamento.
         toggleFn(Number(input.dataset.idx));
       });
     });
@@ -2569,17 +2571,16 @@ function renderListaComStatus(ulId, lista, tipo, ops, tipoModal, statusKey, togg
           if (status.dataset.statusBusy === "1") return;
           const input = status.querySelector('input[type="checkbox"]');
           if (!input) return;
-          const proximo = !input.checked;
+          // O clique entra na fila e a atualização visual acontece somente
+          // quando este lançamento começar a ser processado.
           status.dataset.statusBusy = "1";
-          input.checked = proximo;
-          atualizarVisualStatusNaHora(li, proximo, rotuloOn, rotuloOff);
           toggleFn(idx);
         });
         status.querySelector('input[type="checkbox"]')?.addEventListener("change", (event) => {
           if (status.dataset.statusBusy === "1") return;
           const input = event.currentTarget;
           status.dataset.statusBusy = "1";
-          atualizarVisualStatusNaHora(li, input.checked, rotuloOn, rotuloOff);
+          // Alterações por teclado também respeitam a fila visual.
           toggleFn(idx);
         });
       }
