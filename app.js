@@ -3416,6 +3416,17 @@ function atualizarCarrosselGraficos(wrapId = "graficosCarousel", dotsId = "grafi
     });
   }
 
+  // Observa mudanças de altura internas (por exemplo, quando a descrição da
+  // IA do Status financeiro substitui o texto inicial). Assim a altura do
+  // carrossel acompanha o card imediatamente, sem depender de um novo swipe.
+  if (typeof ResizeObserver !== "undefined" && !wrap._carrosselResizeObserver) {
+    const observer = new ResizeObserver(() => {
+      requestAnimationFrame(() => sincronizarAlturaCarrossel(wrap));
+    });
+    cards.forEach((card) => observer.observe(card));
+    wrap._carrosselResizeObserver = observer;
+  }
+
   if (!wrap.dataset.carrosselPronto) {
     wrap.dataset.carrosselPronto = "1";
     
@@ -3489,14 +3500,30 @@ function marcarDotAtivo(wrap, dotsEl) {
   if (dots.length) dots.forEach((d, i) => d.classList.toggle("is-active", i === ativo));
   if (wrap.id === "graficosCarousel") salvarPaginaGraficoResumo(ativo);
 
-  // Altura do carrossel acompanha só a página ativa (ver comentário no
-  // CSS, .graficos-carousel) — sem isso, uma página com bem mais conteúdo
-  // (categoria com muitos tipos de gasto) esticava as outras junto.
-  // offsetHeight (não scrollHeight): scrollHeight não conta a borda de 1px
-  // do card (.historico-grafico-wrap tem border: 1px solid), só conteúdo +
-  // padding. Com a altura do wrap fixada 2px menor que o card de verdade e
-  // "overflow-y: hidden" no carrossel, a borda de baixo ficava cortada.
-  const alturaAlvo = cards[ativo].offsetHeight;
+  sincronizarAlturaCarrossel(wrap, cards, ativo);
+}
+
+// Recalcula a altura quando o conteúdo de um card muda depois da renderização.
+// Isso é importante para o Status financeiro: primeiro entra o texto local e,
+// alguns instantes depois, a descrição da IA pode ficar maior. Antes, o
+// carrossel mantinha a altura antiga e cortava a parte inferior até o usuário
+// trocar de página.
+function sincronizarAlturaCarrossel(wrap, cards = null, ativo = null) {
+  if (!wrap) return;
+  const lista = cards || Array.from(wrap.children).filter((el) => !el.classList.contains("is-hidden"));
+  if (!lista.length) return;
+  let indice = Number.isInteger(ativo) ? ativo : 0;
+  if (!Number.isInteger(ativo)) {
+    const centro = wrap.scrollLeft + wrap.clientWidth / 2;
+    let menorDist = Infinity;
+    lista.forEach((card, i) => {
+      const dist = Math.abs(card.offsetLeft + card.offsetWidth / 2 - centro);
+      if (dist < menorDist) { menorDist = dist; indice = i; }
+    });
+  }
+  const cardAtivo = lista[Math.max(0, Math.min(indice, lista.length - 1))];
+  if (!cardAtivo) return;
+  const alturaAlvo = cardAtivo.offsetHeight;
   if (alturaAlvo > 0 && wrap.dataset.alturaAtual !== String(alturaAlvo)) {
     wrap.dataset.alturaAtual = String(alturaAlvo);
     wrap.style.height = alturaAlvo + "px";
