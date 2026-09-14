@@ -4744,11 +4744,12 @@ on("formDividir", "submit", async (e) => {
   const btnSubmit = document.getElementById("dividirSubmit");
   if (btnSubmit) { btnSubmit.disabled = true; btnSubmit.textContent = "Preparando…"; }
   const feedback = mostrarAnimacaoDivisao({ nome, valor, quemPagouTudo });
-  await new Promise((resolve) => window.setTimeout(resolve, 3000));
+  // A operação começa imediatamente. A animação é só feedback visual — não
+  // deve criar uma espera artificial antes de salvar a divisão.
+  const operacao = dividirCompra(nome, valor, categoriaDividir, { tipo, data, pago, quemPagouTudo });
   setEstadoDivisaoFeedback(feedback, "dividindo");
   if (btnSubmit) btnSubmit.textContent = "Dividindo…";
-  const operacao = dividirCompra(nome, valor, categoriaDividir, { tipo, data, pago, quemPagouTudo });
-  const duracaoVisual = new Promise((resolve) => window.setTimeout(resolve, 2450));
+  const duracaoVisual = new Promise((resolve) => window.setTimeout(resolve, 650));
   const [ok] = await Promise.all([operacao, duracaoVisual]);
   if (btnSubmit) { btnSubmit.disabled = false; btnSubmit.textContent = "Dividir"; }
   if (ok) {
@@ -5082,12 +5083,12 @@ on("formTransferir", "submit", async (e) => {
   if (btnSubmit) { btnSubmit.disabled = true; btnSubmit.textContent = "Preparando…"; }
   const { de, para } = direcaoTransferir;
   const feedback = montarTransferenciaFeedback(de, para, valor);
-  setEstadoTransferenciaFeedback(feedback, "idle");
-  await new Promise((resolve) => window.setTimeout(resolve, 3000));
   setEstadoTransferenciaFeedback(feedback, "transferindo");
   if (btnSubmit) btnSubmit.textContent = "Transferindo…";
+  // Começa a transferência na hora; a animação acompanha a operação em vez
+  // de bloquear o envio por vários segundos.
   const operacao = transferirEntrePessoas(de, para, nome, valor, tipo);
-  const duracaoVisual = new Promise((resolve) => window.setTimeout(resolve, 3400));
+  const duracaoVisual = new Promise((resolve) => window.setTimeout(resolve, 700));
   const [ok] = await Promise.all([operacao, duracaoVisual]);
   if (btnSubmit) { btnSubmit.disabled = false; btnSubmit.textContent = "Transferir"; }
   if (ok) {
