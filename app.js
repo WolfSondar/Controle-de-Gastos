@@ -5265,7 +5265,7 @@ if (document.readyState === "loading") {
 
   function chaveCacheGastarIA(t) {
     const { tom, imersao } = tomChat();
-    return `caixa:gastar-ia:v2:${hashDicasChat(JSON.stringify({
+    return `caixa:gastar-ia:v3:${hashDicasChat(JSON.stringify({
       pessoa: state.pessoaAtual || "davi",
       mes: state.mesAtual,
       ano: state.anoAtual,
@@ -5511,7 +5511,7 @@ if (document.readyState === "loading") {
       if (valor > 0) texto = `Você ainda pode gastar <span class="${classe} chat-valor">${chatFmt(valor)}</span> usando o <strong>${nome}</strong> neste mês.`;
       else texto = `Neste momento, o <strong>${nome}</strong> está sem margem para novos gastos.`;
     } else if (valor > 0) {
-      texto = `Você ainda pode gastar até <span class="${classe} chat-valor">${chatFmt(valor)}</span>.`;
+      texto = `Depois de pagar tudo que falta, sobram <span class="${classe} chat-valor">${chatFmt(valor)}</span> para você gastar.`;
     } else if (valor === 0) {
       texto = `Você não tem margem para novos gastos agora.`;
     } else {
