@@ -1,6 +1,6 @@
 // =====================================================================
 // CAIXA — app.js
-// Estado local em memória + sincronização com a planilha via Apps Script
+// Estado local em memória + sincronização com o Firebase
 // =====================================================================
 
 const PESSOA_LABEL = { davi: "Davi", gabriel: "Gabriel", ambos: "Juntos" };
@@ -13,9 +13,9 @@ const MESES_LABEL = [
   "Julho", "Agosto", "Setembro", "Outubro", "Novembro", "Dezembro",
 ];
 
-// Lista/cores padrão — usada só como fallback enquanto a planilha não
-// responde ainda, ou se a aba CONFIGS não existir/estiver vazia. Assim que
-// os dados chegam da planilha (ver carregarDados), state.categoriasConfig
+// Lista/cores padrão — usada só como fallback enquanto a configuração do Firebase não
+// estiver disponível. Assim que
+// os dados chegam do Firebase (ver carregarDados), state.categoriasConfig
 // passa a mandar de verdade: ver categoriasAtuais()/corDaCategoria() abaixo.
 const CATEGORIAS_PADRAO = [
   "Alimentação", "Assinaturas & Serviços", "Beleza & Cuidados", "Bem-estar",
@@ -595,17 +595,6 @@ function getMesAtualCache() {
 
 const mesAtualCache = getMesAtualCache();
 
-const RESUMO_GRAFICO_CACHE_KEY = "caixa:resumo:grafico:v1";
-function lerPaginaGraficoResumo() {
-  try { const raw = JSON.parse(localStorage.getItem(RESUMO_GRAFICO_CACHE_KEY) || "{}"); const chave = localStorage.getItem(PESSOA_STORAGE_KEY) || "davi"; const valor = Number(raw?.[chave]); return Number.isFinite(valor) && valor >= 0 ? Math.floor(valor) : 0; } catch (err) { return 0; }
-}
-function salvarPaginaGraficoResumo(indice) {
-  try { const raw = JSON.parse(localStorage.getItem(RESUMO_GRAFICO_CACHE_KEY) || "{}"); const chave = localStorage.getItem(PESSOA_STORAGE_KEY) || "davi"; raw[chave] = Math.max(0, Math.floor(Number(indice) || 0)); localStorage.setItem(RESUMO_GRAFICO_CACHE_KEY, JSON.stringify(raw)); } catch (err) {}
-}
-
-const PESSOAS_VALIDAS = new Set(["davi", "gabriel", "ambos"]);
-const pessoaSalvaInicial = (() => { try { const p = localStorage.getItem(PESSOA_STORAGE_KEY); return PESSOAS_VALIDAS.has(p) ? p : "davi"; } catch (e) { return "davi"; } })();
-
 const state = {
   ganhos: [],
   gastosFixos: [],
@@ -617,9 +606,9 @@ const state = {
   versaoAlteracaoLocal: 0,
   // Ações que ainda estão sendo persistidas. Enquanto um salvamento está
   // em andamento, uma leitura GET não pode substituir o estado local com
-  // uma versão antiga que ainda está na planilha.
+  // uma versão antiga que ainda pode estar em trânsito no Firebase.
   salvamentosEmAndamento: new Set(),
-  pessoaAtual: pessoaSalvaInicial,
+  pessoaAtual: localStorage.getItem(PESSOA_STORAGE_KEY) || "davi",
   mesAtual: mesAtualCache ? mesAtualCache.mes : null,
   anoAtual: mesAtualCache ? mesAtualCache.ano : null,
   historico: null, 
@@ -657,20 +646,25 @@ function isAmbos() {
 }
 
 async function carregarConfigIA() {
-  if (!API_URL || API_URL.includes("COLE_AQUI")) return null;
   try {
-    const salvo = JSON.parse(localStorage.getItem("caixa-ia-config-v1") || "null");
-    if (salvo && salvo.expira > Date.now() && salvo.data) { state.iaConfig = salvo.data; return salvo.data; }
-  } catch (err) {}
-  try {
-    const res = await fetch(`${API_URL}?pessoa=iaConfig`);
-    const data = await res.json();
-    if (!data || data.ok === false) throw new Error(data?.error || "Erro ao carregar configuração da IA");
+    const profile = await (window.CAIXA_PROFILE_READY || Promise.resolve(null));
+    if (!profile) return state.iaConfig || null;
+    const pessoas = Array.isArray(profile.pessoas) ? profile.pessoas : [];
+    const davi = pessoas.find((p) => p.id === "pessoa1") || {};
+    const gabriel = pessoas.find((p) => p.id === "pessoa2") || {};
+    const data = {
+      davi: davi.immersaoIA ? [davi.immersaoIA] : [],
+      gabriel: gabriel.immersaoIA ? [gabriel.immersaoIA] : [],
+      ambos: [],
+      tomDavi: davi.tomIA || "",
+      tomGabriel: gabriel.tomIA || ""
+    };
     state.iaConfig = data;
-    try { localStorage.setItem("caixa-ia-config-v1", JSON.stringify({ data, expira: Date.now() + 3000 })); } catch (err) {}
     document.dispatchEvent(new CustomEvent("caixa:ia-config-atualizada"));
     return data;
-  } catch (err) { return state.iaConfig || null; }
+  } catch (err) {
+    return state.iaConfig || null;
+  }
 }
 
 async function getCache(pessoa) { return idbGet(IDB_LOJA_CACHE, CACHE_PREFIX + pessoa); }
@@ -705,7 +699,7 @@ function setSyncState(mode) {
     setTimeout(() => syncEl.classList.remove("is-reconectando"), 700);
   }
   // Acabou de salvar com sucesso (saving -> idle, ou seja, uma alteração
-  // enviada pra planilha, não só uma busca): pisca o check (ver
+  // enviada ao Firebase, não só uma busca): pisca o check (ver
   // .sync-icone-check no style.css) por um instante antes de assentar no
   // wifi parado — um "confirmado" rápido, em vez de pular direto pro idle
   // sem feedback. Uma simples busca de dados (syncing -> idle) não passa
@@ -794,57 +788,45 @@ window.addEventListener("popstate", () => {
 const FECHADORES_MODAL = {};
 
 async function carregarDados() {
-  if (!API_URL || API_URL.includes("COLE_AQUI")) {
-    setSyncState("error");
-    showToast("Configure a URL do Apps Script em config.js");
-    renderAll();
-    return;
-  }
-
   const pessoaRequisitada = state.pessoaAtual;
   const versaoNoInicio = state.versaoAlteracaoLocal;
-  const cache = await getCache(pessoaRequisitada);
-  if (state.pessoaAtual !== pessoaRequisitada) return;
-  // Se o usuário alterou qualquer coisa enquanto o cache era lido, o cache
-  // antigo não pode entrar por cima do que ele acabou de fazer.
-  if (state.versaoAlteracaoLocal !== versaoNoInicio) return;
-  if (cache) {
-    state.ganhos = cache.ganhos;
-    state.gastosFixos = cache.gastosFixos;
-    state.gastosVariaveis = cache.gastosVariaveis;
-    state.caixinhas = cache.caixinhas || [];
-    state.categoriasConfig = cache.categorias || null;
-    state.iconCategorias = cache.iconCategorias || [];
-    state.loaded = true;
-    popularSelectsDeCategoria();
-    renderAll();
-  } else {
-    renderSkeletons();
-  }
-
-  // Sem internet: nem tenta buscar — fica só no ícone de sem internet
-  // (sem nenhuma animação de "tentando"), mostrando o que já tem em cache.
-  if (!navigator.onLine) {
-    setSyncState("offline");
-    if (!cache) showToast("Sem internet. Assim que conectar eu atualizo sozinho.");
-    return;
-  }
-
-  setSyncState("syncing");
   try {
-    const url = `${API_URL}?pessoa=${encodeURIComponent(pessoaRequisitada)}`;
-    const res = await fetch(url, { method: "GET" });
-    const data = await res.json();
-    if (data && data.ok === false) throw new Error(data.error || "Erro desconhecido");
+    await (window.CAIXA_FIREBASE_DATA_READY || Promise.resolve(window.CAIXA_FIREBASE_DATA));
+    const cache = await getCache(pessoaRequisitada);
     if (state.pessoaAtual !== pessoaRequisitada) return;
-    // Uma gravação pode ter começado depois que esta busca foi iniciada (ou
-    // enquanto ela estava em trânsito). Nesse intervalo o Apps Script ainda
-    // pode devolver o estado anterior da planilha. Nunca deixamos esse GET
-    // sobrescrever o estado que o usuário acabou de alterar.
-    if (state.salvamentosEmAndamento && state.salvamentosEmAndamento.size) return;
-    // A resposta pode ter ficado alguns segundos em trânsito. Se houve uma
-    // ação local desde o início desta busca, ela é mais nova e deve vencer.
     if (state.versaoAlteracaoLocal !== versaoNoInicio) return;
+    if (cache) {
+      state.ganhos = cache.ganhos || [];
+      state.gastosFixos = cache.gastosFixos || [];
+      state.gastosVariaveis = cache.gastosVariaveis || [];
+      state.caixinhas = cache.caixinhas || [];
+      state.categoriasConfig = cache.categorias || null;
+      state.iconCategorias = cache.iconCategorias || [];
+      state.loaded = true;
+      popularSelectsDeCategoria();
+      renderAll();
+    } else {
+      renderSkeletons();
+    }
+
+    if (!navigator.onLine) {
+      setSyncState("offline");
+      if (!cache) showToast("Sem internet. Assim que conectar eu atualizo sozinho.");
+      return;
+    }
+
+    setSyncState("syncing");
+    let data = await window.CAIXA_FIREBASE_DATA.get(pessoaRequisitada);
+    if (state.pessoaAtual !== pessoaRequisitada) return;
+    if (state.salvamentosEmAndamento?.size) return;
+    if (state.versaoAlteracaoLocal !== versaoNoInicio) return;
+
+    // Primeira abertura após a migração: se o Firestore ainda não tem o perfil
+    // financeiro, aproveitamos somente o cache local já existente neste navegador.
+    if (!data.exists && cache) {
+      const seeded = await window.CAIXA_FIREBASE_DATA.seedFromLocal(pessoaRequisitada, cache);
+      data = { ...data, ...seeded, exists: true };
+    }
 
     const mudancas = {
       ganhos: colecaoMudou(state.ganhos, data.ganhos || []),
@@ -864,19 +846,16 @@ async function carregarDados() {
     if (data.mesAtual) state.mesAtual = data.mesAtual;
     if (data.anoAtual) state.anoAtual = data.anoAtual;
     renderMesAtual();
-    setCache(pessoaRequisitada, data);
+    await setCache(pessoaRequisitada, data);
     setSyncState("idle");
-    if (Object.values(mudancas).some(Boolean)) {
-      renderIncremental(mudancas);
-    }
+    if (Object.values(mudancas).some(Boolean)) renderIncremental(mudancas);
     prefetchOutrasPessoas(pessoaRequisitada);
   } catch (err) {
     if (state.pessoaAtual !== pessoaRequisitada) return;
-    // Caiu a conexão no meio da busca: mesmo tratamento calmo do offline
-    // (sem ícone de erro em vermelho, que é pra falha de verdade).
+    if (err?.code === "CAIXA_FIREBASE_ACCESS_REQUIRED") return;
     setSyncState(ehErroDeRede(err) || !navigator.onLine ? "offline" : "error");
-    if (!cache) {
-      showToast("Não consegui carregar a planilha. Confira a API_URL.");
+    if (!state.loaded) {
+      showToast("Não consegui carregar seus dados do Firebase agora.");
       renderAll();
     } else {
       showToast("Não consegui atualizar agora. Mostrando o último dado salvo.");
@@ -885,38 +864,29 @@ async function carregarDados() {
 }
 
 function prefetchOutrasPessoas(pessoaJaCarregada) {
-  const pessoas = Object.keys(PESSOA_LABEL).filter((p) => p !== pessoaJaCarregada);
-  return Promise.all(pessoas.map((p) =>
-    getCache(p).then((cache) => {
+  const pessoas = ["davi", "gabriel"].filter((p) => p !== pessoaJaCarregada);
+  return Promise.all(pessoas.map(async (p) => {
+    try {
+      const cache = await getCache(p);
       if (cache) return cache;
-      return fetch(`${API_URL}?pessoa=${encodeURIComponent(p)}`)
-        .then((res) => res.json())
-        .then((data) => {
-          if (data && data.ok !== false) { setCache(p, data); return data; }
-          return null;
-        })
-        .catch(() => null);
-    })
-  ));
+      const data = await window.CAIXA_FIREBASE_DATA.getPessoa(p);
+      if (data) { await setCache(p, data); return data; }
+    } catch (_err) {}
+    return null;
+  }));
 }
 
 const filaSalvar = new Map(); 
 
 async function salvarBloco(action, payload) {
-  if (isAmbos()) return; 
+  if (isAmbos()) return;
   const chave = `${state.pessoaAtual}:${action}`;
   state.salvamentosEmAndamento?.add(chave);
   let entrada = filaSalvar.get(chave);
-  if (!entrada) {
-    entrada = { emVoo: false, pendente: null };
-    filaSalvar.set(chave, entrada);
-  }
-
+  if (!entrada) { entrada = { emVoo: false, pendente: null }; filaSalvar.set(chave, entrada); }
   entrada.pendente = payload;
-  if (entrada.emVoo) return; 
+  if (entrada.emVoo) return;
 
-  // Sem internet: nem tenta — manda direto pra fila offline, sem passar
-  // pela animação de "salvando" (que só ia demorar e falhar mesmo).
   if (!navigator.onLine) {
     const pessoaOffline = state.pessoaAtual;
     const payloadOffline = entrada.pendente;
@@ -929,26 +899,21 @@ async function salvarBloco(action, payload) {
   entrada.emVoo = true;
   setSyncState("saving");
   const pessoaDoEnvio = state.pessoaAtual;
-  let ultimoPayload = null;
   try {
     while (entrada.pendente !== null) {
-      ultimoPayload = entrada.pendente;
+      const payloadAtual = entrada.pendente;
       entrada.pendente = null;
-      const res = await fetch(API_URL, {
-        method: "POST",
-        body: JSON.stringify({ action, payload: ultimoPayload, pessoa: pessoaDoEnvio }),
-      });
-      const data = await res.json().catch(() => null);
-      if (data && data.ok === false) throw new Error(data.error || "Erro desconhecido");
+      await window.CAIXA_FIREBASE_DATA.saveCollection(pessoaDoEnvio, action, payloadAtual);
     }
     setSyncState("idle");
   } catch (err) {
-    if (ehErroDeRede(err) && ultimoPayload !== null) {
-      await enfileirarOffline(pessoaDoEnvio, action, ultimoPayload);
+    if ((ehErroDeRede(err) || !navigator.onLine) && entrada.pendente !== null) {
+      await enfileirarOffline(pessoaDoEnvio, action, entrada.pendente);
+      entrada.pendente = null;
       await atualizarIndicadorOffline();
     } else {
       setSyncState("error");
-      showToast("Não consegui salvar na planilha agora.");
+      showToast("Não consegui salvar seus dados no Firebase agora.");
     }
   } finally {
     entrada.emVoo = false;
@@ -991,46 +956,24 @@ async function atualizarIndicadorOffline() {
 }
 
 async function flushFilaOffline() {
-  if (flushEmAndamento) return;
-  if (!API_URL || API_URL.includes("COLE_AQUI")) return;
-  // Sem internet: nem tenta — evita ficar piscando a animação de "enviando"
-  // só pra falhar em seguida. Fica parado no ícone de sem internet até o
-  // navegador avisar que voltou (evento "online", ver abaixo).
-  if (!navigator.onLine) return;
-
-  // Confere ANTES de mexer em qualquer estado de sync: se não tem nada pra
-  // enviar, sai sem tocar no ícone — senão essa checagem (que é rápida,
-  // porque só olha o IndexedDB local) ficava sempre "ganhando a corrida" e
-  // resetando pra "idle" por cima da animação de sincronizando que
-  // carregarDados() acabara de ligar (ver tentarSincronizarAgora).
+  if (flushEmAndamento || !navigator.onLine) return;
   const itens = await idbListarFila();
-  if (itens.length === 0) return;
-
+  if (!itens.length) return;
   flushEmAndamento = true;
   setSyncState("saving");
-  let houveAlteracaoFinanceira = false;
   try {
     let restantes = itens.length;
     atualizarBadgeOffline(restantes);
     for (const { chaveIdb, valor } of itens) {
       try {
-        const res = await fetch(API_URL, {
-          method: "POST",
-          body: JSON.stringify({ action: valor.action, payload: valor.payload, pessoa: valor.pessoa }),
-        });
-        const data = await res.json().catch(() => null);
-        if (data && data.ok === false) {
-          showToast(`Não consegui salvar uma alteração pendente: ${data.error || "erro desconhecido"}`);
-        } else if (["saveGanhos", "saveGastosFixos", "saveGastosVariaveis", "saveCaixinhas"].includes(valor.action)) {
-          houveAlteracaoFinanceira = true;
-        }
+        await window.CAIXA_FIREBASE_DATA.saveCollection(valor.pessoa, valor.action, valor.payload);
         await idbDelete(IDB_LOJA_FILA, chaveIdb);
       } catch (err) {
-        if (ehErroDeRede(err)) break; 
-        await idbDelete(IDB_LOJA_FILA, chaveIdb); 
+        if (ehErroDeRede(err) || !navigator.onLine) break;
+        await idbDelete(IDB_LOJA_FILA, chaveIdb);
       }
       restantes -= 1;
-      atualizarBadgeOffline(restantes); // encolhe o numerozinho a cada alteração sincronizada
+      atualizarBadgeOffline(restantes);
     }
   } finally {
     flushEmAndamento = false;
@@ -1051,7 +994,7 @@ document.addEventListener("visibilitychange", () => {
   if (document.visibilityState === "visible") flushFilaOffline();
 });
 
-// A leitura da planilha acontece somente na abertura/recarregamento da página.
+// A leitura do Firebase acontece somente na abertura/recarregamento da página.
 // O indicador continua mostrando o estado de salvamento, mas não existe mais
 // uma ação manual que faça um GET e reconcilie tudo no meio da navegação.
 if (syncEl) {
@@ -1066,7 +1009,7 @@ if (syncEl) {
 async function trocarPessoa(pessoa) {
   if (pessoa === state.pessoaAtual) return;
 
-  // Trocar de perfil não faz mais uma nova leitura na planilha. A página já
+  // Trocar de perfil não faz mais uma nova leitura remota. A página já
   // carregou os perfis necessários na abertura e cada perfil fica disponível
   // no cache local. Assim a troca é instantânea e não reconstrói a tela por
   // causa de um GET no meio da navegação.
@@ -1109,7 +1052,7 @@ async function trocarPessoa(pessoa) {
       iconCategorias: true,
     });
   } else {
-    // Não busca a planilha aqui. Se esse perfil ainda não tiver sido
+    // Não faz uma nova leitura remota aqui. Se esse perfil ainda não tiver sido
     // pré-carregado no cache durante a abertura, deixa os dados locais
     // atuais e informa de forma discreta que a atualização ocorrerá no
     // próximo recarregamento.
@@ -1318,7 +1261,7 @@ function retirarDaCaixinha(index, valor) {
 // mostrando hoje no banco/investimento) — não quanto rendeu. O app calcula
 // a diferença sozinho (positiva = rendeu, negativa = essa caixinha perdeu
 // valor no período) e acumula em rendimentoTotal, que vai pra coluna S na
-// planilha (RENDIMENTO). Ver o badge em renderCaixinhas(): mostra em verde
+// Firebase (RENDIMENTO). Ver o badge em renderCaixinhas(): mostra em verde
 // quando é ganho e em vermelho quando é perda, em vez de só sumir quando
 // negativo (perda também é informação — esconder isso seria mascarar que a
 // caixinha desvalorizou).
@@ -1352,13 +1295,12 @@ async function obterListaLocal(pessoa, chave) {
   if (pessoa === state.pessoaAtual && !isAmbos()) return [...state[chave]];
   const cache = await getCache(pessoa);
   if (cache) return [...(cache[chave] || [])];
-  const data = await fetch(`${API_URL}?pessoa=${encodeURIComponent(pessoa)}`).then((r) => r.json());
-  if (data && data.ok === false) throw new Error(data.error || "Erro ao ler dados atuais");
-  return (data && data[chave]) || [];
+  const data = await window.CAIXA_FIREBASE_DATA.getPessoa(pessoa);
+  return data?.[chave] || [];
 }
 
 // Marcador guardado dentro do PRÓPRIO nome do lançamento (não tem coluna
-// extra sobrando na planilha pra isso) pra lembrar que aquela "metade" é uma
+// campo extra sobrando no documento pra isso) pra lembrar que aquela "metade" é uma
 // dívida de uma compra dividida, e de quem é o dinheiro quando for paga.
 // Ex: "Mercado (deve pra Davi)" — assim que a pessoa marca como paga (ver
 // togglePagoVariavel/togglePagoFixo), a gente credita o Davi sozinho e tira
@@ -1389,14 +1331,11 @@ function encontrarGanhoDivisao(listaGanhos, devedor, nomeOriginal, valor, data) 
   return candidatos.length ? candidatos[candidatos.length - 1] : null;
 }
 async function criarGanhoAReceberDivisao(credor, devedor, nomeOriginal, valor, tipo, data, recebido) {
-  if (!API_URL || API_URL.includes("COLE_AQUI")) return false;
   try {
     const lista = await obterListaLocal(credor, "ganhos");
     lista.push({ nome: nomeGanhoDivisao(devedor, nomeOriginal), valor, data: data || dataHojeISO(), recebido: !!recebido, tipo: tipo || "" });
     if (state.pessoaAtual === credor) marcarAlteracaoLocal();
-    const res = await fetch(API_URL, { method: "POST", body: JSON.stringify({ action: "saveGanhos", payload: lista, pessoa: credor }) });
-    const dataRes = await res.json().catch(() => null);
-    if (!dataRes || dataRes.ok === false) throw new Error("Erro ao criar ganho a receber");
+    await window.CAIXA_FIREBASE_DATA.saveCollection(credor, "saveGanhos", lista);
     const cache = await getCache(credor);
     setCache(credor, { ...(cache || {}), ganhos: lista });
     if (state.pessoaAtual === credor) state.ganhos = lista;
@@ -1405,16 +1344,13 @@ async function criarGanhoAReceberDivisao(credor, devedor, nomeOriginal, valor, t
   } catch { return false; }
 }
 async function atualizarGanhoDivisao(credor, devedor, nomeOriginal, valor, data, recebido) {
-  if (!API_URL || API_URL.includes("COLE_AQUI")) return false;
   try {
     const lista = await obterListaLocal(credor, "ganhos");
     const achado = encontrarGanhoDivisao(lista, devedor, nomeOriginal, valor, data);
     if (!achado) return false;
     achado.item.recebido = !!recebido;
     if (state.pessoaAtual === credor) marcarAlteracaoLocal();
-    const res = await fetch(API_URL, { method: "POST", body: JSON.stringify({ action: "saveGanhos", payload: lista, pessoa: credor }) });
-    const dataRes = await res.json().catch(() => null);
-    if (!dataRes || dataRes.ok === false) throw new Error("Erro ao atualizar ganho da divisão");
+    await window.CAIXA_FIREBASE_DATA.saveCollection(credor, "saveGanhos", lista);
     const cache = await getCache(credor);
     setCache(credor, { ...(cache || {}), ganhos: lista });
     if (state.pessoaAtual === credor) state.ganhos = lista;
@@ -1432,10 +1368,6 @@ async function atualizarGanhoDivisao(credor, devedor, nomeOriginal, valor, data,
 //     metade já é creditada de cara; se não, fica pendente e só é creditada
 //     quando a pessoa marcar essa metade como paga depois (ver os toggles).
 async function dividirCompra(nome, valorTotal, categoria, opts) {
-  if (!API_URL || API_URL.includes("COLE_AQUI")) {
-    showToast("Configure a URL do Apps Script em config.js");
-    return false;
-  }
   opts = opts || {};
   const tipo = opts.tipo || "";
   const data = opts.data || "";
@@ -1473,17 +1405,10 @@ async function dividirCompra(nome, valorTotal, categoria, opts) {
     // em foco; qualquer GET antigo não pode sobrescrevê-la.
     if (state.pessoaAtual === "davi" || state.pessoaAtual === "gabriel") marcarAlteracaoLocal();
 
-    const [resDavi, resGabriel] = await Promise.all([
-      fetch(API_URL, { method: "POST", body: JSON.stringify({ action, payload: listaDavi, pessoa: "davi" }) }),
-      fetch(API_URL, { method: "POST", body: JSON.stringify({ action, payload: listaGabriel, pessoa: "gabriel" }) }),
+    await Promise.all([
+      window.CAIXA_FIREBASE_DATA.saveCollection("davi", action, listaDavi),
+      window.CAIXA_FIREBASE_DATA.saveCollection("gabriel", action, listaGabriel),
     ]);
-    const [dataDavi, dataGabriel] = await Promise.all([
-      resDavi.json().catch(() => null),
-      resGabriel.json().catch(() => null),
-    ]);
-    if ((dataDavi && dataDavi.ok === false) || (dataGabriel && dataGabriel.ok === false)) {
-      throw new Error("Erro ao salvar em um dos dois");
-    }
 
     const [cacheDavi, cacheGabriel] = await Promise.all([getCache("davi"), getCache("gabriel")]);
     setCache("davi", { ...(cacheDavi || {}), [chave]: listaDavi });
@@ -1520,27 +1445,17 @@ async function creditarPagamentoDeDivisao(pagador, devedor, nomeOriginal, valor,
 // Espelha o que o backend (transferirEntrePessoas em Code.gs) faz: lança um
 // gasto variável já pago de quem transfere e um ganho já recebido de quem
 // recebe. Atualizando local/cache direto (em vez de invalidar e ter que
-// buscar tudo de novo na planilha com carregarDados()), a tela responde na
+// buscar tudo de novo no Firebase com carregarDados()), a tela responde na
 // hora — igual já era feito em dividirCompra.
 async function transferirEntrePessoas(de, para, nome, valor, tipo) {
-  if (!API_URL || API_URL.includes("COLE_AQUI")) {
-    showToast("Configure a URL do Apps Script em config.js");
-    return false;
-  }
   const descricao = (nome || "").trim() || "Transferência";
-  const hoje = dataHojeISO();
   try {
-    const res = await fetch(API_URL, {
-      method: "POST",
-      body: JSON.stringify({ action: "transferir", de, para, nome, valor, tipo }),
-    });
-    const data = await res.json().catch(() => null);
-    if (!data || data.ok === false) throw new Error((data && data.error) || "Erro desconhecido");
-
+    await window.CAIXA_FIREBASE_DATA.transfer(de, para, descricao, valor, tipo);
     const [listaVariaveisDe, listaGanhosPara] = await Promise.all([
       obterListaLocal(de, "gastosVariaveis"),
       obterListaLocal(para, "ganhos"),
     ]);
+    const hoje = dataHojeISO();
     listaVariaveisDe.push({
       nome: `Transferência p/ ${PESSOA_LABEL[para]}: ${descricao}`,
       valor, tipo: tipo || "", data: hoje, pago: true,
@@ -1550,16 +1465,17 @@ async function transferirEntrePessoas(de, para, nome, valor, tipo) {
       valor, data: hoje, recebido: true,
     });
     if (state.pessoaAtual === de || state.pessoaAtual === para) marcarAlteracaoLocal();
-
     const [cacheDe, cachePara] = await Promise.all([getCache(de), getCache(para)]);
-    setCache(de, { ...(cacheDe || {}), gastosVariaveis: listaVariaveisDe });
-    setCache(para, { ...(cachePara || {}), ganhos: listaGanhosPara });
+    await Promise.all([
+      setCache(de, { ...(cacheDe || {}), gastosVariaveis: listaVariaveisDe }),
+      setCache(para, { ...(cachePara || {}), ganhos: listaGanhosPara })
+    ]);
     if (state.pessoaAtual === de) state.gastosVariaveis = listaVariaveisDe;
     if (state.pessoaAtual === para) state.ganhos = listaGanhosPara;
     removerCache("ambos");
-
     return true;
   } catch (err) {
+    console.error("Falha na transferência Firebase", err);
     return false;
   }
 }
@@ -1635,8 +1551,6 @@ function renderDerivadosDeStatus() {
   renderSplit();
   renderJuntosView();
   atualizarCarrosselGraficos();
-  if (typeof window.renderResumoStatusFinanceiro === "function") window.renderResumoStatusFinanceiro();
-  if (typeof window.renderResumoAcontecimentos === "function") window.renderResumoAcontecimentos();
 }
 
 
@@ -1673,23 +1587,16 @@ function encontrarGanhoCorrespondenteFixo(lista, nome, valor, data, recebidoAlvo
 }
 
 async function sincronizarGanhoCorrespondenteFixo(devedor, item, recebido) {
-  if (!item || !devedor || !API_URL || API_URL.includes("COLE_AQUI")) return false;
+  if (!item || !devedor) return false;
   const credor = devedor === "davi" ? "gabriel" : "davi";
   try {
     const lista = await obterListaLocal(credor, "ganhos");
     const achado = encontrarGanhoCorrespondenteFixo(lista, item.nome, item.valor, item.data, recebido);
     if (!achado) return false;
     achado.item.recebido = !!recebido;
-
-    const res = await fetch(API_URL, {
-      method: "POST",
-      body: JSON.stringify({ action: "saveGanhos", payload: lista, pessoa: credor })
-    });
-    const dataRes = await res.json().catch(() => null);
-    if (!dataRes || dataRes.ok === false) throw new Error("Erro ao sincronizar ganho correspondente");
-
+    await window.CAIXA_FIREBASE_DATA.saveCollection(credor, "saveGanhos", lista);
     const cache = await getCache(credor);
-    setCache(credor, { ...(cache || {}), ganhos: lista });
+    await setCache(credor, { ...(cache || {}), ganhos: lista });
     removerCache("ambos");
     return true;
   } catch {
@@ -1858,7 +1765,7 @@ function animarMudancaStatusFluida(listaId, pendingId, index, ligado, tipo, stat
       : (tipo === "expense" && listaId === "listaFixos" ? state.gastosFixos : state.gastosVariaveis);
 
     // A tela passa a refletir o estado do objeto local imediatamente.
-    // Não fazemos nenhum GET aqui: a planilha é persistida em paralelo e
+    // Não fazemos nenhum GET aqui: o Firebase é persistido em paralelo e
     // nunca deve ser necessária uma atualização da página para enxergar a
     // mudança que o próprio usuário acabou de fazer.
     renderPendentesDestaque(pendingId, lista, tipo, statusKey, toggleFn, rotuloOff, ops, tipoModal);
@@ -1894,8 +1801,6 @@ function togglePagoFixoInterno(index) {
   if (!item) return;
   const vaiFicarPago = !fixoEhPago(item);
   item.pago = vaiFicarPago;
-  // Atualiza imediatamente os totais para disparar o efeito visual de entrada/saída no topo.
-  renderTotais();
 
   // Essa parcela é a "metade" de uma compra dividida (ver dividirCompra) e
   // acabou de ser marcada como paga: credita quem pagou a conta na hora e
@@ -1929,8 +1834,6 @@ function togglePagoVariavelInterno(index) {
   if (!item) return;
   const vaiFicarPago = !variavelEhPago(item);
   item.pago = vaiFicarPago;
-  // Atualiza imediatamente os totais para disparar o efeito visual de entrada/saída no topo.
-  renderTotais();
   // Mexer manualmente no status tira o item do modo "lembrete" (compra
   // adiantada) — a partir daqui ele volta a ser um lançamento comum, que
   // entra ou sai do saldo normalmente conforme o novo status.
@@ -1965,8 +1868,6 @@ function toggleRecebidoGanhoInterno(index) {
   const item = state.ganhos[index];
   if (!item) return;
   item.recebido = !ganhoEhRecebido(item);
-  // Atualiza imediatamente os totais para disparar o efeito visual de entrada/saída no topo.
-  renderTotais();
   vibrar();
   marcarAlteracaoLocal();
   sincronizarCacheAtual();
@@ -3354,8 +3255,6 @@ function renderIncremental(mudancas) {
   if (mudancas.caixinhas) renderCaixinhas();
   if (financeiroMudou) {
     renderTotais(); renderVisaoGeral(); renderCategorias(); renderRecentes(); renderSplit(); renderJuntosView(); atualizarCarrosselGraficos();
-    if (typeof window.renderResumoStatusFinanceiro === "function") window.renderResumoStatusFinanceiro();
-    if (typeof window.renderResumoAcontecimentos === "function") window.renderResumoAcontecimentos();
   }
   if (mudancas.categoriasConfig || mudancas.iconCategorias) {
     popularSelectsDeCategoria();
@@ -3422,17 +3321,6 @@ function atualizarCarrosselGraficos(wrapId = "graficosCarousel", dotsId = "grafi
     });
   }
 
-  // Observa mudanças de altura internas (por exemplo, quando a descrição da
-  // IA do Status financeiro substitui o texto inicial). Assim a altura do
-  // carrossel acompanha o card imediatamente, sem depender de um novo swipe.
-  if (typeof ResizeObserver !== "undefined" && !wrap._carrosselResizeObserver) {
-    const observer = new ResizeObserver(() => {
-      requestAnimationFrame(() => sincronizarAlturaCarrossel(wrap));
-    });
-    cards.forEach((card) => observer.observe(card));
-    wrap._carrosselResizeObserver = observer;
-  }
-
   if (!wrap.dataset.carrosselPronto) {
     wrap.dataset.carrosselPronto = "1";
     
@@ -3475,11 +3363,6 @@ function atualizarCarrosselGraficos(wrapId = "graficosCarousel", dotsId = "grafi
     });
   }
   
-  if (wrapId === "graficosCarousel" && !wrap.dataset.resumoPaginaRestaurada) {
-    wrap.dataset.resumoPaginaRestaurada = "1";
-    const salvo = lerPaginaGraficoResumo();
-    if (salvo > 0) { const alvo = cards[Math.min(salvo, cards.length - 1)]; if (alvo) wrap.scrollLeft = alvo.offsetLeft - wrap.offsetLeft; }
-  }
   marcarDotAtivo(wrap, dotsEl);
 }
 
@@ -3504,32 +3387,15 @@ function marcarDotAtivo(wrap, dotsEl) {
   });
 
   if (dots.length) dots.forEach((d, i) => d.classList.toggle("is-active", i === ativo));
-  if (wrap.id === "graficosCarousel") salvarPaginaGraficoResumo(ativo);
 
-  sincronizarAlturaCarrossel(wrap, cards, ativo);
-}
-
-// Recalcula a altura quando o conteúdo de um card muda depois da renderização.
-// Isso é importante para o Status financeiro: primeiro entra o texto local e,
-// alguns instantes depois, a descrição da IA pode ficar maior. Antes, o
-// carrossel mantinha a altura antiga e cortava a parte inferior até o usuário
-// trocar de página.
-function sincronizarAlturaCarrossel(wrap, cards = null, ativo = null) {
-  if (!wrap) return;
-  const lista = cards || Array.from(wrap.children).filter((el) => !el.classList.contains("is-hidden"));
-  if (!lista.length) return;
-  let indice = Number.isInteger(ativo) ? ativo : 0;
-  if (!Number.isInteger(ativo)) {
-    const centro = wrap.scrollLeft + wrap.clientWidth / 2;
-    let menorDist = Infinity;
-    lista.forEach((card, i) => {
-      const dist = Math.abs(card.offsetLeft + card.offsetWidth / 2 - centro);
-      if (dist < menorDist) { menorDist = dist; indice = i; }
-    });
-  }
-  const cardAtivo = lista[Math.max(0, Math.min(indice, lista.length - 1))];
-  if (!cardAtivo) return;
-  const alturaAlvo = cardAtivo.offsetHeight;
+  // Altura do carrossel acompanha só a página ativa (ver comentário no
+  // CSS, .graficos-carousel) — sem isso, uma página com bem mais conteúdo
+  // (categoria com muitos tipos de gasto) esticava as outras junto.
+  // offsetHeight (não scrollHeight): scrollHeight não conta a borda de 1px
+  // do card (.historico-grafico-wrap tem border: 1px solid), só conteúdo +
+  // padding. Com a altura do wrap fixada 2px menor que o card de verdade e
+  // "overflow-y: hidden" no carrossel, a borda de baixo ficava cortada.
+  const alturaAlvo = cards[ativo].offsetHeight;
   if (alturaAlvo > 0 && wrap.dataset.alturaAtual !== String(alturaAlvo)) {
     wrap.dataset.alturaAtual = String(alturaAlvo);
     wrap.style.height = alturaAlvo + "px";
@@ -3898,16 +3764,13 @@ async function carregarHistorico() {
   } else {
     renderHistoricoSkeleton();
   }
-  if (!API_URL || API_URL.includes("COLE_AQUI")) return;
   try {
-    const res = await fetch(`${API_URL}?pessoa=historico`);
-    const data = await res.json();
-    if (data && data.ok === false) throw new Error(data.error || "Erro desconhecido");
-    state.historico = data;
+    const data = await window.CAIXA_FIREBASE_DATA.getHistory();
     if (data.mesAtual) state.mesAtual = data.mesAtual;
     if (data.anoAtual) state.anoAtual = data.anoAtual;
+    state.historico = data;
     renderMesAtual();
-    setCacheHistorico(data);
+    await setCacheHistorico(data);
     renderHistorico();
   } catch (err) {
     if (!cache) {
@@ -4744,12 +4607,11 @@ on("formDividir", "submit", async (e) => {
   const btnSubmit = document.getElementById("dividirSubmit");
   if (btnSubmit) { btnSubmit.disabled = true; btnSubmit.textContent = "Preparando…"; }
   const feedback = mostrarAnimacaoDivisao({ nome, valor, quemPagouTudo });
-  // A operação começa imediatamente. A animação é só feedback visual — não
-  // deve criar uma espera artificial antes de salvar a divisão.
-  const operacao = dividirCompra(nome, valor, categoriaDividir, { tipo, data, pago, quemPagouTudo });
+  await new Promise((resolve) => window.setTimeout(resolve, 3000));
   setEstadoDivisaoFeedback(feedback, "dividindo");
   if (btnSubmit) btnSubmit.textContent = "Dividindo…";
-  const duracaoVisual = new Promise((resolve) => window.setTimeout(resolve, 650));
+  const operacao = dividirCompra(nome, valor, categoriaDividir, { tipo, data, pago, quemPagouTudo });
+  const duracaoVisual = new Promise((resolve) => window.setTimeout(resolve, 2450));
   const [ok] = await Promise.all([operacao, duracaoVisual]);
   if (btnSubmit) { btnSubmit.disabled = false; btnSubmit.textContent = "Dividir"; }
   if (ok) {
@@ -5083,12 +4945,12 @@ on("formTransferir", "submit", async (e) => {
   if (btnSubmit) { btnSubmit.disabled = true; btnSubmit.textContent = "Preparando…"; }
   const { de, para } = direcaoTransferir;
   const feedback = montarTransferenciaFeedback(de, para, valor);
+  setEstadoTransferenciaFeedback(feedback, "idle");
+  await new Promise((resolve) => window.setTimeout(resolve, 3000));
   setEstadoTransferenciaFeedback(feedback, "transferindo");
   if (btnSubmit) btnSubmit.textContent = "Transferindo…";
-  // Começa a transferência na hora; a animação acompanha a operação em vez
-  // de bloquear o envio por vários segundos.
   const operacao = transferirEntrePessoas(de, para, nome, valor, tipo);
-  const duracaoVisual = new Promise((resolve) => window.setTimeout(resolve, 700));
+  const duracaoVisual = new Promise((resolve) => window.setTimeout(resolve, 3400));
   const [ok] = await Promise.all([operacao, duracaoVisual]);
   if (btnSubmit) { btnSubmit.disabled = false; btnSubmit.textContent = "Transferir"; }
   if (ok) {
@@ -5143,19 +5005,12 @@ function prepararFormFecharMes() {
 }
 
 async function fecharMesRequisicao(mes, ano) {
-  if (!API_URL || API_URL.includes("COLE_AQUI")) {
-    showToast("Configure a URL do Apps Script em config.js");
+  try {
+    return await window.CAIXA_FIREBASE_DATA.closeMonth(mes, ano);
+  } catch (err) {
+    console.error("Falha ao fechar mês no Firebase", err);
     return null;
   }
-  try {
-    const res = await fetch(API_URL, {
-      method: "POST",
-      body: JSON.stringify({ action: "fecharMes", mes, ano }),
-    });
-    const data = await res.json().catch(() => null);
-    if (!data || data.ok === false) throw new Error((data && data.error) || "Erro desconhecido");
-    return data;
-  } catch (err) { return null; }
 }
 
 on("formFecharMes", "submit", async (e) => {
@@ -5229,34 +5084,24 @@ if (confirmBackdrop) {
 // INIT E LISTENERS
 // ---------------------------------------------------------------------
 
-async function iniciarCaixaDepoisDaAutenticacao() {
-  // A tela financeira só inicializa depois que o Firebase confirmar a sessão
-  // e, no primeiro acesso, depois que o perfil inicial for configurado.
-  const user = await (window.CAIXA_AUTH_READY || Promise.resolve(window.CAIXA_CURRENT_USER || null));
-  if (!user) return;
-  const perfil = await (window.CAIXA_PROFILE_READY || Promise.resolve(window.CAIXA_USER_PROFILE || null));
-  if (!perfil) return;
-
-  renderPessoaSwitch();
-  renderMesAtual();
-  popularSelectsDeCategoria();
-  preencherDatasComHoje();
-  atualizarVisibilidadeEdicao();
-  atualizarVisibilidadeSplitCard();
-  atualizarVisibilidadeVisaoGeral();
-  atualizarVisibilidadeJuntosView();
-  initGavetas();
-  aplicarMascaraMoedaEmTodos();
-  posicionarIndicadorAba();
-  // Leituras da planilha continuam como antes nesta primeira fase. O Firebase
-  // agora controla quem pode chegar à aplicação; a migração dos dados vem na etapa seguinte.
-  carregarDados();
-  carregarHistorico();
-  carregarConfigIA();
-  setTimeout(mostrarDicaAcoesConjuntoSeNecessario, 1200);
-}
-
-iniciarCaixaDepoisDaAutenticacao();
+renderPessoaSwitch();
+renderMesAtual();
+popularSelectsDeCategoria();
+preencherDatasComHoje();
+atualizarVisibilidadeEdicao();
+atualizarVisibilidadeSplitCard();
+atualizarVisibilidadeVisaoGeral();
+atualizarVisibilidadeJuntosView();
+initGavetas();
+aplicarMascaraMoedaEmTodos();
+posicionarIndicadorAba();
+// Leituras do Firebase acontecem na abertura da página. Depois disso, a
+// navegação e a troca de perfil usam os dados em memória/cache; alterações
+// feitas pelo usuário continuam sendo enviadas normalmente via POST.
+carregarDados();
+carregarHistorico();
+carregarConfigIA();
+setTimeout(mostrarDicaAcoesConjuntoSeNecessario, 1200);
 
 // Listener do novo Seletor de Ano no Histórico
 const selectAno = document.getElementById("historicoAnoSelect");
@@ -5446,7 +5291,6 @@ if (document.readyState === "loading") {
     { id: "categorias", icon: "chart", titulo: "Onde estou gastando mais?", subtitulo: "As categorias que mais pesaram" },
     { id: "guardado", icon: "pig", titulo: "Progresso das caixinhas", subtitulo: "Metas, prazos e quanto falta guardar" },
     { id: "mudou", icon: "chart", titulo: "O que mais mudou este mês?", subtitulo: "Compare com o mês anterior" },
-    { id: "aconteceu", icon: "sparkle", titulo: "O que aconteceu este mês?", subtitulo: "Um resumo do que mudou por aqui" },
     { id: "pendencias", icon: "clock", titulo: "Ainda falta pagar", subtitulo: "Veja contas, parcelas e valores pendentes" },
     { id: "economia", icon: "sparkle", titulo: "Me dê uma dica", subtitulo: "Uma orientação baseada nos seus números" }
   ];
@@ -5506,7 +5350,7 @@ if (document.readyState === "loading") {
       porCat[cat] = (porCat[cat] || 0) + (Number(i.valor) || 0);
     });
     listaFinita(state.gastosVariaveis).forEach(i => {
-      if (!gastoVariavelEhReal(i) || !variavelContaNoSaldo(i) || i.pago !== true) return;
+      if (!gastoVariavelEhReal(i) || !variavelContaNoSaldo(i)) return;
       const cat = String(i.tipo || "Outros").trim() || "Outros";
       porCat[cat] = (porCat[cat] || 0) + (Number(i.valor) || 0);
     });
@@ -5596,7 +5440,7 @@ if (document.readyState === "loading") {
     return { tom: pessoa === "gabriel" ? (cfg.tomGabriel || "") : (cfg.tomDavi || ""), imersao: [...(cfg[pessoa] || []), ...(cfg.ambos || [])] };
   }
   function aplicarTomChat(texto) {
-    // A personalidade vem exclusivamente da TOM IA da planilha e, nas
+    // A personalidade vem exclusivamente da configuração do perfil no Firebase e, nas
     // respostas geradas pela IA, já é aplicada no backend. O navegador não
     // deve inventar bordões como "Ora, ora" ou "Boa, Davi".
     return String(texto || "").trim();
@@ -5652,7 +5496,6 @@ if (document.readyState === "loading") {
         saldoProjetadoComEntradas: (Number(t.saldoAtualConta) || 0) + (Number(t.aReceber) || 0),
         contasAbertasTotal: (Number(t.aPagarFixos) || 0) + (Number(t.aPagarVariaveis) || 0),
         limiteDeGastoProjetado: Number(t.conta) || 0,
-        statusFinanceiro: statusFinanceiroAtual(t),
         aindaAReceberEsseMes: Number(t.aReceber) || 0,
         aindaAPagarFixosEsseMes: Number(t.aPagarFixosEsseMes) || 0,
         aindaAPagarVariaveisEsseMes: Number(t.aPagarVariaveisEsseMes) || 0,
@@ -5771,93 +5614,15 @@ if (document.readyState === "loading") {
   }
 
   async function buscarRespostasGastarIA(t, opcoes = {}) {
-    if (!API_URL || API_URL.includes("COLE_AQUI")) return null;
     const chave = opcoes.chave || chaveCacheGastarIA(t);
-    if (!opcoes.forcar) {
-      const cache = lerCacheGastarIA(chave);
-      if (cache) return cache;
-    }
-
-    const TEMPO_MAXIMO_IA_MS = 14000;
-    let controller = null;
-    let timer = null;
-    try {
-      controller = typeof AbortController !== "undefined" ? new AbortController() : null;
-      const requisicao = fetch(API_URL, {
-        method: "POST",
-        body: JSON.stringify({
-          action: "gerarRespostaGastarIA",
-          pessoa: state.pessoaAtual || "davi",
-          periodo: { mes: state.mesAtual, ano: state.anoAtual },
-          resumo: resumoParaIAChat(t)
-        }),
-        signal: controller ? controller.signal : undefined
-      });
-      const limite = new Promise((_, reject) => {
-        timer = setTimeout(() => {
-          try { if (controller) controller.abort(); } catch (e) {}
-          reject(new Error("timeout_ia"));
-        }, TEMPO_MAXIMO_IA_MS);
-      });
-      const res = await Promise.race([requisicao, limite]);
-      clearTimeout(timer);
-      if (!res || !res.ok) return null;
-      const data = await res.json();
-      if (!data || data.ok === false || !data.respostas) return null;
-      const respostas = {
-        beneficio: String(data.respostas.beneficio || "").trim(),
-        saldo: String(data.respostas.saldo || "").trim()
-      };
-      if (!respostas.beneficio && !respostas.saldo) return null;
-      salvarCacheGastarIA(chave, respostas);
-      return respostas;
-    } catch (err) {
-      if (timer) clearTimeout(timer);
-      return null;
-    }
+    if (!opcoes.forcar) return lerCacheGastarIA(chave);
+    return null;
   }
 
   async function buscarDicasIA(t, opcoes = {}) {
-    if (!API_URL || API_URL.includes("COLE_AQUI")) return [];
     const chave = opcoes.chave || chaveCacheDicasChat(t, opcoes.modo || "");
-    if (!opcoes.forcar) {
-      const cache = lerCacheDicasChat(chave);
-      if (cache) return cache;
-    }
-
-    // A IA é um extra: se a rede/backend ficar preso, o chat nunca pode
-    // deixar o usuário eternamente em "Analisando seus números…".
-    const TEMPO_MAXIMO_IA_MS = 14000;
-    let controller = null;
-    let timer = null;
-    try {
-      controller = typeof AbortController !== "undefined" ? new AbortController() : null;
-      const requisicao = fetch(API_URL, {
-        method: "POST",
-        body: JSON.stringify({ action: "gerarInsightIA", pessoa: state.pessoaAtual || "davi", periodo: { mes: state.mesAtual, ano: state.anoAtual }, resumo: resumoParaIAChat(t), modo: opcoes.modo || "" }),
-        signal: controller ? controller.signal : undefined
-      });
-      const limite = new Promise((_, reject) => {
-        timer = setTimeout(() => {
-          try { if (controller) controller.abort(); } catch (e) {}
-          reject(new Error("timeout_ia"));
-        }, TEMPO_MAXIMO_IA_MS);
-      });
-      const res = await Promise.race([requisicao, limite]);
-      clearTimeout(timer);
-      if (!res || !res.ok) return [];
-      const data = await res.json();
-      if (!data || data.ok === false || !Array.isArray(data.textos)) return [];
-      const textos = data.textos.map(x => {
-        if (typeof x === "string") return { texto: x };
-        return { texto: x?.texto || "", tipo: x?.tipo || "geral", titulo: x?.titulo || "" };
-      }).filter(x => x.texto);
-      if (textos.length) salvarCacheDicasChat(chave, textos);
-      return textos;
-    } catch (err) {
-      if (timer) clearTimeout(timer);
-      return [];
-    }
+    if (!opcoes.forcar) return lerCacheDicasChat(chave) || [];
+    return [];
   }
 
   function montarDicasFinanceiras(t) {
@@ -6133,36 +5898,46 @@ if (document.readyState === "loading") {
       if (id === "mudou") {
         const ant = compararMesAnteriorChat();
         if (!ant) {
-          appendMensagem(`<strong>Ainda não tenho dados históricos suficientes para comparar.</strong><span class="caixa-chat-note">Assim que existir um mês anterior fechado com dados comparáveis, eu mostro as mudanças sem inventar informações.</span>`);
+          appendMensagem(`<strong>Ainda não tenho um mês fechado anterior suficiente para comparar.</strong><span class="caixa-chat-note">Assim que o histórico tiver o mês anterior, eu consigo apontar a mudança mais relevante.</span>`);
         } else {
-          const atual={gastos:(Number(t.fixosPagos)||0)+(Number(t.variaveisPagos)||0),ganhos:Number(t.ganhosRecebidos)||0,guardado:somaCampo(state.caixinhas,"valorGuardadoMes")},ca=Object.fromEntries(categoriasChat()),cp=categoriasHistoricoAnteriorChat(),pend=categoriasPendentesChat(),linhas=[],pendenciasComparacao=[];
-          if(cp) Array.from(new Set([...Object.keys(ca),...Object.keys(cp),...Object.keys(pend)])).map(cat=>({cat,atualPago:Number(ca[cat])||0,anteriorPago:Number(cp[cat])||0,pendente:Number(pend[cat])||0})).filter(x=>{
-            // Pendente não é gasto realizado. Se a categoria tem valor neste
-            // mês apenas porque está pendente, ela NÃO pode ser comparada
-            // como queda (ex.: mês passado R$400 pagos, este mês R$800 pendentes).
-            if (x.atualPago === 0 && x.pendente > 0) {
-              pendenciasComparacao.push({cat:x.cat,valor:x.pendente});
-              return false;
+          const sessaoMudou = window._caixaChatSessao || 0;
+          const chaveMudou = chaveCacheDicasChat(t, "mudou");
+          const cacheMudou = lerCacheDicasChat(chaveMudou);
+          if (cacheMudou?.length) {
+            appendMensagem(formatarTextoIAChat(cacheMudou[0].texto || cacheMudou[0].dica || ""));
+            return;
+          }
+          if (thinking.querySelector("em")) thinking.querySelector("em").textContent = "Só um instante… estou comparando os meses…";
+          return buscarDicasIA(t, { chave: chaveMudou, modo: "mudou" }).then((dicasIA) => {
+            if (sessaoMudou !== (window._caixaChatSessao || 0) || !chat.classList.contains("is-open")) return;
+            if (dicasIA.length) {
+              appendMensagem(formatarTextoIAChat(dicasIA[0].texto || ""));
+              return;
             }
-            return Math.abs(x.atualPago - x.anteriorPago) >= .01;
-          }).map(x=>({cat:x.cat,delta:x.atualPago-x.anteriorPago})).sort((a,b)=>Math.abs(b.delta)-Math.abs(a.delta)).slice(0,5).forEach(x=>linhas.push(`<li><strong>${esc(x.cat)}</strong>: <span class="comparacao-seta ${x.delta>0?"neg":"pos"}">${x.delta>0?"↑":"↓"}</span> <span class="chat-valor ${x.delta>0?"chat-valor-neg":"chat-valor-pos"}">${chatFmt(Math.abs(x.delta))}</span></li>`));
-          const pendenciaNota = pendenciasComparacao.length ? `<div class="chat-comparacao-pendentes"><strong>Sem distorção:</strong> ${pendenciasComparacao.map(x=>`${esc(x.cat)} tem ${chatFmt(x.valor)} pendente neste mês e, por isso, não entra como gasto realizado na comparação.`).join(" ")}</div>` : "";
-          const dg=atual.gastos-ant.gastos,dr=atual.ganhos-ant.ganhos,ds=atual.guardado-ant.guardado;
-          appendMensagem(`<strong>Este mês x ${esc(ant.nome||"mês anterior")}</strong><div class="chat-comparacao-bloco"><div class="chat-comparacao-titulo">Gastos</div>${linhas.length?`<ul>${linhas.join("")}</ul>`:`<p>Não houve mudança de categoria relevante.</p>`}<div class="chat-comparacao-resultado">Resultado: ${dg===0?"seus gastos ficaram iguais":`você gastou <span class="chat-valor ${dg>0?"chat-valor-neg":"chat-valor-pos"}">${chatFmt(Math.abs(dg))}</span> ${dg>0?"a mais":"a menos"}`}.</div><div class="chat-comparacao-titulo">Ganhos</div><div class="chat-comparacao-resultado">${dr===0?"seus ganhos ficaram iguais":`você recebeu <span class="chat-valor chat-valor-pos">${chatFmt(Math.abs(dr))}</span> ${dr>0?"a mais":"a menos"}`}.</div>${ant.guardado||atual.guardado?`<div class="chat-comparacao-resultado">Guardado: ${ds===0?"mesmo valor":`<span class="chat-valor chat-valor-gold">${chatFmt(Math.abs(ds))}</span> ${ds>0?"a mais":"a menos"}`}.</div>`:""}${pendenciaNota}</div>`);
+            const atual = { gastos: (Number(t.fixosPagos)||0)+(Number(t.variaveisPagos)||0), ganhos: Number(t.ganhosRecebidos)||0, guardado: somaCampo(state.caixinhas, "valorGuardadoMes") };
+            const lista = Object.keys(atual).map(k => ({ k, delta: atual[k] - (Number(ant[k]) || 0) })).sort((a,b)=>Math.abs(b.delta)-Math.abs(a.delta));
+            const top = lista[0];
+            const nomeMes = esc(ant.nome);
+            const diferencaFmt = chatFmt(Math.abs(top.delta));
+            const atualFmt = chatFmt(atual[top.k]);
+            const valorClasse = top.k === "ganhos" ? "chat-valor-pos" : top.k === "guardado" ? "chat-valor-gold" : "chat-valor-neg";
+            const frases = {
+              gastos: top.delta >= 0
+                ? `Neste mês, você gastou <span class="chat-valor chat-valor-neg">${atualFmt}</span> — <span class="chat-valor ${valorClasse}">${diferencaFmt}</span> a mais que em ${nomeMes}.`
+                : `Neste mês, você gastou <span class="chat-valor chat-valor-neg">${atualFmt}</span> — <span class="chat-valor ${valorClasse}">${diferencaFmt}</span> a menos que em ${nomeMes}.`,
+              ganhos: top.delta >= 0
+                ? `Neste mês, você recebeu <span class="chat-valor chat-valor-pos">${atualFmt}</span> — <span class="chat-valor chat-valor-pos">${diferencaFmt}</span> a mais que em ${nomeMes}.`
+                : `Neste mês, você recebeu <span class="chat-valor chat-valor-pos">${atualFmt}</span> — <span class="chat-valor chat-valor-neg">${diferencaFmt}</span> a menos que em ${nomeMes}.`,
+              guardado: top.delta >= 0
+                ? `Neste mês, você guardou <span class="chat-valor chat-valor-gold">${atualFmt}</span> — <span class="chat-valor chat-valor-gold">${diferencaFmt}</span> a mais que em ${nomeMes}.`
+                : `Neste mês, você guardou <span class="chat-valor chat-valor-gold">${atualFmt}</span> — <span class="chat-valor chat-valor-gold">${diferencaFmt}</span> a menos que em ${nomeMes}.`
+            };
+            appendMensagem(frases[top.k] || `O mês atual mudou principalmente em ${nomeMes}.`);
+          });
         }
       }
 
-      if (id === "aconteceu") {
-        const eventos=[],t=totaisChat(),totalGastos=(Number(t.fixosPagos)||0)+(Number(t.variaveisPagos)||0),totalGanhos=Number(t.ganhosRecebidos)||0,guardadoMes=somaCampo(state.caixinhas,"valorGuardadoMes"),ant=compararMesAnteriorChat(),ca=Object.fromEntries(categoriasChat()),cp=categoriasHistoricoAnteriorChat();
-        if(ant){const dg=totalGastos-ant.gastos,dr=totalGanhos-ant.ganhos;if(dg<0)eventos.push(`Você gastou <span class="chat-valor chat-valor-pos">${chatFmt(Math.abs(dg))}</span> a menos que no mês passado.`);else if(dg>0)eventos.push(`Você gastou <span class="chat-valor chat-valor-neg">${chatFmt(dg)}</span> a mais que no mês passado.`);if(dr>0)eventos.push(`Seus ganhos aumentaram <span class="chat-valor chat-valor-pos">${chatFmt(dr)}</span> em relação ao mês passado.`);else if(dr<0)eventos.push(`Seus ganhos ficaram <span class="chat-valor chat-valor-neg">${chatFmt(Math.abs(dr))}</span> abaixo do mês passado.`);if(cp){const pendAcontecimentos=categoriasPendentesChat();Array.from(new Set([...Object.keys(ca),...Object.keys(cp)])).map(cat=>({cat,atualPago:Number(ca[cat])||0,anteriorPago:Number(cp[cat])||0,pendente:Number(pendAcontecimentos[cat])||0})).filter(x=>x.atualPago>0||x.pendente===0).map(x=>({cat:x.cat,delta:x.atualPago-x.anteriorPago})).filter(x=>Math.abs(x.delta)>=.01).sort((a,b)=>Math.abs(b.delta)-Math.abs(a.delta)).slice(0,2).forEach(x=>eventos.push(x.delta>0?`<strong>${esc(x.cat)}</strong> aumentou <span class="chat-valor chat-valor-neg">${chatFmt(x.delta)}</span> em relação ao mês passado.`:`<strong>${esc(x.cat)}</strong> caiu <span class="chat-valor chat-valor-pos">${chatFmt(Math.abs(x.delta))}</span> em relação ao mês passado.`));}}
-        if(guardadoMes>0)eventos.push(`Você guardou <span class="chat-valor chat-valor-gold">${chatFmt(guardadoMes)}</span> nas caixinhas neste mês.`);
-        const quitados=listaFinita(state.gastosFixos).filter(i=>i.pago===true&&!ehFuturoDoMesAtual(i)).length+listaFinita(state.gastosVariaveis).filter(i=>gastoVariavelEhReal(i)&&i.pago===true&&!i.lembrete&&!ehFuturoDoMesAtual(i)).length;if(quitados>0)eventos.push(`Você já quitou <strong>${quitados}</strong> compromisso${quitados===1?"":"s"} neste mês.`);
-        listaFinita(state.caixinhas).filter(cx=>{const o=Number(cx.valorObjetivo)||0,a=typeof totalCaixinha==="function"?totalCaixinha(cx):Number(cx.valorGuardado)||0;return o>0&&a>=o&&(Number(cx.valorGuardadoMes)||0)>0;}).slice(0,2).forEach(cx=>eventos.push(`A caixinha <strong>${esc(cx.nome||"Caixinha")}</strong> alcançou a meta de <span class="chat-valor chat-valor-gold">${chatFmt(cx.valorObjetivo)}</span>.`));
-        const resultado=totalGanhos-totalGastos-guardadoMes;if(Math.abs(resultado)>=.01)eventos.push(`O resultado líquido do mês até agora é <span class="chat-valor ${resultado>=0?"chat-valor-pos":"chat-valor-neg"}">${chatFmt(Math.abs(resultado))}</span> ${resultado>=0?"positivo":"negativo"}.`);
-        appendMensagem(eventos.length?`<strong>O que aconteceu este mês:</strong><ul class="caixa-chat-acontecimentos-lista">${eventos.slice(0,7).map(e=>`<li>${e}</li>`).join("")}</ul>`:`<strong>Este mês está relativamente tranquilo.</strong><span class="caixa-chat-note">Ainda não encontrei mudanças relevantes o bastante para destacar sem inventar contexto.</span>`);
-      }
-
-  if (id === "pendencias") {
+      if (id === "pendencias") {
         const fixosPendentes = listaFinita(state.gastosFixos).filter(i => i.pago !== true && (Number(i.valor) || 0) > 0);
         const variaveisPendentes = listaFinita(state.gastosVariaveis).filter(i => gastoVariavelEhReal(i) && i.pago !== true && !i.lembrete && (Number(i.valor) || 0) > 0);
         const totalPend = t.aPagarFixos + t.aPagarVariaveis;
@@ -6235,7 +6010,7 @@ if (document.readyState === "loading") {
   // O botão + usa este fluxo para TODOS os tipos de lançamento. Cada
   // pergunta aparece como uma mensagem do assistente, com cards e/ou
   // campo de resposta. O salvamento usa as mesmas operações dos formulários
-  // antigos, portanto a planilha e as regras existentes continuam iguais.
+  // antigos; os dados agora são persistidos diretamente no Firebase.
   // -------------------------------------------------------------------
   let cadastroAtivo = null;
 
@@ -6740,59 +6515,7 @@ if (document.readyState === "loading") {
     }, 620);
   }
 
-  // STATUS FINANCEIRO — cálculo local + descrição IA persistente por estado dos dados.
-  function statusFinanceiroAtual(t) {
-    const saldo = Number(t.saldoAtualConta) || 0;
-    const limite = Number(t.conta) || 0;
-    const contasMes = (Number(t.aPagarFixosEsseMes)||0) + (Number(t.aPagarVariaveisEsseMes)||0);
-    const atrasados = listaFinita(state.gastosFixos).filter(i=>i.pago!==true && ehDoMesAnterior(i)).length + listaFinita(state.gastosVariaveis).filter(i=>gastoVariavelEhReal(i)&&i.pago!==true&&!i.lembrete&&ehDoMesAnterior(i)).length;
-    if (limite < 0 || saldo < 0) return {codigo:"apertado",titulo:"Apertado",classe:"status-financeiro-apertado"};
-    const base = Math.max(Math.abs(Number(t.ganhosOrigem?.ganhos)||0)+(Number(t.aReceber)||0),1);
-    if (atrasados > 0 || limite < Math.max(100, contasMes*.35) || contasMes/base >= .55) return {codigo:"atencao",titulo:"Atenção",classe:"status-financeiro-atencao"};
-    return {codigo:"tranquilo",titulo:"Tranquilo",classe:"status-financeiro-tranquilo"};
-  }
-  function chaveCacheStatusFinanceiro(t,status){ const {tom,imersao}=tomChat(); return `caixa:status-financeiro:v2:${hashDicasChat(JSON.stringify({pessoa:state.pessoaAtual||"davi",mes:state.mesAtual,ano:state.anoAtual,status:status.codigo,resumo:resumoParaIAChat(t),tom,imersao}))}`; }
-  function lerCacheStatusFinanceiro(chave){try{const raw=JSON.parse(localStorage.getItem(chave)||"null");return raw?.texto?String(raw.texto).trim():"";}catch(e){return "";}}
-  function salvarCacheStatusFinanceiro(chave,texto){try{localStorage.setItem(chave,JSON.stringify({salvoEm:Date.now(),texto:String(texto||"").trim()}));}catch(e){}}
-  function descricaoStatusFallback(t,status){ const limite=Number(t.conta)||0; if(status.codigo==="apertado") return limite<0?"Os compromissos que ainda precisam ser reservados ultrapassam o dinheiro projetado para o mês.":"Há compromissos que pedem atenção antes de considerar o dinheiro restante como folga."; return "Seu dinheiro projetado cobre os compromissos atuais e ainda deixa uma folga para o restante do mês."; }
-  async function atualizarDescricaoStatusIA(t,status,chave){
-    if(!API_URL||API_URL.includes("COLE_AQUI")||lerCacheStatusFinanceiro(chave)) return;
-    const token=(window._statusFinanceiroToken||0)+1; window._statusFinanceiroToken=token;
-    try{const respostas=await buscarDicasIA(t,{chave,modo:"statusFinanceiro"}); if(token!==window._statusFinanceiroToken)return; const texto=respostas?.[0]?.texto?String(respostas[0].texto).trim():""; if(!texto)return; salvarCacheStatusFinanceiro(chave,texto); const el=document.getElementById("statusFinanceiroDescricao"); if(el)el.innerHTML=formatarTextoIAChat(texto);}catch(e){}
-  }
-  function renderResumoStatusFinanceiro(){
-    const badge=document.getElementById("statusFinanceiroBadge"),titulo=document.getElementById("statusFinanceiroTitulo"),descricao=document.getElementById("statusFinanceiroDescricao");
-    if(!badge||!titulo||!descricao||!state.loaded)return; const t=totaisChat(),status=statusFinanceiroAtual(t); badge.classList.remove("status-financeiro-tranquilo","status-financeiro-atencao","status-financeiro-apertado","status-financeiro-neutro"); badge.classList.add(status.classe); titulo.textContent=status.titulo; const chave=chaveCacheStatusFinanceiro(t,status),cache=lerCacheStatusFinanceiro(chave); descricao.innerHTML=formatarTextoIAChat(cache||descricaoStatusFallback(t,status)); atualizarDescricaoStatusIA(t,status,chave);
-  }
-  function categoriasPendentesChat() {
-    const mapa = {};
-    const adicionar = (item, tipo) => {
-      if (!item || item.pago === true || ehFuturoDoMesAtual(item)) return;
-      if (tipo === "variavel" && (!gastoVariavelEhReal(item) || item.lembrete || !variavelContaNoSaldo(item))) return;
-      if (tipo === "fixo" && (Number(item.valor) || 0) <= 0) return;
-      const cat = String(item.tipo || "Outros").trim() || "Outros";
-      mapa[cat] = (mapa[cat] || 0) + (Number(item.valor) || 0);
-    };
-    listaFinita(state.gastosFixos).forEach(i => adicionar(i, "fixo"));
-    listaFinita(state.gastosVariaveis).forEach(i => adicionar(i, "variavel"));
-    return mapa;
-  }
-
-  function categoriasHistoricoAnteriorChat(){
-    const ant=compararMesAnteriorChat(); if(!ant)return null; const anos=listaFinita(state.historico?.anos); let pm=state.mesAtual-1,pa=state.anoAtual; if(pm===0){pm=12;pa--;} const bloco=anos.find(a=>Number(a.ano)===pa),mes=bloco?.meses?.find(m=>Number(m.mes)===pm); if(!mes)return null;
-    const fontes=state.pessoaAtual==="ambos"?[mes.categoriasDavi||{},mes.categoriasGabriel||{}]:[state.pessoaAtual==="gabriel"?(mes.categoriasGabriel||{}):(mes.categoriasDavi||{})]; const mapa={}; fontes.forEach(obj=>Object.entries(obj).forEach(([cat,valor])=>{if(String(cat).trim().toLowerCase()!=="metas")mapa[cat]=(mapa[cat]||0)+Math.abs(Number(valor)||0);})); return mapa;
-  }
-  function renderResumoAcontecimentos(){}
-  window.renderResumoStatusFinanceiro=renderResumoStatusFinanceiro;
-  window.renderResumoAcontecimentos=renderResumoAcontecimentos;
-
-  let fechamentoChatTimer = null;
   function abrirChat() {
-    if (fechamentoChatTimer) { clearTimeout(fechamentoChatTimer); fechamentoChatTimer = null; }
-    // O + usa o mesmo painel do chat. Limpamos a altura temporária do fechamento
-    // antes de abrir para que o painel possa medir o conteúdo normalmente.
-    chat.style.height = "";
-    chat.classList.remove("is-closing");
     chat.classList.add("is-open");
     chat.setAttribute("aria-hidden", "false");
     fab.setAttribute("aria-expanded", "true");
@@ -6801,25 +6524,14 @@ if (document.readyState === "loading") {
     if (first) setTimeout(() => first.focus(), 80);
   }
   function fecharChat() {
-    if (!chat.classList.contains("is-open")) return;
-    // Congela a altura por alguns frames. Sem isso, resetar o conteúdo enquanto
-    // a transição de saída roda faz o painel encolher de forma visível e parece
-    // que ele cresce/"estoura" antes de fechar — especialmente no fluxo do +.
-    const alturaAtual = chat.offsetHeight;
-    if (alturaAtual > 0) chat.style.height = alturaAtual + "px";
-    chat.classList.add("is-closing");
     chat.classList.remove("is-open");
     chat.setAttribute("aria-hidden", "true");
     fab.setAttribute("aria-expanded", "false");
     atualizarVisibilidadeFab();
+    // Fechar encerra o contexto atual. Ao abrir novamente pela IA, nunca
+    // reaparece uma pergunta/formulário do cadastro anterior.
+    resetarChatParaSelecao();
     cadastroAtivo = null;
-    if (fechamentoChatTimer) clearTimeout(fechamentoChatTimer);
-    fechamentoChatTimer = setTimeout(() => {
-      fechamentoChatTimer = null;
-      resetarChatParaSelecao();
-      chat.classList.remove("is-closing");
-      chat.style.height = "";
-    }, 280);
   }
 
   fab.addEventListener("click", () => chat.classList.contains("is-open") ? fecharChat() : abrirChat());
@@ -6876,19 +6588,15 @@ if (document.readyState === "loading") {
   document.addEventListener("caixa:ia-config-atualizada", () => { window._caixaDicaIndice = 0; });
 
   async function preaquecerDicasIA() {
-    if (!API_URL || API_URL.includes("COLE_AQUI") || !state.mesAtual || !state.anoAtual) return;
+    if (!state.mesAtual || !state.anoAtual) return;
     try {
       const t = totaisChat();
       const chaveDicas = chaveCacheDicasChat(t);
       const chaveGastar = chaveCacheGastarIA(t);
-      const status = statusFinanceiroAtual(t);
-      const chaveStatus = chaveCacheStatusFinanceiro(t, status);
       await Promise.all([
         lerCacheDicasChat(chaveDicas) ? Promise.resolve() : buscarDicasIA(t, { chave: chaveDicas }),
-        lerCacheGastarIA(chaveGastar) ? Promise.resolve() : buscarRespostasGastarIA(t, { chave: chaveGastar }),
-        lerCacheStatusFinanceiro(chaveStatus) ? Promise.resolve() : buscarDicasIA(t, { chave: chaveStatus, modo: "statusFinanceiro" })
+        lerCacheGastarIA(chaveGastar) ? Promise.resolve() : buscarRespostasGastarIA(t, { chave: chaveGastar })
       ]);
-      if (typeof window.renderResumoStatusFinanceiro === "function") window.renderResumoStatusFinanceiro();
     } catch (e) {}
   }
 
