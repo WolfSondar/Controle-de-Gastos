@@ -7382,3 +7382,24 @@ body.sem-entrada-listas .item-list-row { animation: none !important; }
   color: var(--gold-deep);
   font-weight: 800;
 }
+
+/* Movimento físico entre Pendentes e Pagos/Recebidos.
+   A lista verdadeira se reorganiza por FLIP enquanto um clone percorre o
+   caminho do lançamento, evitando qualquer sensação de recarregamento. */
+.status-movendo-ghost {
+  position: fixed !important;
+  z-index: 99999 !important;
+  margin: 0 !important;
+  pointer-events: none !important;
+  transform-origin: center center;
+  opacity: 1;
+  box-shadow: 0 14px 30px rgba(22,51,44,.16);
+  transition: transform 520ms cubic-bezier(.16,1,.3,1), opacity 520ms ease !important;
+}
+.status-row-arriving {
+  opacity: 0 !important;
+  transform: scale(.985) translateY(3px);
+}
+.status-row-arriving .swipe-content {
+  pointer-events: none !important;
+}
