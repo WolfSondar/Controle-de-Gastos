@@ -7476,3 +7476,92 @@ body:has(.caixa-chat.is-open)::before {
     -webkit-backdrop-filter: blur(7px) saturate(.82) !important;
   }
 }
+
+/* V14 — Status financeiro + novos resultados do chat */
+.resumo-status-card {
+  min-height: 220px;
+}
+.status-financeiro-body {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  justify-content: center;
+  min-height: 145px;
+  gap: 16px;
+  padding: 4px 2px 8px;
+}
+.status-financeiro-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 9px;
+  padding: 8px 13px;
+  border: 1px solid var(--line);
+  border-radius: 999px;
+  font-size: .88rem;
+  font-weight: 750;
+  letter-spacing: .01em;
+  background: var(--paper-deep);
+  color: var(--ink);
+}
+.status-financeiro-pulse {
+  width: 9px;
+  height: 9px;
+  border-radius: 50%;
+  background: currentColor;
+  box-shadow: 0 0 0 4px color-mix(in srgb, currentColor 12%, transparent);
+}
+.status-financeiro-tranquilo { color: var(--income); }
+.status-financeiro-atencao { color: var(--expense); }
+.status-financeiro-neutro { color: var(--muted); }
+.status-financeiro-descricao {
+  max-width: 620px;
+  margin: 0;
+  color: var(--ink);
+  font-size: .98rem;
+  line-height: 1.65;
+}
+.status-financeiro-descricao .chat-valor { font-weight: 750; }
+
+.caixa-chat-acontecimentos-lista {
+  margin: 10px 0 0;
+  padding-left: 19px;
+  display: grid;
+  gap: 8px;
+}
+.caixa-chat-acontecimentos-lista li { line-height: 1.48; }
+.chat-comparacao-bloco {
+  margin-top: 10px;
+  display: grid;
+  gap: 8px;
+  padding: 12px 13px;
+  border: 1px solid var(--line);
+  border-radius: 14px;
+  background: var(--paper-deep);
+}
+.chat-comparacao-bloco ul {
+  margin: 0;
+  padding-left: 19px;
+  display: grid;
+  gap: 5px;
+}
+.chat-comparacao-bloco p { margin: 0; color: var(--muted); }
+.chat-comparacao-titulo {
+  margin-top: 4px;
+  font-size: .72rem;
+  font-weight: 800;
+  letter-spacing: .09em;
+  text-transform: uppercase;
+  color: var(--muted);
+}
+.chat-comparacao-resultado { line-height: 1.5; }
+.comparacao-seta { font-weight: 900; margin: 0 2px; }
+.comparacao-seta.neg { color: var(--expense); }
+.comparacao-seta.pos { color: var(--income); }
+
+@media (max-width: 600px) {
+  .resumo-status-card { min-height: 205px; }
+  .status-financeiro-body { min-height: 130px; }
+  .status-financeiro-descricao { font-size: .93rem; }
+  .chat-comparacao-bloco { padding: 11px; }
+}
+.status-financeiro-apertado { color: var(--expense); }
