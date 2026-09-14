@@ -595,6 +595,14 @@ function getMesAtualCache() {
 
 const mesAtualCache = getMesAtualCache();
 
+const RESUMO_GRAFICO_CACHE_KEY = "caixa:resumo:grafico:v1";
+function lerPaginaGraficoResumo() {
+  try { const raw = JSON.parse(localStorage.getItem(RESUMO_GRAFICO_CACHE_KEY) || "{}"); const chave = localStorage.getItem(PESSOA_STORAGE_KEY) || "davi"; const valor = Number(raw?.[chave]); return Number.isFinite(valor) && valor >= 0 ? Math.floor(valor) : 0; } catch (err) { return 0; }
+}
+function salvarPaginaGraficoResumo(indice) {
+  try { const raw = JSON.parse(localStorage.getItem(RESUMO_GRAFICO_CACHE_KEY) || "{}"); const chave = localStorage.getItem(PESSOA_STORAGE_KEY) || "davi"; raw[chave] = Math.max(0, Math.floor(Number(indice) || 0)); localStorage.setItem(RESUMO_GRAFICO_CACHE_KEY, JSON.stringify(raw)); } catch (err) {}
+}
+
 const state = {
   ganhos: [],
   gastosFixos: [],
@@ -1624,6 +1632,8 @@ function renderDerivadosDeStatus() {
   renderSplit();
   renderJuntosView();
   atualizarCarrosselGraficos();
+  if (typeof window.renderResumoStatusFinanceiro === "function") window.renderResumoStatusFinanceiro();
+  if (typeof window.renderResumoAcontecimentos === "function") window.renderResumoAcontecimentos();
 }
 
 
@@ -3335,6 +3345,8 @@ function renderIncremental(mudancas) {
   if (mudancas.caixinhas) renderCaixinhas();
   if (financeiroMudou) {
     renderTotais(); renderVisaoGeral(); renderCategorias(); renderRecentes(); renderSplit(); renderJuntosView(); atualizarCarrosselGraficos();
+    if (typeof window.renderResumoStatusFinanceiro === "function") window.renderResumoStatusFinanceiro();
+    if (typeof window.renderResumoAcontecimentos === "function") window.renderResumoAcontecimentos();
   }
   if (mudancas.categoriasConfig || mudancas.iconCategorias) {
     popularSelectsDeCategoria();
@@ -3443,6 +3455,11 @@ function atualizarCarrosselGraficos(wrapId = "graficosCarousel", dotsId = "grafi
     });
   }
   
+  if (wrapId === "graficosCarousel" && !wrap.dataset.resumoPaginaRestaurada) {
+    wrap.dataset.resumoPaginaRestaurada = "1";
+    const salvo = lerPaginaGraficoResumo();
+    if (salvo > 0) { const alvo = cards[Math.min(salvo, cards.length - 1)]; if (alvo) wrap.scrollLeft = alvo.offsetLeft - wrap.offsetLeft; }
+  }
   marcarDotAtivo(wrap, dotsEl);
 }
 
@@ -3467,6 +3484,7 @@ function marcarDotAtivo(wrap, dotsEl) {
   });
 
   if (dots.length) dots.forEach((d, i) => d.classList.toggle("is-active", i === ativo));
+  if (wrap.id === "graficosCarousel") salvarPaginaGraficoResumo(ativo);
 
   // Altura do carrossel acompanha só a página ativa (ver comentário no
   // CSS, .graficos-carousel) — sem isso, uma página com bem mais conteúdo
@@ -5381,6 +5399,7 @@ if (document.readyState === "loading") {
     { id: "categorias", icon: "chart", titulo: "Onde estou gastando mais?", subtitulo: "As categorias que mais pesaram" },
     { id: "guardado", icon: "pig", titulo: "Progresso das caixinhas", subtitulo: "Metas, prazos e quanto falta guardar" },
     { id: "mudou", icon: "chart", titulo: "O que mais mudou este mês?", subtitulo: "Compare com o mês anterior" },
+    { id: "aconteceu", icon: "sparkle", titulo: "O que aconteceu este mês?", subtitulo: "Um resumo do que mudou por aqui" },
     { id: "pendencias", icon: "clock", titulo: "Ainda falta pagar", subtitulo: "Veja contas, parcelas e valores pendentes" },
     { id: "economia", icon: "sparkle", titulo: "Me dê uma dica", subtitulo: "Uma orientação baseada nos seus números" }
   ];
@@ -5440,7 +5459,7 @@ if (document.readyState === "loading") {
       porCat[cat] = (porCat[cat] || 0) + (Number(i.valor) || 0);
     });
     listaFinita(state.gastosVariaveis).forEach(i => {
-      if (!gastoVariavelEhReal(i) || !variavelContaNoSaldo(i)) return;
+      if (!gastoVariavelEhReal(i) || !variavelContaNoSaldo(i) || i.pago !== true) return;
       const cat = String(i.tipo || "Outros").trim() || "Outros";
       porCat[cat] = (porCat[cat] || 0) + (Number(i.valor) || 0);
     });
@@ -5586,6 +5605,7 @@ if (document.readyState === "loading") {
         saldoProjetadoComEntradas: (Number(t.saldoAtualConta) || 0) + (Number(t.aReceber) || 0),
         contasAbertasTotal: (Number(t.aPagarFixos) || 0) + (Number(t.aPagarVariaveis) || 0),
         limiteDeGastoProjetado: Number(t.conta) || 0,
+        statusFinanceiro: statusFinanceiroAtual(t),
         aindaAReceberEsseMes: Number(t.aReceber) || 0,
         aindaAPagarFixosEsseMes: Number(t.aPagarFixosEsseMes) || 0,
         aindaAPagarVariaveisEsseMes: Number(t.aPagarVariaveisEsseMes) || 0,
@@ -6066,46 +6086,26 @@ if (document.readyState === "loading") {
       if (id === "mudou") {
         const ant = compararMesAnteriorChat();
         if (!ant) {
-          appendMensagem(`<strong>Ainda não tenho um mês fechado anterior suficiente para comparar.</strong><span class="caixa-chat-note">Assim que o histórico tiver o mês anterior, eu consigo apontar a mudança mais relevante.</span>`);
+          appendMensagem(`<strong>Ainda não tenho dados históricos suficientes para comparar.</strong><span class="caixa-chat-note">Assim que existir um mês anterior fechado com dados comparáveis, eu mostro as mudanças sem inventar informações.</span>`);
         } else {
-          const sessaoMudou = window._caixaChatSessao || 0;
-          const chaveMudou = chaveCacheDicasChat(t, "mudou");
-          const cacheMudou = lerCacheDicasChat(chaveMudou);
-          if (cacheMudou?.length) {
-            appendMensagem(formatarTextoIAChat(cacheMudou[0].texto || cacheMudou[0].dica || ""));
-            return;
-          }
-          if (thinking.querySelector("em")) thinking.querySelector("em").textContent = "Só um instante… estou comparando os meses…";
-          return buscarDicasIA(t, { chave: chaveMudou, modo: "mudou" }).then((dicasIA) => {
-            if (sessaoMudou !== (window._caixaChatSessao || 0) || !chat.classList.contains("is-open")) return;
-            if (dicasIA.length) {
-              appendMensagem(formatarTextoIAChat(dicasIA[0].texto || ""));
-              return;
-            }
-            const atual = { gastos: (Number(t.fixosPagos)||0)+(Number(t.variaveisPagos)||0), ganhos: Number(t.ganhosRecebidos)||0, guardado: somaCampo(state.caixinhas, "valorGuardadoMes") };
-            const lista = Object.keys(atual).map(k => ({ k, delta: atual[k] - (Number(ant[k]) || 0) })).sort((a,b)=>Math.abs(b.delta)-Math.abs(a.delta));
-            const top = lista[0];
-            const nomeMes = esc(ant.nome);
-            const diferencaFmt = chatFmt(Math.abs(top.delta));
-            const atualFmt = chatFmt(atual[top.k]);
-            const valorClasse = top.k === "ganhos" ? "chat-valor-pos" : top.k === "guardado" ? "chat-valor-gold" : "chat-valor-neg";
-            const frases = {
-              gastos: top.delta >= 0
-                ? `Neste mês, você gastou <span class="chat-valor chat-valor-neg">${atualFmt}</span> — <span class="chat-valor ${valorClasse}">${diferencaFmt}</span> a mais que em ${nomeMes}.`
-                : `Neste mês, você gastou <span class="chat-valor chat-valor-neg">${atualFmt}</span> — <span class="chat-valor ${valorClasse}">${diferencaFmt}</span> a menos que em ${nomeMes}.`,
-              ganhos: top.delta >= 0
-                ? `Neste mês, você recebeu <span class="chat-valor chat-valor-pos">${atualFmt}</span> — <span class="chat-valor chat-valor-pos">${diferencaFmt}</span> a mais que em ${nomeMes}.`
-                : `Neste mês, você recebeu <span class="chat-valor chat-valor-pos">${atualFmt}</span> — <span class="chat-valor chat-valor-neg">${diferencaFmt}</span> a menos que em ${nomeMes}.`,
-              guardado: top.delta >= 0
-                ? `Neste mês, você guardou <span class="chat-valor chat-valor-gold">${atualFmt}</span> — <span class="chat-valor chat-valor-gold">${diferencaFmt}</span> a mais que em ${nomeMes}.`
-                : `Neste mês, você guardou <span class="chat-valor chat-valor-gold">${atualFmt}</span> — <span class="chat-valor chat-valor-gold">${diferencaFmt}</span> a menos que em ${nomeMes}.`
-            };
-            appendMensagem(frases[top.k] || `O mês atual mudou principalmente em ${nomeMes}.`);
-          });
+          const atual={gastos:(Number(t.fixosPagos)||0)+(Number(t.variaveisPagos)||0),ganhos:Number(t.ganhosRecebidos)||0,guardado:somaCampo(state.caixinhas,"valorGuardadoMes")},ca=Object.fromEntries(categoriasChat()),cp=categoriasHistoricoAnteriorChat(),linhas=[];
+          if(cp) Array.from(new Set([...Object.keys(ca),...Object.keys(cp)])).map(cat=>({cat,delta:(ca[cat]||0)-(cp[cat]||0)})).filter(x=>Math.abs(x.delta)>=.01).sort((a,b)=>Math.abs(b.delta)-Math.abs(a.delta)).slice(0,5).forEach(x=>linhas.push(`<li><strong>${esc(x.cat)}</strong>: <span class="comparacao-seta ${x.delta>0?"neg":"pos"}">${x.delta>0?"↑":"↓"}</span> <span class="chat-valor ${x.delta>0?"chat-valor-neg":"chat-valor-pos"}">${chatFmt(Math.abs(x.delta))}</span></li>`));
+          const dg=atual.gastos-ant.gastos,dr=atual.ganhos-ant.ganhos,ds=atual.guardado-ant.guardado;
+          appendMensagem(`<strong>Este mês x ${esc(ant.nome||"mês anterior")}</strong><div class="chat-comparacao-bloco"><div class="chat-comparacao-titulo">Gastos</div>${linhas.length?`<ul>${linhas.join("")}</ul>`:`<p>Não houve mudança de categoria relevante.</p>`}<div class="chat-comparacao-resultado">Resultado: ${dg===0?"seus gastos ficaram iguais":`você gastou <span class="chat-valor ${dg>0?"chat-valor-neg":"chat-valor-pos"}">${chatFmt(Math.abs(dg))}</span> ${dg>0?"a mais":"a menos"}`}.</div><div class="chat-comparacao-titulo">Ganhos</div><div class="chat-comparacao-resultado">${dr===0?"seus ganhos ficaram iguais":`você recebeu <span class="chat-valor chat-valor-pos">${chatFmt(Math.abs(dr))}</span> ${dr>0?"a mais":"a menos"}`}.</div>${ant.guardado||atual.guardado?`<div class="chat-comparacao-resultado">Guardado: ${ds===0?"mesmo valor":`<span class="chat-valor chat-valor-gold">${chatFmt(Math.abs(ds))}</span> ${ds>0?"a mais":"a menos"}`}.</div>`:""}</div>`);
         }
       }
 
-      if (id === "pendencias") {
+      if (id === "aconteceu") {
+        const eventos=[],t=totaisChat(),totalGastos=(Number(t.fixosPagos)||0)+(Number(t.variaveisPagos)||0),totalGanhos=Number(t.ganhosRecebidos)||0,guardadoMes=somaCampo(state.caixinhas,"valorGuardadoMes"),ant=compararMesAnteriorChat(),ca=Object.fromEntries(categoriasChat()),cp=categoriasHistoricoAnteriorChat();
+        if(ant){const dg=totalGastos-ant.gastos,dr=totalGanhos-ant.ganhos;if(dg<0)eventos.push(`Você gastou <span class="chat-valor chat-valor-pos">${chatFmt(Math.abs(dg))}</span> a menos que no mês passado.`);else if(dg>0)eventos.push(`Você gastou <span class="chat-valor chat-valor-neg">${chatFmt(dg)}</span> a mais que no mês passado.`);if(dr>0)eventos.push(`Seus ganhos aumentaram <span class="chat-valor chat-valor-pos">${chatFmt(dr)}</span> em relação ao mês passado.`);else if(dr<0)eventos.push(`Seus ganhos ficaram <span class="chat-valor chat-valor-neg">${chatFmt(Math.abs(dr))}</span> abaixo do mês passado.`);if(cp)Array.from(new Set([...Object.keys(ca),...Object.keys(cp)])).map(cat=>({cat,delta:(ca[cat]||0)-(cp[cat]||0)})).filter(x=>Math.abs(x.delta)>=.01).sort((a,b)=>Math.abs(b.delta)-Math.abs(a.delta)).slice(0,2).forEach(x=>eventos.push(x.delta>0?`<strong>${esc(x.cat)}</strong> aumentou <span class="chat-valor chat-valor-neg">${chatFmt(x.delta)}</span> em relação ao mês passado.`:`<strong>${esc(x.cat)}</strong> caiu <span class="chat-valor chat-valor-pos">${chatFmt(Math.abs(x.delta))}</span> em relação ao mês passado.`));}
+        if(guardadoMes>0)eventos.push(`Você guardou <span class="chat-valor chat-valor-gold">${chatFmt(guardadoMes)}</span> nas caixinhas neste mês.`);
+        const quitados=listaFinita(state.gastosFixos).filter(i=>i.pago===true&&!ehFuturoDoMesAtual(i)).length+listaFinita(state.gastosVariaveis).filter(i=>gastoVariavelEhReal(i)&&i.pago===true&&!i.lembrete&&!ehFuturoDoMesAtual(i)).length;if(quitados>0)eventos.push(`Você já quitou <strong>${quitados}</strong> compromisso${quitados===1?"":"s"} neste mês.`);
+        listaFinita(state.caixinhas).filter(cx=>{const o=Number(cx.valorObjetivo)||0,a=typeof totalCaixinha==="function"?totalCaixinha(cx):Number(cx.valorGuardado)||0;return o>0&&a>=o&&(Number(cx.valorGuardadoMes)||0)>0;}).slice(0,2).forEach(cx=>eventos.push(`A caixinha <strong>${esc(cx.nome||"Caixinha")}</strong> alcançou a meta de <span class="chat-valor chat-valor-gold">${chatFmt(cx.valorObjetivo)}</span>.`));
+        const resultado=totalGanhos-totalGastos-guardadoMes;if(Math.abs(resultado)>=.01)eventos.push(`O resultado líquido do mês até agora é <span class="chat-valor ${resultado>=0?"chat-valor-pos":"chat-valor-neg"}">${chatFmt(Math.abs(resultado))}</span> ${resultado>=0?"positivo":"negativo"}.`);
+        appendMensagem(eventos.length?`<strong>O que aconteceu este mês:</strong><ul class="caixa-chat-acontecimentos-lista">${eventos.slice(0,7).map(e=>`<li>${e}</li>`).join("")}</ul>`:`<strong>Este mês está relativamente tranquilo.</strong><span class="caixa-chat-note">Ainda não encontrei mudanças relevantes o bastante para destacar sem inventar contexto.</span>`);
+      }
+
+  if (id === "pendencias") {
         const fixosPendentes = listaFinita(state.gastosFixos).filter(i => i.pago !== true && (Number(i.valor) || 0) > 0);
         const variaveisPendentes = listaFinita(state.gastosVariaveis).filter(i => gastoVariavelEhReal(i) && i.pago !== true && !i.lembrete && (Number(i.valor) || 0) > 0);
         const totalPend = t.aPagarFixos + t.aPagarVariaveis;
@@ -6683,6 +6683,38 @@ if (document.readyState === "loading") {
     }, 620);
   }
 
+  // STATUS FINANCEIRO — cálculo local + descrição IA persistente por estado dos dados.
+  function statusFinanceiroAtual(t) {
+    const saldo = Number(t.saldoAtualConta) || 0;
+    const limite = Number(t.conta) || 0;
+    const contasMes = (Number(t.aPagarFixosEsseMes)||0) + (Number(t.aPagarVariaveisEsseMes)||0);
+    const atrasados = listaFinita(state.gastosFixos).filter(i=>i.pago!==true && ehDoMesAnterior(i)).length + listaFinita(state.gastosVariaveis).filter(i=>gastoVariavelEhReal(i)&&i.pago!==true&&!i.lembrete&&ehDoMesAnterior(i)).length;
+    if (limite < 0 || saldo < 0) return {codigo:"apertado",titulo:"Apertado",classe:"status-financeiro-apertado"};
+    const base = Math.max(Math.abs(Number(t.ganhosOrigem?.ganhos)||0)+(Number(t.aReceber)||0),1);
+    if (atrasados > 0 || limite < Math.max(100, contasMes*.35) || contasMes/base >= .55) return {codigo:"atencao",titulo:"Atenção",classe:"status-financeiro-atencao"};
+    return {codigo:"tranquilo",titulo:"Tranquilo",classe:"status-financeiro-tranquilo"};
+  }
+  function chaveCacheStatusFinanceiro(t,status){ const {tom,imersao}=tomChat(); return `caixa:status-financeiro:v2:${hashDicasChat(JSON.stringify({pessoa:state.pessoaAtual||"davi",mes:state.mesAtual,ano:state.anoAtual,status:status.codigo,resumo:resumoParaIAChat(t),tom,imersao}))}`; }
+  function lerCacheStatusFinanceiro(chave){try{const raw=JSON.parse(localStorage.getItem(chave)||"null");return raw?.texto?String(raw.texto).trim():"";}catch(e){return "";}}
+  function salvarCacheStatusFinanceiro(chave,texto){try{localStorage.setItem(chave,JSON.stringify({salvoEm:Date.now(),texto:String(texto||"").trim()}));}catch(e){}}
+  function descricaoStatusFallback(t,status){ const limite=Number(t.conta)||0; if(status.codigo==="apertado") return limite<0?"Os compromissos que ainda precisam ser reservados ultrapassam o dinheiro projetado para o mês.":"Há compromissos que pedem atenção antes de considerar o dinheiro restante como folga."; return "Seu dinheiro projetado cobre os compromissos atuais e ainda deixa uma folga para o restante do mês."; }
+  async function atualizarDescricaoStatusIA(t,status,chave){
+    if(!API_URL||API_URL.includes("COLE_AQUI")||lerCacheStatusFinanceiro(chave)) return;
+    const token=(window._statusFinanceiroToken||0)+1; window._statusFinanceiroToken=token;
+    try{const respostas=await buscarDicasIA(t,{chave,modo:"statusFinanceiro"}); if(token!==window._statusFinanceiroToken)return; const texto=respostas?.[0]?.texto?String(respostas[0].texto).trim():""; if(!texto)return; salvarCacheStatusFinanceiro(chave,texto); const el=document.getElementById("statusFinanceiroDescricao"); if(el)el.innerHTML=formatarTextoIAChat(texto);}catch(e){}
+  }
+  function renderResumoStatusFinanceiro(){
+    const badge=document.getElementById("statusFinanceiroBadge"),titulo=document.getElementById("statusFinanceiroTitulo"),descricao=document.getElementById("statusFinanceiroDescricao");
+    if(!badge||!titulo||!descricao||!state.loaded)return; const t=totaisChat(),status=statusFinanceiroAtual(t); badge.classList.remove("status-financeiro-tranquilo","status-financeiro-atencao","status-financeiro-apertado","status-financeiro-neutro"); badge.classList.add(status.classe); titulo.textContent=status.titulo; const chave=chaveCacheStatusFinanceiro(t,status),cache=lerCacheStatusFinanceiro(chave); descricao.innerHTML=formatarTextoIAChat(cache||descricaoStatusFallback(t,status)); atualizarDescricaoStatusIA(t,status,chave);
+  }
+  function categoriasHistoricoAnteriorChat(){
+    const ant=compararMesAnteriorChat(); if(!ant)return null; const anos=listaFinita(state.historico?.anos); let pm=state.mesAtual-1,pa=state.anoAtual; if(pm===0){pm=12;pa--;} const bloco=anos.find(a=>Number(a.ano)===pa),mes=bloco?.meses?.find(m=>Number(m.mes)===pm); if(!mes)return null;
+    const fontes=state.pessoaAtual==="ambos"?[mes.categoriasDavi||{},mes.categoriasGabriel||{}]:[state.pessoaAtual==="gabriel"?(mes.categoriasGabriel||{}):(mes.categoriasDavi||{})]; const mapa={}; fontes.forEach(obj=>Object.entries(obj).forEach(([cat,valor])=>{if(String(cat).trim().toLowerCase()!=="metas")mapa[cat]=(mapa[cat]||0)+Math.abs(Number(valor)||0);})); return mapa;
+  }
+  function renderResumoAcontecimentos(){}
+  window.renderResumoStatusFinanceiro=renderResumoStatusFinanceiro;
+  window.renderResumoAcontecimentos=renderResumoAcontecimentos;
+
   function abrirChat() {
     chat.classList.add("is-open");
     chat.setAttribute("aria-hidden", "false");
@@ -6761,10 +6793,14 @@ if (document.readyState === "loading") {
       const t = totaisChat();
       const chaveDicas = chaveCacheDicasChat(t);
       const chaveGastar = chaveCacheGastarIA(t);
+      const status = statusFinanceiroAtual(t);
+      const chaveStatus = chaveCacheStatusFinanceiro(t, status);
       await Promise.all([
         lerCacheDicasChat(chaveDicas) ? Promise.resolve() : buscarDicasIA(t, { chave: chaveDicas }),
-        lerCacheGastarIA(chaveGastar) ? Promise.resolve() : buscarRespostasGastarIA(t, { chave: chaveGastar })
+        lerCacheGastarIA(chaveGastar) ? Promise.resolve() : buscarRespostasGastarIA(t, { chave: chaveGastar }),
+        lerCacheStatusFinanceiro(chaveStatus) ? Promise.resolve() : buscarDicasIA(t, { chave: chaveStatus, modo: "statusFinanceiro" })
       ]);
+      if (typeof window.renderResumoStatusFinanceiro === "function") window.renderResumoStatusFinanceiro();
     } catch (e) {}
   }
 
