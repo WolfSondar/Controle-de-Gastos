@@ -1701,6 +1701,7 @@ function capturarPosicoesStatus(listaId, pendingId) {
 }
 
 function animarReencaixeStatus(listaId, pendingId, antes, origemKey, destinoKey, origemRect, origemClone) {
+  return new Promise((resolve) => {
   const depois = capturarPosicoesStatus(listaId, pendingId);
 
   // FLIP: os itens que permaneceram no mesmo bloco acompanham o deslocamento
@@ -1732,7 +1733,7 @@ function animarReencaixeStatus(listaId, pendingId, antes, origemKey, destinoKey,
   const [destinoId, idx] = destinoKey.split(":");
   const destino = document.getElementById(destinoId);
   const novaLinha = destino && destino.querySelector(`.item-list-row[data-idx="${idx}"]`);
-  if (!novaLinha || !origemRect) return;
+  if (!novaLinha || !origemRect) { resolve(); return; }
 
   // A própria linha nova faz o percurso. Não usamos clone/ghost: isso evita
   // duplicação visual, escala estranha e o efeito de "cartão flutuando".
@@ -1744,7 +1745,7 @@ function animarReencaixeStatus(listaId, pendingId, antes, origemKey, destinoKey,
   // percorrer o caminho. Isso evita o efeito de "teleporte" quando ele
   // vai para o final de uma lista longa.
   const distancia = Math.hypot(dx, dy);
-  const duracaoMovimento = Math.min(1050, Math.max(500, 500 + distancia * 0.45));
+  const duracaoMovimento = Math.min(1400, Math.max(800, 800 + distancia * 0.35));
 
   novaLinha.style.animation = "none";
   novaLinha.style.transition = "none";
@@ -1768,7 +1769,9 @@ function animarReencaixeStatus(listaId, pendingId, antes, origemKey, destinoKey,
     // novamente exatamente quando o cartão termina de se encaixar.
     novaLinha.style.animation = "none";
     novaLinha.style.pointerEvents = "";
+    resolve();
   }, duracaoMovimento + 40);
+  });
 }
 
 function atualizarVisualStatusNaHora(linha, ligado, rotuloOn, rotuloOff) {
@@ -1799,15 +1802,29 @@ function atualizarVisualStatusNaHora(linha, ligado, rotuloOn, rotuloOff) {
 
 const statusCliquesEmProcessamento = new Set();
 
+// Fila global das mudanças de status: uma animação só começa quando a anterior
+// terminou por completo. Assim, cliques rápidos não fazem dois cards viajarem juntos.
+let filaAnimacoesStatus = Promise.resolve();
+function enfileirarAnimacaoStatus(fn) {
+  const proxima = filaAnimacoesStatus.then(() => fn());
+  filaAnimacoesStatus = proxima.catch(() => {});
+  return proxima;
+}
+
 function animarMudancaStatusFluida(listaId, pendingId, index, ligado, tipo, statusKey, toggleFn, ops, tipoModal, rotuloOn, rotuloOff) {
-  const chaveStatus = `${listaId}:${index}`;
-  if (statusCliquesEmProcessamento.has(chaveStatus)) return;
-  statusCliquesEmProcessamento.add(chaveStatus);
+  return new Promise((resolve) => {
+    const chaveStatus = `${listaId}:${index}`;
+    if (statusCliquesEmProcessamento.has(chaveStatus)) { resolve(); return; }
+    statusCliquesEmProcessamento.add(chaveStatus);
   const ul = document.getElementById(listaId);
   const pend = document.getElementById(pendingId);
   const seletor = `.item-list-row[data-idx="${index}"]`;
   const linhaAtual = (ul && ul.querySelector(seletor)) || (pend && pend.querySelector(seletor));
-  if (!linhaAtual) return;
+    if (!linhaAtual) {
+      statusCliquesEmProcessamento.delete(chaveStatus);
+      resolve();
+      return;
+    }
 
   const origemContainer = linhaAtual.closest(`#${listaId}`) ? listaId : pendingId;
   const destinoContainer = ligado ? listaId : pendingId;
@@ -1838,7 +1855,8 @@ function animarMudancaStatusFluida(listaId, pendingId, index, ligado, tipo, stat
     // capturadas antes dele para fazer o lançamento atravessar a tela e os
     // demais cards se encaixarem suavemente.
     requestAnimationFrame(() => {
-      animarReencaixeStatus(listaId, pendingId, antes, origemKey, destinoKey, origemRect, origemClone);
+      animarReencaixeStatus(listaId, pendingId, antes, origemKey, destinoKey, origemRect, origemClone)
+        .then(resolve);
     });
   };
 
@@ -1846,13 +1864,18 @@ function animarMudancaStatusFluida(listaId, pendingId, index, ligado, tipo, stat
   // 1,5 s faz a travessia. Pago/recebido -> pendente: processa imediatamente.
   if (ligado) {
     window.setTimeout(() => {
-      try { finalizar(); } finally { statusCliquesEmProcessamento.delete(chaveStatus); }
+      try { finalizar(); } finally { statusCliquesEmProcessamento.delete(chaveStatus); resolve(); }
     }, 1500);
   } else {
-    try { finalizar(); } finally { statusCliquesEmProcessamento.delete(chaveStatus); }
+    try { finalizar(); } finally { statusCliquesEmProcessamento.delete(chaveStatus); resolve(); }
   }
+  });
 }
+
 function togglePagoFixo(index) {
+  return enfileirarAnimacaoStatus(() => togglePagoFixoInterno(index));
+}
+function togglePagoFixoInterno(index) {
   if (isAmbos()) return;
   const item = state.gastosFixos[index];
   if (!item) return;
@@ -1878,12 +1901,14 @@ function togglePagoFixo(index) {
   sincronizarCacheAtual();
   salvarBloco("saveGastosFixos", state.gastosFixos);
   if (!credor) {
-    animarMudancaStatusFluida("listaFixos", "pendentesFixos", index, item.pago, "expense", "pago", togglePagoFixo, opFixos, "fixos", "Pago", "Pendente");
-    return;
+    return animarMudancaStatusFluida("listaFixos", "pendentesFixos", index, item.pago, "expense", "pago", togglePagoFixo, opFixos, "fixos", "Pago", "Pendente");
   }
   renderAll();
 }
 function togglePagoVariavel(index) {
+  return enfileirarAnimacaoStatus(() => togglePagoVariavelInterno(index));
+}
+function togglePagoVariavelInterno(index) {
   if (isAmbos()) return;
   const item = state.gastosVariaveis[index];
   if (!item) return;
@@ -1911,12 +1936,14 @@ function togglePagoVariavel(index) {
   sincronizarCacheAtual();
   salvarBloco("saveGastosVariaveis", state.gastosVariaveis);
   if (!credor) {
-    animarMudancaStatusFluida("listaVariaveis", "pendentesVariaveis", index, item.pago, "expense", "pago", togglePagoVariavel, opVariaveis, "variaveis", "Pago", "Pendente");
-    return;
+    return animarMudancaStatusFluida("listaVariaveis", "pendentesVariaveis", index, item.pago, "expense", "pago", togglePagoVariavel, opVariaveis, "variaveis", "Pago", "Pendente");
   }
   renderAll();
 }
 function toggleRecebidoGanho(index) {
+  return enfileirarAnimacaoStatus(() => toggleRecebidoGanhoInterno(index));
+}
+function toggleRecebidoGanhoInterno(index) {
   if (isAmbos()) return;
   const item = state.ganhos[index];
   if (!item) return;
@@ -1925,7 +1952,7 @@ function toggleRecebidoGanho(index) {
   marcarAlteracaoLocal();
   sincronizarCacheAtual();
   salvarBloco("saveGanhos", state.ganhos);
-  animarMudancaStatusFluida("listaGanhos", "pendentesGanhos", index, item.recebido, "income", "recebido", toggleRecebidoGanho, opGanhos, "ganhos", "Recebido", "Pendente");
+  return animarMudancaStatusFluida("listaGanhos", "pendentesGanhos", index, item.recebido, "income", "recebido", toggleRecebidoGanho, opGanhos, "ganhos", "Recebido", "Pendente");
 }
 
 function soma(lista) { return lista.reduce((acc, i) => acc + (Number(i.valor) || 0), 0); }
