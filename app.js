@@ -1765,7 +1765,12 @@ function atualizarVisualStatusNaHora(linha, ligado, rotuloOn, rotuloOff) {
   }
 }
 
+const statusCliquesEmProcessamento = new Set();
+
 function animarMudancaStatusFluida(listaId, pendingId, index, ligado, tipo, statusKey, toggleFn, ops, tipoModal, rotuloOn, rotuloOff) {
+  const chaveStatus = `${listaId}:${index}`;
+  if (statusCliquesEmProcessamento.has(chaveStatus)) return;
+  statusCliquesEmProcessamento.add(chaveStatus);
   const ul = document.getElementById(listaId);
   const pend = document.getElementById(pendingId);
   const seletor = `.item-list-row[data-idx="${index}"]`;
@@ -1790,17 +1795,31 @@ function animarMudancaStatusFluida(listaId, pendingId, index, ligado, tipo, stat
       ? state.ganhos
       : (tipo === "expense" && listaId === "listaFixos" ? state.gastosFixos : state.gastosVariaveis);
 
+    // A tela passa a refletir o estado do objeto local imediatamente.
+    // Não fazemos nenhum GET aqui: a planilha é persistida em paralelo e
+    // nunca deve ser necessária uma atualização da página para enxergar a
+    // mudança que o próprio usuário acabou de fazer.
     renderPendentesDestaque(pendingId, lista, tipo, statusKey, toggleFn, rotuloOff, ops, tipoModal);
     renderListaComStatus(listaId, lista, tipo, ops, tipoModal, statusKey, toggleFn, rotuloOn, rotuloOff);
 
-    animarReencaixeStatus(listaId, pendingId, antes, origemKey, destinoKey, origemRect, origemClone);
+    // O render acima cria as posições finais. O FLIP/ghost usa as posições
+    // capturadas antes dele para fazer o lançamento atravessar a tela e os
+    // demais cards se encaixarem suavemente.
+    requestAnimationFrame(() => {
+      animarReencaixeStatus(listaId, pendingId, antes, origemKey, destinoKey, origemRect, origemClone);
+    });
     renderDerivadosDeStatus();
   };
 
   // Pendente -> pago/recebido: primeiro confirma visualmente e só depois de
   // 1,5 s faz a travessia. Pago/recebido -> pendente: processa imediatamente.
-  if (ligado) window.setTimeout(finalizar, 1500);
-  else finalizar();
+  if (ligado) {
+    window.setTimeout(() => {
+      try { finalizar(); } finally { statusCliquesEmProcessamento.delete(chaveStatus); }
+    }, 1500);
+  } else {
+    try { finalizar(); } finally { statusCliquesEmProcessamento.delete(chaveStatus); }
+  }
 }
 function togglePagoFixo(index) {
   if (isAmbos()) return;
