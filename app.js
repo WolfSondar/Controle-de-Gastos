@@ -604,6 +604,10 @@ const state = {
   // Incrementa a cada alteração feita pelo usuário. Uma busca iniciada antes
   // dessa alteração nunca pode sobrescrever o estado local mais novo.
   versaoAlteracaoLocal: 0,
+  // Ações que ainda estão sendo persistidas. Enquanto um salvamento está
+  // em andamento, uma leitura GET não pode substituir o estado local com
+  // uma versão antiga que ainda está na planilha.
+  salvamentosEmAndamento: new Set(),
   pessoaAtual: localStorage.getItem(PESSOA_STORAGE_KEY) || "davi",
   mesAtual: mesAtualCache ? mesAtualCache.mes : null,
   anoAtual: mesAtualCache ? mesAtualCache.ano : null,
@@ -822,6 +826,11 @@ async function carregarDados() {
     const data = await res.json();
     if (data && data.ok === false) throw new Error(data.error || "Erro desconhecido");
     if (state.pessoaAtual !== pessoaRequisitada) return;
+    // Uma gravação pode ter começado depois que esta busca foi iniciada (ou
+    // enquanto ela estava em trânsito). Nesse intervalo o Apps Script ainda
+    // pode devolver o estado anterior da planilha. Nunca deixamos esse GET
+    // sobrescrever o estado que o usuário acabou de alterar.
+    if (state.salvamentosEmAndamento && state.salvamentosEmAndamento.size) return;
     // A resposta pode ter ficado alguns segundos em trânsito. Se houve uma
     // ação local desde o início desta busca, ela é mais nova e deve vencer.
     if (state.versaoAlteracaoLocal !== versaoNoInicio) return;
@@ -885,6 +894,7 @@ const filaSalvar = new Map();
 async function salvarBloco(action, payload) {
   if (isAmbos()) return; 
   const chave = `${state.pessoaAtual}:${action}`;
+  state.salvamentosEmAndamento?.add(chave);
   let entrada = filaSalvar.get(chave);
   if (!entrada) {
     entrada = { emVoo: false, pendente: null };
@@ -931,6 +941,7 @@ async function salvarBloco(action, payload) {
     }
   } finally {
     entrada.emVoo = false;
+    state.salvamentosEmAndamento?.delete(chave);
   }
 }
 
@@ -1584,10 +1595,8 @@ function atualizarLinhaStatus(ulId, idx, ligado, rotuloOn, rotuloOff) {
   if (li) li.classList.toggle("is-pendente", !ligado);
   if (label) {
     label.classList.toggle("is-pago", ligado);
-    const textoNode = label.lastChild;
-    if (textoNode && textoNode.nodeType === Node.TEXT_NODE) {
-      textoNode.textContent = ligado ? rotuloOn : rotuloOff;
-    }
+    const texto = label.querySelector(".status-label-text");
+    if (texto) texto.textContent = ligado ? rotuloOn : rotuloOff;
   }
   if (li && ligado) carimbarLinha(li, rotuloOn);
   return true;
@@ -1675,49 +1684,168 @@ async function sincronizarGanhoCorrespondenteFixo(devedor, item, recebido) {
   }
 }
 
+function capturarPosicoesStatus(listaId, pendingId) {
+  const mapa = new Map();
+  [listaId, pendingId].forEach((containerId) => {
+    const el = document.getElementById(containerId);
+    if (!el) return;
+    el.querySelectorAll(".item-list-row[data-idx]").forEach((row) => {
+      const idx = row.dataset.idx;
+      mapa.set(`${containerId}:${idx}`, {
+        rect: row.getBoundingClientRect(),
+        row,
+      });
+    });
+  });
+  return mapa;
+}
+
+function animarReencaixeStatus(listaId, pendingId, antes, origemKey, destinoKey, origemRect, origemClone) {
+  const depois = capturarPosicoesStatus(listaId, pendingId);
+
+  // FLIP: os itens que permaneceram no mesmo bloco acompanham o deslocamento
+  // natural da lista, sem redesenhar/"pular" visualmente.
+  antes.forEach((info, chave) => {
+    if (chave === origemKey) return;
+    const novo = depois.get(chave);
+    if (!novo) return;
+    const dx = info.rect.left - novo.rect.left;
+    const dy = info.rect.top - novo.rect.top;
+    if (Math.abs(dx) < 1 && Math.abs(dy) < 1) return;
+
+    novo.row.style.animation = "none";
+    novo.row.style.transition = "none";
+    novo.row.style.transform = `translate3d(${dx}px, ${dy}px, 0)`;
+    requestAnimationFrame(() => {
+      novo.row.style.transition = "transform 420ms cubic-bezier(.22,.8,.2,1)";
+      novo.row.style.transform = "translate3d(0,0,0)";
+      window.setTimeout(() => {
+        novo.row.style.transition = "";
+        // Mantém a animação CSS desativada nesta linha.
+        // Limpar animation aqui fazia a animação de entrada da lista
+        // disparar novamente no fim do FLIP, causando o "pisca".
+        novo.row.style.animation = "none";
+      }, 440);
+    });
+  });
+
+  const [destinoId, idx] = destinoKey.split(":");
+  const destino = document.getElementById(destinoId);
+  const novaLinha = destino && destino.querySelector(`.item-list-row[data-idx="${idx}"]`);
+  if (!novaLinha || !origemRect) return;
+
+  // A própria linha nova faz o percurso. Não usamos clone/ghost: isso evita
+  // duplicação visual, escala estranha e o efeito de "cartão flutuando".
+  const destinoRect = novaLinha.getBoundingClientRect();
+  const dx = origemRect.left - destinoRect.left;
+  const dy = origemRect.top - destinoRect.top;
+
+  novaLinha.style.animation = "none";
+  novaLinha.style.transition = "none";
+  novaLinha.style.transform = `translate3d(${dx}px, ${dy}px, 0)`;
+  novaLinha.style.opacity = "0.72";
+  novaLinha.style.pointerEvents = "none";
+
+  requestAnimationFrame(() => {
+    requestAnimationFrame(() => {
+      novaLinha.style.transition = "transform 500ms cubic-bezier(.16,1,.3,1), opacity 260ms ease-out";
+      novaLinha.style.transform = "translate3d(0,0,0)";
+      novaLinha.style.opacity = "1";
+    });
+  });
+
+  window.setTimeout(() => {
+    novaLinha.style.transition = "";
+    novaLinha.style.transform = "";
+    novaLinha.style.opacity = "";
+    // Não limpar animation: isso faria a animação CSS da lista tocar
+    // novamente exatamente quando o cartão termina de se encaixar.
+    novaLinha.style.animation = "none";
+    novaLinha.style.pointerEvents = "";
+  }, 540);
+}
+
+function atualizarVisualStatusNaHora(linha, ligado, rotuloOn, rotuloOff) {
+  if (!linha) return;
+  const ativo = !!ligado;
+  linha.classList.toggle("is-pendente", !ativo);
+  const checkbox = linha.querySelector('input[type="checkbox"]');
+  const label = linha.querySelector(".pago-toggle");
+  if (checkbox) {
+    checkbox.checked = ativo;
+    checkbox.disabled = true;
+  }
+  if (label) {
+    label.classList.toggle("is-pago", ativo);
+    label.setAttribute("data-status", ativo ? rotuloOn : rotuloOff);
+    const texto = label.querySelector(".status-label-text");
+    if (texto) {
+      texto.textContent = ativo ? rotuloOn : rotuloOff;
+    } else {
+      // Fallback para qualquer markup antigo que ainda não tenha o span.
+      const novoTexto = document.createElement("span");
+      novoTexto.className = "status-label-text";
+      novoTexto.textContent = ativo ? rotuloOn : rotuloOff;
+      label.appendChild(novoTexto);
+    }
+  }
+}
+
+const statusCliquesEmProcessamento = new Set();
+
 function animarMudancaStatusFluida(listaId, pendingId, index, ligado, tipo, statusKey, toggleFn, ops, tipoModal, rotuloOn, rotuloOff) {
+  const chaveStatus = `${listaId}:${index}`;
+  if (statusCliquesEmProcessamento.has(chaveStatus)) return;
+  statusCliquesEmProcessamento.add(chaveStatus);
   const ul = document.getElementById(listaId);
   const pend = document.getElementById(pendingId);
   const seletor = `.item-list-row[data-idx="${index}"]`;
   const linhaAtual = (ul && ul.querySelector(seletor)) || (pend && pend.querySelector(seletor));
   if (!linhaAtual) return;
 
-  // Durante os 3 segundos de confirmação, NÃO trocamos o texto da tag.
-  // A linha continua mostrando o status que tinha quando o usuário clicou;
-  // apenas o carimbo comunica a ação. Assim nunca aparece "Pago Pendente"
-  // ou "Recebido Pendente" misturado na mesma tag.
-  linhaAtual.classList.remove("is-status-saindo-pendente", "is-status-saindo-pago");
-  linhaAtual.classList.add("is-status-confirmando");
-  const checkbox = linhaAtual.querySelector('input[type="checkbox"]');
-  if (checkbox) checkbox.disabled = true;
-  carimbarLinha(linhaAtual, ligado ? rotuloOn : rotuloOff, ligado);
+  const origemContainer = linhaAtual.closest(`#${listaId}`) ? listaId : pendingId;
+  const destinoContainer = ligado ? listaId : pendingId;
+  const origemKey = `${origemContainer}:${index}`;
+  const destinoKey = `${destinoContainer}:${index}`;
+  const antes = capturarPosicoesStatus(listaId, pendingId);
+  const origemRect = linhaAtual.getBoundingClientRect();
+  const origemClone = linhaAtual.cloneNode(true);
 
-  // A confirmação é curta: a linha só muda de seção depois de 1,5 s.
-  // Até lá nenhuma lista/tela é redesenhada.
-  window.setTimeout(() => {
+  atualizarVisualStatusNaHora(linhaAtual, ligado, rotuloOn, rotuloOff);
+  linhaAtual.classList.add("is-status-confirmando");
+  carimbarLinha(linhaAtual, ligado ? rotuloOn : rotuloOff, ligado);
+  vibrar();
+
+  const finalizar = () => {
     const lista = statusKey === "recebido"
       ? state.ganhos
       : (tipo === "expense" && listaId === "listaFixos" ? state.gastosFixos : state.gastosVariaveis);
 
-    // O estado já foi alterado no clique. Agora reconstruímos somente as duas
-    // listas envolvidas, nunca a página inteira. Isso também funciona quando
-    // o usuário desfaz um pagamento/recebimento: a linha sai de Pagos/Recebidos
-    // e reaparece em Pendentes.
+    // A tela passa a refletir o estado do objeto local imediatamente.
+    // Não fazemos nenhum GET aqui: a planilha é persistida em paralelo e
+    // nunca deve ser necessária uma atualização da página para enxergar a
+    // mudança que o próprio usuário acabou de fazer.
     renderPendentesDestaque(pendingId, lista, tipo, statusKey, toggleFn, rotuloOff, ops, tipoModal);
     renderListaComStatus(listaId, lista, tipo, ops, tipoModal, statusKey, toggleFn, rotuloOn, rotuloOff);
 
-    const destino = ligado
-      ? document.getElementById(listaId)
-      : document.getElementById(pendingId);
-    const novaLinha = destino && destino.querySelector(seletor);
-    if (novaLinha) {
-      novaLinha.classList.add("is-status-chegando");
-      requestAnimationFrame(() => requestAnimationFrame(() => novaLinha.classList.remove("is-status-chegando")));
-    }
+    // O render acima cria as posições finais. O FLIP/ghost usa as posições
+    // capturadas antes dele para fazer o lançamento atravessar a tela e os
+    // demais cards se encaixarem suavemente.
+    requestAnimationFrame(() => {
+      animarReencaixeStatus(listaId, pendingId, antes, origemKey, destinoKey, origemRect, origemClone);
+    });
+  };
 
-  }, 1500);
+  // Pendente -> pago/recebido: primeiro confirma visualmente e só depois de
+  // 1,5 s faz a travessia. Pago/recebido -> pendente: processa imediatamente.
+  if (ligado) {
+    window.setTimeout(() => {
+      try { finalizar(); } finally { statusCliquesEmProcessamento.delete(chaveStatus); }
+    }, 1500);
+  } else {
+    try { finalizar(); } finally { statusCliquesEmProcessamento.delete(chaveStatus); }
+  }
 }
-
 function togglePagoFixo(index) {
   if (isAmbos()) return;
   const item = state.gastosFixos[index];
@@ -2282,7 +2410,7 @@ function renderPendentesDestaque(containerId, lista, tipo, statusKey, toggleFn, 
                 ? `<span class="pago-toggle" aria-disabled="true"><span class="dot"></span>${escapeHtml(rotuloOff)}</span>`
                 : `<label class="pago-toggle">
                     <input type="checkbox" data-idx="${idx}" />
-                    <span class="dot"></span>${escapeHtml(rotuloOff)}
+                    <span class="dot"></span><span class="status-label-text">${escapeHtml(rotuloOff)}</span>
                   </label>`}
             </div>
           </li>`;
@@ -2292,8 +2420,31 @@ function renderPendentesDestaque(containerId, lista, tipo, statusKey, toggleFn, 
   `;
 
   if (!ambos) {
-    el.querySelectorAll('.pendente-destaque-row input[type="checkbox"]').forEach((input) => {
-      input.addEventListener("change", () => toggleFn(Number(input.dataset.idx)));
+    el.querySelectorAll('.pendente-destaque-row .pago-toggle').forEach((label) => {
+      label.addEventListener("click", (event) => {
+        // O status só muda pela própria tag. O card inteiro nunca altera o
+        // lançamento. Tratamos o clique da tag manualmente para que a mudança
+        // visual aconteça no MESMO instante, sem depender do evento change.
+        event.preventDefault();
+        event.stopPropagation();
+        if (label.dataset.statusBusy === "1") return;
+        const input = label.querySelector('input[type="checkbox"]');
+        if (!input) return;
+        const idx = Number(input.dataset.idx);
+        const proximo = !input.checked;
+        label.dataset.statusBusy = "1";
+        input.checked = proximo;
+        atualizarVisualStatusNaHora(label.closest(".item-list-row"), proximo, tipo === "income" ? "Recebido" : "Pago", "Pendente");
+        toggleFn(idx);
+      });
+      label.querySelector('input[type="checkbox"]')?.addEventListener("change", (event) => {
+        // Alterações por teclado/acessibilidade também entram pelo mesmo fluxo.
+        if (label.dataset.statusBusy === "1") return;
+        const input = event.currentTarget;
+        label.dataset.statusBusy = "1";
+        atualizarVisualStatusNaHora(label.closest(".item-list-row"), input.checked, tipo === "income" ? "Recebido" : "Pago", "Pendente");
+        toggleFn(Number(input.dataset.idx));
+      });
     });
     el.querySelectorAll('.pendente-destaque-row .swipe-edit').forEach((btn) => {
       btn.addEventListener("click", () => {
@@ -2345,6 +2496,10 @@ function renderListaComStatus(ulId, lista, tipo, ops, tipoModal, statusKey, togg
     const on = item[statusKey] === true;
     const li = document.createElement("li");
     li.className = "item-list-row" + (on ? "" : " is-pendente") + (tipo === "income" ? (ganhoEhBeneficio(item) ? " ganho-beneficio" : " ganho-saldo") : "");
+    // O índice também precisa existir nas linhas já concluídas.
+    // A animação de Recebidos/Pagos -> Pendentes localiza a linha pelo data-idx;
+    // sem ele a transição encontrava a tag, mas não conseguia mover a linha.
+    li.dataset.idx = idx;
     li.dataset.tipo = tipo;
     li.style.animationDelay = Math.min(posicao * 35, 250) + "ms";
     li.innerHTML = `
@@ -2356,24 +2511,41 @@ function renderListaComStatus(ulId, lista, tipo, ops, tipoModal, statusKey, togg
         <span class="item-nome">${nomeComParcela(item)}${parcelaInlineHtml(item, tipo)} ${tagPessoa(item)}</span>
         <span class="item-valor ${tipo}${tipo === "income" && ganhoEhBeneficio(item) ? " income-beneficio" : ""}">${fmt(item.valor)}</span>
         ${metaInfoHtml(item) || `<div class="item-meta"></div>`}
-        ${ambos ? `<span class="pago-toggle ${on ? "is-pago" : ""}" aria-disabled="true"><span class="dot"></span>${on ? rotuloOn : rotuloOff}</span>`
+        ${ambos ? `<span class="pago-toggle ${on ? "is-pago" : ""}" aria-disabled="true"><span class="dot"></span><span class="status-label-text">${on ? rotuloOn : rotuloOff}</span></span>`
                 : `<label class="pago-toggle ${on ? "is-pago" : ""}">
                     <input type="checkbox" data-idx="${idx}" ${on ? "checked" : ""} />
-                    <span class="dot"></span>${on ? rotuloOn : rotuloOff}
+                    <span class="dot"></span><span class="status-label-text">${on ? rotuloOn : rotuloOff}</span>
                   </label>`
         }
       </div>
     `;
     if (!ambos) {
-      // O lançamento inteiro é clicável para alternar Pago/Recebido <-> Pendente.
-      // O controle continua funcionando normalmente, mas cliques em editar/excluir
-      // e no próprio status não disparam uma segunda alternância.
-      const alternarLinha = (event) => {
-        if (event.target.closest(".swipe-actions") || event.target.closest(".pago-toggle")) return;
-        toggleFn(idx);
-      };
-      li.addEventListener("click", alternarLinha);
-      li.querySelector('input[type="checkbox"]').addEventListener("change", () => toggleFn(idx));
+      // Apenas a tag de status alterna Pago/Recebido <-> Pendente.
+      // O restante do card não dispara a mudança de status.
+      const status = li.querySelector(".pago-toggle");
+      if (status) {
+        status.addEventListener("click", (event) => {
+          // Somente a tag alterna o status. Fazemos o toggle manualmente para
+          // que a interface reflita a decisão antes de qualquer renderização.
+          event.preventDefault();
+          event.stopPropagation();
+          if (status.dataset.statusBusy === "1") return;
+          const input = status.querySelector('input[type="checkbox"]');
+          if (!input) return;
+          const proximo = !input.checked;
+          status.dataset.statusBusy = "1";
+          input.checked = proximo;
+          atualizarVisualStatusNaHora(li, proximo, rotuloOn, rotuloOff);
+          toggleFn(idx);
+        });
+        status.querySelector('input[type="checkbox"]')?.addEventListener("change", (event) => {
+          if (status.dataset.statusBusy === "1") return;
+          const input = event.currentTarget;
+          status.dataset.statusBusy = "1";
+          atualizarVisualStatusNaHora(li, input.checked, rotuloOn, rotuloOff);
+          toggleFn(idx);
+        });
+      }
       li.querySelector(".swipe-edit").addEventListener("click", () => {
         fecharSwipe(li);
         abrirModalEditar(tipoModal, idx, item);
