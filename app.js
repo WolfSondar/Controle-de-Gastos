@@ -1584,10 +1584,8 @@ function atualizarLinhaStatus(ulId, idx, ligado, rotuloOn, rotuloOff) {
   if (li) li.classList.toggle("is-pendente", !ligado);
   if (label) {
     label.classList.toggle("is-pago", ligado);
-    const textoNode = label.lastChild;
-    if (textoNode && textoNode.nodeType === Node.TEXT_NODE) {
-      textoNode.textContent = ligado ? rotuloOn : rotuloOff;
-    }
+    const texto = label.querySelector(".status-label-text");
+    if (texto) texto.textContent = ligado ? rotuloOn : rotuloOff;
   }
   if (li && ligado) carimbarLinha(li, rotuloOn);
   return true;
@@ -1691,13 +1689,12 @@ function capturarPosicoesStatus(listaId, pendingId) {
   return mapa;
 }
 
-function animarReencaixeStatus(listaId, pendingId, antes, chaveMovida, origemRect) {
+function animarReencaixeStatus(listaId, pendingId, antes, origemKey, destinoKey, origemRect, origemClone) {
   const depois = capturarPosicoesStatus(listaId, pendingId);
 
-  // FLIP: os lançamentos que continuam nas listas deslizam para seus novos
-  // lugares, em vez de a lista "piscar" e reaparecer inteira.
+  // FLIP: só os lançamentos que permaneceram nas listas são deslocados.
   antes.forEach((info, chave) => {
-    if (chave === chaveMovida) return;
+    if (chave === origemKey) return;
     const novo = depois.get(chave);
     if (!novo) return;
     const dx = info.rect.left - novo.rect.left;
@@ -1706,32 +1703,29 @@ function animarReencaixeStatus(listaId, pendingId, antes, chaveMovida, origemRec
     novo.row.style.transition = "none";
     novo.row.style.transform = `translate3d(${dx}px, ${dy}px, 0)`;
     requestAnimationFrame(() => {
-      novo.row.style.transition = "transform 420ms cubic-bezier(.2,.8,.2,1)";
+      novo.row.style.transition = "transform 480ms cubic-bezier(.16,1,.3,1)";
       novo.row.style.transform = "";
-      window.setTimeout(() => {
-        novo.row.style.transition = "";
-      }, 440);
+      window.setTimeout(() => { novo.row.style.transition = ""; }, 500);
     });
   });
 
-  const destinoId = chaveMovida.startsWith(`${listaId}:`) ? listaId : pendingId;
-  const idx = chaveMovida.split(":").pop();
+  const [destinoId, idx] = destinoKey.split(":");
   const destino = document.getElementById(destinoId);
   const novaLinha = destino && destino.querySelector(`.item-list-row[data-idx="${idx}"]`);
-
   if (!novaLinha || !origemRect) return;
 
-  // Um "fantasma" mantém o lançamento visível durante a travessia entre
-  // as duas listas. A lista verdadeira já pode se reorganizar por trás dele.
-  const origem = antes.get(chaveMovida)?.row;
-  if (!origem) return;
-  const ghost = origem.cloneNode(true);
-  ghost.classList.remove("is-status-confirmando", "is-status-chegando");
+  // O clone é criado ANTES do innerHTML das listas ser trocado. Assim o
+  // lançamento realmente atravessa a tela, em vez de desaparecer e nascer
+  // de novo no destino.
+  const ghost = origemClone || antes.get(origemKey)?.row?.cloneNode(true);
+  if (!ghost) return;
+  ghost.classList.remove("is-status-confirmando", "is-status-chegando", "is-status-saindo-pendente", "is-status-saindo-pago");
   ghost.classList.add("status-movendo-ghost");
   ghost.style.width = `${origemRect.width}px`;
   ghost.style.height = `${origemRect.height}px`;
   ghost.style.left = `${origemRect.left}px`;
   ghost.style.top = `${origemRect.top}px`;
+  ghost.style.transform = "translate3d(0,0,0) scale(1)";
   document.body.appendChild(ghost);
 
   const destinoRect = novaLinha.getBoundingClientRect();
@@ -1743,16 +1737,16 @@ function animarReencaixeStatus(listaId, pendingId, antes, chaveMovida, origemRec
   novaLinha.classList.add("status-row-arriving");
   novaLinha.style.pointerEvents = "none";
 
-  requestAnimationFrame(() => {
+  requestAnimationFrame(() => requestAnimationFrame(() => {
     ghost.style.transform = `translate3d(${dx}px, ${dy}px, 0) scale(${sx}, ${sy})`;
-    ghost.style.opacity = "0.18";
-  });
+    ghost.style.opacity = "0.12";
+  }));
 
   window.setTimeout(() => {
     ghost.remove();
     novaLinha.classList.remove("status-row-arriving");
     novaLinha.style.pointerEvents = "";
-  }, 520);
+  }, 560);
 }
 
 function atualizarVisualStatusNaHora(linha, ligado, rotuloOn, rotuloOff) {
@@ -1766,8 +1760,8 @@ function atualizarVisualStatusNaHora(linha, ligado, rotuloOn, rotuloOff) {
   }
   if (label) {
     label.classList.toggle("is-pago", !!ligado);
-    const textoNode = Array.from(label.childNodes).find((node) => node.nodeType === Node.TEXT_NODE);
-    if (textoNode) textoNode.textContent = ligado ? rotuloOn : rotuloOff;
+    const texto = label.querySelector(".status-label-text");
+    if (texto) texto.textContent = ligado ? rotuloOn : rotuloOff;
   }
 }
 
@@ -1780,16 +1774,15 @@ function animarMudancaStatusFluida(listaId, pendingId, index, ligado, tipo, stat
 
   const origemContainer = linhaAtual.closest(`#${listaId}`) ? listaId : pendingId;
   const destinoContainer = ligado ? listaId : pendingId;
-  const chaveMovida = `${destinoContainer}:${index}`;
+  const origemKey = `${origemContainer}:${index}`;
+  const destinoKey = `${destinoContainer}:${index}`;
   const antes = capturarPosicoesStatus(listaId, pendingId);
   const origemRect = linhaAtual.getBoundingClientRect();
+  const origemClone = linhaAtual.cloneNode(true);
 
-  // A mudança de status é imediata. O carimbo confirma a ação, mas a
-  // movimentação física da linha acontece de forma diferente para cada sentido.
   atualizarVisualStatusNaHora(linhaAtual, ligado, rotuloOn, rotuloOff);
   linhaAtual.classList.add("is-status-confirmando");
   carimbarLinha(linhaAtual, ligado ? rotuloOn : rotuloOff, ligado);
-
   vibrar();
 
   const finalizar = () => {
@@ -1797,30 +1790,17 @@ function animarMudancaStatusFluida(listaId, pendingId, index, ligado, tipo, stat
       ? state.ganhos
       : (tipo === "expense" && listaId === "listaFixos" ? state.gastosFixos : state.gastosVariaveis);
 
-    // Reconstrói somente as duas listas necessárias e imediatamente aplica
-    // FLIP. Para o usuário, isso aparece como uma movimentação contínua.
     renderPendentesDestaque(pendingId, lista, tipo, statusKey, toggleFn, rotuloOff, ops, tipoModal);
     renderListaComStatus(listaId, lista, tipo, ops, tipoModal, statusKey, toggleFn, rotuloOn, rotuloOff);
 
-    animarReencaixeStatus(listaId, pendingId, antes, chaveMovida, origemRect);
-
-    renderTotais();
-    renderVisaoGeral();
-    renderCategorias();
-    renderRecentes();
-    renderSplit();
-    renderJuntosView();
-    atualizarCarrosselGraficos();
+    animarReencaixeStatus(listaId, pendingId, antes, origemKey, destinoKey, origemRect, origemClone);
+    renderDerivadosDeStatus();
   };
 
-  // Pendente -> concluído: dá tempo para o carimbo "bater" antes da linha
-  // atravessar para a lista de baixo.
-  // Concluído -> pendente: o usuário pediu processamento imediato.
-  if (!ligado) {
-    finalizar();
-  } else {
-    window.setTimeout(finalizar, 1500);
-  }
+  // Pendente -> pago/recebido: primeiro confirma visualmente e só depois de
+  // 1,5 s faz a travessia. Pago/recebido -> pendente: processa imediatamente.
+  if (ligado) window.setTimeout(finalizar, 1500);
+  else finalizar();
 }
 function togglePagoFixo(index) {
   if (isAmbos()) return;
@@ -2386,7 +2366,7 @@ function renderPendentesDestaque(containerId, lista, tipo, statusKey, toggleFn, 
                 ? `<span class="pago-toggle" aria-disabled="true"><span class="dot"></span>${escapeHtml(rotuloOff)}</span>`
                 : `<label class="pago-toggle">
                     <input type="checkbox" data-idx="${idx}" />
-                    <span class="dot"></span>${escapeHtml(rotuloOff)}
+                    <span class="dot"></span><span class="status-label-text">${escapeHtml(rotuloOff)}</span>
                   </label>`}
             </div>
           </li>`;
@@ -2396,6 +2376,13 @@ function renderPendentesDestaque(containerId, lista, tipo, statusKey, toggleFn, 
   `;
 
   if (!ambos) {
+    el.querySelectorAll('.pendente-destaque-row').forEach((li) => {
+      const alternarLinha = (event) => {
+        if (event.target.closest(".swipe-actions") || event.target.closest(".pago-toggle")) return;
+        toggleFn(Number(li.dataset.idx));
+      };
+      li.addEventListener("click", alternarLinha);
+    });
     el.querySelectorAll('.pendente-destaque-row input[type="checkbox"]').forEach((input) => {
       input.addEventListener("change", () => toggleFn(Number(input.dataset.idx)));
     });
@@ -2460,10 +2447,10 @@ function renderListaComStatus(ulId, lista, tipo, ops, tipoModal, statusKey, togg
         <span class="item-nome">${nomeComParcela(item)}${parcelaInlineHtml(item, tipo)} ${tagPessoa(item)}</span>
         <span class="item-valor ${tipo}${tipo === "income" && ganhoEhBeneficio(item) ? " income-beneficio" : ""}">${fmt(item.valor)}</span>
         ${metaInfoHtml(item) || `<div class="item-meta"></div>`}
-        ${ambos ? `<span class="pago-toggle ${on ? "is-pago" : ""}" aria-disabled="true"><span class="dot"></span>${on ? rotuloOn : rotuloOff}</span>`
+        ${ambos ? `<span class="pago-toggle ${on ? "is-pago" : ""}" aria-disabled="true"><span class="dot"></span><span class="status-label-text">${on ? rotuloOn : rotuloOff}</span></span>`
                 : `<label class="pago-toggle ${on ? "is-pago" : ""}">
                     <input type="checkbox" data-idx="${idx}" ${on ? "checked" : ""} />
-                    <span class="dot"></span>${on ? rotuloOn : rotuloOff}
+                    <span class="dot"></span><span class="status-label-text">${on ? rotuloOn : rotuloOff}</span>
                   </label>`
         }
       </div>
