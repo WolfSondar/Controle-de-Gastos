@@ -7429,6 +7429,242 @@ body.sem-entrada-listas .item-list-row { animation: none !important; }
   transform: translate3d(0, 8px, 0) scale(.985) !important;
 }
 
+/* ============================================================
+   CAIXA — primeira etapa de autenticação Firebase
+   ============================================================ */
+.caixa-auth-gate {
+  position: fixed;
+  inset: 0;
+  z-index: 99999;
+  display: grid;
+  place-items: center;
+  padding: 24px;
+  overflow: auto;
+}
+
+.caixa-auth-backdrop {
+  position: fixed;
+  inset: 0;
+  background:
+    radial-gradient(circle at 50% 0%, rgba(185, 134, 47, .11), transparent 36%),
+    var(--paper, #faf5e9);
+}
+
+.caixa-login {
+  position: relative;
+  width: min(100%, 430px);
+  padding: 38px;
+  border: 1px solid var(--line, #ddd0ac);
+  border-radius: 24px;
+  background: rgba(250, 245, 233, .96);
+  box-shadow: 0 24px 80px rgba(22, 51, 44, .15), 0 2px 8px rgba(22, 51, 44, .06);
+  color: var(--ink, #16332c);
+  animation: caixa-login-in .42s ease both;
+}
+
+.caixa-login-brand {
+  font-family: Fraunces, Georgia, serif;
+  font-size: 30px;
+  font-weight: 700;
+  letter-spacing: -.04em;
+}
+
+.caixa-login-kicker {
+  margin-top: 4px;
+  color: var(--gold-deep, #93691f);
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: .12em;
+  text-transform: uppercase;
+}
+
+.caixa-login h1 {
+  margin: 30px 0 8px;
+  font-family: Fraunces, Georgia, serif;
+  font-size: clamp(30px, 7vw, 42px);
+  line-height: 1.02;
+  letter-spacing: -.045em;
+}
+
+.caixa-login-subtitle {
+  margin: 0 0 28px;
+  color: var(--ink-softer, #2f5a4d);
+  font-size: 14px;
+  line-height: 1.6;
+}
+
+.caixa-auth-label-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.caixa-auth-label {
+  display: block;
+  margin: 16px 0 7px;
+  font-size: 12px;
+  font-weight: 700;
+  letter-spacing: .02em;
+}
+
+.caixa-auth-input {
+  width: 100%;
+  min-height: 48px;
+  box-sizing: border-box;
+  border: 1px solid var(--line, #ddd0ac);
+  border-radius: 12px;
+  background: rgba(255,255,255,.58);
+  color: var(--ink, #16332c);
+  padding: 0 14px;
+  font: inherit;
+  font-size: 14px;
+  outline: none;
+  transition: border-color .18s ease, box-shadow .18s ease, background .18s ease;
+}
+
+.caixa-auth-input:focus {
+  border-color: var(--gold, #b9862f);
+  background: #fffdf8;
+  box-shadow: 0 0 0 3px rgba(185, 134, 47, .13);
+}
+
+.caixa-auth-link {
+  border: 0;
+  background: transparent;
+  color: var(--gold-deep, #93691f);
+  cursor: pointer;
+  font: inherit;
+  font-size: 11px;
+  font-weight: 700;
+  padding: 0;
+}
+
+.caixa-auth-link:disabled,
+.caixa-auth-secondary:disabled {
+  cursor: not-allowed;
+  opacity: .45;
+}
+
+.caixa-auth-submit,
+.caixa-auth-secondary {
+  width: 100%;
+  min-height: 49px;
+  margin-top: 22px;
+  border-radius: 13px;
+  font: inherit;
+  font-size: 14px;
+  font-weight: 700;
+  cursor: pointer;
+  transition: transform .16s ease, box-shadow .16s ease, opacity .16s ease;
+}
+
+.caixa-auth-submit {
+  border: 1px solid var(--ink, #16332c);
+  background: var(--ink, #16332c);
+  color: #fffdf8;
+  box-shadow: 0 8px 20px rgba(22, 51, 44, .16);
+}
+
+.caixa-auth-secondary {
+  margin-top: 0;
+  border: 1px solid var(--line, #ddd0ac);
+  background: transparent;
+  color: var(--ink, #16332c);
+}
+
+.caixa-auth-submit:hover:not(:disabled),
+.caixa-auth-secondary:hover:not(:disabled) {
+  transform: translateY(-1px);
+}
+
+.caixa-auth-submit:disabled {
+  cursor: wait;
+  opacity: .65;
+}
+
+.caixa-auth-divider {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  margin: 20px 0 0;
+  color: var(--ink-softer, #2f5a4d);
+  font-size: 11px;
+}
+
+.caixa-auth-divider::before,
+.caixa-auth-divider::after {
+  content: "";
+  height: 1px;
+  flex: 1;
+  background: var(--line-soft, #e8dfc7);
+}
+
+.caixa-auth-message {
+  margin-top: 14px;
+  border-radius: 11px;
+  padding: 10px 12px;
+  font-size: 12px;
+  line-height: 1.45;
+}
+
+.caixa-auth-message.error,
+.caixa-auth-message.setup {
+  background: rgba(168, 72, 46, .09);
+  color: var(--expense, #a8482e);
+}
+
+.caixa-auth-message.success {
+  background: rgba(60, 110, 79, .10);
+  color: var(--income, #3c6e4f);
+}
+
+.caixa-auth-message.is-hidden { display: none; }
+
+.caixa-auth-footnote {
+  margin: 16px 0 0;
+  color: var(--ink-softer, #2f5a4d);
+  font-size: 11px;
+  line-height: 1.5;
+  text-align: center;
+}
+
+.caixa-authenticated .caixa-auth-gate { display: none; }
+.caixa-auth-pending .app { visibility: hidden; }
+
+@keyframes caixa-login-in {
+  from { opacity: 0; transform: translateY(10px) scale(.99); }
+  to { opacity: 1; transform: translateY(0) scale(1); }
+}
+
+@media (prefers-color-scheme: dark) {
+  .caixa-auth-backdrop { background: #0d1e19; }
+  .caixa-login {
+    background: rgba(18, 37, 32, .98);
+    border-color: rgba(255,255,255,.09);
+    box-shadow: 0 24px 80px rgba(0,0,0,.35);
+    color: #f7f3e9;
+  }
+  .caixa-login-subtitle,
+  .caixa-auth-divider,
+  .caixa-auth-footnote { color: #b9c9c1; }
+  .caixa-auth-input {
+    border-color: rgba(255,255,255,.12);
+    background: rgba(255,255,255,.045);
+    color: #f7f3e9;
+  }
+  .caixa-auth-input:focus { background: rgba(255,255,255,.07); }
+  .caixa-auth-secondary { border-color: rgba(255,255,255,.12); color: #f7f3e9; }
+  .caixa-auth-divider::before,
+  .caixa-auth-divider::after { background: rgba(255,255,255,.09); }
+}
+
+@media (max-width: 520px) {
+  .caixa-auth-gate { padding: 14px; }
+  .caixa-login { padding: 28px 22px; border-radius: 20px; }
+}
+
+
 /* ETAPA 1 — Login Google */
 .caixa-auth-google {
   width:100%; min-height:50px; border:1px solid var(--line,rgba(22,51,44,.14));
