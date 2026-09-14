@@ -6,7 +6,7 @@
 // Apps Script e não são armazenados pelo Service Worker.
 // =====================================================================
 
-const CACHE_VERSION = "caixa-v47";
+const CACHE_VERSION = "caixa-v48";
 const CACHE_SHELL = `${CACHE_VERSION}-shell`;
 const CACHE_RUNTIME = `${CACHE_VERSION}-runtime`;
 
