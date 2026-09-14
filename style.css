@@ -7247,3 +7247,91 @@ body.sem-entrada-listas .item-list-row { animation: none !important; }
   .v34-transfer-scene.is-transferindo .v34-route-flow{animation:none}
   .v34-split-person .feedback-avatar,.v34-transfer-person .feedback-avatar{animation:none!important}
 }
+
+/* Separação visual entre pendências e lançamentos concluídos. */
+.status-list-title {
+  display: block;
+  margin: 0 0 8px;
+  font-size: 10px;
+  font-weight: 900;
+  letter-spacing: .1em;
+  text-transform: uppercase;
+  color: var(--muted);
+}
+.pendentes-destaque {
+  margin: 0 0 18px;
+  padding: 0;
+  border: 0;
+  border-radius: 0;
+  background: transparent;
+}
+.pendentes-destaque .status-list-title { color: var(--gold-deep); }
+.pendentes-item-list { margin: 0; }
+.pendente-destaque-row { animation: item-list-row-in .34s cubic-bezier(.2,.8,.2,1) both; }
+.status-list-title-row {
+  list-style: none;
+  padding: 0 !important;
+  margin: 0 0 8px;
+  border: 0 !important;
+  background: transparent !important;
+  min-height: 0 !important;
+}
+.status-list-title-row .status-list-title { margin: 0; }
+.status-list-empty {
+  list-style: none;
+  padding: 10px 0 !important;
+  color: var(--muted);
+  font-size: 11px;
+  border: 0 !important;
+  background: transparent !important;
+}
+
+/* No chat, "Ainda falta pagar" é uma lista numerada simples, não um conjunto de cards. */
+.caixa-chat-pendencias-lista.lista-simples {
+  list-style: decimal;
+  margin: 7px 0 0;
+  padding: 0 0 0 23px;
+  display: block;
+}
+.caixa-chat-pendencias-lista.lista-simples li,
+.caixa-chat-pendencias-lista.lista-simples li:nth-child(n) {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 12px;
+  min-height: 0;
+  margin: 0;
+  padding: 5px 0 5px 3px;
+  border: 0;
+  border-radius: 0;
+  background: transparent;
+  box-shadow: none;
+  animation: none;
+  font-size: 11px;
+}
+.caixa-chat-pendencias-lista.lista-simples li::marker {
+  font-weight: 700;
+  color: var(--muted);
+}
+.caixa-chat-pendencias-lista.lista-simples .chat-pendente-main {
+  display: block;
+  min-width: 0;
+}
+.caixa-chat-pendencias-lista.lista-simples .chat-pendente-main strong {
+  display: inline;
+  overflow: visible;
+  white-space: normal;
+  font-size: 11px;
+  line-height: 1.35;
+}
+.caixa-chat-pendencias-lista.lista-simples .chat-pendente-main small {
+  display: block;
+  margin-top: 1px;
+  font-size: 8.5px;
+}
+.caixa-chat-pendencias-lista.lista-simples .chat-valor {
+  min-width: auto;
+  flex: 0 0 auto;
+  font-size: 10.5px;
+  text-align: right;
+}
