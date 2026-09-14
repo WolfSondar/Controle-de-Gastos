@@ -4412,7 +4412,7 @@ function montarDivisaoFeedback({ nome = "", valor = 0, quemPagouTudo = null } = 
       </div>
 
       <span class="acao-feedback-kicker" data-divisao-kicker>DIVIDINDO A COMPRA</span>
-      <strong class="acao-feedback-title" data-divisao-title>Organizando as moedinhas...</strong>
+      <strong class="acao-feedback-title" data-divisao-title>Organizando os valores...</strong>
       <span class="acao-feedback-detail" data-divisao-detail>
         ${escapeHtml(nome || "Compra")} · ${fmt(metade)} para cada
       </span>
@@ -4433,16 +4433,16 @@ function setEstadoDivisaoFeedback(overlay, estado) {
 
   if (estado === "idle") {
     if (kicker) kicker.textContent = "PREPARANDO A DIVISÃO";
-    if (title) title.textContent = "Organizando as moedinhas...";
+    if (title) title.textContent = "Organizando os valores...";
     stage?.classList.remove("is-dividindo", "is-sucesso");
   } else if (estado === "dividindo") {
     if (kicker) kicker.textContent = "DIVIDINDO A COMPRA";
-    if (title) title.textContent = "Cada um recebe a sua parte";
+    if (title) title.textContent = "Divisão em andamento";
     stage?.classList.add("is-dividindo");
     stage?.classList.remove("is-sucesso");
   } else if (estado === "sucesso") {
     if (kicker) kicker.textContent = "DIVISÃO CONCLUÍDA";
-    if (title) title.textContent = "Compra dividida com sucesso!";
+    if (title) title.textContent = "Divisão concluída";
     stage?.classList.remove("is-dividindo");
     stage?.classList.add("is-sucesso");
   } else if (estado === "erro") {
@@ -4497,11 +4497,11 @@ function montarTransferenciaFeedback(de, para, valor) {
       </div>
 
       <span class="acao-feedback-kicker" data-transfer-kicker>PREPARANDO A TRANSFERÊNCIA</span>
-      <strong class="acao-feedback-title" data-transfer-title>Segurando a moedinha...</strong>
+      <strong class="acao-feedback-title" data-transfer-title>Preparando o valor...</strong>
       <span class="acao-feedback-detail" data-transfer-detail>
         ${escapeHtml(deNome)} → ${escapeHtml(paraNome)} · ${fmt(Number(valor))}
       </span>
-      <span class="acao-feedback-stamp" data-transfer-stamp>Ela já vai!</span>
+      
     </div>
   `;
 
@@ -4514,30 +4514,29 @@ function setEstadoTransferenciaFeedback(overlay, estado) {
 
   const kicker = overlay.querySelector("[data-transfer-kicker]");
   const title = overlay.querySelector("[data-transfer-title]");
-  const stamp = overlay.querySelector("[data-transfer-stamp]");
   const cena = overlay.querySelector(".transferencia-cena");
 
   if (estado === "idle") {
     if (kicker) kicker.textContent = "PREPARANDO A TRANSFERÊNCIA";
-    if (title) title.textContent = "Segurando a moedinha...";
-    if (stamp) stamp.textContent = "Ela já vai!";
+    if (title) title.textContent = "Preparando o valor...";
+    
     cena?.classList.remove("is-transferindo", "is-sucesso");
   } else if (estado === "transferindo") {
     if (kicker) kicker.textContent = "TRANSFERINDO";
-    if (title) title.textContent = "A moedinha está a caminho";
-    if (stamp) stamp.textContent = "Vai, vai, vai! ✨";
+    if (title) title.textContent = "O valor está a caminho";
+    
     cena?.classList.add("is-transferindo");
     cena?.classList.remove("is-sucesso");
   } else if (estado === "sucesso") {
     if (kicker) kicker.textContent = "TRANSFERIDO COM SUCESSO";
     if (title) title.textContent = "Chegou direitinho! ✨";
-    if (stamp) stamp.textContent = "Dinheiro entregue";
+    
     cena?.classList.remove("is-transferindo");
     cena?.classList.add("is-sucesso");
   } else if (estado === "erro") {
     if (kicker) kicker.textContent = "TRANSFERÊNCIA NÃO CONCLUÍDA";
-    if (title) title.textContent = "A moedinha voltou para casa";
-    if (stamp) stamp.textContent = "Nenhum valor foi perdido";
+    if (title) title.textContent = "O valor permaneceu seguro";
+    
     cena?.classList.remove("is-transferindo", "is-sucesso");
   }
 }
