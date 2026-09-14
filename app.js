@@ -1703,7 +1703,8 @@ function capturarPosicoesStatus(listaId, pendingId) {
 function animarReencaixeStatus(listaId, pendingId, antes, origemKey, destinoKey, origemRect, origemClone) {
   const depois = capturarPosicoesStatus(listaId, pendingId);
 
-  // FLIP: só os lançamentos que permaneceram nas listas são deslocados.
+  // FLIP: os itens que permaneceram no mesmo bloco acompanham o deslocamento
+  // natural da lista, sem redesenhar/"pular" visualmente.
   antes.forEach((info, chave) => {
     if (chave === origemKey) return;
     const novo = depois.get(chave);
@@ -1711,12 +1712,17 @@ function animarReencaixeStatus(listaId, pendingId, antes, origemKey, destinoKey,
     const dx = info.rect.left - novo.rect.left;
     const dy = info.rect.top - novo.rect.top;
     if (Math.abs(dx) < 1 && Math.abs(dy) < 1) return;
+
+    novo.row.style.animation = "none";
     novo.row.style.transition = "none";
     novo.row.style.transform = `translate3d(${dx}px, ${dy}px, 0)`;
     requestAnimationFrame(() => {
-      novo.row.style.transition = "transform 480ms cubic-bezier(.16,1,.3,1)";
-      novo.row.style.transform = "";
-      window.setTimeout(() => { novo.row.style.transition = ""; }, 500);
+      novo.row.style.transition = "transform 420ms cubic-bezier(.22,.8,.2,1)";
+      novo.row.style.transform = "translate3d(0,0,0)";
+      window.setTimeout(() => {
+        novo.row.style.transition = "";
+        novo.row.style.animation = "";
+      }, 440);
     });
   });
 
@@ -1725,39 +1731,33 @@ function animarReencaixeStatus(listaId, pendingId, antes, origemKey, destinoKey,
   const novaLinha = destino && destino.querySelector(`.item-list-row[data-idx="${idx}"]`);
   if (!novaLinha || !origemRect) return;
 
-  // O clone é criado ANTES do innerHTML das listas ser trocado. Assim o
-  // lançamento realmente atravessa a tela, em vez de desaparecer e nascer
-  // de novo no destino.
-  const ghost = origemClone || antes.get(origemKey)?.row?.cloneNode(true);
-  if (!ghost) return;
-  ghost.classList.remove("is-status-confirmando", "is-status-chegando", "is-status-saindo-pendente", "is-status-saindo-pago");
-  ghost.classList.add("status-movendo-ghost");
-  ghost.style.width = `${origemRect.width}px`;
-  ghost.style.height = `${origemRect.height}px`;
-  ghost.style.left = `${origemRect.left}px`;
-  ghost.style.top = `${origemRect.top}px`;
-  ghost.style.transform = "translate3d(0,0,0) scale(1)";
-  document.body.appendChild(ghost);
-
+  // A própria linha nova faz o percurso. Não usamos clone/ghost: isso evita
+  // duplicação visual, escala estranha e o efeito de "cartão flutuando".
   const destinoRect = novaLinha.getBoundingClientRect();
-  const dx = destinoRect.left - origemRect.left;
-  const dy = destinoRect.top - origemRect.top;
-  const sx = origemRect.width ? destinoRect.width / origemRect.width : 1;
-  const sy = origemRect.height ? destinoRect.height / origemRect.height : 1;
+  const dx = origemRect.left - destinoRect.left;
+  const dy = origemRect.top - destinoRect.top;
 
-  novaLinha.classList.add("status-row-arriving");
+  novaLinha.style.animation = "none";
+  novaLinha.style.transition = "none";
+  novaLinha.style.transform = `translate3d(${dx}px, ${dy}px, 0)`;
+  novaLinha.style.opacity = "0.72";
   novaLinha.style.pointerEvents = "none";
 
-  requestAnimationFrame(() => requestAnimationFrame(() => {
-    ghost.style.transform = `translate3d(${dx}px, ${dy}px, 0) scale(${sx}, ${sy})`;
-    ghost.style.opacity = "1";
-  }));
+  requestAnimationFrame(() => {
+    requestAnimationFrame(() => {
+      novaLinha.style.transition = "transform 500ms cubic-bezier(.16,1,.3,1), opacity 260ms ease-out";
+      novaLinha.style.transform = "translate3d(0,0,0)";
+      novaLinha.style.opacity = "1";
+    });
+  });
 
   window.setTimeout(() => {
-    ghost.remove();
-    novaLinha.classList.remove("status-row-arriving");
+    novaLinha.style.transition = "";
+    novaLinha.style.transform = "";
+    novaLinha.style.opacity = "";
+    novaLinha.style.animation = "";
     novaLinha.style.pointerEvents = "";
-  }, 560);
+  }, 540);
 }
 
 function atualizarVisualStatusNaHora(linha, ligado, rotuloOn, rotuloOff) {
