@@ -80,7 +80,9 @@ if (!isConfigured(window.CAIXA_FIREBASE_CONFIG)) {
     });
   });
 
-  await setPersistence(auth, browserLocalPersistence);
+  setPersistence(auth, browserLocalPersistence).catch((error) => {
+    console.warn("Caixa: não foi possível ativar a persistência local da sessão.", error);
+  });
 
   form?.addEventListener("submit", async (event) => {
     event.preventDefault();
