@@ -1561,6 +1561,40 @@ function normalizarDataParaPlanilha(valor) {
   return new Date(Number(m[1]), Number(m[2]) - 1, Number(m[3]), 12, 0, 0);
 }
 
+
+// Converte automaticamente datas antigas que estejam salvas como texto
+// ("2026-09-09 21:00:00", "2026-09-09" ou "09/09/2026") para datas reais
+// da planilha e aplica a exibição brasileira. Pode ser executada várias vezes.
+function normalizarDatasExistentes(sheet) {
+  const ultima = Math.max(sheet.getLastRow(), 2);
+  const quantidade = Math.max(ultima - 1, 1);
+  [COL_DATA_GANHO, COL_DATA_FIXO, COL_DATA_VARIAVEL].forEach(function (col) {
+    const range = sheet.getRange(2, col, quantidade, 1);
+    const valores = range.getValues();
+    let mudou = false;
+    const convertidos = valores.map(function (row) {
+      const valor = row[0];
+      if (valor === "" || valor === null || valor === undefined) return [""];
+      if (Object.prototype.toString.call(valor) === "[object Date]" && !isNaN(valor.getTime())) return [valor];
+
+      const texto = String(valor).trim();
+      let m = /^(\\d{4})-(\\d{2})-(\\d{2})/.exec(texto);
+      if (m) {
+        mudou = true;
+        return [new Date(Number(m[1]), Number(m[2]) - 1, Number(m[3]), 12, 0, 0)];
+      }
+      m = /^(\\d{2})[\\/.-](\\d{2})[\\/.-](\\d{4})/.exec(texto);
+      if (m) {
+        mudou = true;
+        return [new Date(Number(m[3]), Number(m[2]) - 1, Number(m[1]), 12, 0, 0)];
+      }
+      return [valor];
+    });
+    if (mudou) range.setValues(convertidos);
+    range.setNumberFormat("dd/MM/yyyy");
+  });
+}
+
 function aplicarFormatoDatasLancamentos(sheet) {
   const ultima = Math.max(sheet.getLastRow(), 2);
   const quantidade = Math.max(ultima - 1, 1);
@@ -1570,6 +1604,7 @@ function aplicarFormatoDatasLancamentos(sheet) {
 }
 
 function saveGanhos(sheet, rows) {
+  normalizarDatasExistentes(sheet);
   aplicarFormatoDatasLancamentos(sheet);
   const rowsToClear = linhasParaLimpar(sheet, rows);
   sheet.getRange(2, COL_GANHOS, rowsToClear, 4).clearContent();
@@ -1604,6 +1639,7 @@ function readGastosFixos(sheet) {
 }
 
 function saveGastosFixos(sheet, rows) {
+  normalizarDatasExistentes(sheet);
   aplicarFormatoDatasLancamentos(sheet);
   const rowsToClear = linhasParaLimpar(sheet, rows);
   sheet.getRange(2, COL_GASTOS_FIXOS, rowsToClear, 6).clearContent();
@@ -1639,6 +1675,7 @@ function readGastosVariaveis(sheet) {
 }
 
 function saveGastosVariaveis(sheet, rows) {
+  normalizarDatasExistentes(sheet);
   aplicarFormatoDatasLancamentos(sheet);
   const rowsToClear = linhasParaLimpar(sheet, rows);
   sheet.getRange(2, COL_GASTOS_VARIAVEIS, rowsToClear, 5).clearContent();
@@ -1696,6 +1733,7 @@ function readCaixinhas(sheet) {
 }
 
 function getAllData(sheet) {
+  normalizarDatasExistentes(sheet);
   return {
     ganhos: readGanhos(sheet),
     gastosFixos: readGastosFixos(sheet),
