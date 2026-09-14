@@ -7537,3 +7537,126 @@ body.caixa-access-open .caixa-chat {
   .caixa-access-gate { padding: 16px; }
   .caixa-access-card { padding: 28px 22px 24px; border-radius: 23px; }
 }
+
+
+/* Onboarding Firebase */
+.caixa-onboarding-gate {
+  position: fixed;
+  inset: 0;
+  z-index: 100000;
+  display: grid;
+  place-items: center;
+  padding: 24px;
+  box-sizing: border-box;
+}
+.caixa-onboarding-gate.is-hidden { display: none; }
+.caixa-onboarding {
+  position: relative;
+  width: min(100%, 560px);
+  max-height: min(760px, calc(100vh - 40px));
+  overflow: auto;
+  padding: 38px;
+  border: 1px solid var(--line, #ddd0ac);
+  border-radius: 24px;
+  background: rgba(250, 245, 233, .98);
+  box-shadow: 0 24px 80px rgba(22, 51, 44, .18), 0 2px 8px rgba(22, 51, 44, .06);
+  color: var(--ink, #16332c);
+  scrollbar-width: thin;
+}
+.caixa-onboarding-progress {
+  height: 4px;
+  margin: 24px 0 26px;
+  overflow: hidden;
+  border-radius: 999px;
+  background: var(--line-soft, #e8dfc7);
+}
+.caixa-onboarding-progress::before {
+  content: "";
+  display: block;
+  width: var(--progress, 25%);
+  height: 100%;
+  border-radius: inherit;
+  background: var(--gold, #b9862f);
+  transition: width .3s ease;
+}
+.caixa-onboarding h1 {
+  margin: 0 0 9px;
+  font-family: Fraunces, Georgia, serif;
+  font-size: clamp(28px, 6vw, 40px);
+  line-height: 1.05;
+  letter-spacing: -.045em;
+}
+.caixa-onboarding-question {
+  margin: 24px 0 13px;
+  font-size: 15px;
+  font-weight: 700;
+}
+.caixa-onboarding-options {
+  display: grid;
+  gap: 10px;
+}
+.caixa-onboarding-option {
+  width: 100%;
+  min-height: 64px;
+  padding: 12px 15px;
+  border: 1px solid var(--line, #ddd0ac);
+  border-radius: 14px;
+  background: rgba(255,255,255,.48);
+  color: var(--ink, #16332c);
+  text-align: left;
+  font: inherit;
+  font-size: 14px;
+  font-weight: 700;
+  cursor: pointer;
+  transition: border-color .18s ease, background .18s ease, transform .18s ease, box-shadow .18s ease;
+}
+.caixa-onboarding-option span {
+  display: block;
+  margin-top: 4px;
+  color: var(--ink-softer, #2f5a4d);
+  font-size: 11px;
+  font-weight: 500;
+}
+.caixa-onboarding-option:hover { transform: translateY(-1px); }
+.caixa-onboarding-option.is-selected {
+  border-color: var(--gold, #b9862f);
+  background: rgba(185, 134, 47, .10);
+  box-shadow: 0 0 0 2px rgba(185, 134, 47, .10);
+}
+.caixa-onboarding-options-compact { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+.caixa-onboarding-person-block + .caixa-onboarding-person-block { margin-top: 22px; }
+.caixa-onboarding-mini-title { margin-bottom: 9px; font-size: 12px; font-weight: 700; color: var(--ink-softer, #2f5a4d); }
+.caixa-onboarding-hint { margin: -2px 0 12px; color: var(--ink-softer, #2f5a4d); font-size: 12px; line-height: 1.55; }
+.caixa-onboarding-textarea { min-height: 118px; padding: 12px 14px; resize: vertical; line-height: 1.5; }
+.caixa-onboarding-actions { display: grid; grid-template-columns: .7fr 1.3fr; gap: 10px; margin-top: 22px; }
+.caixa-onboarding-actions .caixa-auth-submit,
+.caixa-onboarding-actions .caixa-auth-secondary { margin-top: 0; }
+.caixa-onboarding .caixa-auth-submit { margin-top: 22px; }
+.caixa-onboarding .caixa-auth-message { margin-bottom: 0; }
+.caixa-onboarding-open .app { visibility: hidden; }
+
+@media (prefers-color-scheme: dark) {
+  .caixa-onboarding {
+    background: rgba(18, 37, 32, .99);
+    border-color: rgba(255,255,255,.09);
+    color: #f7f3e9;
+  }
+  .caixa-onboarding-progress { background: rgba(255,255,255,.08); }
+  .caixa-onboarding-option {
+    border-color: rgba(255,255,255,.12);
+    background: rgba(255,255,255,.045);
+    color: #f7f3e9;
+  }
+  .caixa-onboarding-option span,
+  .caixa-onboarding-hint,
+  .caixa-onboarding-mini-title { color: #b9c9c1; }
+  .caixa-onboarding-option.is-selected { background: rgba(185, 134, 47, .13); }
+}
+
+@media (max-width: 520px) {
+  .caixa-onboarding-gate { padding: 12px; }
+  .caixa-onboarding { max-height: calc(100vh - 24px); padding: 27px 21px; border-radius: 20px; }
+  .caixa-onboarding-options-compact { grid-template-columns: 1fr; }
+  .caixa-onboarding-actions { grid-template-columns: 1fr; }
+  .caixa-onboarding-actions .caixa-auth-secondary { order: 2; }
+}
