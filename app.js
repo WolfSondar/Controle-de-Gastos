@@ -603,6 +603,9 @@ function salvarPaginaGraficoResumo(indice) {
   try { const raw = JSON.parse(localStorage.getItem(RESUMO_GRAFICO_CACHE_KEY) || "{}"); const chave = localStorage.getItem(PESSOA_STORAGE_KEY) || "davi"; raw[chave] = Math.max(0, Math.floor(Number(indice) || 0)); localStorage.setItem(RESUMO_GRAFICO_CACHE_KEY, JSON.stringify(raw)); } catch (err) {}
 }
 
+const PESSOAS_VALIDAS = new Set(["davi", "gabriel", "ambos"]);
+const pessoaSalvaInicial = (() => { try { const p = localStorage.getItem(PESSOA_STORAGE_KEY); return PESSOAS_VALIDAS.has(p) ? p : "davi"; } catch (e) { return "davi"; } })();
+
 const state = {
   ganhos: [],
   gastosFixos: [],
@@ -616,7 +619,7 @@ const state = {
   // em andamento, uma leitura GET não pode substituir o estado local com
   // uma versão antiga que ainda está na planilha.
   salvamentosEmAndamento: new Set(),
-  pessoaAtual: localStorage.getItem(PESSOA_STORAGE_KEY) || "davi",
+  pessoaAtual: pessoaSalvaInicial,
   mesAtual: mesAtualCache ? mesAtualCache.mes : null,
   anoAtual: mesAtualCache ? mesAtualCache.ano : null,
   historico: null, 
@@ -6088,10 +6091,19 @@ if (document.readyState === "loading") {
         if (!ant) {
           appendMensagem(`<strong>Ainda não tenho dados históricos suficientes para comparar.</strong><span class="caixa-chat-note">Assim que existir um mês anterior fechado com dados comparáveis, eu mostro as mudanças sem inventar informações.</span>`);
         } else {
-          const atual={gastos:(Number(t.fixosPagos)||0)+(Number(t.variaveisPagos)||0),ganhos:Number(t.ganhosRecebidos)||0,guardado:somaCampo(state.caixinhas,"valorGuardadoMes")},ca=Object.fromEntries(categoriasChat()),cp=categoriasHistoricoAnteriorChat(),linhas=[];
-          if(cp) Array.from(new Set([...Object.keys(ca),...Object.keys(cp)])).map(cat=>({cat,delta:(ca[cat]||0)-(cp[cat]||0)})).filter(x=>Math.abs(x.delta)>=.01).sort((a,b)=>Math.abs(b.delta)-Math.abs(a.delta)).slice(0,5).forEach(x=>linhas.push(`<li><strong>${esc(x.cat)}</strong>: <span class="comparacao-seta ${x.delta>0?"neg":"pos"}">${x.delta>0?"↑":"↓"}</span> <span class="chat-valor ${x.delta>0?"chat-valor-neg":"chat-valor-pos"}">${chatFmt(Math.abs(x.delta))}</span></li>`));
+          const atual={gastos:(Number(t.fixosPagos)||0)+(Number(t.variaveisPagos)||0),ganhos:Number(t.ganhosRecebidos)||0,guardado:somaCampo(state.caixinhas,"valorGuardadoMes")},ca=Object.fromEntries(categoriasChat()),cp=categoriasHistoricoAnteriorChat(),pend=categoriasPendentesChat(),linhas=[],pendenciasComparacao=[];
+          if(cp) Array.from(new Set([...Object.keys(ca),...Object.keys(cp)])).map(cat=>({cat,delta:(ca[cat]||0)-(cp[cat]||0)})).filter(x=>Math.abs(x.delta)>=.01).filter(x=>{
+            // Uma categoria que neste mês só possui lançamentos pendentes não
+            // pode aparecer como "queda": ela ainda não virou gasto realizado.
+            if ((Number(ca[x.cat])||0) === 0 && (Number(pend[x.cat])||0) > 0) {
+              pendenciasComparacao.push({cat:x.cat,valor:pend[x.cat]});
+              return false;
+            }
+            return true;
+          }).sort((a,b)=>Math.abs(b.delta)-Math.abs(a.delta)).slice(0,5).forEach(x=>linhas.push(`<li><strong>${esc(x.cat)}</strong>: <span class="comparacao-seta ${x.delta>0?"neg":"pos"}">${x.delta>0?"↑":"↓"}</span> <span class="chat-valor ${x.delta>0?"chat-valor-neg":"chat-valor-pos"}">${chatFmt(Math.abs(x.delta))}</span></li>`));
+          const pendenciaNota = pendenciasComparacao.length ? `<div class="chat-comparacao-pendentes"><strong>Sem distorção:</strong> ${pendenciasComparacao.map(x=>`${esc(x.cat)} tem ${chatFmt(x.valor)} pendente neste mês e, por isso, não entra como gasto realizado na comparação.`).join(" ")}</div>` : "";
           const dg=atual.gastos-ant.gastos,dr=atual.ganhos-ant.ganhos,ds=atual.guardado-ant.guardado;
-          appendMensagem(`<strong>Este mês x ${esc(ant.nome||"mês anterior")}</strong><div class="chat-comparacao-bloco"><div class="chat-comparacao-titulo">Gastos</div>${linhas.length?`<ul>${linhas.join("")}</ul>`:`<p>Não houve mudança de categoria relevante.</p>`}<div class="chat-comparacao-resultado">Resultado: ${dg===0?"seus gastos ficaram iguais":`você gastou <span class="chat-valor ${dg>0?"chat-valor-neg":"chat-valor-pos"}">${chatFmt(Math.abs(dg))}</span> ${dg>0?"a mais":"a menos"}`}.</div><div class="chat-comparacao-titulo">Ganhos</div><div class="chat-comparacao-resultado">${dr===0?"seus ganhos ficaram iguais":`você recebeu <span class="chat-valor chat-valor-pos">${chatFmt(Math.abs(dr))}</span> ${dr>0?"a mais":"a menos"}`}.</div>${ant.guardado||atual.guardado?`<div class="chat-comparacao-resultado">Guardado: ${ds===0?"mesmo valor":`<span class="chat-valor chat-valor-gold">${chatFmt(Math.abs(ds))}</span> ${ds>0?"a mais":"a menos"}`}.</div>`:""}</div>`);
+          appendMensagem(`<strong>Este mês x ${esc(ant.nome||"mês anterior")}</strong><div class="chat-comparacao-bloco"><div class="chat-comparacao-titulo">Gastos</div>${linhas.length?`<ul>${linhas.join("")}</ul>`:`<p>Não houve mudança de categoria relevante.</p>`}<div class="chat-comparacao-resultado">Resultado: ${dg===0?"seus gastos ficaram iguais":`você gastou <span class="chat-valor ${dg>0?"chat-valor-neg":"chat-valor-pos"}">${chatFmt(Math.abs(dg))}</span> ${dg>0?"a mais":"a menos"}`}.</div><div class="chat-comparacao-titulo">Ganhos</div><div class="chat-comparacao-resultado">${dr===0?"seus ganhos ficaram iguais":`você recebeu <span class="chat-valor chat-valor-pos">${chatFmt(Math.abs(dr))}</span> ${dr>0?"a mais":"a menos"}`}.</div>${ant.guardado||atual.guardado?`<div class="chat-comparacao-resultado">Guardado: ${ds===0?"mesmo valor":`<span class="chat-valor chat-valor-gold">${chatFmt(Math.abs(ds))}</span> ${ds>0?"a mais":"a menos"}`}.</div>`:""}${pendenciaNota}</div>`);
         }
       }
 
@@ -6707,6 +6719,20 @@ if (document.readyState === "loading") {
     const badge=document.getElementById("statusFinanceiroBadge"),titulo=document.getElementById("statusFinanceiroTitulo"),descricao=document.getElementById("statusFinanceiroDescricao");
     if(!badge||!titulo||!descricao||!state.loaded)return; const t=totaisChat(),status=statusFinanceiroAtual(t); badge.classList.remove("status-financeiro-tranquilo","status-financeiro-atencao","status-financeiro-apertado","status-financeiro-neutro"); badge.classList.add(status.classe); titulo.textContent=status.titulo; const chave=chaveCacheStatusFinanceiro(t,status),cache=lerCacheStatusFinanceiro(chave); descricao.innerHTML=formatarTextoIAChat(cache||descricaoStatusFallback(t,status)); atualizarDescricaoStatusIA(t,status,chave);
   }
+  function categoriasPendentesChat() {
+    const mapa = {};
+    const adicionar = (item, tipo) => {
+      if (!item || item.pago === true || ehFuturoDoMesAtual(item)) return;
+      if (tipo === "variavel" && (!gastoVariavelEhReal(item) || item.lembrete || !variavelContaNoSaldo(item))) return;
+      if (tipo === "fixo" && (Number(item.valor) || 0) <= 0) return;
+      const cat = String(item.tipo || "Outros").trim() || "Outros";
+      mapa[cat] = (mapa[cat] || 0) + (Number(item.valor) || 0);
+    };
+    listaFinita(state.gastosFixos).forEach(i => adicionar(i, "fixo"));
+    listaFinita(state.gastosVariaveis).forEach(i => adicionar(i, "variavel"));
+    return mapa;
+  }
+
   function categoriasHistoricoAnteriorChat(){
     const ant=compararMesAnteriorChat(); if(!ant)return null; const anos=listaFinita(state.historico?.anos); let pm=state.mesAtual-1,pa=state.anoAtual; if(pm===0){pm=12;pa--;} const bloco=anos.find(a=>Number(a.ano)===pa),mes=bloco?.meses?.find(m=>Number(m.mes)===pm); if(!mes)return null;
     const fontes=state.pessoaAtual==="ambos"?[mes.categoriasDavi||{},mes.categoriasGabriel||{}]:[state.pessoaAtual==="gabriel"?(mes.categoriasGabriel||{}):(mes.categoriasDavi||{})]; const mapa={}; fontes.forEach(obj=>Object.entries(obj).forEach(([cat,valor])=>{if(String(cat).trim().toLowerCase()!=="metas")mapa[cat]=(mapa[cat]||0)+Math.abs(Number(valor)||0);})); return mapa;
@@ -6715,7 +6741,13 @@ if (document.readyState === "loading") {
   window.renderResumoStatusFinanceiro=renderResumoStatusFinanceiro;
   window.renderResumoAcontecimentos=renderResumoAcontecimentos;
 
+  let fechamentoChatTimer = null;
   function abrirChat() {
+    if (fechamentoChatTimer) { clearTimeout(fechamentoChatTimer); fechamentoChatTimer = null; }
+    // O + usa o mesmo painel do chat. Limpamos a altura temporária do fechamento
+    // antes de abrir para que o painel possa medir o conteúdo normalmente.
+    chat.style.height = "";
+    chat.classList.remove("is-closing");
     chat.classList.add("is-open");
     chat.setAttribute("aria-hidden", "false");
     fab.setAttribute("aria-expanded", "true");
@@ -6724,14 +6756,25 @@ if (document.readyState === "loading") {
     if (first) setTimeout(() => first.focus(), 80);
   }
   function fecharChat() {
+    if (!chat.classList.contains("is-open")) return;
+    // Congela a altura por alguns frames. Sem isso, resetar o conteúdo enquanto
+    // a transição de saída roda faz o painel encolher de forma visível e parece
+    // que ele cresce/"estoura" antes de fechar — especialmente no fluxo do +.
+    const alturaAtual = chat.offsetHeight;
+    if (alturaAtual > 0) chat.style.height = alturaAtual + "px";
+    chat.classList.add("is-closing");
     chat.classList.remove("is-open");
     chat.setAttribute("aria-hidden", "true");
     fab.setAttribute("aria-expanded", "false");
     atualizarVisibilidadeFab();
-    // Fechar encerra o contexto atual. Ao abrir novamente pela IA, nunca
-    // reaparece uma pergunta/formulário do cadastro anterior.
-    resetarChatParaSelecao();
     cadastroAtivo = null;
+    if (fechamentoChatTimer) clearTimeout(fechamentoChatTimer);
+    fechamentoChatTimer = setTimeout(() => {
+      fechamentoChatTimer = null;
+      resetarChatParaSelecao();
+      chat.classList.remove("is-closing");
+      chat.style.height = "";
+    }, 280);
   }
 
   fab.addEventListener("click", () => chat.classList.contains("is-open") ? fecharChat() : abrirChat());
