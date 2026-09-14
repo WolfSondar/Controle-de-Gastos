@@ -1739,7 +1739,7 @@ function animarReencaixeStatus(listaId, pendingId, antes, origemKey, destinoKey,
 
   requestAnimationFrame(() => requestAnimationFrame(() => {
     ghost.style.transform = `translate3d(${dx}px, ${dy}px, 0) scale(${sx}, ${sy})`;
-    ghost.style.opacity = "0.12";
+    ghost.style.opacity = "1";
   }));
 
   window.setTimeout(() => {
@@ -2376,12 +2376,16 @@ function renderPendentesDestaque(containerId, lista, tipo, statusKey, toggleFn, 
   `;
 
   if (!ambos) {
-    el.querySelectorAll('.pendente-destaque-row').forEach((li) => {
-      const alternarLinha = (event) => {
-        if (event.target.closest(".swipe-actions") || event.target.closest(".pago-toggle")) return;
-        toggleFn(Number(li.dataset.idx));
-      };
-      li.addEventListener("click", alternarLinha);
+    el.querySelectorAll('.pendente-destaque-row .pago-toggle').forEach((label) => {
+      label.addEventListener("click", (event) => {
+        // Somente a tag de status confirma/desfaz o lançamento. O card inteiro
+        // continua sendo apenas conteúdo/área de swipe.
+        if (event.target.closest('input[type="checkbox"]')) return;
+        event.preventDefault();
+        event.stopPropagation();
+        const input = label.querySelector('input[type="checkbox"]');
+        if (input) toggleFn(Number(input.dataset.idx));
+      });
     });
     el.querySelectorAll('.pendente-destaque-row input[type="checkbox"]').forEach((input) => {
       input.addEventListener("change", () => toggleFn(Number(input.dataset.idx)));
@@ -2456,14 +2460,17 @@ function renderListaComStatus(ulId, lista, tipo, ops, tipoModal, statusKey, togg
       </div>
     `;
     if (!ambos) {
-      // O lançamento inteiro é clicável para alternar Pago/Recebido <-> Pendente.
-      // O controle continua funcionando normalmente, mas cliques em editar/excluir
-      // e no próprio status não disparam uma segunda alternância.
-      const alternarLinha = (event) => {
-        if (event.target.closest(".swipe-actions") || event.target.closest(".pago-toggle")) return;
-        toggleFn(idx);
-      };
-      li.addEventListener("click", alternarLinha);
+      // Apenas a tag de status alterna Pago/Recebido <-> Pendente.
+      // O restante do card não dispara a mudança de status.
+      const status = li.querySelector(".pago-toggle");
+      if (status) {
+        status.addEventListener("click", (event) => {
+          if (event.target.closest('input[type="checkbox"]')) return;
+          event.preventDefault();
+          event.stopPropagation();
+          toggleFn(idx);
+        });
+      }
       li.querySelector('input[type="checkbox"]').addEventListener("change", () => toggleFn(idx));
       li.querySelector(".swipe-edit").addEventListener("click", () => {
         fecharSwipe(li);
