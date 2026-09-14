@@ -7511,7 +7511,7 @@ body:has(.caixa-chat.is-open)::before {
   box-shadow: 0 0 0 4px color-mix(in srgb, currentColor 12%, transparent);
 }
 .status-financeiro-tranquilo { color: var(--income); }
-.status-financeiro-atencao { color: var(--expense); }
+.status-financeiro-atencao { color: var(--income); }
 .status-financeiro-neutro { color: var(--muted); }
 .status-financeiro-descricao {
   max-width: 620px;
@@ -7565,3 +7565,58 @@ body:has(.caixa-chat.is-open)::before {
   .chat-comparacao-bloco { padding: 11px; }
 }
 .status-financeiro-apertado { color: var(--expense); }
+
+
+/* V24 — refinamento de fechamento, toque mobile e Status financeiro */
+.caixa-chat.is-closing {
+  pointer-events: none;
+}
+.caixa-chat.is-closing .caixa-chat-body,
+.caixa-chat.is-closing .caixa-chat-thinking {
+  overflow: hidden;
+}
+
+/* Remove o highlight azul nativo do navegador em toques. O feedback do Caixa
+   continua sendo dado pelos próprios estados :active/:focus-visible. */
+button,
+[role="button"],
+a,
+select,
+summary,
+input[type="button"],
+input[type="submit"] {
+  -webkit-tap-highlight-color: transparent;
+}
+button,
+[role="button"] {
+  outline: none;
+}
+button:focus-visible,
+[role="button"]:focus-visible {
+  outline: 2px solid color-mix(in srgb, var(--gold) 72%, transparent);
+  outline-offset: 3px;
+}
+
+.chat-comparacao-pendentes {
+  margin-top: 4px;
+  padding: 9px 10px;
+  border-left: 2px solid var(--gold);
+  border-radius: 8px;
+  background: color-mix(in srgb, var(--gold) 7%, var(--paper-deep));
+  color: var(--muted);
+  font-size: .78rem;
+  line-height: 1.5;
+}
+.chat-comparacao-pendentes strong { color: var(--ink-text); }
+
+@media (prefers-color-scheme: dark) {
+  .status-financeiro-descricao { color: #f1e9d8 !important; }
+  .status-financeiro-badge { color: var(--ink-text); background: #16281f; border-color: #2a4438; }
+  .status-financeiro-tranquilo,
+  .status-financeiro-atencao { color: #6fbb8c !important; }
+  .status-financeiro-apertado { color: #e0846a !important; }
+  .chat-comparacao-bloco { color: #f1e9d8; }
+  .chat-comparacao-resultado { color: #f1e9d8; }
+  .chat-comparacao-pendentes { background: rgba(217,171,92,.07); color: #9fae9f; }
+  .chat-comparacao-pendentes strong { color: #f1e9d8; }
+}
