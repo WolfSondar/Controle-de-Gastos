@@ -232,7 +232,7 @@ function doPost(e) {
     // bloqueio de "ambos é somente leitura" logo abaixo: no modo Juntos
     // também dá pra pedir um insight, só não dá pra editar lançamentos.
     if (action === "gerarInsightIA") {
-      return respond(gerarInsightComIA(body.pessoa, body.periodo, body.resumo));
+      return respond(gerarInsightComIA(body.pessoa, body.periodo, body.resumo, body.modo || ""));
     }
     if (action === "gerarRespostaGastarIA") {
       return respond(gerarRespostaGastarComIA(body.pessoa, body.periodo, body.resumo));
@@ -659,7 +659,7 @@ function gerarRespostaGastarComIA(pessoa, periodo, resumo) {
   return { ok: false, error: "Não foi possível gerar a resposta de gasto com IA.", diagnostico: erros };
 }
 
-function gerarInsightComIA(pessoa, periodo, resumo) {
+function gerarInsightComIA(pessoa, periodo, resumo, modo) {
   const chaves = obterChavesGemini();
   const preferida = indiceChaveGeminiPreferida();
   const ordem = [preferida, preferida === 0 ? 1 : 0];
@@ -677,6 +677,7 @@ function gerarInsightComIA(pessoa, periodo, resumo) {
       apiKeyForcada: chave,
       indiceChave: indice + 1,
       diagnosticoIA: true,
+      modo: modo || "",
     });
 
     if (resultado && resultado.ok) {
@@ -771,21 +772,12 @@ function lerCategoriasIcones() {
   return regras;
 }
 
-const CACHE_PROMPT_IA_SEGUNDOS = 5;
+const CACHE_PROMPT_IA_SEGUNDOS = 30;
 const CACHE_PROMPT_IA_CHAVE = "caixa_ia_contexto_v1";
 
 function lerImersaoIA() {
   const vazio = { davi: [], gabriel: [], ambos: [], tomDavi: "", tomGabriel: "" };
 
-  // O contexto/prompt pessoal é renovado no máximo a cada 30 segundos.
-  // Não existe um timer no Apps Script para "acordar" sozinho; a renovação
-  // acontece na próxima geração de IA após o TTL, sem fazer uma chamada ao
-  // Gemini só para atualizar a configuração.
-  try {
-    const cache = CacheService.getScriptCache();
-    const salvo = cache.get(CACHE_PROMPT_IA_CHAVE);
-    if (salvo) return JSON.parse(salvo);
-  } catch (err) {}
   try {
     const ss = SpreadsheetApp.getActiveSpreadsheet();
     const sheet = ss.getSheetByName(CONFIGS_SHEET_NAME);
@@ -810,7 +802,6 @@ function lerImersaoIA() {
       tomDavi: coluna(3).join(" "),
       tomGabriel: coluna(4).join(" "),
     };
-    try { CacheService.getScriptCache().put(CACHE_PROMPT_IA_CHAVE, JSON.stringify(resultado), CACHE_PROMPT_IA_SEGUNDOS); } catch (err) {}
     return resultado;
   } catch (err) {
     return vazio;
@@ -823,7 +814,8 @@ function lerImersaoIA() {
 function textoTomIA(pessoaCodigo) {
   if (pessoaCodigo === "ambos") return "";
   const imersao = lerImersaoIA();
-  return pessoaCodigo === "gabriel" ? (imersao.tomGabriel || "") : (imersao.tomDavi || "");
+  if (pessoaCodigo === "gabriel") return imersao.tomGabriel || "";
+  return imersao.tomDavi || "";
 }
 
 // Monta o bloco de texto de imersão a ser enviado no prompt, já filtrado
@@ -917,6 +909,12 @@ function gerarInsightComGemini(pessoa, periodo, resumo, opcoesModo) {
           "Se o resumo trouxer o campo transferenciasEntreOsDoisEsseMes com alguma transferência de verdade, comente sobre isso com naturalidade em pelo menos um insight (ex: quem ajudou quem naquele mês), sem julgamento. Mas se esse campo vier dizendo que NÃO houve nenhuma transferência esse mês, NUNCA comente sobre essa ausência — não é um dado relevante nem um sinal de nada (nem bom, nem ruim), então simplesmente ignore esse campo por completo e escolha outro ângulo pro insight.",
         ]
       : ["Fale diretamente com " + nomePessoa + ", no singular ('você')."];
+
+    if (opcoesModo && opcoesModo.modo === "mudou") {
+      regrasComuns.push(
+        "MODO ESPECIAL — O QUE MAIS MUDOU ESTE MÊS: o primeiro insight DEVE responder diretamente a essa pergunta comparando o mês atual com mesPassado. Identifique a maior mudança relevante entre gastos, ganhos ou guardado. Comece pelo valor do mês atual e só depois explique a diferença para o mês anterior, para ficar claro de primeira. Não use frase pronta, bordão ou personalidade inventada pelo código: construa a resposta usando o TOM/PERSONA recebido para esta pessoa. O primeiro insight deve ser o mais adequado para responder exatamente à pergunta 'O que mais mudou este mês?'."
+      );
+    }
 
     const promptSistema = regrasComuns
       .concat(regrasPessoa)
