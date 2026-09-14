@@ -2492,6 +2492,10 @@ function renderListaComStatus(ulId, lista, tipo, ops, tipoModal, statusKey, togg
     const on = item[statusKey] === true;
     const li = document.createElement("li");
     li.className = "item-list-row" + (on ? "" : " is-pendente") + (tipo === "income" ? (ganhoEhBeneficio(item) ? " ganho-beneficio" : " ganho-saldo") : "");
+    // O índice também precisa existir nas linhas já concluídas.
+    // A animação de Recebidos/Pagos -> Pendentes localiza a linha pelo data-idx;
+    // sem ele a transição encontrava a tag, mas não conseguia mover a linha.
+    li.dataset.idx = idx;
     li.dataset.tipo = tipo;
     li.style.animationDelay = Math.min(posicao * 35, 250) + "ms";
     li.innerHTML = `
