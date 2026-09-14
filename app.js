@@ -604,6 +604,10 @@ const state = {
   // Incrementa a cada alteração feita pelo usuário. Uma busca iniciada antes
   // dessa alteração nunca pode sobrescrever o estado local mais novo.
   versaoAlteracaoLocal: 0,
+  // Ações que ainda estão sendo persistidas. Enquanto um salvamento está
+  // em andamento, uma leitura GET não pode substituir o estado local com
+  // uma versão antiga que ainda está na planilha.
+  salvamentosEmAndamento: new Set(),
   pessoaAtual: localStorage.getItem(PESSOA_STORAGE_KEY) || "davi",
   mesAtual: mesAtualCache ? mesAtualCache.mes : null,
   anoAtual: mesAtualCache ? mesAtualCache.ano : null,
@@ -822,6 +826,11 @@ async function carregarDados() {
     const data = await res.json();
     if (data && data.ok === false) throw new Error(data.error || "Erro desconhecido");
     if (state.pessoaAtual !== pessoaRequisitada) return;
+    // Uma gravação pode ter começado depois que esta busca foi iniciada (ou
+    // enquanto ela estava em trânsito). Nesse intervalo o Apps Script ainda
+    // pode devolver o estado anterior da planilha. Nunca deixamos esse GET
+    // sobrescrever o estado que o usuário acabou de alterar.
+    if (state.salvamentosEmAndamento && state.salvamentosEmAndamento.size) return;
     // A resposta pode ter ficado alguns segundos em trânsito. Se houve uma
     // ação local desde o início desta busca, ela é mais nova e deve vencer.
     if (state.versaoAlteracaoLocal !== versaoNoInicio) return;
@@ -885,6 +894,7 @@ const filaSalvar = new Map();
 async function salvarBloco(action, payload) {
   if (isAmbos()) return; 
   const chave = `${state.pessoaAtual}:${action}`;
+  state.salvamentosEmAndamento?.add(chave);
   let entrada = filaSalvar.get(chave);
   if (!entrada) {
     entrada = { emVoo: false, pendente: null };
@@ -931,6 +941,7 @@ async function salvarBloco(action, payload) {
     }
   } finally {
     entrada.emVoo = false;
+    state.salvamentosEmAndamento?.delete(chave);
   }
 }
 
