@@ -771,7 +771,7 @@ function lerCategoriasIcones() {
   return regras;
 }
 
-const CACHE_PROMPT_IA_SEGUNDOS = 30;
+const CACHE_PROMPT_IA_SEGUNDOS = 5;
 const CACHE_PROMPT_IA_CHAVE = "caixa_ia_contexto_v1";
 
 function lerImersaoIA() {
@@ -823,7 +823,7 @@ function lerImersaoIA() {
 function textoTomIA(pessoaCodigo) {
   if (pessoaCodigo === "ambos") return "";
   const imersao = lerImersaoIA();
-  return imersao.tomGabriel || "";
+  return pessoaCodigo === "gabriel" ? (imersao.tomGabriel || "") : (imersao.tomDavi || "");
 }
 
 // Monta o bloco de texto de imersão a ser enviado no prompt, já filtrado
