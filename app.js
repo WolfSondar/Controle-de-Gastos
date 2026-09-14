@@ -834,9 +834,14 @@ async function carregarDados() {
       categoriasConfig: colecaoMudou(state.categoriasConfig || [], data.categorias || []),
       iconCategorias: colecaoMudou(state.iconCategorias || [], data.iconCategorias || []),
     };
-    state.ganhos = data.ganhos || [];
-    state.gastosFixos = data.gastosFixos || [];
-    state.gastosVariaveis = data.gastosVariaveis || [];
+    const pessoaAtual = state.pessoaAtual;
+    const protegerGanhos = [...transicoesStatusAtivas].some(k => k.startsWith(`${pessoaAtual}:ganhos:`));
+    const protegerFixos = [...transicoesStatusAtivas].some(k => k.startsWith(`${pessoaAtual}:gastosFixos:`));
+    const protegerVariaveis = [...transicoesStatusAtivas].some(k => k.startsWith(`${pessoaAtual}:gastosVariaveis:`));
+
+    if (!protegerGanhos) state.ganhos = data.ganhos || [];
+    if (!protegerFixos) state.gastosFixos = data.gastosFixos || [];
+    if (!protegerVariaveis) state.gastosVariaveis = data.gastosVariaveis || [];
     state.caixinhas = data.caixinhas || [];
     state.categoriasConfig = data.categorias || null;
     state.iconCategorias = data.iconCategorias || [];
@@ -1542,6 +1547,11 @@ async function transferirEntrePessoas(de, para, nome, valor, tipo) {
   }
 }
 
+// Transições de status que estão sendo animadas. Enquanto uma delas está
+// acontecendo, uma leitura assíncrona da planilha não pode redesenhar ou
+// substituir a coleção com o estado antigo antes de a animação terminar.
+const transicoesStatusAtivas = new Set();
+
 function fixoEhPago(item) { return item.pago === true; }
 function variavelEhPago(item) { return item.pago === true; }
 function ganhoEhRecebido(item) { return item.recebido === true; }
@@ -1682,27 +1692,34 @@ function animarMudancaStatusFluida(listaId, pendingId, index, ligado, tipo, stat
   const linhaAtual = (ul && ul.querySelector(seletor)) || (pend && pend.querySelector(seletor));
   if (!linhaAtual) return;
 
-  // Durante os 3 segundos de confirmação, NÃO trocamos o texto da tag.
-  // A linha continua mostrando o status que tinha quando o usuário clicou;
-  // apenas o carimbo comunica a ação. Assim nunca aparece "Pago Pendente"
-  // ou "Recebido Pendente" misturado na mesma tag.
+  const colecaoKey = tipo === "income"
+    ? "ganhos"
+    : (tipoModal === "fixos" ? "gastosFixos" : "gastosVariaveis");
+  const transicaoKey = `${state.pessoaAtual}:${colecaoKey}:${index}`;
+  transicoesStatusAtivas.add(transicaoKey);
+
+  // Não alteramos a tag durante a confirmação. O usuário vê apenas o carimbo.
   linhaAtual.classList.remove("is-status-saindo-pendente", "is-status-saindo-pago");
   linhaAtual.classList.add("is-status-confirmando");
   const checkbox = linhaAtual.querySelector('input[type="checkbox"]');
   if (checkbox) checkbox.disabled = true;
   carimbarLinha(linhaAtual, ligado ? rotuloOn : rotuloOff, ligado);
 
-  // A confirmação é curta: a linha só muda de seção depois de 1,5 s.
-  // Até lá nenhuma lista/tela é redesenhada.
+  // 1,5 s: tempo suficiente para o carimbo ser percebido, sem deixar a tela
+  // parada. Nenhuma lista é redesenhada durante esse período.
   window.setTimeout(() => {
+    transicoesStatusAtivas.delete(transicaoKey);
+
     const lista = statusKey === "recebido"
       ? state.ganhos
-      : (tipo === "expense" && listaId === "listaFixos" ? state.gastosFixos : state.gastosVariaveis);
+      : (tipoModal === "fixos" ? state.gastosFixos : state.gastosVariaveis);
 
-    // O estado já foi alterado no clique. Agora reconstruímos somente as duas
-    // listas envolvidas, nunca a página inteira. Isso também funciona quando
-    // o usuário desfaz um pagamento/recebimento: a linha sai de Pagos/Recebidos
-    // e reaparece em Pendentes.
+    // Garante que o estado local do item continua sendo o que o usuário acabou
+    // de escolher, mesmo que uma leitura antiga da planilha tenha chegado perto
+    // do fim da animação.
+    const item = lista && lista[index];
+    if (item) item[statusKey] = !!ligado;
+
     renderPendentesDestaque(pendingId, lista, tipo, statusKey, toggleFn, rotuloOff, ops, tipoModal);
     renderListaComStatus(listaId, lista, tipo, ops, tipoModal, statusKey, toggleFn, rotuloOn, rotuloOff);
 
