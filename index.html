@@ -52,6 +52,57 @@
   </main>
 </div>
 
+<div class="caixa-onboarding-gate is-hidden" id="caixaOnboardingGate" aria-hidden="true">
+  <div class="caixa-auth-backdrop"></div>
+  <main class="caixa-onboarding" aria-labelledby="caixaOnboardingTitle">
+    <div class="caixa-login-brand">Caixa</div>
+    <div class="caixa-login-kicker">Primeiro acesso</div>
+    <div class="caixa-onboarding-progress" id="caixaOnboardingProgress" aria-hidden="true"><span></span></div>
+    <h1 id="caixaOnboardingTitle">Vamos deixar tudo com a sua cara.</h1>
+    <p class="caixa-login-subtitle" id="caixaOnboardingSubtitle">Antes de entrar no Caixa, preciso de algumas informações para preparar seu espaço.</p>
+
+    <form id="caixaOnboardingForm" novalidate>
+      <section class="caixa-onboarding-step" data-step="1">
+        <div class="caixa-onboarding-question">Como você vai usar o Caixa?</div>
+        <div class="caixa-onboarding-options" role="radiogroup" aria-label="Quantidade de pessoas">
+          <button type="button" class="caixa-onboarding-option is-selected" data-people="1" aria-pressed="true">Só eu<span>Um espaço individual</span></button>
+          <button type="button" class="caixa-onboarding-option" data-people="2" aria-pressed="false">Nós dois<span>Um espaço compartilhado</span></button>
+        </div>
+        <button type="button" class="caixa-auth-submit" id="caixaOnboardingNext1">Continuar</button>
+      </section>
+
+      <section class="caixa-onboarding-step is-hidden" data-step="2">
+        <div class="caixa-onboarding-question" id="caixaPeopleQuestion">Qual é o seu nome?</div>
+        <div id="caixaPeopleFields"></div>
+        <div class="caixa-onboarding-actions">
+          <button type="button" class="caixa-auth-secondary" id="caixaOnboardingBack2">Voltar</button>
+          <button type="button" class="caixa-auth-submit" id="caixaOnboardingNext2">Continuar</button>
+        </div>
+      </section>
+
+      <section class="caixa-onboarding-step is-hidden" data-step="3">
+        <div class="caixa-onboarding-question" id="caixaToneQuestion">Como você prefere que a IA fale com você?</div>
+        <div id="caixaToneFields"></div>
+        <div class="caixa-onboarding-actions">
+          <button type="button" class="caixa-auth-secondary" id="caixaOnboardingBack3">Voltar</button>
+          <button type="button" class="caixa-auth-submit" id="caixaOnboardingNext3">Continuar</button>
+        </div>
+      </section>
+
+      <section class="caixa-onboarding-step is-hidden" data-step="4">
+        <div class="caixa-onboarding-question" id="caixaImmersionQuestion">Como você quer que a IA entenda você?</div>
+        <p class="caixa-onboarding-hint">Escreva do seu jeito. Pode falar sobre sua rotina, objetivos ou como gosta de receber ajuda.</p>
+        <div id="caixaImmersionFields"></div>
+        <div class="caixa-onboarding-actions">
+          <button type="button" class="caixa-auth-secondary" id="caixaOnboardingBack4">Voltar</button>
+          <button type="button" class="caixa-auth-submit" id="caixaOnboardingFinish">Entrar no Caixa</button>
+        </div>
+      </section>
+      <div class="caixa-auth-message is-hidden" id="caixaOnboardingMessage" role="alert"></div>
+    </form>
+  </main>
+</div>
+
 <div class="app">
 
   <!-- CABEÇALHO / SALDO -->
@@ -668,6 +719,7 @@
 
 <script src="config.js"></script>
 <script type="module" src="firebase-auth.js"></script>
+<script type="module" src="firebase-profile.js"></script>
 <script src="app.js"></script>
 </body>
 </html>
