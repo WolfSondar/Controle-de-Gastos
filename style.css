@@ -7268,9 +7268,10 @@ body.sem-entrada-listas .item-list-row { animation: none !important; }
 .pendentes-destaque .status-list-title { color: var(--gold-deep); }
 .pendentes-item-list { margin: 0; }
 .pendente-destaque-row { animation: item-entrar .34s cubic-bezier(.2,.8,.2,1) both; }
-.item-list-row.is-status-saindo-pendente, .item-list-row.is-status-saindo-pago { pointer-events:none; animation: status-linha-saindo .21s cubic-bezier(.4,0,.2,1) forwards !important; }
+.item-list-row.is-status-confirmando { pointer-events:none; }
+.item-list-row.is-status-saindo-pendente, .item-list-row.is-status-saindo-pago { pointer-events:none; animation: status-linha-saindo .28s cubic-bezier(.4,0,.2,1) forwards !important; }
 .item-list-row.is-status-chegando { opacity:0 !important; transform: translateY(8px) scale(.985); }
-.item-list-row.is-status-chegando { transition: opacity .32s ease, transform .32s cubic-bezier(.2,.8,.2,1); }
+.item-list-row.is-status-chegando { transition: opacity .38s ease, transform .38s cubic-bezier(.2,.8,.2,1); }
 @keyframes status-linha-saindo { from { opacity:1; transform:translateY(0) scale(1); max-height:120px; } to { opacity:0; transform:translateY(-5px) scale(.985); max-height:0; padding-top:0; padding-bottom:0; border-bottom-color:transparent; } }
 .status-list-title-row {
   list-style: none;
@@ -7299,9 +7300,10 @@ body.sem-entrada-listas .item-list-row { animation: none !important; }
 }
 .caixa-chat-pendencias-lista.lista-simples li,
 .caixa-chat-pendencias-lista.lista-simples li:nth-child(n) {
-  display: flex;
-  align-items: baseline;
-  justify-content: space-between;
+  display: grid;
+  grid-template-columns: 25px minmax(0, 1fr) auto;
+  align-items: center;
+  justify-content: initial;
   gap: 9px;
   min-height: 0;
   margin: 0;
@@ -7321,20 +7323,28 @@ body.sem-entrada-listas .item-list-row { animation: none !important; }
 }
 .caixa-chat-pendencias-lista.lista-simples .chat-pendente-arrow svg { width: 14px; height:14px; }
 .caixa-chat-pendencias-lista.lista-simples .chat-pendente-main {
-  display: block;
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
   min-width: 0;
 }
 .caixa-chat-pendencias-lista.lista-simples .chat-pendente-main strong {
-  display: inline;
-  overflow: visible;
-  white-space: normal;
+  display: block;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
   font-size: 11px;
   line-height: 1.35;
 }
+.caixa-chat-pendencias-lista.lista-simples .chat-pendente-main strong .chat-pendente-nome,
+.caixa-chat-pendencias-lista.lista-simples .chat-pendente-main strong .chat-pendente-parcela {
+  vertical-align: baseline;
+}
 .caixa-chat-pendencias-lista.lista-simples .chat-pendente-main small {
   display: block;
-  margin-top: 1px;
+  margin-top: 2px;
   font-size: 8.5px;
+  line-height: 1.2;
 }
 .caixa-chat-pendencias-lista.lista-simples .chat-valor {
   min-width: auto;
