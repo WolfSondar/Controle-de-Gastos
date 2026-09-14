@@ -5229,24 +5229,34 @@ if (confirmBackdrop) {
 // INIT E LISTENERS
 // ---------------------------------------------------------------------
 
-renderPessoaSwitch();
-renderMesAtual();
-popularSelectsDeCategoria();
-preencherDatasComHoje();
-atualizarVisibilidadeEdicao();
-atualizarVisibilidadeSplitCard();
-atualizarVisibilidadeVisaoGeral();
-atualizarVisibilidadeJuntosView();
-initGavetas();
-aplicarMascaraMoedaEmTodos();
-posicionarIndicadorAba();
-// Leituras da planilha acontecem na abertura da página. Depois disso, a
-// navegação e a troca de perfil usam os dados em memória/cache; alterações
-// feitas pelo usuário continuam sendo enviadas normalmente via POST.
-carregarDados();
-carregarHistorico();
-carregarConfigIA();
-setTimeout(mostrarDicaAcoesConjuntoSeNecessario, 1200);
+async function iniciarCaixaDepoisDaAutenticacao() {
+  // A tela financeira só inicializa depois que o Firebase confirmar a sessão
+  // e, no primeiro acesso, depois que o perfil inicial for configurado.
+  const user = await (window.CAIXA_AUTH_READY || Promise.resolve(window.CAIXA_CURRENT_USER || null));
+  if (!user) return;
+  const perfil = await (window.CAIXA_PROFILE_READY || Promise.resolve(window.CAIXA_USER_PROFILE || null));
+  if (!perfil) return;
+
+  renderPessoaSwitch();
+  renderMesAtual();
+  popularSelectsDeCategoria();
+  preencherDatasComHoje();
+  atualizarVisibilidadeEdicao();
+  atualizarVisibilidadeSplitCard();
+  atualizarVisibilidadeVisaoGeral();
+  atualizarVisibilidadeJuntosView();
+  initGavetas();
+  aplicarMascaraMoedaEmTodos();
+  posicionarIndicadorAba();
+  // Leituras da planilha continuam como antes nesta primeira fase. O Firebase
+  // agora controla quem pode chegar à aplicação; a migração dos dados vem na etapa seguinte.
+  carregarDados();
+  carregarHistorico();
+  carregarConfigIA();
+  setTimeout(mostrarDicaAcoesConjuntoSeNecessario, 1200);
+}
+
+iniciarCaixaDepoisDaAutenticacao();
 
 // Listener do novo Seletor de Ano no Histórico
 const selectAno = document.getElementById("historicoAnoSelect");
