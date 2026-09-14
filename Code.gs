@@ -915,6 +915,11 @@ function gerarInsightComGemini(pessoa, periodo, resumo, opcoesModo) {
         "MODO ESPECIAL — O QUE MAIS MUDOU ESTE MÊS: o primeiro insight DEVE responder diretamente a essa pergunta comparando o mês atual com mesPassado. Identifique a maior mudança relevante entre gastos, ganhos ou guardado. Comece pelo valor do mês atual e só depois explique a diferença para o mês anterior, para ficar claro de primeira. Não use frase pronta, bordão ou personalidade inventada pelo código: construa a resposta usando o TOM/PERSONA recebido para esta pessoa. O primeiro insight deve ser o mais adequado para responder exatamente à pergunta 'O que mais mudou este mês?'."
       );
     }
+    if (opcoesModo && opcoesModo.modo === "statusFinanceiro") {
+      regrasComuns.push(
+        "MODO ESPECIAL — STATUS FINANCEIRO: o PRIMEIRO insight é usado diretamente no card 'Status financeiro'. Ele deve ser uma única observação curta, de 1 a 2 frases, explicando por que o status calculado pelo aplicativo faz sentido para os números atuais. O texto deve corresponder ao campo mesAtual.statusFinanceiro, sem criar um status diferente. Fale diretamente com a pessoa, siga o TOM/PERSONA e cite apenas dados realmente relevantes. Não escreva título, lista, recomendação ou seção extra. Os outros insights podem ser variados, mas o primeiro é prioritariamente a explicação do status."
+      );
+    }
 
     const promptSistema = regrasComuns
       .concat(regrasPessoa)
