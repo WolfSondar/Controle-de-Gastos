@@ -5165,6 +5165,7 @@ if (document.readyState === "loading") {
         mes: state.mesAtual, ano: state.anoAtual,
         ganhosRecebidos: Number(t.ganhosRecebidos) || 0,
         beneficiosRecebidos: Number(t.ganhosOrigem?.beneficios) || 0,
+        beneficioDisponivel: Number(t.beneficio) || 0,
         ganhosRecebidosSemBeneficio: Number(t.ganhosOrigem?.ganhos) || 0,
         gastoFixoPago: Number(t.fixosPagos) || 0,
         gastoVariavelPago: Number(t.variaveisPagos) || 0,
@@ -5259,6 +5260,80 @@ if (document.readyState === "loading") {
     try {
       localStorage.setItem(chave, JSON.stringify({ salvoEm: Date.now(), textos }));
     } catch (e) {}
+  }
+
+  function chaveCacheGastarIA(t) {
+    const { tom, imersao } = tomChat();
+    return `caixa:gastar-ia:v1:${hashDicasChat(JSON.stringify({
+      pessoa: state.pessoaAtual || "davi",
+      mes: state.mesAtual,
+      ano: state.anoAtual,
+      resumo: resumoParaIAChat(t),
+      tom,
+      imersao
+    }))}`;
+  }
+
+  function lerCacheGastarIA(chave) {
+    try {
+      const raw = localStorage.getItem(chave);
+      if (!raw) return null;
+      const data = JSON.parse(raw);
+      if (!data || typeof data !== "object") return null;
+      if (!data.saldo && !data.beneficio) return null;
+      return data;
+    } catch (e) { return null; }
+  }
+
+  function salvarCacheGastarIA(chave, respostas) {
+    try { localStorage.setItem(chave, JSON.stringify({ salvoEm: Date.now(), ...respostas })); } catch (e) {}
+  }
+
+  async function buscarRespostasGastarIA(t, opcoes = {}) {
+    if (!API_URL || API_URL.includes("COLE_AQUI")) return null;
+    const chave = opcoes.chave || chaveCacheGastarIA(t);
+    if (!opcoes.forcar) {
+      const cache = lerCacheGastarIA(chave);
+      if (cache) return cache;
+    }
+
+    const TEMPO_MAXIMO_IA_MS = 14000;
+    let controller = null;
+    let timer = null;
+    try {
+      controller = typeof AbortController !== "undefined" ? new AbortController() : null;
+      const requisicao = fetch(API_URL, {
+        method: "POST",
+        body: JSON.stringify({
+          action: "gerarRespostaGastarIA",
+          pessoa: state.pessoaAtual || "davi",
+          periodo: { mes: state.mesAtual, ano: state.anoAtual },
+          resumo: resumoParaIAChat(t)
+        }),
+        signal: controller ? controller.signal : undefined
+      });
+      const limite = new Promise((_, reject) => {
+        timer = setTimeout(() => {
+          try { if (controller) controller.abort(); } catch (e) {}
+          reject(new Error("timeout_ia"));
+        }, TEMPO_MAXIMO_IA_MS);
+      });
+      const res = await Promise.race([requisicao, limite]);
+      clearTimeout(timer);
+      if (!res || !res.ok) return null;
+      const data = await res.json();
+      if (!data || data.ok === false || !data.respostas) return null;
+      const respostas = {
+        beneficio: String(data.respostas.beneficio || "").trim(),
+        saldo: String(data.respostas.saldo || "").trim()
+      };
+      if (!respostas.beneficio && !respostas.saldo) return null;
+      salvarCacheGastarIA(chave, respostas);
+      return respostas;
+    } catch (err) {
+      if (timer) clearTimeout(timer);
+      return null;
+    }
   }
 
   async function buscarDicasIA(t, opcoes = {}) {
@@ -5433,20 +5508,24 @@ if (document.readyState === "loading") {
     let texto;
     if (origem === "beneficio") {
       if (valor > 0) texto = `Você ainda pode gastar <span class="${classe} chat-valor">${chatFmt(valor)}</span> usando o <strong>${nome}</strong> neste mês.`;
-      else texto = `Neste momento, o <strong>${nome}</strong> está em <span class="chat-valor chat-valor-neg">${chatFmt(0)}</span>.`;
+      else texto = `Neste momento, o <strong>${nome}</strong> está sem margem para novos gastos.`;
     } else if (valor > 0) {
-      texto = `Depois de considerar o que ainda entra e todas as contas que faltam pagar, você pode gastar até <span class="${classe} chat-valor">${chatFmt(valor)}</span>.`;
+      texto = `Você ainda pode gastar até <span class="${classe} chat-valor">${chatFmt(valor)}</span>.`;
     } else if (valor === 0) {
-      texto = `Depois de considerar o que ainda entra e todas as contas que faltam pagar, sua margem para novos gastos é <span class="chat-valor chat-valor-neg">${chatFmt(0)}</span>.`;
+      texto = `Você não tem margem para novos gastos agora.`;
     } else {
-      texto = `Atenção: depois de considerar o que ainda entra e todas as contas que faltam pagar, faltam <span class="chat-valor chat-valor-neg">${chatFmt(Math.abs(valor))}</span> para fechar todas as obrigações.`;
+      texto = `Você não pode gastar mais nada agora — ainda faltam <span class="chat-valor chat-valor-neg">${chatFmt(Math.abs(valor))}</span> para fechar as obrigações.`;
     }
-    if (origem === "beneficio") {
-      const detalhes = `Disponível no benefício: ${chatFmt(t.beneficio)} · já usado no benefício: ${chatFmt(t.ganhosOrigem.beneficios - t.beneficio)}.`;
-      return `${texto}<span class="caixa-chat-note">${detalhes}</span>`;
+    return aplicarTomChat(texto);
+  }
+
+  function mostrarRespostaGastarIA(texto, origem) {
+    const bruto = String(texto || "").trim();
+    if (!bruto) {
+      appendMensagem(calcularRespostaGastar(origem));
+      return;
     }
-    const detalhes = [`saldo atual: ${chatFmt(t.saldoAtualConta)}`, `a entrar: ${chatFmt(t.aReceber)}`, `contas reservadas: ${chatFmt(t.aPagarFixos + t.aPagarVariaveis)}`];
-    return `${texto}<span class="caixa-chat-note">${detalhes.join(" · ")}.</span>`;
+    appendMensagem(formatarTextoIAChat(bruto));
   }
 
   function respostaCaixinha(cx) {
@@ -5507,7 +5586,18 @@ if (document.readyState === "loading") {
         btn.addEventListener("click", () => {
           escolhas.remove();
           appendMensagem(titulo, "user");
-          iniciarPensamento(() => appendMensagem(calcularRespostaGastar(valor)));
+          iniciarPensamento(async () => {
+            const tAtual = totaisChat();
+            const chave = chaveCacheGastarIA(tAtual);
+            const cache = lerCacheGastarIA(chave);
+            if (cache?.[valor]) {
+              mostrarRespostaGastarIA(cache[valor], valor);
+              return;
+            }
+            const respostas = await buscarRespostasGastarIA(tAtual, { chave });
+            if (respostas?.[valor]) mostrarRespostaGastarIA(respostas[valor], valor);
+            else appendMensagem(calcularRespostaGastar(valor));
+          });
         });
         escolhas.appendChild(btn);
       });
@@ -5700,6 +5790,14 @@ if (document.readyState === "loading") {
       option.textContent = titulo;
       select.appendChild(option);
     });
+    if (opts.defaultValue !== undefined && opts.defaultValue !== null) {
+      const valorPadrao = String(opts.defaultValue);
+      const existe = Array.from(select.options).some((option) => option.value === valorPadrao);
+      if (existe) {
+        select.value = valorPadrao;
+        placeholder.selected = false;
+      }
+    }
     const enviar = document.createElement("button");
     enviar.type = "button";
     enviar.className = "caixa-chat-select-btn";
@@ -5836,7 +5934,7 @@ if (document.readyState === "loading") {
     op.push(["__sem_categoria", "Sem categoria"]);
     selectChat("E em qual categoria ele entra?", op, (valor, titulo) => {
       callback(valor === "__sem_categoria" ? "" : valor, titulo);
-    }, { placeholder: "Selecione uma categoria…" });
+    }, { placeholder: "Selecione uma categoria…", defaultValue: "__sem_categoria" });
   }
 
   function escolhaIconeChat(callback) {
@@ -6228,12 +6326,12 @@ if (document.readyState === "loading") {
     if (!API_URL || API_URL.includes("COLE_AQUI") || !state.mesAtual || !state.anoAtual) return;
     try {
       const t = totaisChat();
-      const chave = chaveCacheDicasChat(t);
-      if (lerCacheDicasChat(chave)) return;
-      await buscarDicasIA(t, { chave });
-      // O resultado fica no cache. Não mexemos no estoque da conversa aqui,
-      // pois o usuário pode ter trocado de perfil ou de assunto enquanto a IA gerava.
-
+      const chaveDicas = chaveCacheDicasChat(t);
+      const chaveGastar = chaveCacheGastarIA(t);
+      await Promise.all([
+        lerCacheDicasChat(chaveDicas) ? Promise.resolve() : buscarDicasIA(t, { chave: chaveDicas }),
+        lerCacheGastarIA(chaveGastar) ? Promise.resolve() : buscarRespostasGastarIA(t, { chave: chaveGastar })
+      ]);
     } catch (e) {}
   }
 
