@@ -7429,234 +7429,194 @@ body.sem-entrada-listas .item-list-row { animation: none !important; }
   transform: translate3d(0, 8px, 0) scale(.985) !important;
 }
 
-/* ETAPA 1 — Login Google */
-.caixa-auth-google {
-  width:100%; min-height:50px; border:1px solid var(--line,rgba(22,51,44,.14));
-  border-radius:14px; background:var(--paper,#fff); color:var(--text,#16332c);
-  display:flex; align-items:center; justify-content:center; gap:11px; cursor:pointer;
-  font:inherit; font-weight:800; transition:transform .18s ease, box-shadow .18s ease, background .18s ease;
-}
-.caixa-auth-google:hover { transform:translateY(-1px); box-shadow:0 8px 24px rgba(22,51,44,.08); }
-.caixa-auth-google:disabled { opacity:.65; cursor:wait; transform:none; }
-.caixa-google-mark { display:grid; place-items:center; width:23px; height:23px; border-radius:50%; font-weight:900; font-family:Arial,sans-serif; color:#4285f4; background:#fff; }
-.caixa-auth-legacy-wrap { margin-top:15px; text-align:center; }
-.caixa-auth-legacy-toggle { font-size:11px; }
-.caixa-auth-legacy-form { margin-top:14px; text-align:left; }
-.caixa-auth-legacy-form.is-hidden { display:none !important; }
 
 /* ============================================================
-   ETAPA 2 — AUTORIZAÇÃO DE ACESSO
+   V13 — Fundo discreto ao abrir Chat IA ou criação (+)
+   Escurece e desfoca levemente o conteúdo atrás do popup,
+   mantendo o popup totalmente nítido e em destaque.
    ============================================================ */
-.caixa-access-gate {
+
+/* O chat não possui backdrop próprio; este pseudo-elemento cria
+   uma camada visual entre a página e o popup. */
+body:has(.caixa-chat.is-open)::before {
+  content: "";
   position: fixed;
   inset: 0;
-  z-index: 99999;
-  display: grid;
-  place-items: center;
-  padding: 24px;
+  z-index: 1198;
+  background: rgba(8, 18, 14, .34);
+  backdrop-filter: blur(6px) saturate(.88);
+  -webkit-backdrop-filter: blur(6px) saturate(.88);
+  pointer-events: none;
+  animation: caixa-popup-fundo .2s ease both;
 }
 
-.caixa-access-card {
-  position: relative;
-  z-index: 1;
-  width: min(440px, 100%);
-  padding: 34px 32px 30px;
-  border: 1px solid rgba(185,134,47,.18);
-  border-radius: 28px;
-  background: var(--paper, #fff);
-  box-shadow: 0 30px 80px rgba(0,0,0,.22), 0 4px 18px rgba(0,0,0,.08);
-  text-align: center;
-  animation: caixaAccessIn .28s ease both;
+/* A criação (+) já usa .modal-backdrop; aqui deixamos a camada
+   mais suave, escura e levemente borrada. */
+#criacaoBackdrop {
+  background: rgba(8, 18, 14, .38) !important;
+  backdrop-filter: blur(6px) saturate(.88) !important;
+  -webkit-backdrop-filter: blur(6px) saturate(.88) !important;
 }
 
-.caixa-access-icon {
-  width: 52px;
-  height: 52px;
-  display: grid;
-  place-items: center;
-  margin: 20px auto 12px;
-  border-radius: 17px;
-  border: 1px solid rgba(185,134,47,.24);
-  background: rgba(185,134,47,.09);
-  color: #b9862f;
-  font-size: 25px;
-  font-weight: 700;
+@keyframes caixa-popup-fundo {
+  from { opacity: 0; }
+  to { opacity: 1; }
 }
 
-.caixa-access-card h1 {
+@media (prefers-color-scheme: dark) {
+  body:has(.caixa-chat.is-open)::before {
+    background: rgba(0, 0, 0, .30);
+    backdrop-filter: blur(7px) saturate(.82);
+    -webkit-backdrop-filter: blur(7px) saturate(.82);
+  }
+
+  #criacaoBackdrop {
+    background: rgba(0, 0, 0, .34) !important;
+    backdrop-filter: blur(7px) saturate(.82) !important;
+    -webkit-backdrop-filter: blur(7px) saturate(.82) !important;
+  }
+}
+
+/* V14 — Status financeiro + novos resultados do chat */
+.resumo-status-card {
+  min-height: 220px;
+}
+.status-financeiro-body {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  justify-content: center;
+  min-height: 145px;
+  gap: 16px;
+  padding: 4px 2px 8px;
+}
+.status-financeiro-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 9px;
+  padding: 8px 13px;
+  border: 1px solid var(--line);
+  border-radius: 999px;
+  font-size: .88rem;
+  font-weight: 750;
+  letter-spacing: .01em;
+  background: var(--paper-deep);
+  color: var(--ink);
+}
+.status-financeiro-pulse {
+  width: 9px;
+  height: 9px;
+  border-radius: 50%;
+  background: currentColor;
+  box-shadow: 0 0 0 4px color-mix(in srgb, currentColor 12%, transparent);
+}
+.status-financeiro-tranquilo { color: var(--income); }
+.status-financeiro-atencao { color: #d9ab5c; }
+.status-financeiro-neutro { color: var(--muted); }
+.status-financeiro-descricao {
+  max-width: 620px;
   margin: 0;
-  font-family: var(--font-display, Fraunces, serif);
-  font-size: clamp(27px, 5vw, 34px);
-  line-height: 1.08;
-  letter-spacing: -.025em;
+  color: var(--ink);
+  font-size: .98rem;
+  line-height: 1.65;
 }
+.status-financeiro-descricao .chat-valor { font-weight: 750; }
 
-.caixa-access-card .caixa-login-subtitle {
-  margin: 12px auto 0;
-  max-width: 360px;
+.caixa-chat-acontecimentos-lista {
+  margin: 10px 0 0;
+  padding-left: 19px;
+  display: grid;
+  gap: 8px;
 }
-
-.caixa-access-detail {
-  margin: 12px auto 22px;
-  max-width: 350px;
-  font-size: 12px;
-  line-height: 1.6;
-  opacity: .66;
+.caixa-chat-acontecimentos-lista li { line-height: 1.48; }
+.chat-comparacao-bloco {
+  margin-top: 10px;
+  display: grid;
+  gap: 8px;
+  padding: 12px 13px;
+  border: 1px solid var(--line);
+  border-radius: 14px;
+  background: var(--paper-deep);
 }
-
-.caixa-access-card .caixa-auth-submit {
-  width: 100%;
-  margin-top: 6px;
+.chat-comparacao-bloco ul {
+  margin: 0;
+  padding-left: 19px;
+  display: grid;
+  gap: 5px;
 }
-
-@keyframes caixaAccessIn {
-  from { opacity: 0; transform: translateY(10px) scale(.985); }
-  to { opacity: 1; transform: translateY(0) scale(1); }
+.chat-comparacao-bloco p { margin: 0; color: var(--muted); }
+.chat-comparacao-titulo {
+  margin-top: 4px;
+  font-size: .72rem;
+  font-weight: 800;
+  letter-spacing: .09em;
+  text-transform: uppercase;
+  color: var(--muted);
 }
+.chat-comparacao-resultado { line-height: 1.5; }
+.comparacao-seta { font-weight: 900; margin: 0 2px; }
+.comparacao-seta.neg { color: var(--expense); }
+.comparacao-seta.pos { color: var(--income); }
 
-body.caixa-access-open .app {
-  visibility: hidden;
+@media (max-width: 600px) {
+  .resumo-status-card { min-height: 205px; }
+  .status-financeiro-body { min-height: 130px; }
+  .status-financeiro-descricao { font-size: .93rem; }
+  .chat-comparacao-bloco { padding: 11px; }
+}
+.status-financeiro-apertado { color: var(--expense); }
+
+
+/* V24 — refinamento de fechamento, toque mobile e Status financeiro */
+.caixa-chat.is-closing {
   pointer-events: none;
 }
-
-body.caixa-access-open .fab-criar,
-body.caixa-access-open .caixa-chat {
-  visibility: hidden !important;
-  pointer-events: none !important;
-}
-
-@media (prefers-color-scheme: dark) {
-  .caixa-access-card {
-    background: var(--paper, #10241e);
-    border-color: rgba(230,198,116,.14);
-    box-shadow: 0 30px 80px rgba(0,0,0,.5), 0 4px 18px rgba(0,0,0,.25);
-  }
-}
-
-@media (max-width: 560px) {
-  .caixa-access-gate { padding: 16px; }
-  .caixa-access-card { padding: 28px 22px 24px; border-radius: 23px; }
-}
-
-
-/* Onboarding Firebase */
-.caixa-onboarding-gate {
-  position: fixed;
-  inset: 0;
-  z-index: 100000;
-  display: grid;
-  place-items: center;
-  padding: 24px;
-  box-sizing: border-box;
-}
-.caixa-onboarding-gate.is-hidden { display: none; }
-.caixa-onboarding {
-  position: relative;
-  width: min(100%, 560px);
-  max-height: min(760px, calc(100vh - 40px));
-  overflow: auto;
-  padding: 38px;
-  border: 1px solid var(--line, #ddd0ac);
-  border-radius: 24px;
-  background: rgba(250, 245, 233, .98);
-  box-shadow: 0 24px 80px rgba(22, 51, 44, .18), 0 2px 8px rgba(22, 51, 44, .06);
-  color: var(--ink, #16332c);
-  scrollbar-width: thin;
-}
-.caixa-onboarding-progress {
-  height: 4px;
-  margin: 24px 0 26px;
+.caixa-chat.is-closing .caixa-chat-body,
+.caixa-chat.is-closing .caixa-chat-thinking {
   overflow: hidden;
-  border-radius: 999px;
-  background: var(--line-soft, #e8dfc7);
 }
-.caixa-onboarding-progress::before {
-  content: "";
-  display: block;
-  width: var(--progress, 25%);
-  height: 100%;
-  border-radius: inherit;
-  background: var(--gold, #b9862f);
-  transition: width .3s ease;
+
+/* Remove o highlight azul nativo do navegador em toques. O feedback do Caixa
+   continua sendo dado pelos próprios estados :active/:focus-visible. */
+button,
+[role="button"],
+a,
+select,
+summary,
+input[type="button"],
+input[type="submit"] {
+  -webkit-tap-highlight-color: transparent;
 }
-.caixa-onboarding h1 {
-  margin: 0 0 9px;
-  font-family: Fraunces, Georgia, serif;
-  font-size: clamp(28px, 6vw, 40px);
-  line-height: 1.05;
-  letter-spacing: -.045em;
+button,
+[role="button"] {
+  outline: none;
 }
-.caixa-onboarding-question {
-  margin: 24px 0 13px;
-  font-size: 15px;
-  font-weight: 700;
+button:focus-visible,
+[role="button"]:focus-visible {
+  outline: 2px solid color-mix(in srgb, var(--gold) 72%, transparent);
+  outline-offset: 3px;
 }
-.caixa-onboarding-options {
-  display: grid;
-  gap: 10px;
-}
-.caixa-onboarding-option {
-  width: 100%;
-  min-height: 64px;
-  padding: 12px 15px;
-  border: 1px solid var(--line, #ddd0ac);
-  border-radius: 14px;
-  background: rgba(255,255,255,.48);
-  color: var(--ink, #16332c);
-  text-align: left;
-  font: inherit;
-  font-size: 14px;
-  font-weight: 700;
-  cursor: pointer;
-  transition: border-color .18s ease, background .18s ease, transform .18s ease, box-shadow .18s ease;
-}
-.caixa-onboarding-option span {
-  display: block;
+
+.chat-comparacao-pendentes {
   margin-top: 4px;
-  color: var(--ink-softer, #2f5a4d);
-  font-size: 11px;
-  font-weight: 500;
+  padding: 9px 10px;
+  border-left: 2px solid var(--gold);
+  border-radius: 8px;
+  background: color-mix(in srgb, var(--gold) 7%, var(--paper-deep));
+  color: var(--muted);
+  font-size: .78rem;
+  line-height: 1.5;
 }
-.caixa-onboarding-option:hover { transform: translateY(-1px); }
-.caixa-onboarding-option.is-selected {
-  border-color: var(--gold, #b9862f);
-  background: rgba(185, 134, 47, .10);
-  box-shadow: 0 0 0 2px rgba(185, 134, 47, .10);
-}
-.caixa-onboarding-options-compact { grid-template-columns: repeat(2, minmax(0, 1fr)); }
-.caixa-onboarding-person-block + .caixa-onboarding-person-block { margin-top: 22px; }
-.caixa-onboarding-mini-title { margin-bottom: 9px; font-size: 12px; font-weight: 700; color: var(--ink-softer, #2f5a4d); }
-.caixa-onboarding-hint { margin: -2px 0 12px; color: var(--ink-softer, #2f5a4d); font-size: 12px; line-height: 1.55; }
-.caixa-onboarding-textarea { min-height: 118px; padding: 12px 14px; resize: vertical; line-height: 1.5; }
-.caixa-onboarding-actions { display: grid; grid-template-columns: .7fr 1.3fr; gap: 10px; margin-top: 22px; }
-.caixa-onboarding-actions .caixa-auth-submit,
-.caixa-onboarding-actions .caixa-auth-secondary { margin-top: 0; }
-.caixa-onboarding .caixa-auth-submit { margin-top: 22px; }
-.caixa-onboarding .caixa-auth-message { margin-bottom: 0; }
-.caixa-onboarding-open .app { visibility: hidden; }
+.chat-comparacao-pendentes strong { color: var(--ink-text); }
 
 @media (prefers-color-scheme: dark) {
-  .caixa-onboarding {
-    background: rgba(18, 37, 32, .99);
-    border-color: rgba(255,255,255,.09);
-    color: #f7f3e9;
-  }
-  .caixa-onboarding-progress { background: rgba(255,255,255,.08); }
-  .caixa-onboarding-option {
-    border-color: rgba(255,255,255,.12);
-    background: rgba(255,255,255,.045);
-    color: #f7f3e9;
-  }
-  .caixa-onboarding-option span,
-  .caixa-onboarding-hint,
-  .caixa-onboarding-mini-title { color: #b9c9c1; }
-  .caixa-onboarding-option.is-selected { background: rgba(185, 134, 47, .13); }
-}
-
-@media (max-width: 520px) {
-  .caixa-onboarding-gate { padding: 12px; }
-  .caixa-onboarding { max-height: calc(100vh - 24px); padding: 27px 21px; border-radius: 20px; }
-  .caixa-onboarding-options-compact { grid-template-columns: 1fr; }
-  .caixa-onboarding-actions { grid-template-columns: 1fr; }
-  .caixa-onboarding-actions .caixa-auth-secondary { order: 2; }
+  .status-financeiro-descricao { color: #f1e9d8 !important; }
+  .status-financeiro-badge { color: var(--ink-text); background: #16281f; border-color: #2a4438; }
+  .status-financeiro-tranquilo { color: #6fbb8c !important; }
+  .status-financeiro-atencao { color: #d9ab5c !important; }
+  .status-financeiro-apertado { color: #e0846a !important; }
+  .chat-comparacao-bloco { color: #f1e9d8; }
+  .chat-comparacao-resultado { color: #f1e9d8; }
+  .chat-comparacao-pendentes { background: rgba(217,171,92,.07); color: #9fae9f; }
+  .chat-comparacao-pendentes strong { color: #f1e9d8; }
 }
