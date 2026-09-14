@@ -1,0 +1,19 @@
+rules_version = '2';
+
+service cloud.firestore {
+  match /databases/{database}/documents {
+    // Cada conta só pode acessar os próprios dados.
+    match /users/{userId} {
+      allow read, write: if request.auth != null && request.auth.uid == userId;
+
+      match /{document=**} {
+        allow read, write: if request.auth != null && request.auth.uid == userId;
+      }
+    }
+
+    // Nada fora de users/{uid} fica acessível pelo cliente.
+    match /{document=**} {
+      allow read, write: if false;
+    }
+  }
+}
