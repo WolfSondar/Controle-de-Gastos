@@ -4402,40 +4402,69 @@ function montarDivisaoFeedback({ nome = "", valor = 0, quemPagouTudo = null } = 
 
 function animarPartilhaV34(overlay) {
   const scene = overlay?.querySelector(".v34-divisao-scene");
+  const core = overlay?.querySelector(".v34-split-core");
   const leftPiece = overlay?.querySelector(".v34-share-left");
   const rightPiece = overlay?.querySelector(".v34-share-right");
   const leftPerson = overlay?.querySelector(".v34-person-left .feedback-avatar");
   const rightPerson = overlay?.querySelector(".v34-person-right .feedback-avatar");
-  if (!scene || !leftPiece || !rightPiece) return Promise.resolve();
-  const sceneRect = scene.getBoundingClientRect();
+  if (!scene || !core || !leftPiece || !rightPiece) return Promise.resolve();
+
+  // As partes são filhas do .v34-split-core. Portanto, as coordenadas precisam
+  // ser calculadas no sistema de coordenadas do próprio core — usar a largura
+  // da cena aqui fazia a parte nascer/terminar em posições erradas (inclusive
+  // perto do Gabriel) e dava a impressão de teleporte.
+  const coreRect = core.getBoundingClientRect();
+  const coreCenterX = coreRect.width / 2;
+  const coreCenterY = coreRect.height / 2;
+
   const targets = [
-    { el: leftPiece, person: leftPerson, direction: -1 },
-    { el: rightPiece, person: rightPerson, direction: 1 }
+    { el: leftPiece, person: leftPerson },
+    { el: rightPiece, person: rightPerson }
   ];
-  const animations = targets.map(({ el, person, direction }) => {
+
+  const animations = targets.map(({ el, person }) => {
     const personRect = person?.getBoundingClientRect();
-    const startX = sceneRect.width / 2;
-    const startY = sceneRect.height / 2 + 2;
-    const targetX = personRect ? personRect.left + personRect.width / 2 - sceneRect.left : startX + direction * Math.min(sceneRect.width * .34, 140);
-    const targetY = personRect ? personRect.top + personRect.height / 2 - sceneRect.top : startY;
-    const dx = targetX - startX;
-    const dy = targetY - startY;
-    const arc = Math.min(24, Math.max(12, Math.abs(dx) * .12));
-    el.style.left = `${startX}px`;
-    el.style.top = `${startY}px`;
+    if (!personRect) return Promise.resolve();
+
+    const targetX = personRect.left + personRect.width / 2 - coreRect.left;
+    const targetY = personRect.top + personRect.height / 2 - coreRect.top;
+    const dx = targetX - coreCenterX;
+    const dy = targetY - coreCenterY;
+    const side = dx < 0 ? -1 : 1;
+
+    // Começa exatamente no centro da compra. O pequeno arco é aplicado de
+    // forma progressiva, sem saltos de posição, e a chegada desacelera antes
+    // de tocar o avatar.
+    el.style.left = `${coreCenterX}px`;
+    el.style.top = `${coreCenterY}px`;
     el.style.opacity = "1";
+
+    const arc = Math.min(22, Math.max(10, Math.abs(dx) * 0.10));
     const keyframes = [
-      { transform: "translate(-50%, -50%) scale(.72)", opacity: 0, offset: 0 },
-      { transform: `translate(calc(-50% + ${dx * .08}px), calc(-50% - ${arc}px)) scale(1.05)`, opacity: 1, offset: .10 },
-      { transform: `translate(calc(-50% + ${dx * .28}px), calc(-50% - ${arc * .55}px)) scale(1)`, opacity: 1, offset: .28 },
-      { transform: `translate(calc(-50% + ${dx * .52}px), calc(-50% + ${direction * 5}px)) scale(.99)`, opacity: 1, offset: .52 },
-      { transform: `translate(calc(-50% + ${dx * .76}px), calc(-50% + ${arc * .55}px)) scale(.96)`, opacity: 1, offset: .76 },
-      { transform: `translate(calc(-50% + ${dx}px), calc(-50% + ${dy}px)) scale(.94)`, opacity: 1, offset: 1 }
+      { transform: "translate(-50%, -50%) scale(.55)", opacity: 0, offset: 0 },
+      { transform: `translate(calc(-50% + ${dx * .08}px), calc(-50% - ${arc}px)) scale(1.03)`, opacity: 1, offset: .08 },
+      { transform: `translate(calc(-50% + ${dx * .22}px), calc(-50% - ${arc * .72}px)) scale(1)`, opacity: 1, offset: .22 },
+      { transform: `translate(calc(-50% + ${dx * .42}px), calc(-50% - ${arc * .34}px)) scale(.99)`, opacity: 1, offset: .42 },
+      { transform: `translate(calc(-50% + ${dx * .66}px), calc(${dy * .66}px - 50% + ${arc * .20}px)) scale(.97)`, opacity: 1, offset: .66 },
+      { transform: `translate(calc(-50% + ${dx * .84}px), calc(${dy * .84}px - 50%)) scale(.95)`, opacity: 1, offset: .84 },
+      { transform: `translate(calc(-50% + ${dx}px), calc(${dy}px - 50%)) scale(.9)`, opacity: 1, offset: 1 }
     ];
-    const animation = el.animate(keyframes, { duration: 2450, easing: "cubic-bezier(.16,.72,.18,1)", fill: "forwards" });
-    animation.finished.then(() => person?.classList.add("v34-recebeu"));
+
+    const animation = el.animate(keyframes, {
+      duration: 2100,
+      easing: "cubic-bezier(.22,.72,.20,1)",
+      fill: "forwards"
+    });
+
+    animation.finished.then(() => {
+      el.style.opacity = "0";
+      person.classList.add("v34-recebeu");
+      person.style.setProperty("--recebe-side", side < 0 ? "-1" : "1");
+    });
+
     return animation.finished;
   });
+
   return Promise.all(animations);
 }
 
