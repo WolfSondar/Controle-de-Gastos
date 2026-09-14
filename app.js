@@ -1593,12 +1593,12 @@ function atualizarLinhaStatus(ulId, idx, ligado, rotuloOn, rotuloOff) {
   return true;
 }
 
-function carimbarLinha(li, rotulo) {
+function carimbarLinha(li, rotulo, concluido = true) {
   if (!li || !rotulo) return;
   const antigo = li.querySelector(".carimbo");
   if (antigo) antigo.remove();
   const selo = document.createElement("span");
-  selo.className = "carimbo";
+  selo.className = `carimbo ${concluido ? "carimbo-concluido" : "carimbo-pendente"}`;
   selo.textContent = rotulo;
   li.appendChild(selo);
 
@@ -1678,42 +1678,41 @@ async function sincronizarGanhoCorrespondenteFixo(devedor, item, recebido) {
 function animarMudancaStatusFluida(listaId, pendingId, index, ligado, tipo, statusKey, toggleFn, ops, tipoModal, rotuloOn, rotuloOff) {
   const ul = document.getElementById(listaId);
   const pend = document.getElementById(pendingId);
-  const linhaAtual = (ul && ul.querySelector(`.item-list-row[data-idx="${index}"]`)) || (pend && pend.querySelector(`.item-list-row[data-idx="${index}"]`));
+  const seletor = `.item-list-row[data-idx="${index}"]`;
+  const linhaAtual = (ul && ul.querySelector(seletor)) || (pend && pend.querySelector(seletor));
   if (!linhaAtual) return;
 
-  // O status muda no estado imediatamente, mas a linha permanece no lugar por
-  // 3 segundos. Assim o usuário percebe a confirmação (carimbo) antes de o
-  // lançamento atravessar visualmente para a outra seção.
+  // Durante os 3 segundos de confirmação, NÃO trocamos o texto da tag.
+  // A linha continua mostrando o status que tinha quando o usuário clicou;
+  // apenas o carimbo comunica a ação. Assim nunca aparece "Pago Pendente"
+  // ou "Recebido Pendente" misturado na mesma tag.
   linhaAtual.classList.remove("is-status-saindo-pendente", "is-status-saindo-pago");
   linhaAtual.classList.add("is-status-confirmando");
   const checkbox = linhaAtual.querySelector('input[type="checkbox"]');
-  const toggle = checkbox ? checkbox.closest(".pago-toggle") : null;
   if (checkbox) checkbox.disabled = true;
-  if (toggle) {
-    toggle.classList.toggle("is-pago", ligado);
-    const texto = Array.from(toggle.childNodes).find(n => n.nodeType === Node.TEXT_NODE);
-    if (texto) texto.textContent = ligado ? rotuloOn : rotuloOff;
-  }
-  carimbarLinha(linhaAtual, ligado ? rotuloOn : rotuloOff);
+  carimbarLinha(linhaAtual, ligado ? rotuloOn : rotuloOff, ligado);
 
   window.setTimeout(() => {
     const lista = statusKey === "recebido"
       ? state.ganhos
       : (tipo === "expense" && listaId === "listaFixos" ? state.gastosFixos : state.gastosVariaveis);
 
-    // Só as listas afetadas são reconstruídas. Nenhum renderAll(), skeleton ou
-    // troca da tela inteira acontece aqui.
+    // O estado já foi alterado no clique. Agora reconstruímos somente as duas
+    // listas envolvidas, nunca a página inteira. Isso também funciona quando
+    // o usuário desfaz um pagamento/recebimento: a linha sai de Pagos/Recebidos
+    // e reaparece em Pendentes.
     renderPendentesDestaque(pendingId, lista, tipo, statusKey, toggleFn, rotuloOff, ops, tipoModal);
     renderListaComStatus(listaId, lista, tipo, ops, tipoModal, statusKey, toggleFn, rotuloOn, rotuloOff);
 
-    const destino = ligado ? ul : pend;
-    const novaLinha = destino && destino.querySelector(`.item-list-row[data-idx="${index}"]`);
+    const destino = ligado
+      ? document.getElementById(listaId)
+      : document.getElementById(pendingId);
+    const novaLinha = destino && destino.querySelector(seletor);
     if (novaLinha) {
       novaLinha.classList.add("is-status-chegando");
       requestAnimationFrame(() => requestAnimationFrame(() => novaLinha.classList.remove("is-status-chegando")));
     }
 
-    // Atualiza os derivados somente depois da movimentação visual.
     renderTotais();
     renderVisaoGeral();
     renderCategorias();
@@ -5910,7 +5909,8 @@ if (document.readyState === "loading") {
           const proximoMes = ehDoProximoMes(i)
             ? `<span class="chat-pendente-proximo">Mês que vem</span>` : "";
           const data = formatarDataCurta(i.data);
-          return `<li><span class="chat-pendente-arrow" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none"><path d="M5 12h12M13 7l5 5-5 5" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/></svg></span><span class="chat-pendente-main"><strong><span class="chat-pendente-nome">${esc(i.nome || (tipo === "fixo" ? "Gasto fixo" : "Gasto variável"))}</span>${parcela}</strong><small>${[proximoMes, data ? `<span>${data}</span>` : ""].filter(Boolean).join(" · ")}</small></span><strong class="chat-valor chat-valor-neg">${chatFmt(i.valor)}</strong></li>`;
+          const nome = i.nome || (tipo === "fixo" ? "Gasto fixo" : "Gasto variável");
+          return `<li><span class="chat-pendente-arrow" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none"><path d="M5 12h12M13 7l5 5-5 5" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/></svg></span><span class="chat-pendente-main"><strong>${esc(nome)}${parcela}</strong><small>${[proximoMes, data ? `<span>${data}</span>` : ""].filter(Boolean).join(" · ")}</small></span><strong class="chat-valor chat-valor-neg">${chatFmt(i.valor)}</strong></li>`;
         };
         const pendenciasOrdenadas = [
           ...fixosPendentes.map(i => ({ item: i, tipo: "fixo" })),
