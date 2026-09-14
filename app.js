@@ -1829,7 +1829,6 @@ function animarMudancaStatusFluida(listaId, pendingId, index, ligado, tipo, stat
     requestAnimationFrame(() => {
       animarReencaixeStatus(listaId, pendingId, antes, origemKey, destinoKey, origemRect, origemClone);
     });
-    renderDerivadosDeStatus();
   };
 
   // Pendente -> pago/recebido: primeiro confirma visualmente e só depois de
