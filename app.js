@@ -644,7 +644,7 @@ function isAmbos() {
 async function carregarConfigIA() {
   if (!API_URL || API_URL.includes("COLE_AQUI")) return null;
   try {
-    const salvo = JSON.parse(localStorage.getItem("caixa-ia-config-v2") || "null");
+    const salvo = JSON.parse(localStorage.getItem("caixa-ia-config-v1") || "null");
     if (salvo && salvo.expira > Date.now() && salvo.data) { state.iaConfig = salvo.data; return salvo.data; }
   } catch (err) {}
   try {
@@ -652,7 +652,7 @@ async function carregarConfigIA() {
     const data = await res.json();
     if (!data || data.ok === false) throw new Error(data?.error || "Erro ao carregar configuração da IA");
     state.iaConfig = data;
-    try { localStorage.setItem("caixa-ia-config-v2", JSON.stringify({ data, expira: Date.now() + 5000 })); } catch (err) {}
+    try { localStorage.setItem("caixa-ia-config-v1", JSON.stringify({ data, expira: Date.now() + 3000 })); } catch (err) {}
     document.dispatchEvent(new CustomEvent("caixa:ia-config-atualizada"));
     return data;
   } catch (err) { return state.iaConfig || null; }
@@ -5105,23 +5105,10 @@ if (document.readyState === "loading") {
     return { tom: pessoa === "gabriel" ? (cfg.tomGabriel || "") : (cfg.tomDavi || ""), imersao: [...(cfg[pessoa] || []), ...(cfg.ambos || [])] };
   }
   function aplicarTomChat(texto) {
-    const { tom, imersao } = tomChat();
-    let base = String(texto || "").trim();
-    if (!tom) return base;
-    const t = tom.toLowerCase();
-    const nome = state.pessoaAtual === "gabriel" ? "Gabriel" : "Davi";
-    const nook = /tom nook|acolhedor|gentil|formal\/antiquado|formal|old-school|educadinho/.test(t);
-    const gamer = /gamer|jogo|internet|meme|zoeira|informal|descontra/.test(t);
-    const fofo = /fofo|carinho|caloroso|fazendinha|puxa vida|yay|ora, ora|que maravilha/.test(t);
-    if (nook || fofo) {
-      if (!/^ora, ora/i.test(base) && !/^puxa vida/i.test(base) && !/^que maravilha/i.test(base)) base = `Ora, ora, ${nome}! ${base.charAt(0).toLowerCase()}${base.slice(1)}`;
-      if (imersao.length && /meta|caixinha|guardar|reserva/.test(imersao.join(" ").toLowerCase()) && /caixinha|meta|guard/i.test(base)) base = base.replace(/\.$/, ". Que maravilha!");
-    } else if (gamer) {
-      base = `Boa, ${nome}! ${base.charAt(0).toLowerCase()}${base.slice(1)}`;
-    } else if (/sério|serio|objetivo|profissional/.test(t)) {
-      base = base.replace(/^Boa, /, "");
-    }
-    return base;
+    // A personalidade vem exclusivamente da TOM IA da planilha e, nas
+    // respostas geradas pela IA, já é aplicada no backend. O navegador não
+    // deve inventar bordões como "Ora, ora" ou "Boa, Davi".
+    return String(texto || "").trim();
   }
   function compararMesAnteriorChat() {
     const anos = listaFinita(state.historico?.anos);
@@ -5234,7 +5221,7 @@ if (document.readyState === "loading") {
     return (h >>> 0).toString(36);
   }
 
-  function chaveCacheDicasChat(t) {
+  function chaveCacheDicasChat(t, modo = "") {
     const cfg = state.iaConfig || {};
     const { tom, imersao } = tomChat();
     return `caixa:dicas:v4:${hashDicasChat(JSON.stringify({
@@ -5243,7 +5230,8 @@ if (document.readyState === "loading") {
       ano: state.anoAtual,
       resumo: resumoParaIAChat(t),
       tom,
-      imersao
+      imersao,
+      modo
     }))}`;
   }
 
@@ -5339,7 +5327,7 @@ if (document.readyState === "loading") {
 
   async function buscarDicasIA(t, opcoes = {}) {
     if (!API_URL || API_URL.includes("COLE_AQUI")) return [];
-    const chave = opcoes.chave || chaveCacheDicasChat(t);
+    const chave = opcoes.chave || chaveCacheDicasChat(t, opcoes.modo || "");
     if (!opcoes.forcar) {
       const cache = lerCacheDicasChat(chave);
       if (cache) return cache;
@@ -5354,7 +5342,7 @@ if (document.readyState === "loading") {
       controller = typeof AbortController !== "undefined" ? new AbortController() : null;
       const requisicao = fetch(API_URL, {
         method: "POST",
-        body: JSON.stringify({ action: "gerarInsightIA", pessoa: state.pessoaAtual || "davi", periodo: { mes: state.mesAtual, ano: state.anoAtual }, resumo: resumoParaIAChat(t) }),
+        body: JSON.stringify({ action: "gerarInsightIA", pessoa: state.pessoaAtual || "davi", periodo: { mes: state.mesAtual, ano: state.anoAtual }, resumo: resumoParaIAChat(t), modo: opcoes.modo || "" }),
         signal: controller ? controller.signal : undefined
       });
       const limite = new Promise((_, reject) => {
@@ -5607,7 +5595,7 @@ if (document.readyState === "loading") {
       return;
     }
 
-    iniciarPensamento(async () => {
+    iniciarPensamento(() => {
       const t = totaisChat();
 
       if (id === "categorias") {
@@ -5655,14 +5643,20 @@ if (document.readyState === "loading") {
         if (!ant) {
           appendMensagem(`<strong>Ainda não tenho um mês fechado anterior suficiente para comparar.</strong><span class="caixa-chat-note">Assim que o histórico tiver o mês anterior, eu consigo apontar a mudança mais relevante.</span>`);
         } else {
-          // Esta resposta também passa pela IA para respeitar integralmente o
-          // TOM IA da pessoa selecionada. A resposta local abaixo é apenas
-          // fallback caso a IA esteja indisponível.
-          const respostasIA = await buscarDicasIA(t, { forcar: false });
-          const comparacaoIA = respostasIA.find(x => String(x.tipo || "").toLowerCase() === "comparacao") || respostasIA.find(x => /mais|menos|mudou|mudança|compar|antes|mês passado/i.test(String(x.texto || "")));
-          if (comparacaoIA && comparacaoIA.texto) {
-            appendMensagem(formatarTextoIAChat(comparacaoIA.texto));
-          } else {
+          const sessaoMudou = window._caixaChatSessao || 0;
+          const chaveMudou = chaveCacheDicasChat(t, "mudou");
+          const cacheMudou = lerCacheDicasChat(chaveMudou);
+          if (cacheMudou?.length) {
+            appendMensagem(formatarTextoIAChat(cacheMudou[0].texto || cacheMudou[0].dica || ""));
+            return;
+          }
+          if (thinking.querySelector("em")) thinking.querySelector("em").textContent = "Só um instante… estou comparando os meses…";
+          return buscarDicasIA(t, { chave: chaveMudou, modo: "mudou" }).then((dicasIA) => {
+            if (sessaoMudou !== (window._caixaChatSessao || 0) || !chat.classList.contains("is-open")) return;
+            if (dicasIA.length) {
+              appendMensagem(formatarTextoIAChat(dicasIA[0].texto || ""));
+              return;
+            }
             const atual = { gastos: (Number(t.fixosPagos)||0)+(Number(t.variaveisPagos)||0), ganhos: Number(t.ganhosRecebidos)||0, guardado: somaCampo(state.caixinhas, "valorGuardadoMes") };
             const lista = Object.keys(atual).map(k => ({ k, delta: atual[k] - (Number(ant[k]) || 0) })).sort((a,b)=>Math.abs(b.delta)-Math.abs(a.delta));
             const top = lista[0];
@@ -5672,17 +5666,17 @@ if (document.readyState === "loading") {
             const valorClasse = top.k === "ganhos" ? "chat-valor-pos" : top.k === "guardado" ? "chat-valor-gold" : "chat-valor-neg";
             const frases = {
               gastos: top.delta >= 0
-                ? `Neste mês, você gastou <span class="chat-valor chat-valor-neg">${atualFmt}</span> — isso é <span class="chat-valor ${valorClasse}">${diferencaFmt}</span> a mais que em ${nomeMes}.`
-                : `Neste mês, você gastou <span class="chat-valor chat-valor-neg">${atualFmt}</span> — isso é <span class="chat-valor ${valorClasse}">${diferencaFmt}</span> a menos que em ${nomeMes}.`,
+                ? `Neste mês, você gastou <span class="chat-valor chat-valor-neg">${atualFmt}</span> — <span class="chat-valor ${valorClasse}">${diferencaFmt}</span> a mais que em ${nomeMes}.`
+                : `Neste mês, você gastou <span class="chat-valor chat-valor-neg">${atualFmt}</span> — <span class="chat-valor ${valorClasse}">${diferencaFmt}</span> a menos que em ${nomeMes}.`,
               ganhos: top.delta >= 0
-                ? `A maior mudança veio das entradas: você recebeu <span class="chat-valor chat-valor-pos">${diferencaFmt}</span> a mais do que em ${nomeMes}. Neste mês, as entradas recebidas somam <span class="chat-valor chat-valor-pos">${atualFmt}</span>.`
-                : `A maior mudança veio das entradas: você recebeu <span class="chat-valor chat-valor-neg">${diferencaFmt}</span> a menos do que em ${nomeMes}. Neste mês, as entradas recebidas somam <span class="chat-valor chat-valor-pos">${atualFmt}</span>.`,
+                ? `Neste mês, você recebeu <span class="chat-valor chat-valor-pos">${atualFmt}</span> — <span class="chat-valor chat-valor-pos">${diferencaFmt}</span> a mais que em ${nomeMes}.`
+                : `Neste mês, você recebeu <span class="chat-valor chat-valor-pos">${atualFmt}</span> — <span class="chat-valor chat-valor-neg">${diferencaFmt}</span> a menos que em ${nomeMes}.`,
               guardado: top.delta >= 0
-                ? `A maior mudança veio do que você guardou: neste mês entraram <span class="chat-valor chat-valor-gold">${diferencaFmt}</span> a mais nas caixinhas do que em ${nomeMes}.`
-                : `A maior mudança veio do que você guardou: neste mês entraram <span class="chat-valor chat-valor-gold">${diferencaFmt}</span> a menos nas caixinhas do que em ${nomeMes}.`
+                ? `Neste mês, você guardou <span class="chat-valor chat-valor-gold">${atualFmt}</span> — <span class="chat-valor chat-valor-gold">${diferencaFmt}</span> a mais que em ${nomeMes}.`
+                : `Neste mês, você guardou <span class="chat-valor chat-valor-gold">${atualFmt}</span> — <span class="chat-valor chat-valor-gold">${diferencaFmt}</span> a menos que em ${nomeMes}.`
             };
-            appendMensagem(aplicarTomChat(frases[top.k] || `O mês atual mudou principalmente em ${nomeMes}.`));
-          }
+            appendMensagem(frases[top.k] || `O mês atual mudou principalmente em ${nomeMes}.`);
+          });
         }
       }
 
