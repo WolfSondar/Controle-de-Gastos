@@ -1675,6 +1675,102 @@ async function sincronizarGanhoCorrespondenteFixo(devedor, item, recebido) {
   }
 }
 
+function capturarPosicoesStatus(listaId, pendingId) {
+  const mapa = new Map();
+  [listaId, pendingId].forEach((containerId) => {
+    const el = document.getElementById(containerId);
+    if (!el) return;
+    el.querySelectorAll(".item-list-row[data-idx]").forEach((row) => {
+      const idx = row.dataset.idx;
+      mapa.set(`${containerId}:${idx}`, {
+        rect: row.getBoundingClientRect(),
+        row,
+      });
+    });
+  });
+  return mapa;
+}
+
+function animarReencaixeStatus(listaId, pendingId, antes, chaveMovida, origemRect) {
+  const depois = capturarPosicoesStatus(listaId, pendingId);
+
+  // FLIP: os lançamentos que continuam nas listas deslizam para seus novos
+  // lugares, em vez de a lista "piscar" e reaparecer inteira.
+  antes.forEach((info, chave) => {
+    if (chave === chaveMovida) return;
+    const novo = depois.get(chave);
+    if (!novo) return;
+    const dx = info.rect.left - novo.rect.left;
+    const dy = info.rect.top - novo.rect.top;
+    if (Math.abs(dx) < 1 && Math.abs(dy) < 1) return;
+    novo.row.style.transition = "none";
+    novo.row.style.transform = `translate3d(${dx}px, ${dy}px, 0)`;
+    requestAnimationFrame(() => {
+      novo.row.style.transition = "transform 420ms cubic-bezier(.2,.8,.2,1)";
+      novo.row.style.transform = "";
+      window.setTimeout(() => {
+        novo.row.style.transition = "";
+      }, 440);
+    });
+  });
+
+  const destinoId = chaveMovida.startsWith(`${listaId}:`) ? listaId : pendingId;
+  const idx = chaveMovida.split(":").pop();
+  const destino = document.getElementById(destinoId);
+  const novaLinha = destino && destino.querySelector(`.item-list-row[data-idx="${idx}"]`);
+
+  if (!novaLinha || !origemRect) return;
+
+  // Um "fantasma" mantém o lançamento visível durante a travessia entre
+  // as duas listas. A lista verdadeira já pode se reorganizar por trás dele.
+  const origem = antes.get(chaveMovida)?.row;
+  if (!origem) return;
+  const ghost = origem.cloneNode(true);
+  ghost.classList.remove("is-status-confirmando", "is-status-chegando");
+  ghost.classList.add("status-movendo-ghost");
+  ghost.style.width = `${origemRect.width}px`;
+  ghost.style.height = `${origemRect.height}px`;
+  ghost.style.left = `${origemRect.left}px`;
+  ghost.style.top = `${origemRect.top}px`;
+  document.body.appendChild(ghost);
+
+  const destinoRect = novaLinha.getBoundingClientRect();
+  const dx = destinoRect.left - origemRect.left;
+  const dy = destinoRect.top - origemRect.top;
+  const sx = origemRect.width ? destinoRect.width / origemRect.width : 1;
+  const sy = origemRect.height ? destinoRect.height / origemRect.height : 1;
+
+  novaLinha.classList.add("status-row-arriving");
+  novaLinha.style.pointerEvents = "none";
+
+  requestAnimationFrame(() => {
+    ghost.style.transform = `translate3d(${dx}px, ${dy}px, 0) scale(${sx}, ${sy})`;
+    ghost.style.opacity = "0.18";
+  });
+
+  window.setTimeout(() => {
+    ghost.remove();
+    novaLinha.classList.remove("status-row-arriving");
+    novaLinha.style.pointerEvents = "";
+  }, 520);
+}
+
+function atualizarVisualStatusNaHora(linha, ligado, rotuloOn, rotuloOff) {
+  if (!linha) return;
+  linha.classList.toggle("is-pendente", !ligado);
+  const checkbox = linha.querySelector('input[type="checkbox"]');
+  const label = linha.querySelector(".pago-toggle");
+  if (checkbox) {
+    checkbox.checked = !!ligado;
+    checkbox.disabled = true;
+  }
+  if (label) {
+    label.classList.toggle("is-pago", !!ligado);
+    const textoNode = Array.from(label.childNodes).find((node) => node.nodeType === Node.TEXT_NODE);
+    if (textoNode) textoNode.textContent = ligado ? rotuloOn : rotuloOff;
+  }
+}
+
 function animarMudancaStatusFluida(listaId, pendingId, index, ligado, tipo, statusKey, toggleFn, ops, tipoModal, rotuloOn, rotuloOff) {
   const ul = document.getElementById(listaId);
   const pend = document.getElementById(pendingId);
@@ -1682,38 +1778,31 @@ function animarMudancaStatusFluida(listaId, pendingId, index, ligado, tipo, stat
   const linhaAtual = (ul && ul.querySelector(seletor)) || (pend && pend.querySelector(seletor));
   if (!linhaAtual) return;
 
-  // Durante os 3 segundos de confirmação, NÃO trocamos o texto da tag.
-  // A linha continua mostrando o status que tinha quando o usuário clicou;
-  // apenas o carimbo comunica a ação. Assim nunca aparece "Pago Pendente"
-  // ou "Recebido Pendente" misturado na mesma tag.
-  linhaAtual.classList.remove("is-status-saindo-pendente", "is-status-saindo-pago");
+  const origemContainer = linhaAtual.closest(`#${listaId}`) ? listaId : pendingId;
+  const destinoContainer = ligado ? listaId : pendingId;
+  const chaveMovida = `${destinoContainer}:${index}`;
+  const antes = capturarPosicoesStatus(listaId, pendingId);
+  const origemRect = linhaAtual.getBoundingClientRect();
+
+  // A mudança de status é imediata. O carimbo confirma a ação, mas a
+  // movimentação física da linha acontece de forma diferente para cada sentido.
+  atualizarVisualStatusNaHora(linhaAtual, ligado, rotuloOn, rotuloOff);
   linhaAtual.classList.add("is-status-confirmando");
-  const checkbox = linhaAtual.querySelector('input[type="checkbox"]');
-  if (checkbox) checkbox.disabled = true;
   carimbarLinha(linhaAtual, ligado ? rotuloOn : rotuloOff, ligado);
 
-  // A confirmação é curta: a linha só muda de seção depois de 1,5 s.
-  // Até lá nenhuma lista/tela é redesenhada.
-  window.setTimeout(() => {
+  vibrar();
+
+  const finalizar = () => {
     const lista = statusKey === "recebido"
       ? state.ganhos
       : (tipo === "expense" && listaId === "listaFixos" ? state.gastosFixos : state.gastosVariaveis);
 
-    // O estado já foi alterado no clique. Agora reconstruímos somente as duas
-    // listas envolvidas, nunca a página inteira. Isso também funciona quando
-    // o usuário desfaz um pagamento/recebimento: a linha sai de Pagos/Recebidos
-    // e reaparece em Pendentes.
+    // Reconstrói somente as duas listas necessárias e imediatamente aplica
+    // FLIP. Para o usuário, isso aparece como uma movimentação contínua.
     renderPendentesDestaque(pendingId, lista, tipo, statusKey, toggleFn, rotuloOff, ops, tipoModal);
     renderListaComStatus(listaId, lista, tipo, ops, tipoModal, statusKey, toggleFn, rotuloOn, rotuloOff);
 
-    const destino = ligado
-      ? document.getElementById(listaId)
-      : document.getElementById(pendingId);
-    const novaLinha = destino && destino.querySelector(seletor);
-    if (novaLinha) {
-      novaLinha.classList.add("is-status-chegando");
-      requestAnimationFrame(() => requestAnimationFrame(() => novaLinha.classList.remove("is-status-chegando")));
-    }
+    animarReencaixeStatus(listaId, pendingId, antes, chaveMovida, origemRect);
 
     renderTotais();
     renderVisaoGeral();
@@ -1722,9 +1811,17 @@ function animarMudancaStatusFluida(listaId, pendingId, index, ligado, tipo, stat
     renderSplit();
     renderJuntosView();
     atualizarCarrosselGraficos();
-  }, 1500);
-}
+  };
 
+  // Pendente -> concluído: dá tempo para o carimbo "bater" antes da linha
+  // atravessar para a lista de baixo.
+  // Concluído -> pendente: o usuário pediu processamento imediato.
+  if (!ligado) {
+    finalizar();
+  } else {
+    window.setTimeout(finalizar, 1500);
+  }
+}
 function togglePagoFixo(index) {
   if (isAmbos()) return;
   const item = state.gastosFixos[index];
