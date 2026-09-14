@@ -1894,6 +1894,8 @@ function togglePagoFixoInterno(index) {
   if (!item) return;
   const vaiFicarPago = !fixoEhPago(item);
   item.pago = vaiFicarPago;
+  // Atualiza imediatamente os totais para disparar o efeito visual de entrada/saída no topo.
+  renderTotais();
 
   // Essa parcela é a "metade" de uma compra dividida (ver dividirCompra) e
   // acabou de ser marcada como paga: credita quem pagou a conta na hora e
@@ -1927,6 +1929,8 @@ function togglePagoVariavelInterno(index) {
   if (!item) return;
   const vaiFicarPago = !variavelEhPago(item);
   item.pago = vaiFicarPago;
+  // Atualiza imediatamente os totais para disparar o efeito visual de entrada/saída no topo.
+  renderTotais();
   // Mexer manualmente no status tira o item do modo "lembrete" (compra
   // adiantada) — a partir daqui ele volta a ser um lançamento comum, que
   // entra ou sai do saldo normalmente conforme o novo status.
@@ -1961,6 +1965,8 @@ function toggleRecebidoGanhoInterno(index) {
   const item = state.ganhos[index];
   if (!item) return;
   item.recebido = !ganhoEhRecebido(item);
+  // Atualiza imediatamente os totais para disparar o efeito visual de entrada/saída no topo.
+  renderTotais();
   vibrar();
   marcarAlteracaoLocal();
   sincronizarCacheAtual();
