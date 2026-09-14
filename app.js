@@ -2215,63 +2215,61 @@ function renderPendentesDestaque(containerId, lista, tipo, statusKey, toggleFn, 
     return;
   }
 
+  const ambos = isAmbos();
   el.classList.remove("is-hidden");
-  const total = pendentes.reduce((acc, { item }) => acc + (Number(item.valor) || 0), 0);
-  const singular = tipo === "income" ? "recebimento" : "pagamento";
-  const acao = tipo === "income" ? "receber" : "pagar";
-
   el.innerHTML = `
-    <div class="pendentes-destaque-head">
-      <div>
-        <span class="pendentes-destaque-kicker">Pendentes</span>
-        <strong>${pendentes.length} ${singular}${pendentes.length === 1 ? "" : "s"}</strong>
-      </div>
-      <span class="pendentes-destaque-total">${fmt(total)}</span>
-    </div>
-    <div class="pendentes-destaque-list">
-      ${pendentes.map(({ item, idx }) => `
-        <button type="button" class="pendente-acesso" data-idx="${idx}" aria-label="${acao} ${escapeHtml(item.nome || "")}">
-          <span class="pendente-acesso-main">
-            <strong>${parcelaInlineHtml(item, tipo)}${escapeHtml(item.nome || "")}</strong>
-            <small>${escapeHtml(metaInfoTextoPendente(item, tipo))}</small>
-          </span>
-          <span class="pendente-acesso-valor">${fmt(item.valor)}</span>
-          <span class="pendente-acesso-arrow" aria-hidden="true">→</span>
-        </button>
-      `).join("")}
-    </div>
+    <div class="status-list-title">Pendentes</div>
+    <ul class="item-list pendentes-item-list" aria-label="Lançamentos pendentes">
+      ${pendentes.map(({ item, idx }, posicao) => {
+        const li = `
+          <li class="item-list-row is-pendente pendente-destaque-row" data-idx="${idx}" style="animation-delay:${Math.min(posicao * 35, 250)}ms">
+            <div class="swipe-content">
+              <span class="item-nome">${parcelaInlineHtml(item, tipo)}${nomeComParcela(item)} ${tagPessoa(item)}</span>
+              <span class="item-valor ${tipo}${tipo === "income" && ganhoEhBeneficio(item) ? " income-beneficio" : ""}">${fmt(item.valor)}</span>
+              ${metaInfoHtml(item) || `<div class="item-meta"></div>`}
+              ${ambos
+                ? `<span class="pago-toggle" aria-disabled="true"><span class="dot"></span>${escapeHtml(rotuloOff)}</span>`
+                : `<label class="pago-toggle">
+                    <input type="checkbox" data-idx="${idx}" />
+                    <span class="dot"></span>${escapeHtml(rotuloOff)}
+                  </label>`}
+            </div>
+          </li>`;
+        return li;
+      }).join("")}
+    </ul>
   `;
 
-  el.querySelectorAll(".pendente-acesso").forEach((btn) => {
-    btn.addEventListener("click", () => toggleFn(Number(btn.dataset.idx)));
-  });
-}
-
-function metaInfoTextoPendente(item, tipo) {
-  const partes = [];
-  const data = String(item.data || "").slice(0, 10);
-  if (/^\d{4}-\d{2}-\d{2}$/.test(data)) partes.push(dataBrasileira(data));
-  if (tipo !== "income" && item.tipo) partes.push(String(item.tipo));
-  if (item.parcela) partes.push(`Parcela ${String(item.parcela).replace(/\s+/g, "")}`);
-  return partes.join(" · ") || "Aguardando confirmação";
+  if (!ambos) {
+    el.querySelectorAll('.pendente-destaque-row input[type="checkbox"]').forEach((input) => {
+      input.addEventListener("change", () => toggleFn(Number(input.dataset.idx)));
+    });
+  }
 }
 
 function renderListaComStatus(ulId, lista, tipo, ops, tipoModal, statusKey, toggleFn, rotuloOn, rotuloOff) {
   const ul = document.getElementById(ulId);
   ul.innerHTML = "";
-  if (lista.length === 0) {
-    ul.innerHTML = estadoVazio("Nada por aqui ainda. Adicione o primeiro item acima.", ICONE_PENA);
-    return;
-  }
   const ambos = isAmbos();
-  // Guarda o índice original (idx) de cada item antes de ordenar — é esse
-  // índice que precisa continuar batendo com state.ganhos/gastosFixos/
-  // gastosVariaveis pra editar, excluir e marcar como pago funcionarem certo;
-  // só a ORDEM DE EXIBIÇÃO muda, os dados por trás continuam nos mesmos
-  // índices de sempre.
+  // A lista inferior mostra somente o que já foi concluído. As pendências
+  // ficam visualmente separadas no bloco acima, sem repetir os mesmos itens.
   const ordenados = lista
     .map((item, idx) => ({ item, idx }))
+    .filter(({ item }) => item[statusKey] === true)
     .sort((a, b) => compararDataAscendente(a.item.data, b.item.data));
+
+  const tituloPago = document.createElement("li");
+  tituloPago.className = "status-list-title-row";
+  tituloPago.innerHTML = `<span class="status-list-title">${tipo === "income" ? "Recebidos" : "Pagos"}</span>`;
+  ul.appendChild(tituloPago);
+
+  if (ordenados.length === 0) {
+    const vazio = document.createElement("li");
+    vazio.className = "status-list-empty";
+    vazio.textContent = tipo === "income" ? "Nenhum recebimento ainda." : "Nenhum pagamento ainda.";
+    ul.appendChild(vazio);
+    return;
+  }
   ordenados.forEach(({ item, idx }, posicao) => {
     const on = item[statusKey] === true;
     const li = document.createElement("li");
@@ -2882,6 +2880,10 @@ function renderRecentes() {
     ...itensRecentesPorCategoria(state.gastosVariaveis, "expense", "Variável"),
   ].map((item, idx) => ({ ...item, _ordem: idx }))
    .filter((item) => {
+      // Lançamentos recentes representam dinheiro que efetivamente entrou ou saiu.
+      // Pendentes continuam disponíveis na seção "Pendentes" das respectivas abas.
+      const concluido = item.tipo === "income" ? item.recebido === true : item.pago === true;
+      if (!concluido) return false;
       const data = String(item.data || "").slice(0, 10);
       if (!/^\d{4}-\d{2}-\d{2}$/.test(data)) return false;
       const d = new Date(`${data}T00:00:00`);
@@ -5813,12 +5815,14 @@ if (document.readyState === "loading") {
           const data = formatarDataCurta(i.data);
           return `<li><span class="chat-pendente-main"><strong><span class="chat-pendente-nome">${esc(i.nome || (tipo === "fixo" ? "Gasto fixo" : "Gasto variável"))}</span>${parcela}</strong><small>${[proximoMes, data ? `<span>${data}</span>` : ""].filter(Boolean).join(" · ")}</small></span><strong class="chat-valor chat-valor-neg">${chatFmt(i.valor)}</strong></li>`;
         };
-        const linhasFixos = fixosPendentes.map(i => linhaPendente(i, "fixo")).join("");
-        const linhasVariaveis = variaveisPendentes.map(i => linhaPendente(i, "variavel")).join("");
-        const detalhes = [
-          fixosPendentes.length ? `<div class="caixa-chat-lista-titulo">Gastos fixos</div><ul class="caixa-chat-pendencias-lista">${linhasFixos}</ul>` : "",
-          variaveisPendentes.length ? `<div class="caixa-chat-lista-titulo">Gastos variáveis</div><ul class="caixa-chat-pendencias-lista">${linhasVariaveis}</ul>` : ""
-        ].join("");
+        const pendenciasOrdenadas = [
+          ...fixosPendentes.map(i => ({ item: i, tipo: "fixo" })),
+          ...variaveisPendentes.map(i => ({ item: i, tipo: "variavel" }))
+        ].sort((a, b) => compararDataAscendente(a.item.data, b.item.data));
+        const linhasPendencias = pendenciasOrdenadas.map(({ item, tipo }) => linhaPendente(item, tipo)).join("");
+        const detalhes = pendenciasOrdenadas.length
+          ? `<ol class="caixa-chat-pendencias-lista lista-simples">${linhasPendencias}</ol>`
+          : "";
         const vazio = !detalhes ? `<div class="caixa-chat-empty">Nenhum gasto pendente encontrado.</div>` : detalhes;
         const totalDesteMes = t.aPagarFixosEsseMes + t.aPagarVariaveisEsseMes;
         const totalFuturo = t.aPagarFixosFuturos + t.aPagarVariaveisFuturos;
