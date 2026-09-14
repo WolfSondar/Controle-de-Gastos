@@ -7360,3 +7360,25 @@ body.sem-entrada-listas .item-list-row { animation: none !important; }
 .pendentes-destaque .item-list-row { background: var(--paper-deep); }
 .status-list-title { transition: opacity .2s ease, transform .2s ease; }
 .pendentes-destaque + .item-list { transition: opacity .2s ease; }
+
+/* Status durante a confirmação: o carimbo indica a ação sem alterar a tag
+   original antes da movimentação. Evita combinações como "Pago Pendente". */
+.carimbo.carimbo-concluido { color: var(--income); border-color: var(--income); }
+.carimbo.carimbo-pendente { color: var(--gold-deep); border-color: var(--gold-deep); }
+
+/* Nome e parcela do chat são um único texto; somente a parcela recebe a cor. */
+.caixa-chat-pendencias-lista.lista-simples .chat-pendente-main strong {
+  display: block;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  line-height: 1.35;
+}
+.caixa-chat-pendencias-lista.lista-simples .chat-pendente-parcela {
+  display: inline;
+  margin-left: 4px;
+  margin-right: 0;
+  vertical-align: baseline;
+  color: var(--gold-deep);
+  font-weight: 800;
+}
