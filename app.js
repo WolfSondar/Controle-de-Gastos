@@ -5206,9 +5206,10 @@ if (document.readyState === "loading") {
     };
 
     let base = bruto
-      .replace(/\{\{(ganho|gasto|guardado|rendimento|\+|-)\s*:\s*(R\$\s*[0-9.]+,[0-9]{2})\}\}/gi, (_, tipo, valor) => {
+      .replace(/\{\{\s*(?:(ganho|gasto|guardado|rendimento)\s*:\s*)?([+-])?\s*(R\$\s*[0-9.]+,[0-9]{2})\s*\}\}/gi, (_, tipo, sinal, valor) => {
+        const chave = String(tipo || sinal || "").toLowerCase();
         const mapa = { ganho: "chat-valor-pos", gasto: "chat-valor-neg", guardado: "chat-valor-gold", rendimento: "chat-valor-yield", "+": "chat-valor-pos", "-": "chat-valor-neg" };
-        return guardar(`<span class="chat-valor ${mapa[String(tipo).toLowerCase()] || ""}">${esc(valor)}</span>`);
+        return guardar(`<span class="chat-valor ${mapa[chave] || ""}">${esc(valor)}</span>`);
       })
       .replace(/<span\s+class=["']chat-valor\s+(chat-valor-pos|chat-valor-neg|chat-valor-gold|chat-valor-yield)["']\s*>([\s\S]*?)<\/span>/gi,
         (_, classe, conteudo) => guardar(`<span class="chat-valor ${classe}">${esc(String(conteudo).replace(/<[^>]*>/g, ""))}</span>`))
@@ -5264,7 +5265,7 @@ if (document.readyState === "loading") {
 
   function chaveCacheGastarIA(t) {
     const { tom, imersao } = tomChat();
-    return `caixa:gastar-ia:v1:${hashDicasChat(JSON.stringify({
+    return `caixa:gastar-ia:v2:${hashDicasChat(JSON.stringify({
       pessoa: state.pessoaAtual || "davi",
       mes: state.mesAtual,
       ano: state.anoAtual,
