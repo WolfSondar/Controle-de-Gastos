@@ -29,26 +29,29 @@
   <main class="caixa-login" aria-labelledby="caixaLoginTitle">
     <div class="caixa-login-brand">Caixa</div>
     <div class="caixa-login-kicker">Seu espaço financeiro</div>
-    <h1 id="caixaLoginTitle">Bem-vindo de volta.</h1>
-    <p class="caixa-login-subtitle">Entre para continuar de onde parou, com seus dados protegidos na sua própria conta.</p>
+    <h1 id="caixaLoginTitle">Bem-vindo ao Caixa.</h1>
+    <p class="caixa-login-subtitle">Entre com sua conta Google para acessar seu espaço financeiro.</p>
 
-    <form id="caixaLoginForm" novalidate>
-      <label class="caixa-auth-label" for="caixaAuthEmail">E-mail</label>
-      <input class="caixa-auth-input" id="caixaAuthEmail" name="email" type="email" autocomplete="email" placeholder="seuemail@email.com" required />
+    <div class="caixa-auth-message is-hidden" id="caixaAuthMessage" role="alert"></div>
+    <button type="button" class="caixa-auth-google" id="caixaGoogleLogin">
+      <span class="caixa-google-mark" aria-hidden="true">G</span>
+      <span>Continuar com Google</span>
+    </button>
 
-      <div class="caixa-auth-label-row">
-        <label class="caixa-auth-label" for="caixaAuthPassword">Senha</label>
-        <button type="button" class="caixa-auth-link" id="caixaForgotPassword">Esqueci minha senha</button>
-      </div>
-      <input class="caixa-auth-input" id="caixaAuthPassword" name="password" type="password" autocomplete="current-password" placeholder="Sua senha" required minlength="6" />
-
-      <div class="caixa-auth-message is-hidden" id="caixaAuthMessage" role="alert"></div>
-      <button class="caixa-auth-submit" id="caixaLoginSubmit" type="submit">Entrar</button>
-    </form>
-
-    <div class="caixa-auth-divider"><span>ou</span></div>
-    <button type="button" class="caixa-auth-secondary" id="caixaCreateAccount">Criar minha conta</button>
-    <p class="caixa-auth-footnote">Sua sessão pode permanecer conectada neste dispositivo.</p>
+    <div class="caixa-auth-legacy-wrap">
+      <button type="button" class="caixa-auth-link caixa-auth-legacy-toggle" id="caixaLegacyToggle">Entrar com e-mail e senha</button>
+      <form id="caixaLoginForm" class="is-hidden caixa-auth-legacy-form" novalidate>
+        <label class="caixa-auth-label" for="caixaAuthEmail">E-mail</label>
+        <input class="caixa-auth-input" id="caixaAuthEmail" name="email" type="email" autocomplete="email" placeholder="seuemail@email.com" />
+        <div class="caixa-auth-label-row">
+          <label class="caixa-auth-label" for="caixaAuthPassword">Senha</label>
+          <button type="button" class="caixa-auth-link" id="caixaForgotPassword">Esqueci minha senha</button>
+        </div>
+        <input class="caixa-auth-input" id="caixaAuthPassword" name="password" type="password" autocomplete="current-password" placeholder="Sua senha" minlength="6" />
+        <button class="caixa-auth-submit" id="caixaLoginSubmit" type="submit">Entrar</button>
+      </form>
+    </div>
+    <p class="caixa-auth-footnote">Depois de entrar, sua sessão permanece conectada neste dispositivo.</p>
   </main>
 </div>
 
@@ -718,12 +721,8 @@
 
 
 <script src="firebase-config.js"></script>
-<script src="https://www.gstatic.com/firebasejs/12.19.0/firebase-app-compat.js"></script>
-<script src="https://www.gstatic.com/firebasejs/12.19.0/firebase-auth-compat.js"></script>
-<script src="https://www.gstatic.com/firebasejs/12.19.0/firebase-firestore-compat.js"></script>
 <script type="module" src="firebase-auth.js"></script>
 <script type="module" src="firebase-profile.js"></script>
-<script src="firebase-data-bridge.js"></script>
 <script src="app.js"></script>
 </body>
 </html>
