@@ -2482,6 +2482,10 @@ function renderListaComStatus(ulId, lista, tipo, ops, tipoModal, statusKey, togg
 
   const tituloPago = document.createElement("li");
   tituloPago.className = "status-list-title-row";
+  // Mantém o título visualmente acima dos cards durante o FLIP, evitando
+  // que um card em movimento interfira no texto "Recebidos"/"Pagos".
+  tituloPago.style.position = "relative";
+  tituloPago.style.zIndex = "20";
   tituloPago.innerHTML = `<span class="status-list-title">${tipo === "income" ? "Recebidos" : "Pagos"}</span>`;
   ul.appendChild(tituloPago);
 
