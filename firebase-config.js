@@ -1,11 +1,3 @@
-// ============================================================
-// CAIXA — configuração pública do Firebase
-//
-// Esta configuração identifica o aplicativo Web no Firebase.
-// NÃO coloque aqui service account, private key ou qualquer
-// credencial administrativa.
-// ============================================================
-
 window.CAIXA_FIREBASE_CONFIG = {
   apiKey: "AIzaSyA6nN8Z6chNH7ITn_3JW_En9ycIgVkaHBc",
   authDomain: "sistema-financeiro-dfc08.firebaseapp.com",
