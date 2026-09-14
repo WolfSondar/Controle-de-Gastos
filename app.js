@@ -644,7 +644,7 @@ function isAmbos() {
 async function carregarConfigIA() {
   if (!API_URL || API_URL.includes("COLE_AQUI")) return null;
   try {
-    const salvo = JSON.parse(localStorage.getItem("caixa-ia-config-v1") || "null");
+    const salvo = JSON.parse(localStorage.getItem("caixa-ia-config-v2") || "null");
     if (salvo && salvo.expira > Date.now() && salvo.data) { state.iaConfig = salvo.data; return salvo.data; }
   } catch (err) {}
   try {
@@ -652,7 +652,7 @@ async function carregarConfigIA() {
     const data = await res.json();
     if (!data || data.ok === false) throw new Error(data?.error || "Erro ao carregar configuração da IA");
     state.iaConfig = data;
-    try { localStorage.setItem("caixa-ia-config-v1", JSON.stringify({ data, expira: Date.now() + 30000 })); } catch (err) {}
+    try { localStorage.setItem("caixa-ia-config-v2", JSON.stringify({ data, expira: Date.now() + 5000 })); } catch (err) {}
     document.dispatchEvent(new CustomEvent("caixa:ia-config-atualizada"));
     return data;
   } catch (err) { return state.iaConfig || null; }
@@ -5237,7 +5237,7 @@ if (document.readyState === "loading") {
   function chaveCacheDicasChat(t) {
     const cfg = state.iaConfig || {};
     const { tom, imersao } = tomChat();
-    return `caixa:dicas:v3:${hashDicasChat(JSON.stringify({
+    return `caixa:dicas:v4:${hashDicasChat(JSON.stringify({
       pessoa: state.pessoaAtual || "davi",
       mes: state.mesAtual,
       ano: state.anoAtual,
@@ -5607,7 +5607,7 @@ if (document.readyState === "loading") {
       return;
     }
 
-    iniciarPensamento(() => {
+    iniciarPensamento(async () => {
       const t = totaisChat();
 
       if (id === "categorias") {
@@ -5652,27 +5652,37 @@ if (document.readyState === "loading") {
 
       if (id === "mudou") {
         const ant = compararMesAnteriorChat();
-        if (!ant) { appendMensagem(`<strong>Ainda não tenho um mês fechado anterior suficiente para comparar.</strong><span class="caixa-chat-note">Assim que o histórico tiver o mês anterior, eu consigo apontar a mudança mais relevante.</span>`); }
-        else {
-          const atual = { gastos: (Number(t.fixosPagos)||0)+(Number(t.variaveisPagos)||0), ganhos: Number(t.ganhosRecebidos)||0, guardado: somaCampo(state.caixinhas, "valorGuardadoMes") };
-          const lista = Object.keys(atual).map(k => ({ k, delta: atual[k] - (Number(ant[k]) || 0) })).sort((a,b)=>Math.abs(b.delta)-Math.abs(a.delta));
-          const top = lista[0];
-          const nomeMes = esc(ant.nome);
-          const diferencaFmt = chatFmt(Math.abs(top.delta));
-          const atualFmt = chatFmt(atual[top.k]);
-          const valorClasse = top.k === "ganhos" ? "chat-valor-pos" : top.k === "guardado" ? "chat-valor-gold" : "chat-valor-neg";
-          const frases = {
-            gastos: top.delta >= 0
-              ? `Neste mês, você gastou <span class="chat-valor chat-valor-neg">${atualFmt}</span> — isso é <span class="chat-valor ${valorClasse}">${diferencaFmt}</span> a mais que em ${nomeMes}.`
-              : `Neste mês, você gastou <span class="chat-valor chat-valor-neg">${atualFmt}</span> — isso é <span class="chat-valor ${valorClasse}">${diferencaFmt}</span> a menos que em ${nomeMes}.`,
-            ganhos: top.delta >= 0
-              ? `A maior mudança veio das entradas: você recebeu <span class="chat-valor chat-valor-pos">${diferencaFmt}</span> a mais do que em ${nomeMes}. Neste mês, as entradas recebidas somam <span class="chat-valor chat-valor-pos">${atualFmt}</span>.`
-              : `A maior mudança veio das entradas: você recebeu <span class="chat-valor chat-valor-neg">${diferencaFmt}</span> a menos do que em ${nomeMes}. Neste mês, as entradas recebidas somam <span class="chat-valor chat-valor-pos">${atualFmt}</span>.`,
-            guardado: top.delta >= 0
-              ? `A maior mudança veio do que você guardou: neste mês entraram <span class="chat-valor chat-valor-gold">${diferencaFmt}</span> a mais nas caixinhas do que em ${nomeMes}.`
-              : `A maior mudança veio do que você guardou: neste mês entraram <span class="chat-valor chat-valor-gold">${diferencaFmt}</span> a menos nas caixinhas do que em ${nomeMes}.`
-          };
-          appendMensagem(aplicarTomChat(frases[top.k] || `O mês atual mudou principalmente em ${nomeMes}.`));
+        if (!ant) {
+          appendMensagem(`<strong>Ainda não tenho um mês fechado anterior suficiente para comparar.</strong><span class="caixa-chat-note">Assim que o histórico tiver o mês anterior, eu consigo apontar a mudança mais relevante.</span>`);
+        } else {
+          // Esta resposta também passa pela IA para respeitar integralmente o
+          // TOM IA da pessoa selecionada. A resposta local abaixo é apenas
+          // fallback caso a IA esteja indisponível.
+          const respostasIA = await buscarDicasIA(t, { forcar: false });
+          const comparacaoIA = respostasIA.find(x => String(x.tipo || "").toLowerCase() === "comparacao") || respostasIA.find(x => /mais|menos|mudou|mudança|compar|antes|mês passado/i.test(String(x.texto || "")));
+          if (comparacaoIA && comparacaoIA.texto) {
+            appendMensagem(formatarTextoIAChat(comparacaoIA.texto));
+          } else {
+            const atual = { gastos: (Number(t.fixosPagos)||0)+(Number(t.variaveisPagos)||0), ganhos: Number(t.ganhosRecebidos)||0, guardado: somaCampo(state.caixinhas, "valorGuardadoMes") };
+            const lista = Object.keys(atual).map(k => ({ k, delta: atual[k] - (Number(ant[k]) || 0) })).sort((a,b)=>Math.abs(b.delta)-Math.abs(a.delta));
+            const top = lista[0];
+            const nomeMes = esc(ant.nome);
+            const diferencaFmt = chatFmt(Math.abs(top.delta));
+            const atualFmt = chatFmt(atual[top.k]);
+            const valorClasse = top.k === "ganhos" ? "chat-valor-pos" : top.k === "guardado" ? "chat-valor-gold" : "chat-valor-neg";
+            const frases = {
+              gastos: top.delta >= 0
+                ? `Neste mês, você gastou <span class="chat-valor chat-valor-neg">${atualFmt}</span> — isso é <span class="chat-valor ${valorClasse}">${diferencaFmt}</span> a mais que em ${nomeMes}.`
+                : `Neste mês, você gastou <span class="chat-valor chat-valor-neg">${atualFmt}</span> — isso é <span class="chat-valor ${valorClasse}">${diferencaFmt}</span> a menos que em ${nomeMes}.`,
+              ganhos: top.delta >= 0
+                ? `A maior mudança veio das entradas: você recebeu <span class="chat-valor chat-valor-pos">${diferencaFmt}</span> a mais do que em ${nomeMes}. Neste mês, as entradas recebidas somam <span class="chat-valor chat-valor-pos">${atualFmt}</span>.`
+                : `A maior mudança veio das entradas: você recebeu <span class="chat-valor chat-valor-neg">${diferencaFmt}</span> a menos do que em ${nomeMes}. Neste mês, as entradas recebidas somam <span class="chat-valor chat-valor-pos">${atualFmt}</span>.`,
+              guardado: top.delta >= 0
+                ? `A maior mudança veio do que você guardou: neste mês entraram <span class="chat-valor chat-valor-gold">${diferencaFmt}</span> a mais nas caixinhas do que em ${nomeMes}.`
+                : `A maior mudança veio do que você guardou: neste mês entraram <span class="chat-valor chat-valor-gold">${diferencaFmt}</span> a menos nas caixinhas do que em ${nomeMes}.`
+            };
+            appendMensagem(aplicarTomChat(frases[top.k] || `O mês atual mudou principalmente em ${nomeMes}.`));
+          }
         }
       }
 
