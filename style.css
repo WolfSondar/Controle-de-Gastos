@@ -7511,7 +7511,7 @@ body:has(.caixa-chat.is-open)::before {
   box-shadow: 0 0 0 4px color-mix(in srgb, currentColor 12%, transparent);
 }
 .status-financeiro-tranquilo { color: var(--income); }
-.status-financeiro-atencao { color: var(--income); }
+.status-financeiro-atencao { color: #d9ab5c; }
 .status-financeiro-neutro { color: var(--muted); }
 .status-financeiro-descricao {
   max-width: 620px;
@@ -7612,8 +7612,8 @@ button:focus-visible,
 @media (prefers-color-scheme: dark) {
   .status-financeiro-descricao { color: #f1e9d8 !important; }
   .status-financeiro-badge { color: var(--ink-text); background: #16281f; border-color: #2a4438; }
-  .status-financeiro-tranquilo,
-  .status-financeiro-atencao { color: #6fbb8c !important; }
+  .status-financeiro-tranquilo { color: #6fbb8c !important; }
+  .status-financeiro-atencao { color: #d9ab5c !important; }
   .status-financeiro-apertado { color: #e0846a !important; }
   .chat-comparacao-bloco { color: #f1e9d8; }
   .chat-comparacao-resultado { color: #f1e9d8; }
