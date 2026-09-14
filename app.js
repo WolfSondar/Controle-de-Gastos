@@ -1700,7 +1700,7 @@ function capturarPosicoesStatus(listaId, pendingId) {
   return mapa;
 }
 
-function animarReencaixeStatus(listaId, pendingId, antes, origemKey, destinoKey, origemRect, origemClone) {
+function animarReencaixeStatus(listaId, pendingId, antes, origemKey, destinoKey, origemRect, origemClone, aoTerminar) {
   const depois = capturarPosicoesStatus(listaId, pendingId);
 
   // FLIP: os itens que permaneceram no mesmo bloco acompanham o deslocamento
@@ -1732,7 +1732,10 @@ function animarReencaixeStatus(listaId, pendingId, antes, origemKey, destinoKey,
   const [destinoId, idx] = destinoKey.split(":");
   const destino = document.getElementById(destinoId);
   const novaLinha = destino && destino.querySelector(`.item-list-row[data-idx="${idx}"]`);
-  if (!novaLinha || !origemRect) return;
+  if (!novaLinha || !origemRect) {
+    if (typeof aoTerminar === "function") aoTerminar();
+    return;
+  }
 
   // A própria linha nova faz o percurso. Não usamos clone/ghost: isso evita
   // duplicação visual, escala estranha e o efeito de "cartão flutuando".
@@ -1744,7 +1747,7 @@ function animarReencaixeStatus(listaId, pendingId, antes, origemKey, destinoKey,
   // percorrer o caminho. Isso evita o efeito de "teleporte" quando ele
   // vai para o final de uma lista longa.
   const distancia = Math.hypot(dx, dy);
-  const duracaoMovimento = Math.min(1050, Math.max(500, 500 + distancia * 0.45));
+  const duracaoMovimento = Math.min(1500, Math.max(700, 700 + distancia * 0.60));
 
   novaLinha.style.animation = "none";
   novaLinha.style.transition = "none";
@@ -1769,6 +1772,10 @@ function animarReencaixeStatus(listaId, pendingId, antes, origemKey, destinoKey,
     novaLinha.style.animation = "none";
     novaLinha.style.pointerEvents = "";
   }, duracaoMovimento + 40);
+
+  window.setTimeout(() => {
+    if (typeof aoTerminar === "function") aoTerminar();
+  }, duracaoMovimento + 70);
 }
 
 function atualizarVisualStatusNaHora(linha, ligado, rotuloOn, rotuloOff) {
@@ -1798,16 +1805,26 @@ function atualizarVisualStatusNaHora(linha, ligado, rotuloOn, rotuloOff) {
 }
 
 const statusCliquesEmProcessamento = new Set();
+let statusAnimacaoEmAndamento = false;
 
 function animarMudancaStatusFluida(listaId, pendingId, index, ligado, tipo, statusKey, toggleFn, ops, tipoModal, rotuloOn, rotuloOff) {
   const chaveStatus = `${listaId}:${index}`;
-  if (statusCliquesEmProcessamento.has(chaveStatus)) return;
+  // Apenas uma reorganização visual por vez. Se outro status for clicado
+  // enquanto um card ainda está atravessando a lista, aguardamos a animação
+  // atual terminar em vez de deixar dois FLIPs disputarem o mesmo layout.
+  if (statusCliquesEmProcessamento.has(chaveStatus) || statusAnimacaoEmAndamento) return;
   statusCliquesEmProcessamento.add(chaveStatus);
+  statusAnimacaoEmAndamento = true;
+  const liberarAnimacao = () => { statusAnimacaoEmAndamento = false; };
   const ul = document.getElementById(listaId);
   const pend = document.getElementById(pendingId);
   const seletor = `.item-list-row[data-idx="${index}"]`;
   const linhaAtual = (ul && ul.querySelector(seletor)) || (pend && pend.querySelector(seletor));
-  if (!linhaAtual) return;
+  if (!linhaAtual) {
+    statusCliquesEmProcessamento.delete(chaveStatus);
+    liberarAnimacao();
+    return;
+  }
 
   const origemContainer = linhaAtual.closest(`#${listaId}`) ? listaId : pendingId;
   const destinoContainer = ligado ? listaId : pendingId;
@@ -1838,7 +1855,7 @@ function animarMudancaStatusFluida(listaId, pendingId, index, ligado, tipo, stat
     // capturadas antes dele para fazer o lançamento atravessar a tela e os
     // demais cards se encaixarem suavemente.
     requestAnimationFrame(() => {
-      animarReencaixeStatus(listaId, pendingId, antes, origemKey, destinoKey, origemRect, origemClone);
+      animarReencaixeStatus(listaId, pendingId, antes, origemKey, destinoKey, origemRect, origemClone, liberarAnimacao);
     });
   };
 
