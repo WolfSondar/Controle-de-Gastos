@@ -234,6 +234,9 @@ function doPost(e) {
     if (action === "gerarInsightIA") {
       return respond(gerarInsightComIA(body.pessoa, body.periodo, body.resumo));
     }
+    if (action === "gerarRespostaGastarIA") {
+      return respond(gerarRespostaGastarComIA(body.pessoa, body.periodo, body.resumo));
+    }
 
     const pessoa = (body.pessoa || "davi").toLowerCase();
     if (pessoa === "ambos") {
@@ -485,6 +488,175 @@ function indiceChaveGeminiPreferida() {
 
 function registrarChaveGeminiSucesso(indice) {
   try { PropertiesService.getScriptProperties().setProperty(GEMINI_ULTIMA_CHAVE_PROPRIEDADE, String(indice + 1)); } catch (err) {}
+}
+
+function extrairTextoRespostaGastar(data) {
+  try {
+    const texto = data && data.candidates && data.candidates[0] &&
+      data.candidates[0].content && data.candidates[0].content.parts &&
+      data.candidates[0].content.parts[0] && data.candidates[0].content.parts[0].text;
+    if (!texto) return null;
+    const parsed = JSON.parse(texto);
+    return parsed && parsed.respostas ? parsed.respostas : null;
+  } catch (err) {
+    return null;
+  }
+}
+
+function gerarRespostaGastarComGemini(pessoa, periodo, resumo, opcoesModo) {
+  const apiKey = (opcoesModo && opcoesModo.apiKeyForcada) ||
+    PropertiesService.getScriptProperties().getProperty(GEMINI_API_KEY_PROPRIEDADE);
+  if (!apiKey) return { ok: false, error: "Chave do Gemini não configurada." };
+
+  const pessoaCodigo = String(pessoa || "").toLowerCase();
+  const nomePessoa = PESSOA_NOME[pessoaCodigo] || "a pessoa";
+  const tom = textoTomIA(pessoaCodigo);
+  const imersao = textoImersaoIA(pessoaCodigo);
+  const prompt = [
+    "Você é o assistente financeiro do app Caixa e está respondendo uma pergunta muito simples: quanto a pessoa ainda pode gastar.",
+    "Responda de forma MUITO curta e natural, como uma mensagem de chat, normalmente uma única frase.",
+    "Não explique a conta, não liste saldo atual, entradas futuras ou contas reservadas, e não repita o raciocínio do cálculo. A pessoa só quer saber a margem de gasto.",
+    "Use exclusivamente os números de mesAtual no resumo. Para saldo em conta, o número correto é limiteDeGastoProjetado. Para benefício, use diretamente o campo mesAtual.beneficioDisponivel.",
+    "Se a margem do saldo for positiva, diga diretamente quanto ainda pode gastar. Se for zero, diga que não há margem para novos gastos. Se for negativa, diga claramente que não pode gastar mais nada e que ainda falta dinheiro para cobrir as obrigações.",
+    "Seja humano, direto e sem tom de sermão. Não faça julgamentos sobre os gastos.",
+    "Pode usar o contexto pessoal e a persona abaixo para escolher vocabulário e pequenas expressões, mas nunca sacrifique clareza.",
+    "PERSONA/TOM: " + (tom || "natural, direto e conversado."),
+    "IMERSÃO PESSOAL: " + (imersao || "nenhuma informação adicional."),
+    "Valores monetários devem permanecer completos no padrão R$ 0,00. Para destacar o valor favorável, use {{+R$ 0,00}}. Para uma falta/valor desfavorável, use {{-R$ 0,00}}. Não use outros valores monetários.",
+    "Retorne SOMENTE um JSON válido no formato {\"respostas\":{\"saldo\":\"...\",\"beneficio\":\"...\"}}.",
+    "No campo saldo, use este cálculo: limiteDeGastoProjetado=" + String(Number(resumo && resumo.mesAtual && resumo.mesAtual.limiteDeGastoProjetado) || 0) + ".",
+    "No campo beneficio, use este cálculo: beneficioDisponivel=" + String(Number(resumo && resumo.mesAtual && resumo.mesAtual.beneficioDisponivel) || 0) + ".",
+    "Resumo completo em JSON: " + JSON.stringify(resumo || {})
+  ].join("\n");
+
+  const corpo = {
+    contents: [{ role: "user", parts: [{ text: prompt }] }],
+    generationConfig: {
+      temperature: 0.9,
+      maxOutputTokens: 500,
+      responseMimeType: "application/json",
+      responseSchema: {
+        type: "OBJECT",
+        properties: {
+          respostas: {
+            type: "OBJECT",
+            properties: { saldo: { type: "STRING" }, beneficio: { type: "STRING" } },
+            required: ["saldo", "beneficio"]
+          }
+        },
+        required: ["respostas"]
+      }
+    }
+  };
+
+  const res = UrlFetchApp.fetch(
+    "https://generativelanguage.googleapis.com/v1beta/models/" + GEMINI_MODEL + ":generateContent",
+    {
+      method: "post",
+      contentType: "application/json",
+      headers: { "x-goog-api-key": apiKey },
+      payload: JSON.stringify(corpo),
+      muteHttpExceptions: true
+    }
+  );
+  const status = res.getResponseCode();
+  if (status !== 200) {
+    let data = {};
+    try { data = JSON.parse(res.getContentText() || "{}"); } catch (err) {}
+    return { ok: false, error: (data.error && data.error.message) || ("Erro HTTP " + status + " ao chamar o Gemini."), status: status };
+  }
+  const respostas = extrairTextoRespostaGastar(JSON.parse(res.getContentText() || "{}"));
+  if (!respostas || (!respostas.saldo && !respostas.beneficio)) return { ok: false, error: "Resposta da IA vazia.", status: 200 };
+  return { ok: true, respostas: { saldo: String(respostas.saldo || "").trim(), beneficio: String(respostas.beneficio || "").trim() }, periodo: periodo || null };
+}
+
+function gerarRespostaGastarComOpenAI(pessoa, periodo, resumo) {
+  const apiKey = PropertiesService.getScriptProperties().getProperty(OPENAI_API_KEY_PROPRIEDADE);
+  if (!apiKey) return { ok: false, error: "Chave da OpenAI não configurada." };
+
+  const pessoaCodigo = String(pessoa || "").toLowerCase();
+  const tom = textoTomIA(pessoaCodigo);
+  const imersao = textoImersaoIA(pessoaCodigo);
+  const limite = Number(resumo && resumo.mesAtual && resumo.mesAtual.limiteDeGastoProjetado) || 0;
+  const beneficio = Number(resumo && resumo.mesAtual && resumo.mesAtual.beneficioDisponivel) || 0;
+  const prompt = [
+    "Você é o assistente financeiro do app Caixa. Responda somente quanto a pessoa ainda pode gastar.",
+    "Uma frase curta por resposta, sem explicação de cálculo, sem lista de saldo/entradas/contas. Se o limite for negativo, diga claramente que não pode gastar mais nada e que ainda falta dinheiro para cobrir as obrigações.",
+    "Persona/tom: " + (tom || "natural, direto e conversado."),
+    "Imersão pessoal: " + (imersao || "nenhuma."),
+    "Use apenas estes números: limiteDeGastoProjetado=" + limite + "; beneficioDisponivel=" + beneficio + ".",
+    "Valores em reais completos. Use {{+R$ 0,00}} para margem positiva e {{-R$ 0,00}} para falta. Retorne SOMENTE JSON no formato {\"respostas\":{\"saldo\":\"...\",\"beneficio\":\"...\"}}."
+  ].join("\n");
+
+  const corpo = {
+    model: OPENAI_MODEL,
+    input: [{ role: "user", content: [{ type: "input_text", text: prompt }] }],
+    temperature: 0.9,
+    max_output_tokens: 500,
+    text: {
+      format: {
+        type: "json_schema",
+        name: "respostas_gastar",
+        strict: true,
+        schema: {
+          type: "object",
+          properties: {
+            respostas: {
+              type: "object",
+              properties: { saldo: { type: "string" }, beneficio: { type: "string" } },
+              required: ["saldo", "beneficio"],
+              additionalProperties: false
+            }
+          },
+          required: ["respostas"],
+          additionalProperties: false
+        }
+      }
+    }
+  };
+
+  const res = UrlFetchApp.fetch("https://api.openai.com/v1/responses", {
+    method: "post",
+    contentType: "application/json",
+    headers: { Authorization: "Bearer " + apiKey },
+    payload: JSON.stringify(corpo),
+    muteHttpExceptions: true
+  });
+  const status = res.getResponseCode();
+  let data = {};
+  try { data = JSON.parse(res.getContentText() || "{}"); } catch (err) {}
+  if (status !== 200) return { ok: false, error: (data.error && data.error.message) || ("Erro HTTP " + status + " ao chamar a OpenAI."), status: status };
+  const texto = data.output_text || "";
+  let parsed = null;
+  try { parsed = JSON.parse(texto); } catch (err) {}
+  const respostas = parsed && parsed.respostas;
+  if (!respostas) return { ok: false, error: "Resposta da OpenAI vazia.", status: 200 };
+  return { ok: true, respostas: { saldo: String(respostas.saldo || "").trim(), beneficio: String(respostas.beneficio || "").trim() }, periodo: periodo || null };
+}
+
+function gerarRespostaGastarComIA(pessoa, periodo, resumo) {
+  const preferido = provedorIAPreferido();
+  const ordem = preferido === "openai" ? ["openai", "gemini"] : ["gemini", "openai"];
+  const erros = [];
+
+  for (let i = 0; i < ordem.length; i++) {
+    const provedor = ordem[i];
+    let resultado;
+    try {
+      resultado = provedor === "gemini"
+        ? gerarRespostaGastarComGemini(pessoa, periodo, resumo)
+        : gerarRespostaGastarComOpenAI(pessoa, periodo, resumo);
+    } catch (err) {
+      resultado = { ok: false, error: String(err) };
+    }
+    if (resultado && resultado.ok) {
+      registrarProvedorIASucesso(provedor);
+      return resultado;
+    }
+    erros.push({ provedor: provedor, erro: (resultado && resultado.error) || "Falha desconhecida" });
+  }
+
+  return { ok: false, error: "Não foi possível gerar a resposta de gasto com IA.", diagnostico: erros };
 }
 
 function gerarInsightComIA(pessoa, periodo, resumo) {
@@ -1380,14 +1552,36 @@ function readGanhos(sheet) {
   return result;
 }
 
+function normalizarDataParaPlanilha(valor) {
+  if (!valor) return "";
+  if (Object.prototype.toString.call(valor) === "[object Date]" && !isNaN(valor.getTime())) {
+    return new Date(valor.getTime());
+  }
+  const texto = String(valor).trim();
+  const m = /^(\\d{4})-(\\d{2})-(\\d{2})/.exec(texto);
+  if (!m) return texto;
+  // Meio-dia evita deslocamentos de dia por conversões de fuso.
+  return new Date(Number(m[1]), Number(m[2]) - 1, Number(m[3]), 12, 0, 0);
+}
+
+function aplicarFormatoDatasLancamentos(sheet) {
+  const ultima = Math.max(sheet.getLastRow(), 2);
+  const quantidade = Math.max(ultima - 1, 1);
+  sheet.getRange(2, COL_DATA_GANHO, quantidade, 1).setNumberFormat("dd/MM/yyyy");
+  sheet.getRange(2, COL_DATA_FIXO, quantidade, 1).setNumberFormat("dd/MM/yyyy");
+  sheet.getRange(2, COL_DATA_VARIAVEL, quantidade, 1).setNumberFormat("dd/MM/yyyy");
+}
+
 function saveGanhos(sheet, rows) {
+  aplicarFormatoDatasLancamentos(sheet);
   const rowsToClear = linhasParaLimpar(sheet, rows);
   sheet.getRange(2, COL_GANHOS, rowsToClear, 4).clearContent();
   if (!rows || rows.length === 0) return;
   const valores = rows.map(function (r) {
-    return [r.nome, r.valor, r.data || "", r.recebido === true];
+    return [r.nome, r.valor, normalizarDataParaPlanilha(r.data), r.recebido === true];
   });
   sheet.getRange(2, COL_GANHOS, valores.length, 4).setValues(valores);
+  sheet.getRange(2, COL_DATA_GANHO, valores.length, 1).setNumberFormat("dd/MM/yyyy");
 }
 
 
@@ -1413,13 +1607,15 @@ function readGastosFixos(sheet) {
 }
 
 function saveGastosFixos(sheet, rows) {
+  aplicarFormatoDatasLancamentos(sheet);
   const rowsToClear = linhasParaLimpar(sheet, rows);
   sheet.getRange(2, COL_GASTOS_FIXOS, rowsToClear, 6).clearContent();
   if (!rows || rows.length === 0) return;
   const valores = rows.map(function (r) {
-    return [r.nome, r.valor, r.tipo || "", r.data || "", r.parcela || "", r.pago === true];
+    return [r.nome, r.valor, r.tipo || "", normalizarDataParaPlanilha(r.data), r.parcela || "", r.pago === true];
   });
   sheet.getRange(2, COL_GASTOS_FIXOS, valores.length, 6).setValues(valores);
+  sheet.getRange(2, COL_DATA_FIXO, valores.length, 1).setNumberFormat("dd/MM/yyyy");
 }
 
 
@@ -1446,33 +1642,34 @@ function readGastosVariaveis(sheet) {
 }
 
 function saveGastosVariaveis(sheet, rows) {
+  aplicarFormatoDatasLancamentos(sheet);
   const rowsToClear = linhasParaLimpar(sheet, rows);
   sheet.getRange(2, COL_GASTOS_VARIAVEIS, rowsToClear, 5).clearContent();
   sheet.getRange(2, COL_ORIGEM_VARIAVEL, rowsToClear, 1).clearContent();
   if (!rows || rows.length === 0) return;
   const valores = rows.map(function (r) {
-    return [r.nome, r.valor, r.tipo || "", r.data || "", r.pago === true];
+    return [r.nome, r.valor, r.tipo || "", normalizarDataParaPlanilha(r.data), r.pago === true];
   });
   const origens = rows.map(function (r) {
     return [String(r.origem || "saldo").toLowerCase() === "beneficio" ? "beneficio" : "saldo"];
   });
   sheet.getRange(2, COL_GASTOS_VARIAVEIS, valores.length, 5).setValues(valores);
   sheet.getRange(2, COL_ORIGEM_VARIAVEL, origens.length, 1).setValues(origens);
+  sheet.getRange(2, COL_DATA_VARIAVEL, valores.length, 1).setNumberFormat("dd/MM/yyyy");
 }
 
 function formatarDataCelula(valor) {
   if (!valor) return "";
+  const timezone = Session.getScriptTimeZone() || "America/Sao_Paulo";
   if (Object.prototype.toString.call(valor) === "[object Date]" && !isNaN(valor.getTime())) {
-    const timezone = Session.getScriptTimeZone() || "America/Sao_Paulo";
-    const hora = Number(Utilities.formatDate(valor, timezone, "HH"));
-    const minuto = Number(Utilities.formatDate(valor, timezone, "mm"));
-    const segundo = Number(Utilities.formatDate(valor, timezone, "ss"));
-    if (hora || minuto || segundo) {
-      return Utilities.formatDate(valor, timezone, "yyyy-MM-dd'T'HH:mm:ss");
-    }
     return Utilities.formatDate(valor, timezone, "yyyy-MM-dd");
   }
-  return String(valor);
+  const texto = String(valor).trim();
+  const iso = /^(\\d{4})-(\\d{2})-(\\d{2})/.exec(texto);
+  if (iso) return iso[0];
+  const br = /^(\\d{2})[\\/.-](\\d{2})[\\/.-](\\d{4})/.exec(texto);
+  if (br) return br[3] + "-" + br[2] + "-" + br[1];
+  return texto;
 }
 
 // ---------------------------------------------------------------------
