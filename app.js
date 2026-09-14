@@ -1670,6 +1670,30 @@ async function sincronizarGanhoCorrespondenteFixo(devedor, item, recebido) {
   }
 }
 
+function animarMudancaStatusFluida(listaId, pendingId, index, ligado, tipo, statusKey, toggleFn, ops, tipoModal, rotuloOn, rotuloOff) {
+  const ul = document.getElementById(listaId);
+  const pend = document.getElementById(pendingId);
+  const seletor = `[data-idx="${index}"]`;
+  const linhaAtual = (ul && ul.querySelector(`.item-list-row ${seletor}`)) || (ul && ul.querySelector(`.item-list-row[data-idx="${index}"]`)) || (pend && pend.querySelector(`.item-list-row[data-idx="${index}"]`));
+  if (linhaAtual) {
+    linhaAtual.classList.add(ligado ? "is-status-saindo-pendente" : "is-status-saindo-pago");
+  }
+
+  // Dá tempo para a linha mostrar a saída antes de reconstruir apenas as
+  // duas listas envolvidas. O restante da página não é redesenhado.
+  window.setTimeout(() => {
+    renderPendentesDestaque(pendingId, state[statusKey === "recebido" ? "ganhos" : tipo === "expense" && listaId === "listaFixos" ? "gastosFixos" : "gastosVariaveis"], tipo, statusKey, toggleFn, rotuloOff, ops, tipoModal);
+    renderListaComStatus(listaId, state[statusKey === "recebido" ? "ganhos" : tipo === "expense" && listaId === "listaFixos" ? "gastosFixos" : "gastosVariaveis"], tipo, ops, tipoModal, statusKey, toggleFn, rotuloOn, rotuloOff);
+
+    const destino = ligado ? ul : pend;
+    const novaLinha = destino && destino.querySelector(`.item-list-row[data-idx="${index}"]`);
+    if (novaLinha) {
+      novaLinha.classList.add("is-status-chegando");
+      requestAnimationFrame(() => requestAnimationFrame(() => novaLinha.classList.remove("is-status-chegando")));
+    }
+  }, 210);
+}
+
 function togglePagoFixo(index) {
   if (isAmbos()) return;
   const item = state.gastosFixos[index];
@@ -1685,18 +1709,20 @@ function togglePagoFixo(index) {
   if (credor) {
     if (vaiFicarPago) item.nome = nomeOriginal;
     atualizarGanhoDivisao(credor, state.pessoaAtual, nomeOriginal, item.valor, item.data, vaiFicarPago);
-  } else if (!vaiFicarPago) {
-    const outro = state.pessoaAtual === "davi" ? "gabriel" : "davi";
-    atualizarGanhoDivisao(outro, state.pessoaAtual, item.nome, item.valor, item.data, false);
   } else {
+    // Gasto fixo normal: o ganho correspondente da outra pessoa acompanha
+    // o status nos dois sentidos (pagar -> recebido / desfazer -> pendente).
     sincronizarGanhoCorrespondenteFixo(state.pessoaAtual, item, vaiFicarPago);
   }
 
   vibrar();
   sincronizarCacheAtual();
   salvarBloco("saveGastosFixos", state.gastosFixos);
-  if (!credor && atualizarLinhaStatus("listaFixos", index, item.pago, "Pago", "Pendente")) {
-    renderDerivadosDeStatus();
+  if (!credor) {
+    animarMudancaStatusFluida("listaFixos", "pendentesFixos", index, item.pago, "expense", "pago", togglePagoFixo, opFixos, "fixos", "Pago", "Pendente");
+    renderTotais();
+    renderCategorias();
+    renderRecentes();
     return;
   }
   renderAll();
@@ -1727,8 +1753,11 @@ function togglePagoVariavel(index) {
   vibrar();
   sincronizarCacheAtual();
   salvarBloco("saveGastosVariaveis", state.gastosVariaveis);
-  if (!credor && atualizarLinhaStatus("listaVariaveis", index, item.pago, "Pago", "Pendente")) {
-    renderDerivadosDeStatus();
+  if (!credor) {
+    animarMudancaStatusFluida("listaVariaveis", "pendentesVariaveis", index, item.pago, "expense", "pago", togglePagoVariavel, opVariaveis, "variaveis", "Pago", "Pendente");
+    renderTotais();
+    renderCategorias();
+    renderRecentes();
     return;
   }
   renderAll();
@@ -1741,11 +1770,10 @@ function toggleRecebidoGanho(index) {
   vibrar();
   sincronizarCacheAtual();
   salvarBloco("saveGanhos", state.ganhos);
-  if (!atualizarLinhaStatus("listaGanhos", index, item.recebido, "Recebido", "Pendente")) {
-    renderAll();
-    return;
-  }
-  renderDerivadosDeStatus();
+  animarMudancaStatusFluida("listaGanhos", "pendentesGanhos", index, item.recebido, "income", "recebido", toggleRecebidoGanho, opGanhos, "ganhos", "Recebido", "Pendente");
+  renderTotais();
+  renderCategorias();
+  renderRecentes();
 }
 
 function soma(lista) { return lista.reduce((acc, i) => acc + (Number(i.valor) || 0), 0); }
@@ -2050,7 +2078,8 @@ function parcelaInlineHtml(item, tipo) {
   if (tipo !== "expense" || !item.parcela) return "";
   const parcela = String(item.parcela).trim();
   if (!/^\d+\s*\/\s*\d+$/.test(parcela)) return "";
-  return `<span class="item-tag item-tag-parcela item-tag-parcela-inline">${escapeHtml(parcela)}</span>`;
+  // A parcela acompanha o nome, sempre depois dele: Ajuda Amor (1/2).
+  return ` <span class="item-tag item-tag-parcela item-tag-parcela-inline">(${escapeHtml(parcela)})</span>`;
 }
 
 function fecharSwipe(li) {
@@ -2202,7 +2231,7 @@ function compararDataAscendente(dataA, dataB) {
 }
 
 
-function renderPendentesDestaque(containerId, lista, tipo, statusKey, toggleFn, rotuloOff) {
+function renderPendentesDestaque(containerId, lista, tipo, statusKey, toggleFn, rotuloOff, ops, tipoModal) {
   const el = document.getElementById(containerId);
   if (!el) return;
   const pendentes = (lista || []).map((item, idx) => ({ item, idx }))
@@ -2223,8 +2252,12 @@ function renderPendentesDestaque(containerId, lista, tipo, statusKey, toggleFn, 
       ${pendentes.map(({ item, idx }, posicao) => {
         const li = `
           <li class="item-list-row is-pendente pendente-destaque-row" data-idx="${idx}" style="animation-delay:${Math.min(posicao * 35, 250)}ms">
+            ${ambos ? "" : `<div class="swipe-actions">
+              <button class="swipe-btn swipe-edit" aria-label="Editar" data-idx="${idx}"><span class="swipe-btn-icon">${ICONE_LAPIS}</span><span>Editar</span></button>
+              <button class="swipe-btn swipe-delete" aria-label="Excluir" data-idx="${idx}"><span class="swipe-btn-icon">${ICONE_X}</span><span>Excluir</span></button>
+            </div>`}
             <div class="swipe-content">
-              <span class="item-nome">${parcelaInlineHtml(item, tipo)}${nomeComParcela(item)} ${tagPessoa(item)}</span>
+              <span class="item-nome">${nomeComParcela(item)}${parcelaInlineHtml(item, tipo)} ${tagPessoa(item)}</span>
               <span class="item-valor ${tipo}${tipo === "income" && ganhoEhBeneficio(item) ? " income-beneficio" : ""}">${fmt(item.valor)}</span>
               ${metaInfoHtml(item) || `<div class="item-meta"></div>`}
               ${ambos
@@ -2244,6 +2277,26 @@ function renderPendentesDestaque(containerId, lista, tipo, statusKey, toggleFn, 
     el.querySelectorAll('.pendente-destaque-row input[type="checkbox"]').forEach((input) => {
       input.addEventListener("change", () => toggleFn(Number(input.dataset.idx)));
     });
+    el.querySelectorAll('.pendente-destaque-row .swipe-edit').forEach((btn) => {
+      btn.addEventListener("click", () => {
+        const idx = Number(btn.dataset.idx);
+        const item = (lista || [])[idx];
+        const li = btn.closest(".item-list-row");
+        fecharSwipe(li);
+        if (item) abrirModalEditar(tipoModal || (tipo === "income" ? "ganhos" : containerId === "pendentesFixos" ? "fixos" : "variaveis"), idx, item);
+      });
+    });
+    el.querySelectorAll('.pendente-destaque-row .swipe-delete').forEach((btn) => {
+      btn.addEventListener("click", () => {
+        const idx = Number(btn.dataset.idx);
+        const item = (lista || [])[idx];
+        const li = btn.closest(".item-list-row");
+        fecharSwipe(li);
+        if (item) abrirConfirmacao(`Remover "${item.nome}"?`, () => excluirComRisco(li, ops || (tipo === "income" ? opGanhos : containerId === "pendentesFixos" ? opFixos : opVariaveis), idx, item));
+      });
+    });
+    const listaEl = el.querySelector(".pendentes-item-list");
+    if (listaEl) habilitarSwipe(listaEl);
   }
 }
 
@@ -2282,7 +2335,7 @@ function renderListaComStatus(ulId, lista, tipo, ops, tipoModal, statusKey, togg
               <button class="swipe-btn swipe-delete" aria-label="Excluir" data-idx="${idx}"><span class="swipe-btn-icon">${ICONE_X}</span><span>Excluir</span></button>
             </div>`}
       <div class="swipe-content">
-        <span class="item-nome">${parcelaInlineHtml(item, tipo)}${nomeComParcela(item)} ${tagPessoa(item)}</span>
+        <span class="item-nome">${nomeComParcela(item)}${parcelaInlineHtml(item, tipo)} ${tagPessoa(item)}</span>
         <span class="item-valor ${tipo}${tipo === "income" && ganhoEhBeneficio(item) ? " income-beneficio" : ""}">${fmt(item.valor)}</span>
         ${metaInfoHtml(item) || `<div class="item-meta"></div>`}
         ${ambos ? `<span class="pago-toggle ${on ? "is-pago" : ""}" aria-disabled="true"><span class="dot"></span>${on ? rotuloOn : rotuloOff}</span>`
@@ -3048,9 +3101,9 @@ function renderAll() {
   if (suprimirEntrada) document.body.classList.add("sem-entrada-listas");
 
   renderTotais();
-  renderPendentesDestaque("pendentesGanhos", state.ganhos, "income", "recebido", toggleRecebidoGanho, "Pendente");
-  renderPendentesDestaque("pendentesFixos", state.gastosFixos, "expense", "pago", togglePagoFixo, "Pendente");
-  renderPendentesDestaque("pendentesVariaveis", state.gastosVariaveis, "expense", "pago", togglePagoVariavel, "Pendente");
+  renderPendentesDestaque("pendentesGanhos", state.ganhos, "income", "recebido", toggleRecebidoGanho, "Pendente", opGanhos, "ganhos");
+  renderPendentesDestaque("pendentesFixos", state.gastosFixos, "expense", "pago", togglePagoFixo, "Pendente", opFixos, "fixos");
+  renderPendentesDestaque("pendentesVariaveis", state.gastosVariaveis, "expense", "pago", togglePagoVariavel, "Pendente", opVariaveis, "variaveis");
   renderListaComStatus("listaGanhos", state.ganhos, "income", opGanhos, "ganhos", "recebido", toggleRecebidoGanho, "Recebido", "Pendente");
   renderListaComStatus("listaFixos", state.gastosFixos, "expense", opFixos, "fixos", "pago", togglePagoFixo, "Pago", "Pendente");
   renderListaComStatus("listaVariaveis", state.gastosVariaveis, "expense", opVariaveis, "variaveis", "pago", togglePagoVariavel, "Pago", "Pendente");
@@ -5813,7 +5866,7 @@ if (document.readyState === "loading") {
           const proximoMes = ehDoProximoMes(i)
             ? `<span class="chat-pendente-proximo">Mês que vem</span>` : "";
           const data = formatarDataCurta(i.data);
-          return `<li><span class="chat-pendente-main"><strong><span class="chat-pendente-nome">${esc(i.nome || (tipo === "fixo" ? "Gasto fixo" : "Gasto variável"))}</span>${parcela}</strong><small>${[proximoMes, data ? `<span>${data}</span>` : ""].filter(Boolean).join(" · ")}</small></span><strong class="chat-valor chat-valor-neg">${chatFmt(i.valor)}</strong></li>`;
+          return `<li><span class="chat-pendente-arrow" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none"><path d="M5 12h12M13 7l5 5-5 5" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/></svg></span><span class="chat-pendente-main"><strong><span class="chat-pendente-nome">${esc(i.nome || (tipo === "fixo" ? "Gasto fixo" : "Gasto variável"))}</span>${parcela}</strong><small>${[proximoMes, data ? `<span>${data}</span>` : ""].filter(Boolean).join(" · ")}</small></span><strong class="chat-valor chat-valor-neg">${chatFmt(i.valor)}</strong></li>`;
         };
         const pendenciasOrdenadas = [
           ...fixosPendentes.map(i => ({ item: i, tipo: "fixo" })),
@@ -5821,7 +5874,7 @@ if (document.readyState === "loading") {
         ].sort((a, b) => compararDataAscendente(a.item.data, b.item.data));
         const linhasPendencias = pendenciasOrdenadas.map(({ item, tipo }) => linhaPendente(item, tipo)).join("");
         const detalhes = pendenciasOrdenadas.length
-          ? `<ol class="caixa-chat-pendencias-lista lista-simples">${linhasPendencias}</ol>`
+          ? `<ul class="caixa-chat-pendencias-lista lista-simples">${linhasPendencias}</ul>`
           : "";
         const vazio = !detalhes ? `<div class="caixa-chat-empty">Nenhum gasto pendente encontrado.</div>` : detalhes;
         const totalDesteMes = t.aPagarFixosEsseMes + t.aPagarVariaveisEsseMes;
