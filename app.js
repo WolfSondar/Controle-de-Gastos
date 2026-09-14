@@ -1692,6 +1692,8 @@ function animarMudancaStatusFluida(listaId, pendingId, index, ligado, tipo, stat
   if (checkbox) checkbox.disabled = true;
   carimbarLinha(linhaAtual, ligado ? rotuloOn : rotuloOff, ligado);
 
+  // A confirmação é curta: a linha só muda de seção depois de 1,5 s.
+  // Até lá nenhuma lista/tela é redesenhada.
   window.setTimeout(() => {
     const lista = statusKey === "recebido"
       ? state.ganhos
@@ -1720,7 +1722,7 @@ function animarMudancaStatusFluida(listaId, pendingId, index, ligado, tipo, stat
     renderSplit();
     renderJuntosView();
     atualizarCarrosselGraficos();
-  }, 3000);
+  }, 1500);
 }
 
 function togglePagoFixo(index) {
@@ -1745,13 +1747,11 @@ function togglePagoFixo(index) {
   }
 
   vibrar();
+  marcarAlteracaoLocal();
   sincronizarCacheAtual();
   salvarBloco("saveGastosFixos", state.gastosFixos);
   if (!credor) {
     animarMudancaStatusFluida("listaFixos", "pendentesFixos", index, item.pago, "expense", "pago", togglePagoFixo, opFixos, "fixos", "Pago", "Pendente");
-    renderTotais();
-    renderCategorias();
-    renderRecentes();
     return;
   }
   renderAll();
@@ -1780,13 +1780,11 @@ function togglePagoVariavel(index) {
   }
 
   vibrar();
+  marcarAlteracaoLocal();
   sincronizarCacheAtual();
   salvarBloco("saveGastosVariaveis", state.gastosVariaveis);
   if (!credor) {
     animarMudancaStatusFluida("listaVariaveis", "pendentesVariaveis", index, item.pago, "expense", "pago", togglePagoVariavel, opVariaveis, "variaveis", "Pago", "Pendente");
-    renderTotais();
-    renderCategorias();
-    renderRecentes();
     return;
   }
   renderAll();
@@ -1797,12 +1795,10 @@ function toggleRecebidoGanho(index) {
   if (!item) return;
   item.recebido = !ganhoEhRecebido(item);
   vibrar();
+  marcarAlteracaoLocal();
   sincronizarCacheAtual();
   salvarBloco("saveGanhos", state.ganhos);
   animarMudancaStatusFluida("listaGanhos", "pendentesGanhos", index, item.recebido, "income", "recebido", toggleRecebidoGanho, opGanhos, "ganhos", "Recebido", "Pendente");
-  renderTotais();
-  renderCategorias();
-  renderRecentes();
 }
 
 function soma(lista) { return lista.reduce((acc, i) => acc + (Number(i.valor) || 0), 0); }
