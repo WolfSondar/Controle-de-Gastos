@@ -1143,6 +1143,11 @@ function sincronizarCacheAtual() {
 }
 
 function criarOperacoesLista(key, action) {
+  const mudanca = {
+    ganhos: "ganhos",
+    gastosFixos: "gastosFixos",
+    gastosVariaveis: "gastosVariaveis",
+  }[key];
   return {
     add(nome, valor, extra = {}) {
       if (isAmbos()) return;
@@ -1150,7 +1155,7 @@ function criarOperacoesLista(key, action) {
       marcarAlteracaoLocal();
       sincronizarCacheAtual();
       salvarBloco(action, state[key]);
-      renderAll();
+      renderIncremental({ [mudanca]: true });
     },
     remove(index) {
       if (isAmbos()) return;
@@ -1158,7 +1163,7 @@ function criarOperacoesLista(key, action) {
       marcarAlteracaoLocal();
       sincronizarCacheAtual();
       salvarBloco(action, state[key]);
-      renderAll();
+      renderIncremental({ [mudanca]: true });
     },
     edit(index, nome, valor, extra = {}) {
       if (isAmbos()) return;
@@ -1170,7 +1175,7 @@ function criarOperacoesLista(key, action) {
       marcarAlteracaoLocal();
       sincronizarCacheAtual();
       salvarBloco(action, state[key]);
-      renderAll();
+      renderIncremental({ [mudanca]: true });
     },
   };
 }
@@ -1673,17 +1678,33 @@ async function sincronizarGanhoCorrespondenteFixo(devedor, item, recebido) {
 function animarMudancaStatusFluida(listaId, pendingId, index, ligado, tipo, statusKey, toggleFn, ops, tipoModal, rotuloOn, rotuloOff) {
   const ul = document.getElementById(listaId);
   const pend = document.getElementById(pendingId);
-  const seletor = `[data-idx="${index}"]`;
-  const linhaAtual = (ul && ul.querySelector(`.item-list-row ${seletor}`)) || (ul && ul.querySelector(`.item-list-row[data-idx="${index}"]`)) || (pend && pend.querySelector(`.item-list-row[data-idx="${index}"]`));
-  if (linhaAtual) {
-    linhaAtual.classList.add(ligado ? "is-status-saindo-pendente" : "is-status-saindo-pago");
-  }
+  const linhaAtual = (ul && ul.querySelector(`.item-list-row[data-idx="${index}"]`)) || (pend && pend.querySelector(`.item-list-row[data-idx="${index}"]`));
+  if (!linhaAtual) return;
 
-  // Dá tempo para a linha mostrar a saída antes de reconstruir apenas as
-  // duas listas envolvidas. O restante da página não é redesenhado.
+  // O status muda no estado imediatamente, mas a linha permanece no lugar por
+  // 3 segundos. Assim o usuário percebe a confirmação (carimbo) antes de o
+  // lançamento atravessar visualmente para a outra seção.
+  linhaAtual.classList.remove("is-status-saindo-pendente", "is-status-saindo-pago");
+  linhaAtual.classList.add("is-status-confirmando");
+  const checkbox = linhaAtual.querySelector('input[type="checkbox"]');
+  const toggle = checkbox ? checkbox.closest(".pago-toggle") : null;
+  if (checkbox) checkbox.disabled = true;
+  if (toggle) {
+    toggle.classList.toggle("is-pago", ligado);
+    const texto = Array.from(toggle.childNodes).find(n => n.nodeType === Node.TEXT_NODE);
+    if (texto) texto.textContent = ligado ? rotuloOn : rotuloOff;
+  }
+  carimbarLinha(linhaAtual, ligado ? rotuloOn : rotuloOff);
+
   window.setTimeout(() => {
-    renderPendentesDestaque(pendingId, state[statusKey === "recebido" ? "ganhos" : tipo === "expense" && listaId === "listaFixos" ? "gastosFixos" : "gastosVariaveis"], tipo, statusKey, toggleFn, rotuloOff, ops, tipoModal);
-    renderListaComStatus(listaId, state[statusKey === "recebido" ? "ganhos" : tipo === "expense" && listaId === "listaFixos" ? "gastosFixos" : "gastosVariaveis"], tipo, ops, tipoModal, statusKey, toggleFn, rotuloOn, rotuloOff);
+    const lista = statusKey === "recebido"
+      ? state.ganhos
+      : (tipo === "expense" && listaId === "listaFixos" ? state.gastosFixos : state.gastosVariaveis);
+
+    // Só as listas afetadas são reconstruídas. Nenhum renderAll(), skeleton ou
+    // troca da tela inteira acontece aqui.
+    renderPendentesDestaque(pendingId, lista, tipo, statusKey, toggleFn, rotuloOff, ops, tipoModal);
+    renderListaComStatus(listaId, lista, tipo, ops, tipoModal, statusKey, toggleFn, rotuloOn, rotuloOff);
 
     const destino = ligado ? ul : pend;
     const novaLinha = destino && destino.querySelector(`.item-list-row[data-idx="${index}"]`);
@@ -1691,7 +1712,16 @@ function animarMudancaStatusFluida(listaId, pendingId, index, ligado, tipo, stat
       novaLinha.classList.add("is-status-chegando");
       requestAnimationFrame(() => requestAnimationFrame(() => novaLinha.classList.remove("is-status-chegando")));
     }
-  }, 210);
+
+    // Atualiza os derivados somente depois da movimentação visual.
+    renderTotais();
+    renderVisaoGeral();
+    renderCategorias();
+    renderRecentes();
+    renderSplit();
+    renderJuntosView();
+    atualizarCarrosselGraficos();
+  }, 3000);
 }
 
 function togglePagoFixo(index) {
@@ -3081,18 +3111,32 @@ function colecaoMudou(antes, depois) {
 }
 function renderIncremental(mudancas) {
   const financeiroMudou = mudancas.ganhos || mudancas.gastosFixos || mudancas.gastosVariaveis || mudancas.caixinhas;
-  if (mudancas.ganhos) renderListaComStatus("listaGanhos", state.ganhos, "income", opGanhos, "ganhos", "recebido", toggleRecebidoGanho, "Recebido", "Pendente");
-  if (mudancas.gastosFixos) renderListaComStatus("listaFixos", state.gastosFixos, "expense", opFixos, "fixos", "pago", togglePagoFixo, "Pago", "Pendente");
-  if (mudancas.gastosVariaveis) renderListaComStatus("listaVariaveis", state.gastosVariaveis, "expense", opVariaveis, "variaveis", "pago", togglePagoVariavel, "Pago", "Pendente");
+  const semEntrada = financeiroMudou;
+  if (semEntrada) document.body.classList.add("sem-entrada-listas");
+
+  if (mudancas.ganhos) {
+    renderPendentesDestaque("pendentesGanhos", state.ganhos, "income", "recebido", toggleRecebidoGanho, "Pendente", opGanhos, "ganhos");
+    renderListaComStatus("listaGanhos", state.ganhos, "income", opGanhos, "ganhos", "recebido", toggleRecebidoGanho, "Recebido", "Pendente");
+  }
+  if (mudancas.gastosFixos) {
+    renderPendentesDestaque("pendentesFixos", state.gastosFixos, "expense", "pago", togglePagoFixo, "Pendente", opFixos, "fixos");
+    renderListaComStatus("listaFixos", state.gastosFixos, "expense", opFixos, "fixos", "pago", togglePagoFixo, "Pago", "Pendente");
+  }
+  if (mudancas.gastosVariaveis) {
+    renderPendentesDestaque("pendentesVariaveis", state.gastosVariaveis, "expense", "pago", togglePagoVariavel, "Pendente", opVariaveis, "variaveis");
+    renderListaComStatus("listaVariaveis", state.gastosVariaveis, "expense", opVariaveis, "variaveis", "pago", togglePagoVariavel, "Pago", "Pendente");
+  }
   if (mudancas.caixinhas) renderCaixinhas();
   if (financeiroMudou) {
     renderTotais(); renderVisaoGeral(); renderCategorias(); renderRecentes(); renderSplit(); renderJuntosView(); atualizarCarrosselGraficos();
   }
   if (mudancas.categoriasConfig || mudancas.iconCategorias) {
     popularSelectsDeCategoria();
-    renderListaComStatus("listaFixos", state.gastosFixos, "expense", opFixos, "fixos", "pago", togglePagoFixo, "Pago", "Pendente");
-    renderListaComStatus("listaVariaveis", state.gastosVariaveis, "expense", opVariaveis, "variaveis", "pago", togglePagoVariavel, "Pago", "Pendente");
+    if (!mudancas.gastosFixos) renderListaComStatus("listaFixos", state.gastosFixos, "expense", opFixos, "fixos", "pago", togglePagoFixo, "Pago", "Pendente");
+    if (!mudancas.gastosVariaveis) renderListaComStatus("listaVariaveis", state.gastosVariaveis, "expense", opVariaveis, "variaveis", "pago", togglePagoVariavel, "Pago", "Pendente");
   }
+
+  if (semEntrada) requestAnimationFrame(() => document.body.classList.remove("sem-entrada-listas"));
 }
 
 function renderAll() {
