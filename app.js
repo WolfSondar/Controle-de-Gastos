@@ -1751,17 +1751,27 @@ function animarReencaixeStatus(listaId, pendingId, antes, origemKey, destinoKey,
 
 function atualizarVisualStatusNaHora(linha, ligado, rotuloOn, rotuloOff) {
   if (!linha) return;
-  linha.classList.toggle("is-pendente", !ligado);
+  const ativo = !!ligado;
+  linha.classList.toggle("is-pendente", !ativo);
   const checkbox = linha.querySelector('input[type="checkbox"]');
   const label = linha.querySelector(".pago-toggle");
   if (checkbox) {
-    checkbox.checked = !!ligado;
+    checkbox.checked = ativo;
     checkbox.disabled = true;
   }
   if (label) {
-    label.classList.toggle("is-pago", !!ligado);
+    label.classList.toggle("is-pago", ativo);
+    label.setAttribute("data-status", ativo ? rotuloOn : rotuloOff);
     const texto = label.querySelector(".status-label-text");
-    if (texto) texto.textContent = ligado ? rotuloOn : rotuloOff;
+    if (texto) {
+      texto.textContent = ativo ? rotuloOn : rotuloOff;
+    } else {
+      // Fallback para qualquer markup antigo que ainda não tenha o span.
+      const novoTexto = document.createElement("span");
+      novoTexto.className = "status-label-text";
+      novoTexto.textContent = ativo ? rotuloOn : rotuloOff;
+      label.appendChild(novoTexto);
+    }
   }
 }
 
@@ -2397,17 +2407,29 @@ function renderPendentesDestaque(containerId, lista, tipo, statusKey, toggleFn, 
   if (!ambos) {
     el.querySelectorAll('.pendente-destaque-row .pago-toggle').forEach((label) => {
       label.addEventListener("click", (event) => {
-        // Somente a tag de status confirma/desfaz o lançamento. O card inteiro
-        // continua sendo apenas conteúdo/área de swipe.
-        if (event.target.closest('input[type="checkbox"]')) return;
+        // O status só muda pela própria tag. O card inteiro nunca altera o
+        // lançamento. Tratamos o clique da tag manualmente para que a mudança
+        // visual aconteça no MESMO instante, sem depender do evento change.
         event.preventDefault();
         event.stopPropagation();
+        if (label.dataset.statusBusy === "1") return;
         const input = label.querySelector('input[type="checkbox"]');
-        if (input) toggleFn(Number(input.dataset.idx));
+        if (!input) return;
+        const idx = Number(input.dataset.idx);
+        const proximo = !input.checked;
+        label.dataset.statusBusy = "1";
+        input.checked = proximo;
+        atualizarVisualStatusNaHora(label.closest(".item-list-row"), proximo, tipo === "income" ? "Recebido" : "Pago", "Pendente");
+        toggleFn(idx);
       });
-    });
-    el.querySelectorAll('.pendente-destaque-row input[type="checkbox"]').forEach((input) => {
-      input.addEventListener("change", () => toggleFn(Number(input.dataset.idx)));
+      label.querySelector('input[type="checkbox"]')?.addEventListener("change", (event) => {
+        // Alterações por teclado/acessibilidade também entram pelo mesmo fluxo.
+        if (label.dataset.statusBusy === "1") return;
+        const input = event.currentTarget;
+        label.dataset.statusBusy = "1";
+        atualizarVisualStatusNaHora(label.closest(".item-list-row"), input.checked, tipo === "income" ? "Recebido" : "Pago", "Pendente");
+        toggleFn(Number(input.dataset.idx));
+      });
     });
     el.querySelectorAll('.pendente-destaque-row .swipe-edit').forEach((btn) => {
       btn.addEventListener("click", () => {
@@ -2484,13 +2506,27 @@ function renderListaComStatus(ulId, lista, tipo, ops, tipoModal, statusKey, togg
       const status = li.querySelector(".pago-toggle");
       if (status) {
         status.addEventListener("click", (event) => {
-          if (event.target.closest('input[type="checkbox"]')) return;
+          // Somente a tag alterna o status. Fazemos o toggle manualmente para
+          // que a interface reflita a decisão antes de qualquer renderização.
           event.preventDefault();
           event.stopPropagation();
+          if (status.dataset.statusBusy === "1") return;
+          const input = status.querySelector('input[type="checkbox"]');
+          if (!input) return;
+          const proximo = !input.checked;
+          status.dataset.statusBusy = "1";
+          input.checked = proximo;
+          atualizarVisualStatusNaHora(li, proximo, rotuloOn, rotuloOff);
+          toggleFn(idx);
+        });
+        status.querySelector('input[type="checkbox"]')?.addEventListener("change", (event) => {
+          if (status.dataset.statusBusy === "1") return;
+          const input = event.currentTarget;
+          status.dataset.statusBusy = "1";
+          atualizarVisualStatusNaHora(li, input.checked, rotuloOn, rotuloOff);
           toggleFn(idx);
         });
       }
-      li.querySelector('input[type="checkbox"]').addEventListener("change", () => toggleFn(idx));
       li.querySelector(".swipe-edit").addEventListener("click", () => {
         fecharSwipe(li);
         abrirModalEditar(tipoModal, idx, item);
