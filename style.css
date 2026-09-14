@@ -7267,7 +7267,11 @@ body.sem-entrada-listas .item-list-row { animation: none !important; }
 }
 .pendentes-destaque .status-list-title { color: var(--gold-deep); }
 .pendentes-item-list { margin: 0; }
-.pendente-destaque-row { animation: item-list-row-in .34s cubic-bezier(.2,.8,.2,1) both; }
+.pendente-destaque-row { animation: item-entrar .34s cubic-bezier(.2,.8,.2,1) both; }
+.item-list-row.is-status-saindo-pendente, .item-list-row.is-status-saindo-pago { pointer-events:none; animation: status-linha-saindo .21s cubic-bezier(.4,0,.2,1) forwards !important; }
+.item-list-row.is-status-chegando { opacity:0 !important; transform: translateY(8px) scale(.985); }
+.item-list-row.is-status-chegando { transition: opacity .32s ease, transform .32s cubic-bezier(.2,.8,.2,1); }
+@keyframes status-linha-saindo { from { opacity:1; transform:translateY(0) scale(1); max-height:120px; } to { opacity:0; transform:translateY(-5px) scale(.985); max-height:0; padding-top:0; padding-bottom:0; border-bottom-color:transparent; } }
 .status-list-title-row {
   list-style: none;
   padding: 0 !important;
@@ -7288,9 +7292,9 @@ body.sem-entrada-listas .item-list-row { animation: none !important; }
 
 /* No chat, "Ainda falta pagar" é uma lista numerada simples, não um conjunto de cards. */
 .caixa-chat-pendencias-lista.lista-simples {
-  list-style: decimal;
-  margin: 7px 0 0;
-  padding: 0 0 0 23px;
+  list-style: none;
+  margin: 8px 0 0;
+  padding: 0;
   display: block;
 }
 .caixa-chat-pendencias-lista.lista-simples li,
@@ -7298,10 +7302,10 @@ body.sem-entrada-listas .item-list-row { animation: none !important; }
   display: flex;
   align-items: baseline;
   justify-content: space-between;
-  gap: 12px;
+  gap: 9px;
   min-height: 0;
   margin: 0;
-  padding: 5px 0 5px 3px;
+  padding: 7px 0;
   border: 0;
   border-radius: 0;
   background: transparent;
@@ -7309,10 +7313,13 @@ body.sem-entrada-listas .item-list-row { animation: none !important; }
   animation: none;
   font-size: 11px;
 }
-.caixa-chat-pendencias-lista.lista-simples li::marker {
-  font-weight: 700;
-  color: var(--muted);
+ .caixa-chat-pendencias-lista.lista-simples li::marker { display:none; }
+.caixa-chat-pendencias-lista.lista-simples .chat-pendente-arrow {
+  width: 25px; height: 25px; flex: 0 0 25px;
+  display: inline-flex; align-items:center; justify-content:center;
+  border-radius: 50%; background: var(--gold-bg, rgba(185,134,47,.12)); color: var(--gold-deep);
 }
+.caixa-chat-pendencias-lista.lista-simples .chat-pendente-arrow svg { width: 14px; height:14px; }
 .caixa-chat-pendencias-lista.lista-simples .chat-pendente-main {
   display: block;
   min-width: 0;
@@ -7335,3 +7342,11 @@ body.sem-entrada-listas .item-list-row { animation: none !important; }
   font-size: 10.5px;
   text-align: right;
 }
+
+
+/* Transições fluidas das listas de status — sem redesenhar a página inteira. */
+.pendentes-destaque { overflow: visible; }
+.pendentes-destaque .item-list { background: transparent; }
+.pendentes-destaque .item-list-row { background: var(--paper-deep); }
+.status-list-title { transition: opacity .2s ease, transform .2s ease; }
+.pendentes-destaque + .item-list { transition: opacity .2s ease; }
