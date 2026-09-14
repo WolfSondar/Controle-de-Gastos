@@ -4256,53 +4256,34 @@ on("formDividir", "submit", async (e) => {
   const nome = document.getElementById("dividirNome").value.trim();
   const valor = parseValor(document.getElementById("dividirValor").value);
   if (!nome || !(valor > 0)) return;
-
   const dividirTipoEl = document.getElementById("dividirTipo");
   const dividirDataEl = document.getElementById("dividirData");
   const tipo = dividirTipoEl ? dividirTipoEl.value : "";
   const data = dividirDataEl ? dividirDataEl.value : "";
   const pago = dividirPagoCheckbox ? dividirPagoCheckbox.checked : true;
   const quemPagouTudo = dividirQuemPagouEl && dividirQuemPagouEl.value !== "metade" ? dividirQuemPagouEl.value : null;
-
   const btnSubmit = document.getElementById("dividirSubmit");
-  if (btnSubmit) {
-    btnSubmit.disabled = true;
-    btnSubmit.textContent = "Preparando…";
-  }
-
-  // A animação começa em estado IDLE imediatamente. A operação real só é
-  // disparada depois de 3s, como um pequeno "momento cozy" antes da ação.
+  if (btnSubmit) { btnSubmit.disabled = true; btnSubmit.textContent = "Preparando…"; }
   const feedback = mostrarAnimacaoDivisao({ nome, valor, quemPagouTudo });
-
   await new Promise((resolve) => window.setTimeout(resolve, 3000));
   setEstadoDivisaoFeedback(feedback, "dividindo");
   if (btnSubmit) btnSubmit.textContent = "Dividindo…";
-
-  const ok = await dividirCompra(nome, valor, categoriaDividir, { tipo, data, pago, quemPagouTudo });
-
-  if (btnSubmit) {
-    btnSubmit.disabled = false;
-    btnSubmit.textContent = "Dividir";
-  }
-
+  const operacao = dividirCompra(nome, valor, categoriaDividir, { tipo, data, pago, quemPagouTudo });
+  const duracaoVisual = new Promise((resolve) => window.setTimeout(resolve, 2450));
+  const [ok] = await Promise.all([operacao, duracaoVisual]);
+  if (btnSubmit) { btnSubmit.disabled = false; btnSubmit.textContent = "Dividir"; }
   if (ok) {
     setEstadoDivisaoFeedback(feedback, "sucesso");
-    showToast(
-      quemPagouTudo && !pago
-        ? `"${nome}" lançado — ${PESSOA_LABEL[quemPagouTudo === "davi" ? "gabriel" : "davi"]} fica devendo a metade`
-        : `"${nome}" dividido — metade pra cada um`
-    );
-    fecharFeedbackDepois(feedback, 1700);
-    window.setTimeout(() => {
-      fecharAcoesConjunto();
-      renderAll();
-    }, 1250);
+    showToast(quemPagouTudo && !pago ? `"${nome}" lançado — ${PESSOA_LABEL[quemPagouTudo === "davi" ? "gabriel" : "davi"]} fica devendo a metade` : `"${nome}" dividido — metade pra cada um`);
+    fecharFeedbackDepois(feedback, 1550);
+    window.setTimeout(() => { fecharAcoesConjunto(); renderAll(); }, 1150);
   } else {
     setEstadoDivisaoFeedback(feedback, "erro");
     fecharFeedbackDepois(feedback, 1500);
     showToast("Não consegui dividir agora. Tenta de novo em instantes.");
   }
 });
+
 
 on("btnAbrirTransferir", "click", () => {
   if (acoesMenuView) acoesMenuView.classList.add("is-hidden");
@@ -4380,75 +4361,107 @@ function montarDivisaoFeedback({ nome = "", valor = 0, quemPagouTudo = null } = 
     : "50% para cada um";
 
   overlay.innerHTML = `
-    <div class="acao-feedback-card divisao-feedback-card">
+    <div class="acao-feedback-card v34-feedback-card v34-divisao-card">
       <div class="cozy-badge">✦ MOMENTO DO CAIXA</div>
-
-      <div class="divisao-feedback-stage">
-        <div class="divisao-scene-glow"></div>
-        <div class="divisao-scene-line"></div>
-
-        <div class="divisao-cena-pessoas">
-          ${perfilFeedback("davi", "left")}
-
-          <div class="divisao-centro">
-            <div class="divisao-compra">
-              <div class="divisao-sacola" aria-hidden="true">
-                <span class="divisao-sacola-alca"></span>
-                <span class="divisao-sacola-corpo"></span>
-                <span class="divisao-sacola-detalhe"></span>
-              </div>
-              <span class="divisao-valor">${fmt(Number(valor))}</span>
-            </div>
-            <span class="divisao-peca divisao-peca-a">½</span>
-            <span class="divisao-peca divisao-peca-b">½</span>
-          </div>
-
-          ${perfilFeedback("gabriel", "right")}
+      <div class="v34-divisao-scene" aria-hidden="true">
+        <div class="v34-scene-glow"></div>
+        <div class="v34-divisao-link v34-link-left"></div>
+        <div class="v34-divisao-link v34-link-right"></div>
+        <div class="v34-split-person v34-person-left">
+          <div class="feedback-avatar">${(PESSOA_LABEL.davi || "D").charAt(0).toUpperCase()}</div>
+          <span>${escapeHtml(PESSOA_LABEL.davi)}</span>
         </div>
-
-        <div class="divisao-estrelas" aria-hidden="true">
-          <i>✦</i><i>✦</i><i>✧</i><i>✦</i><i>·</i><i>✧</i>
+        <div class="v34-split-core">
+          <div class="v34-purchase-card">
+            <div class="v34-bag" aria-hidden="true">
+              <span class="v34-bag-handle"></span>
+              <span class="v34-bag-body"></span>
+              <span class="v34-bag-line"></span>
+            </div>
+            <span class="v34-purchase-value">${fmt(Number(valor))}</span>
+            <span class="v34-success-check">✓</span>
+          </div>
+          <span class="v34-share v34-share-left">50%</span>
+          <span class="v34-share v34-share-right">50%</span>
+        </div>
+        <div class="v34-split-person v34-person-right">
+          <div class="feedback-avatar">${(PESSOA_LABEL.gabriel || "G").charAt(0).toUpperCase()}</div>
+          <span>${escapeHtml(PESSOA_LABEL.gabriel)}</span>
+        </div>
+        <div class="v34-split-sparkles" aria-hidden="true">
+          <i>✦</i><i>✧</i><i>✦</i><i>·</i><i>✦</i>
         </div>
       </div>
-
-      <span class="acao-feedback-kicker" data-divisao-kicker>DIVIDINDO A COMPRA</span>
-      <strong class="acao-feedback-title" data-divisao-title>Organizando os valores...</strong>
-      <span class="acao-feedback-detail" data-divisao-detail>
-        ${escapeHtml(nome || "Compra")} · ${fmt(metade)} para cada
-      </span>
-      <span class="acao-feedback-stamp" data-divisao-stamp>${escapeHtml(rotulo)}</span>
+      <span class="acao-feedback-kicker v34-feedback-kicker" data-divisao-kicker>PREPARANDO A DIVISÃO</span>
+      <span class="acao-feedback-detail v34-feedback-detail" data-divisao-detail>${escapeHtml(nome || "Compra")} · ${fmt(metade)} para cada</span>
+      <span class="acao-feedback-stamp v34-feedback-stamp" data-divisao-stamp>${escapeHtml(rotulo)}</span>
     </div>
   `;
-
   return overlay;
+}
+
+function animarPartilhaV34(overlay) {
+  const scene = overlay?.querySelector(".v34-divisao-scene");
+  const leftPiece = overlay?.querySelector(".v34-share-left");
+  const rightPiece = overlay?.querySelector(".v34-share-right");
+  const leftPerson = overlay?.querySelector(".v34-person-left .feedback-avatar");
+  const rightPerson = overlay?.querySelector(".v34-person-right .feedback-avatar");
+  if (!scene || !leftPiece || !rightPiece) return Promise.resolve();
+  const sceneRect = scene.getBoundingClientRect();
+  const targets = [
+    { el: leftPiece, person: leftPerson, direction: -1 },
+    { el: rightPiece, person: rightPerson, direction: 1 }
+  ];
+  const animations = targets.map(({ el, person, direction }) => {
+    const personRect = person?.getBoundingClientRect();
+    const startX = sceneRect.width / 2;
+    const startY = sceneRect.height / 2 + 2;
+    const targetX = personRect ? personRect.left + personRect.width / 2 - sceneRect.left : startX + direction * Math.min(sceneRect.width * .34, 140);
+    const targetY = personRect ? personRect.top + personRect.height / 2 - sceneRect.top : startY;
+    const dx = targetX - startX;
+    const dy = targetY - startY;
+    const arc = Math.min(24, Math.max(12, Math.abs(dx) * .12));
+    el.style.left = `${startX}px`;
+    el.style.top = `${startY}px`;
+    el.style.opacity = "1";
+    const keyframes = [
+      { transform: "translate(-50%, -50%) scale(.72)", opacity: 0, offset: 0 },
+      { transform: `translate(calc(-50% + ${dx * .08}px), calc(-50% - ${arc}px)) scale(1.05)`, opacity: 1, offset: .10 },
+      { transform: `translate(calc(-50% + ${dx * .28}px), calc(-50% - ${arc * .55}px)) scale(1)`, opacity: 1, offset: .28 },
+      { transform: `translate(calc(-50% + ${dx * .52}px), calc(-50% + ${direction * 5}px)) scale(.99)`, opacity: 1, offset: .52 },
+      { transform: `translate(calc(-50% + ${dx * .76}px), calc(-50% + ${arc * .55}px)) scale(.96)`, opacity: 1, offset: .76 },
+      { transform: `translate(calc(-50% + ${dx}px), calc(-50% + ${dy}px)) scale(.94)`, opacity: 1, offset: 1 }
+    ];
+    const animation = el.animate(keyframes, { duration: 2450, easing: "cubic-bezier(.16,.72,.18,1)", fill: "forwards" });
+    animation.finished.then(() => person?.classList.add("v34-recebeu"));
+    return animation.finished;
+  });
+  return Promise.all(animations);
 }
 
 function setEstadoDivisaoFeedback(overlay, estado) {
   if (!overlay) return;
   overlay.dataset.estado = estado;
-
   const kicker = overlay.querySelector("[data-divisao-kicker]");
-  const title = overlay.querySelector("[data-divisao-title]");
-  const stage = overlay.querySelector(".divisao-feedback-stage");
-
+  const stage = overlay.querySelector(".v34-divisao-scene");
+  const detail = overlay.querySelector("[data-divisao-detail]");
   if (estado === "idle") {
     if (kicker) kicker.textContent = "PREPARANDO A DIVISÃO";
-    if (title) title.textContent = "Organizando os valores...";
-    stage?.classList.remove("is-dividindo", "is-sucesso");
+    stage?.classList.remove("is-dividindo", "is-sucesso", "is-erro");
   } else if (estado === "dividindo") {
     if (kicker) kicker.textContent = "DIVIDINDO A COMPRA";
-    if (title) title.textContent = "Divisão em andamento";
     stage?.classList.add("is-dividindo");
-    stage?.classList.remove("is-sucesso");
+    stage?.classList.remove("is-sucesso", "is-erro");
+    if (detail) detail.textContent = "Cada parte encontra seu destino";
+    requestAnimationFrame(() => animarPartilhaV34(overlay));
   } else if (estado === "sucesso") {
     if (kicker) kicker.textContent = "DIVISÃO CONCLUÍDA";
-    if (title) title.textContent = "Divisão concluída";
-    stage?.classList.remove("is-dividindo");
+    stage?.classList.remove("is-dividindo", "is-erro");
     stage?.classList.add("is-sucesso");
   } else if (estado === "erro") {
     if (kicker) kicker.textContent = "NÃO FOI POSSÍVEL DIVIDIR";
-    if (title) title.textContent = "A compra continua segura";
     stage?.classList.remove("is-dividindo", "is-sucesso");
+    stage?.classList.add("is-erro");
   }
 }
 
@@ -4470,74 +4483,83 @@ function montarTransferenciaFeedback(de, para, valor) {
   const overlay = criarAcaoFeedbackBase("transferirFeedbackOverlay", "transferencia");
   overlay.dataset.de = de;
   overlay.dataset.para = para;
-
   const deNome = PESSOA_LABEL[de] || de;
   const paraNome = PESSOA_LABEL[para] || para;
-
   overlay.innerHTML = `
-    <div class="acao-feedback-card transferencia-feedback-card">
-      <div class="cozy-badge">✦ CORREIO DO CAIXA</div>
-
-      <div class="transferencia-cena" aria-hidden="true">
-        ${perfilFeedback(de, "transferencia-remetente")}
-
-        <div class="transferencia-rota">
-          <div class="transferencia-trilha">
-            <span></span><span></span><span></span><span></span><span></span>
-            <span></span><span></span><span></span><span></span>
-          </div>
-          <div class="transferencia-moeda">
-            <div class="transferencia-moeda-brilho"></div>
-            <div class="transferencia-moeda-corpo">R$</div>
-          </div>
-          <div class="transferencia-chegada">✦</div>
+    <div class="acao-feedback-card v34-feedback-card v34-transfer-card">
+      <div class="cozy-badge">✦ FLUXO DO CAIXA</div>
+      <div class="v34-transfer-scene" aria-hidden="true">
+        <div class="v34-transfer-aura"></div>
+        <div class="v34-transfer-person v34-transfer-left">
+          <div class="feedback-avatar">${escapeHtml((deNome || "D").charAt(0).toUpperCase())}</div>
+          <span>${escapeHtml(deNome)}</span>
         </div>
-
-        ${perfilFeedback(para, "transferencia-destinatario")}
+        <div class="v34-transfer-route">
+          <svg viewBox="0 0 600 120" preserveAspectRatio="none">
+            <path class="v34-route-shadow" d="M 28 60 C 155 25, 205 95, 300 60 S 445 25, 572 60"></path>
+            <path class="v34-route-flow" d="M 28 60 C 155 25, 205 95, 300 60 S 445 25, 572 60"></path>
+          </svg>
+          <span class="v34-transfer-coin">R$</span>
+          <span class="v34-arrival-ring"></span>
+          <span class="v34-arrival-check">✓</span>
+        </div>
+        <div class="v34-transfer-person v34-transfer-right">
+          <div class="feedback-avatar">${escapeHtml((paraNome || "G").charAt(0).toUpperCase())}</div>
+          <span>${escapeHtml(paraNome)}</span>
+        </div>
       </div>
-
-      <span class="acao-feedback-kicker" data-transfer-kicker>PREPARANDO A TRANSFERÊNCIA</span>
-      <strong class="acao-feedback-title" data-transfer-title>Preparando o valor...</strong>
-      <span class="acao-feedback-detail" data-transfer-detail>
-        ${escapeHtml(deNome)} → ${escapeHtml(paraNome)} · ${fmt(Number(valor))}
-      </span>
-      
+      <span class="acao-feedback-kicker v34-feedback-kicker" data-transfer-kicker>PREPARANDO A TRANSFERÊNCIA</span>
+      <span class="acao-feedback-detail v34-feedback-detail" data-transfer-detail>${escapeHtml(deNome)} → ${escapeHtml(paraNome)} · ${fmt(Number(valor))}</span>
     </div>
   `;
-
   return overlay;
+}
+
+function animarTransferenciaV34(overlay) {
+  const route = overlay?.querySelector(".v34-transfer-route");
+  const path = route?.querySelector(".v34-route-flow");
+  const coin = route?.querySelector(".v34-transfer-coin");
+  if (!route || !path || !coin) return Promise.resolve();
+  const total = path.getTotalLength();
+  const duration = 3400;
+  const start = performance.now();
+  const ease = (t) => 1 - Math.pow(1 - t, 1.75);
+  return new Promise((resolve) => {
+    const frame = (now) => {
+      const raw = Math.min(1, (now - start) / duration);
+      const t = ease(raw);
+      const point = path.getPointAtLength(total * t);
+      coin.style.left = `${(point.x / 600) * 100}%`;
+      coin.style.top = `${(point.y / 120) * 100}%`;
+      coin.style.transform = "translate(-50%, -50%)";
+      if (raw < 1) requestAnimationFrame(frame);
+      else { route.classList.add("is-arrived"); resolve(); }
+    };
+    requestAnimationFrame(frame);
+  });
 }
 
 function setEstadoTransferenciaFeedback(overlay, estado) {
   if (!overlay) return;
   overlay.dataset.estado = estado;
-
   const kicker = overlay.querySelector("[data-transfer-kicker]");
-  const title = overlay.querySelector("[data-transfer-title]");
-  const cena = overlay.querySelector(".transferencia-cena");
-
+  const scene = overlay.querySelector(".v34-transfer-scene");
   if (estado === "idle") {
     if (kicker) kicker.textContent = "PREPARANDO A TRANSFERÊNCIA";
-    if (title) title.textContent = "Preparando o valor...";
-    
-    cena?.classList.remove("is-transferindo", "is-sucesso");
+    scene?.classList.remove("is-transferindo", "is-sucesso", "is-erro");
   } else if (estado === "transferindo") {
     if (kicker) kicker.textContent = "TRANSFERINDO";
-    if (title) title.textContent = "O valor está a caminho";
-    
-    cena?.classList.add("is-transferindo");
-    cena?.classList.remove("is-sucesso");
+    scene?.classList.add("is-transferindo");
+    scene?.classList.remove("is-sucesso", "is-erro");
+    requestAnimationFrame(() => animarTransferenciaV34(overlay));
   } else if (estado === "sucesso") {
-    if (kicker) kicker.textContent = "TRANSFERIDO COM SUCESSO";
-    if (title) title.textContent = "Chegou direitinho! ✨";
-    
-    cena?.classList.remove("is-transferindo");
-    cena?.classList.add("is-sucesso");
+    if (kicker) kicker.textContent = "TRANSFERÊNCIA CONCLUÍDA";
+    scene?.classList.remove("is-transferindo", "is-erro");
+    scene?.classList.add("is-sucesso");
   } else if (estado === "erro") {
     if (kicker) kicker.textContent = "TRANSFERÊNCIA NÃO CONCLUÍDA";
-    if (title) title.textContent = "O valor permaneceu seguro";
-    
-    cena?.classList.remove("is-transferindo", "is-sucesso");
+    scene?.classList.remove("is-transferindo", "is-sucesso");
+    scene?.classList.add("is-erro");
   }
 }
 
@@ -4548,42 +4570,23 @@ on("formTransferir", "submit", async (e) => {
   if (!(valor > 0)) return;
   const categoriaEl = document.getElementById("transferirCategoria");
   const tipo = categoriaEl ? categoriaEl.value : "";
-
   const btnSubmit = document.getElementById("transferirSubmit");
-  if (btnSubmit) {
-    btnSubmit.disabled = true;
-    btnSubmit.textContent = "Preparando…";
-  }
-
+  if (btnSubmit) { btnSubmit.disabled = true; btnSubmit.textContent = "Preparando…"; }
   const { de, para } = direcaoTransferir;
   const feedback = montarTransferenciaFeedback(de, para, valor);
   setEstadoTransferenciaFeedback(feedback, "idle");
-
-  // 3s de preparação. Depois, a animação e a operação real começam juntas.
-  // O sucesso só aparece quando os dois terminaram, evitando a moeda "teleportar"
-  // para o destino porque a operação financeira respondeu rápido demais.
   await new Promise((resolve) => window.setTimeout(resolve, 3000));
-
   setEstadoTransferenciaFeedback(feedback, "transferindo");
   if (btnSubmit) btnSubmit.textContent = "Transferindo…";
-
-  const operacaoTransferencia = transferirEntrePessoas(de, para, nome, valor, tipo);
-  const duracaoViagem = new Promise((resolve) => window.setTimeout(resolve, 3000));
-  const [ok] = await Promise.all([operacaoTransferencia, duracaoViagem]);
-
-  if (btnSubmit) {
-    btnSubmit.disabled = false;
-    btnSubmit.textContent = "Transferir";
-  }
-
+  const operacao = transferirEntrePessoas(de, para, nome, valor, tipo);
+  const duracaoVisual = new Promise((resolve) => window.setTimeout(resolve, 3400));
+  const [ok] = await Promise.all([operacao, duracaoVisual]);
+  if (btnSubmit) { btnSubmit.disabled = false; btnSubmit.textContent = "Transferir"; }
   if (ok) {
     setEstadoTransferenciaFeedback(feedback, "sucesso");
     showToast(`${fmt(valor)} transferido de ${PESSOA_LABEL[de]} pra ${PESSOA_LABEL[para]}`);
-    fecharFeedbackDepois(feedback, 1800);
-    window.setTimeout(() => {
-      fecharAcoesConjunto();
-      renderAll();
-    }, 1350);
+    fecharFeedbackDepois(feedback, 1700);
+    window.setTimeout(() => { fecharAcoesConjunto(); renderAll(); }, 1250);
   } else {
     setEstadoTransferenciaFeedback(feedback, "erro");
     fecharFeedbackDepois(feedback, 1500);
