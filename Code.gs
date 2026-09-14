@@ -823,8 +823,7 @@ function lerImersaoIA() {
 function textoTomIA(pessoaCodigo) {
   if (pessoaCodigo === "ambos") return "";
   const imersao = lerImersaoIA();
-  const tom = pessoaCodigo === "gabriel" ? imersao.tomGabriel : imersao.tomDavi;
-  return tom || "";
+  return imersao.tomGabriel || "";
 }
 
 // Monta o bloco de texto de imersão a ser enviado no prompt, já filtrado
