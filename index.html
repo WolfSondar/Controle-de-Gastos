@@ -22,89 +22,7 @@
 <link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,400;9..144,500;9..144,600;9..144,700&family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500;600;700&display=swap" rel="stylesheet" />
 <link rel="stylesheet" href="style.css" />
 </head>
-<body class="caixa-auth-pending">
-
-<div class="caixa-auth-gate" id="caixaAuthGate" aria-hidden="false">
-  <div class="caixa-auth-backdrop"></div>
-  <main class="caixa-login" aria-labelledby="caixaLoginTitle">
-    <div class="caixa-login-brand">Caixa</div>
-    <div class="caixa-login-kicker">Seu espaço financeiro</div>
-    <h1 id="caixaLoginTitle">Bem-vindo ao Caixa.</h1>
-    <p class="caixa-login-subtitle">Entre com sua conta Google para acessar seu espaço financeiro.</p>
-
-    <div class="caixa-auth-message is-hidden" id="caixaAuthMessage" role="alert"></div>
-    <button type="button" class="caixa-auth-google" id="caixaGoogleLogin">
-      <span class="caixa-google-mark" aria-hidden="true">G</span>
-      <span>Continuar com Google</span>
-    </button>
-
-    <div class="caixa-auth-legacy-wrap">
-      <button type="button" class="caixa-auth-link caixa-auth-legacy-toggle" id="caixaLegacyToggle">Entrar com e-mail e senha</button>
-      <form id="caixaLoginForm" class="is-hidden caixa-auth-legacy-form" novalidate>
-        <label class="caixa-auth-label" for="caixaAuthEmail">E-mail</label>
-        <input class="caixa-auth-input" id="caixaAuthEmail" name="email" type="email" autocomplete="email" placeholder="seuemail@email.com" />
-        <div class="caixa-auth-label-row">
-          <label class="caixa-auth-label" for="caixaAuthPassword">Senha</label>
-          <button type="button" class="caixa-auth-link" id="caixaForgotPassword">Esqueci minha senha</button>
-        </div>
-        <input class="caixa-auth-input" id="caixaAuthPassword" name="password" type="password" autocomplete="current-password" placeholder="Sua senha" minlength="6" />
-        <button class="caixa-auth-submit" id="caixaLoginSubmit" type="submit">Entrar</button>
-      </form>
-    </div>
-    <p class="caixa-auth-footnote">Depois de entrar, sua sessão permanece conectada neste dispositivo.</p>
-  </main>
-</div>
-
-<div class="caixa-onboarding-gate is-hidden" id="caixaOnboardingGate" aria-hidden="true">
-  <div class="caixa-auth-backdrop"></div>
-  <main class="caixa-onboarding" aria-labelledby="caixaOnboardingTitle">
-    <div class="caixa-login-brand">Caixa</div>
-    <div class="caixa-login-kicker">Primeiro acesso</div>
-    <div class="caixa-onboarding-progress" id="caixaOnboardingProgress" aria-hidden="true"><span></span></div>
-    <h1 id="caixaOnboardingTitle">Vamos deixar tudo com a sua cara.</h1>
-    <p class="caixa-login-subtitle" id="caixaOnboardingSubtitle">Antes de entrar no Caixa, preciso de algumas informações para preparar seu espaço.</p>
-
-    <form id="caixaOnboardingForm" novalidate>
-      <section class="caixa-onboarding-step" data-step="1">
-        <div class="caixa-onboarding-question">Como você vai usar o Caixa?</div>
-        <div class="caixa-onboarding-options" role="radiogroup" aria-label="Quantidade de pessoas">
-          <button type="button" class="caixa-onboarding-option is-selected" data-people="1" aria-pressed="true">Só eu<span>Um espaço individual</span></button>
-          <button type="button" class="caixa-onboarding-option" data-people="2" aria-pressed="false">Nós dois<span>Um espaço compartilhado</span></button>
-        </div>
-        <button type="button" class="caixa-auth-submit" id="caixaOnboardingNext1">Continuar</button>
-      </section>
-
-      <section class="caixa-onboarding-step is-hidden" data-step="2">
-        <div class="caixa-onboarding-question" id="caixaPeopleQuestion">Qual é o seu nome?</div>
-        <div id="caixaPeopleFields"></div>
-        <div class="caixa-onboarding-actions">
-          <button type="button" class="caixa-auth-secondary" id="caixaOnboardingBack2">Voltar</button>
-          <button type="button" class="caixa-auth-submit" id="caixaOnboardingNext2">Continuar</button>
-        </div>
-      </section>
-
-      <section class="caixa-onboarding-step is-hidden" data-step="3">
-        <div class="caixa-onboarding-question" id="caixaToneQuestion">Como você prefere que a IA fale com você?</div>
-        <div id="caixaToneFields"></div>
-        <div class="caixa-onboarding-actions">
-          <button type="button" class="caixa-auth-secondary" id="caixaOnboardingBack3">Voltar</button>
-          <button type="button" class="caixa-auth-submit" id="caixaOnboardingNext3">Continuar</button>
-        </div>
-      </section>
-
-      <section class="caixa-onboarding-step is-hidden" data-step="4">
-        <div class="caixa-onboarding-question" id="caixaImmersionQuestion">Como você quer que a IA entenda você?</div>
-        <p class="caixa-onboarding-hint">Escreva do seu jeito. Pode falar sobre sua rotina, objetivos ou como gosta de receber ajuda.</p>
-        <div id="caixaImmersionFields"></div>
-        <div class="caixa-onboarding-actions">
-          <button type="button" class="caixa-auth-secondary" id="caixaOnboardingBack4">Voltar</button>
-          <button type="button" class="caixa-auth-submit" id="caixaOnboardingFinish">Entrar no Caixa</button>
-        </div>
-      </section>
-      <div class="caixa-auth-message is-hidden" id="caixaOnboardingMessage" role="alert"></div>
-    </form>
-  </main>
-</div>
+<body>
 
 <div class="app">
 
@@ -720,10 +638,7 @@
 </section>
 
 
-<script src="firebase-config.js"></script>
-<script type="module" src="firebase-auth.js"></script>
-<script type="module" src="firebase-profile.js"></script>
-<script type="module" src="firebase-data.js"></script>
+<script src="config.js"></script>
 <script src="app.js"></script>
 </body>
 </html>
