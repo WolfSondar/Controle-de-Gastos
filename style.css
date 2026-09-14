@@ -7361,8 +7361,8 @@ body.sem-entrada-listas .item-list-row { animation: none !important; }
 .status-list-title { transition: opacity .2s ease, transform .2s ease; }
 .pendentes-destaque + .item-list { transition: opacity .2s ease; }
 
-/* Status durante a confirmação: o carimbo indica a ação sem alterar a tag
-   original antes da movimentação. Evita combinações como "Pago Pendente". */
+/* Status durante a confirmação: a tag muda no próprio lançamento; o carimbo
+   é apenas a confirmação visual e nunca duplica o texto do status. */
 .carimbo.carimbo-concluido { color: var(--income); border-color: var(--income); }
 .carimbo.carimbo-pendente { color: var(--gold-deep); border-color: var(--gold-deep); }
 
@@ -7402,4 +7402,24 @@ body.sem-entrada-listas .item-list-row { animation: none !important; }
 }
 .status-row-arriving .swipe-content {
   pointer-events: none !important;
+}
+
+.status-label-text {
+  display: inline-block;
+  white-space: nowrap;
+}
+
+/* Durante a travessia, o clone fica acima das duas listas. */
+.status-movendo-ghost .carimbo {
+  display: none !important;
+}
+.status-movendo-ghost .pago-toggle {
+  opacity: .96;
+}
+.status-movendo-ghost {
+  will-change: transform, opacity;
+}
+.status-row-arriving {
+  opacity: 0 !important;
+  transform: translate3d(0, 8px, 0) scale(.985) !important;
 }
