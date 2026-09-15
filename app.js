@@ -6694,7 +6694,7 @@ if (document.readyState === "loading") {
         if (escolha === "sim") {
           cadastroAtivo.fatura = true;
           cadastroAtivo.data = vencimento;
-          appendMensagem(esc(formatarDataParaChat(vencimento)));
+          appendMensagem(`Vencimento em: ${esc(formatarDataParaChat(vencimento))}`);
           callback(vencimento, true);
         } else {
           cadastroAtivo.fatura = false;
@@ -6799,11 +6799,13 @@ if (document.readyState === "loading") {
               escolhaIconeChat(icone => {
                 cadastroAtivo.icone = icone;
                 addCaixinha(cadastroAtivo.nome, cadastroAtivo.valorInicial, cadastroAtivo.valorObjetivo, cadastroAtivo.icone, cadastroAtivo.data);
-                finalizarCadastro("Caixinha criada", `${esc(cadastroAtivo.nome)} · guardado inicial de <span class="chat-valor chat-valor-gold">${chatFmt(cadastroAtivo.valorInicial)}</span>.`);
+                finalizarCadastro("Caixinha criada", cadastroAtivo.valorInicial > 0
+                  ? `${esc(cadastroAtivo.nome)} · guardado inicial de <span class="chat-valor chat-valor-gold">${chatFmt(cadastroAtivo.valorInicial)}</span>.`
+                  : `${esc(cadastroAtivo.nome)} · sem valor inicial guardado.`);
               });
             }, { type: "date", allowEmpty: true });
           }, { allowEmpty: true, placeholder: "Ex.: 5.000,00 — ou deixe em branco" });
-        }, { allowZero: true });
+        }, { allowZero: true, allowEmpty: true, placeholder: "Ex.: 500,00 — ou deixe em branco" });
       }, { formatarNome: true });
     }
   }
