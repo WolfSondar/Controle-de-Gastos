@@ -1573,7 +1573,7 @@ function normalizarDataParaPlanilha(valor) {
     return new Date(valor.getTime());
   }
   const texto = String(valor).trim();
-  const m = /^(\\d{4})-(\\d{2})-(\\d{2})/.exec(texto);
+  const m = /^(\d{4})-(\d{2})-(\d{2})/.exec(texto);
   if (!m) return texto;
   // Meio-dia evita deslocamentos de dia por conversões de fuso.
   return new Date(Number(m[1]), Number(m[2]) - 1, Number(m[3]), 12, 0, 0);
@@ -1596,12 +1596,12 @@ function normalizarDatasExistentes(sheet) {
       if (Object.prototype.toString.call(valor) === "[object Date]" && !isNaN(valor.getTime())) return [valor];
 
       const texto = String(valor).trim();
-      let m = /^(\\d{4})-(\\d{2})-(\\d{2})/.exec(texto);
+      let m = /^(\d{4})-(\d{2})-(\d{2})/.exec(texto);
       if (m) {
         mudou = true;
         return [new Date(Number(m[1]), Number(m[2]) - 1, Number(m[3]), 12, 0, 0)];
       }
-      m = /^(\\d{2})[\\/.-](\\d{2})[\\/.-](\\d{4})/.exec(texto);
+      m = /^(\d{2})[\/.-](\d{2})[\/.-](\d{4})/.exec(texto);
       if (m) {
         mudou = true;
         return [new Date(Number(m[3]), Number(m[2]) - 1, Number(m[1]), 12, 0, 0)];
@@ -1717,9 +1717,9 @@ function formatarDataCelula(valor) {
     return Utilities.formatDate(valor, timezone, "yyyy-MM-dd");
   }
   const texto = String(valor).trim();
-  const iso = /^(\\d{4})-(\\d{2})-(\\d{2})/.exec(texto);
+  const iso = /^(\d{4})-(\d{2})-(\d{2})/.exec(texto);
   if (iso) return iso[0];
-  const br = /^(\\d{2})[\\/.-](\\d{2})[\\/.-](\\d{4})/.exec(texto);
+  const br = /^(\d{2})[\/.-](\d{2})[\/.-](\d{4})/.exec(texto);
   if (br) return br[3] + "-" + br[2] + "-" + br[1];
   return texto;
 }
