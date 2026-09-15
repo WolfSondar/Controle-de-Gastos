@@ -833,7 +833,8 @@ async function carregarDados() {
   setSyncState("syncing");
   try {
     const url = `${API_URL}?pessoa=${encodeURIComponent(pessoaRequisitada)}`;
-    const res = await fetch(url, { method: "GET" });
+    const res = await fetch(url, { method: "GET", cache: "no-store" });
+    if (!res.ok) throw new Error(`HTTP ${res.status}`);
     const data = await res.json();
     if (data && data.ok === false) throw new Error(data.error || "Erro desconhecido");
     if (state.pessoaAtual !== pessoaRequisitada) return;
@@ -938,6 +939,7 @@ async function salvarBloco(action, payload) {
         method: "POST",
         body: JSON.stringify({ action, payload: ultimoPayload, pessoa: pessoaDoEnvio }),
       });
+      if (!res.ok) throw new Error(`HTTP ${res.status}`);
       const data = await res.json().catch(() => null);
       if (data && data.ok === false) throw new Error(data.error || "Erro desconhecido");
     }
@@ -6148,20 +6150,18 @@ if (document.readyState === "loading") {
         if (!ant) {
           appendMensagem(`<strong>Ainda não tenho dados históricos suficientes para comparar.</strong><span class="caixa-chat-note">Assim que existir um mês anterior fechado com dados comparáveis, eu mostro as mudanças sem inventar informações.</span>`);
         } else {
-          const atual={gastos:(Number(t.fixosPagos)||0)+(Number(t.variaveisPagos)||0),ganhos:Number(t.ganhosRecebidos)||0,guardado:somaCampo(state.caixinhas,"valorGuardadoMes")},ca=Object.fromEntries(categoriasChat()),cp=categoriasHistoricoAnteriorChat(),pend=categoriasPendentesChat(),linhas=[],pendenciasComparacao=[];
+          const atual={gastos:(Number(t.fixosPagos)||0)+(Number(t.variaveisPagos)||0),ganhos:Number(t.ganhosRecebidos)||0,guardado:somaCampo(state.caixinhas,"valorGuardadoMes")},ca=Object.fromEntries(categoriasChat()),cp=categoriasHistoricoAnteriorChat(),pend=categoriasPendentesChat(),linhas=[];
           if(cp) Array.from(new Set([...Object.keys(ca),...Object.keys(cp),...Object.keys(pend)])).map(cat=>({cat,atualPago:Number(ca[cat])||0,anteriorPago:Number(cp[cat])||0,pendente:Number(pend[cat])||0})).filter(x=>{
             // Pendente não é gasto realizado. Se a categoria tem valor neste
             // mês apenas porque está pendente, ela NÃO pode ser comparada
             // como queda (ex.: mês passado R$400 pagos, este mês R$800 pendentes).
             if (x.atualPago === 0 && x.pendente > 0) {
-              pendenciasComparacao.push({cat:x.cat,valor:x.pendente});
               return false;
             }
             return Math.abs(x.atualPago - x.anteriorPago) >= .01;
           }).map(x=>({cat:x.cat,delta:x.atualPago-x.anteriorPago})).sort((a,b)=>Math.abs(b.delta)-Math.abs(a.delta)).slice(0,5).forEach(x=>linhas.push(`<li><strong>${esc(x.cat)}</strong>: <span class="comparacao-seta ${x.delta>0?"neg":"pos"}">${x.delta>0?"↑":"↓"}</span> <span class="chat-valor ${x.delta>0?"chat-valor-neg":"chat-valor-pos"}">${chatFmt(Math.abs(x.delta))}</span></li>`));
-          const pendenciaNota = pendenciasComparacao.length ? `<div class="chat-comparacao-pendentes"><strong>Sem distorção:</strong> ${pendenciasComparacao.map(x=>`${esc(x.cat)} tem ${chatFmt(x.valor)} pendente neste mês e, por isso, não entra como gasto realizado na comparação.`).join(" ")}</div>` : "";
           const dg=atual.gastos-ant.gastos,dr=atual.ganhos-ant.ganhos,ds=atual.guardado-ant.guardado;
-          appendMensagem(`<strong>Este mês x ${esc(ant.nome||"mês anterior")}</strong><div class="chat-comparacao-bloco"><div class="chat-comparacao-titulo">Gastos</div>${linhas.length?`<ul>${linhas.join("")}</ul>`:`<p>Não houve mudança de categoria relevante.</p>`}<div class="chat-comparacao-resultado">Resultado: ${dg===0?"seus gastos ficaram iguais":`você gastou <span class="chat-valor ${dg>0?"chat-valor-neg":"chat-valor-pos"}">${chatFmt(Math.abs(dg))}</span> ${dg>0?"a mais":"a menos"}`}.</div><div class="chat-comparacao-titulo">Ganhos</div><div class="chat-comparacao-resultado">${dr===0?"seus ganhos ficaram iguais":`você recebeu <span class="chat-valor chat-valor-pos">${chatFmt(Math.abs(dr))}</span> ${dr>0?"a mais":"a menos"}`}.</div>${ant.guardado||atual.guardado?`<div class="chat-comparacao-resultado">Guardado: ${ds===0?"mesmo valor":`<span class="chat-valor chat-valor-gold">${chatFmt(Math.abs(ds))}</span> ${ds>0?"a mais":"a menos"}`}.</div>`:""}${pendenciaNota}</div>`);
+          appendMensagem(`<strong>Este mês x ${esc(ant.nome||"mês anterior")}</strong><div class="chat-comparacao-bloco"><div class="chat-comparacao-titulo">Gastos</div>${linhas.length?`<ul>${linhas.join("")}</ul>`:`<p>Não houve mudança de categoria relevante.</p>`}<div class="chat-comparacao-resultado">Resultado: ${dg===0?"seus gastos ficaram iguais":`você gastou <span class="chat-valor ${dg>0?"chat-valor-neg":"chat-valor-pos"}">${chatFmt(Math.abs(dg))}</span> ${dg>0?"a mais":"a menos"}`}.</div><div class="chat-comparacao-titulo">Ganhos</div><div class="chat-comparacao-resultado">${dr===0?"seus ganhos ficaram iguais":`você recebeu <span class="chat-valor chat-valor-pos">${chatFmt(Math.abs(dr))}</span> ${dr>0?"a mais":"a menos"}`}.</div>${ant.guardado||atual.guardado?`<div class="chat-comparacao-resultado">Guardado: ${ds===0?"mesmo valor":`<span class="chat-valor chat-valor-gold">${chatFmt(Math.abs(ds))}</span> ${ds>0?"a mais":"a menos"}`}.</div>`:""}</div>`);
         }
       }
 
