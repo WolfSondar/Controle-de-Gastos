@@ -5417,7 +5417,7 @@ if (document.readyState === "loading") {
     categorias: "Você é o assistente financeiro do Caixa. Identifique as categorias que mais consumiram dinheiro no mês atual e apresente as três maiores, sem inventar dados.",
     guardado: "Você é o assistente financeiro do Caixa. Informe quanto existe atualmente nas caixinhas e destaque metas, se houver.",
     pendencias: "Você é o assistente financeiro do Caixa. Mostre o que ainda falta pagar e o que ainda falta receber neste mês, distinguindo claramente contas deste mês de lançamentos com vencimento no mês que vem ou depois. Nunca trate uma conta futura como se vencesse agora.",
-    economia: "Você é o assistente financeiro do Caixa. Dê uma orientação curta e prática baseada nos dados atuais, distinguindo saldo de hoje, entradas futuras, contas deste mês e contas futuras. Se calcular quanto sobra, use o fluxo projetado correto e não invente informações."
+    economia: "Você é o assistente financeiro do Caixa. Dê uma dica financeira de verdade: identifique algo concreto nos números e transforme isso em uma ação simples e útil que a pessoa pode tomar agora ou no planejamento. Não faça apenas um comentário aleatório sobre os dados. Seja específico, prático e personalizado; não invente informações. Distinga saldo de hoje, entradas futuras, contas deste mês e contas futuras. Se calcular quanto sobra, use o fluxo projetado correto."
   };
 
   const IC = {
@@ -5882,24 +5882,24 @@ if (document.readyState === "loading") {
     const saldoProjetadoFuturo = (Number(t.contaProjetadaTodosOsMeses) || 0);
 
     if (t.aReceberEsseMes > 0 && contasDesteMes > 0) {
-      dicas.push({ dica: `Com os <span class="chat-valor chat-valor-pos">${chatFmt(t.aReceberEsseMes)}</span> que ainda entram neste mês, a folga após os compromissos deste mês fica em <span class="chat-valor chat-valor-pos">${chatFmt(Math.max(folgaProjetada, 0))}</span>.` });
+      dicas.push({ dica: `Quando entrarem os <span class="chat-valor chat-valor-pos">${chatFmt(t.aReceberEsseMes)}</span> deste mês, a folga após os compromissos fica em <span class="chat-valor chat-valor-pos">${chatFmt(Math.max(folgaProjetada, 0))}</span>. <strong>Dica:</strong> use esse valor como referência antes de assumir um novo gasto.` });
     }
     if (contasFuturas > 0) {
       if (ganhosFuturos > 0) {
-        dicas.push({ dica: `Para os próximos meses, há <span class="chat-valor chat-valor-neg">${chatFmt(contasFuturas)}</span> em gastos futuros e <span class="chat-valor chat-valor-pos">${chatFmt(ganhosFuturos)}</span> em ganhos futuros já lançados. A projeção de longo prazo fica em <span class="chat-valor chat-valor-pos">${chatFmt(Math.max(saldoProjetadoFuturo, 0))}</span>.` });
+        dicas.push({ dica: `Para os próximos meses, há <span class="chat-valor chat-valor-neg">${chatFmt(contasFuturas)}</span> em gastos futuros e <span class="chat-valor chat-valor-pos">${chatFmt(ganhosFuturos)}</span> em ganhos futuros já lançados. <strong>Dica:</strong> acompanhe os dois lados juntos ao planejar os próximos meses.` });
       } else {
         dicas.push({ dica: `Há <span class="chat-valor chat-valor-neg">${chatFmt(contasFuturas)}</span> em gastos futuros já lançados para os próximos meses. Eles não reduzem sua margem deste mês.` });
       }
     }
     if (contasDesteMes > 0) {
-      dicas.push({ dica: `Neste mês, ainda existem <span class="chat-valor chat-valor-neg">${chatFmt(contasDesteMes)}</span> em compromissos com vencimento agora.` });
+      dicas.push({ dica: `Neste mês, ainda existem <span class="chat-valor chat-valor-neg">${chatFmt(contasDesteMes)}</span> em compromissos com vencimento agora. <strong>Dica:</strong> priorize confirmar essas contas antes de considerar esse dinheiro livre para novos gastos.` });
     }
     if (t.aPagarVariaveisEsseMes > 0) {
-      dicas.push({ dica: `Ainda estão pendentes <span class="chat-valor chat-valor-neg">${chatFmt(t.aPagarVariaveisEsseMes)}</span> em gastos variáveis deste mês.` });
+      dicas.push({ dica: `Ainda estão pendentes <span class="chat-valor chat-valor-neg">${chatFmt(t.aPagarVariaveisEsseMes)}</span> em gastos variáveis deste mês. <strong>Dica:</strong> confira esses lançamentos antes de registrar novos gastos na mesma categoria.` });
     }
     if (maior && maior[1] > 0 && totalGastos > 0) {
       const percentual = Math.round((maior[1] / totalGastos) * 100);
-      dicas.push({ dica: `A categoria <strong>${esc(maior[0])}</strong> lidera os gastos pagos do mês com <span class="chat-valor chat-valor-neg">${chatFmt(maior[1])}</span>, cerca de ${percentual}% do total.` });
+      dicas.push({ dica: `A categoria <strong>${esc(maior[0])}</strong> lidera os gastos pagos do mês com <span class="chat-valor chat-valor-neg">${chatFmt(maior[1])}</span>, cerca de ${percentual}% do total. <strong>Dica:</strong> use essa categoria como a primeira referência para definir um limite no próximo mês.` });
     }
     if (cats.length >= 2 && cats[0][1] > 0 && cats[1][1] > 0) {
       const diferenca = cats[0][1] - cats[1][1];
@@ -5914,15 +5914,15 @@ if (document.readyState === "loading") {
       const pct = meta.objetivo > 0 ? Math.min(100, Math.round(meta.atual / meta.objetivo * 100)) : 0;
       dicas.push({ dica: `A caixinha <strong>${esc(meta.nome)}</strong> está em ${pct}% da meta, com <span class="chat-valor chat-valor-gold">${chatFmt(meta.atual)}</span> de <span class="chat-valor chat-valor-gold">${chatFmt(meta.objetivo)}</span>.` });
     }
-    if (t.saldoAtualConta > 0 && totalContasAbertas > 0) {
-      const comprometido = Math.min(100, Math.round(totalContasAbertas / Math.max(t.saldoAtualConta + t.aReceber, 1) * 100));
-      dicas.push({ dica: `As contas abertas correspondem a cerca de ${comprometido}% do dinheiro que já está disponível ou ainda vai entrar.` });
+    if (t.saldoAtualConta > 0 && contasDesteMes > 0) {
+      const comprometido = Math.min(100, Math.round(contasDesteMes / Math.max(t.saldoAtualConta + t.aReceberEsseMes, 1) * 100));
+      dicas.push({ dica: `Os compromissos deste mês representam cerca de ${comprometido}% do dinheiro disponível hoje somado ao que ainda entra neste mês. <strong>Dica:</strong> use essa proporção para avaliar novas compras.` });
     }
     if (dicas.length === 0) {
       dicas.push(
-        { dica: "Os números deste mês estão relativamente estáveis; não apareceu nenhum alerta forte nos dados atuais." },
-        { dica: "Sua melhor referência é o valor que sobra depois dos compromissos conhecidos, e não apenas o saldo mostrado hoje." },
-        { dica: "Uma margem guardada hoje pode dar mais espaço para lidar com uma despesa inesperada amanhã." }
+        { dica: "Não apareceu um alerta forte nos dados atuais. <strong>Dica:</strong> escolha uma categoria recorrente e acompanhe sua evolução no próximo mês para encontrar uma oportunidade de melhoria." },
+        { dica: "<strong>Dica:</strong> antes de assumir um novo gasto, use a margem projetada do mês depois dos compromissos conhecidos como sua referência, em vez de olhar só o saldo de hoje." },
+        { dica: "<strong>Dica:</strong> se você já tem uma meta nas caixinhas, use o planejamento do mês para decidir quanto consegue direcionar a ela sem comprometer os compromissos atuais." }
       );
     }
     return dicas.map(d => ({ ...d, dica: aplicarTomChat(d.dica) }));
@@ -6212,7 +6212,7 @@ if (document.readyState === "loading") {
         // exatamente as mesmas dicas e não espera a IA novamente.
         window._caixaDicasIAEstoque = [];
         window._caixaDicaIAIndice = 0;
-        const chave = chaveCacheDicasChat(t);
+        const chave = chaveCacheDicasChat(t, "economia");
         const cache = lerCacheDicasChat(chave);
         if (cache?.length) {
           window._caixaDicasIAEstoque = cache;
@@ -6223,7 +6223,7 @@ if (document.readyState === "loading") {
         const sessaoEconomia = window._caixaChatSessao || 0;
         const textoPensamento = thinking.querySelector("em");
         if (textoPensamento) textoPensamento.textContent = "Só um instante… estou organizando os números para você…";
-        return buscarDicasIA(t, { chave }).then((dicasIA) => {
+        return buscarDicasIA(t, { chave, modo: "economia" }).then((dicasIA) => {
           // Se o usuário já mudou de assunto/perfil, a resposta atrasada não
           // pode invadir a nova conversa.
           if (sessaoEconomia !== (window._caixaChatSessao || 0) || !chat.classList.contains("is-open")) return;
