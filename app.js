@@ -2253,9 +2253,55 @@ function estaPendente(item) {
   return false;
 }
 
+const VENCIMENTOS_FATURA = { davi: 9, gabriel: 20 };
+
+function itemEhFatura(item) {
+  return item?.fatura === true || /^Fatura:\s*/i.test(String(item?.nome || ""));
+}
+
+function nomeExibicaoItem(itemOuNome) {
+  const nome = typeof itemOuNome === "object"
+    ? String(itemOuNome?.nome || "")
+    : String(itemOuNome || "");
+  return nome.replace(/^Fatura:\s*/i, "").trim();
+}
+
+function nomeInternoFatura(nome) {
+  const limpo = nomeExibicaoItem(nome);
+  return limpo ? `Fatura: ${limpo}` : limpo;
+}
+
+function proximaDataVencimentoFatura(pessoa, base = new Date()) {
+  const diaVencimento = VENCIMENTOS_FATURA[pessoa] || VENCIMENTOS_FATURA.davi;
+  const data = new Date(base);
+  data.setHours(12, 0, 0, 0);
+  let ano = data.getFullYear();
+  let mes = data.getMonth();
+
+  // Se o vencimento deste mês já passou, a compra entra na próxima fatura.
+  if (data.getDate() > diaVencimento) mes += 1;
+  if (mes > 11) { mes = 0; ano += 1; }
+
+  return `${ano}-${String(mes + 1).padStart(2, "0")}-${String(diaVencimento).padStart(2, "0")}`;
+}
+
+function pessoaDaFaturaAtual() {
+  return state.pessoaAtual === "gabriel" ? "gabriel" : "davi";
+}
+
+function nomePessoaFatura(pessoa) {
+  return pessoa === "gabriel" ? "Gabriel" : "Davi";
+}
+
+function dataVencimentoFaturaAtual() {
+  return proximaDataVencimentoFatura(pessoaDaFaturaAtual());
+}
+
 function metaInfoHtml(item) {
   const partes = [];
-  if (item.lembrete) {
+  if (itemEhFatura(item)) {
+    partes.push(`<span class="item-tag item-tag-fatura" title="Lançamento incluído em uma fatura">Fatura</span>`);
+  } else if (item.lembrete) {
     partes.push(`<span class="item-tag item-tag-lembrete" title="Pago no mês anterior, adiantado — não conta no saldo deste mês">Pago adiantado</span>`);
   } else if (ehDoProximoMes(item)) {
     partes.push(`<span class="item-tag item-tag-proximo" title="A data desse lançamento é do mês que vem">Mês que vem</span>`);
@@ -2269,9 +2315,8 @@ function metaInfoHtml(item) {
 }
 
 function nomeComParcela(item) {
-  // A parcela fica como tag visual ao lado/antes do nome no card.
-  // Mantemos esta função apenas para centralizar o escape do nome.
-  return escapeHtml(item.nome);
+  // O prefixo "Fatura:" é um dado interno; visualmente mostramos só o nome do gasto.
+  return escapeHtml(nomeExibicaoItem(item));
 }
 
 function parcelaInlineHtml(item, tipo) {
@@ -3227,7 +3272,7 @@ function renderRecentes() {
     row.innerHTML = `
       <span class="ledger-icon ${item.tipo}${benefit ? " income-beneficio" : ""}${guardado ? " guardado" : ""}">${item.tipo === "income" ? ICONE_GANHO : (guardado ? ICONE_GUARDADO : ICONE_GASTO)}</span>
       <div class="ledger-info">
-        <span class="ledger-nome">${escapeHtml(item.nome)} ${tagPessoa(item)}</span>
+        <span class="ledger-nome">${escapeHtml(nomeExibicaoItem(item))} ${tagPessoa(item)}</span>
         <span class="ledger-tag">${escapeHtml(item.tag)}</span>
       </div>
       <span class="ledger-valor ${item.tipo}${benefit ? " income-beneficio" : ""}${guardado ? " guardado" : ""}">${item.tipo === "income" ? "+" : "−"} ${fmt(item.valor)}</span>
@@ -4521,7 +4566,7 @@ function abrirModalEditar(tipo, idx, item) {
   editContext = { tipo, idx };
   const tituloEl = document.getElementById("editTitle");
   if (tituloEl) tituloEl.textContent = TITULOS_EDICAO[tipo] || "Editar item";
-  document.getElementById("editNome").value = item.nome;
+  document.getElementById("editNome").value = nomeExibicaoItem(item);
   const valorEl = document.getElementById("editValor");
   valorEl.value = item.valor ? fmtCampo(item.valor) : "";
   valorEl.placeholder = tipo === "caixinhas" ? "Objetivo, R$ (0 = sem meta)" : "0,00";
@@ -4612,15 +4657,19 @@ on("formEditar", "submit", (e) => {
     const categoria = document.getElementById("editCategoria").value;
     const data = document.getElementById("editData").value;
     const parcela = document.getElementById("editParcela").value.trim();
-    opFixos.edit(idx, nome, valor, { tipo: categoria, data, parcela });
+    const itemAtual = state.gastosFixos[idx];
+    const nomeSalvo = itemEhFatura(itemAtual) ? nomeInternoFatura(nome) : nome;
+    opFixos.edit(idx, nomeSalvo, valor, { tipo: categoria, data, parcela, fatura: itemEhFatura(itemAtual) });
   } else if (tipo === "variaveis") {
     const categoria = document.getElementById("editCategoria").value;
     const data = document.getElementById("editData").value;
     const origem = document.getElementById("editOrigem").value === "beneficio" ? "beneficio" : "saldo";
+    const itemAtual = state.gastosVariaveis[idx];
+    const nomeSalvo = itemEhFatura(itemAtual) ? nomeInternoFatura(nome) : nome;
     // Editar manualmente tira o item do modo "lembrete" (compra adiantada) —
     // a partir daqui ele volta a contar normalmente no saldo, com a nova
     // data/categoria/origem que a pessoa escolheu.
-    opVariaveis.edit(idx, nome, valor, { tipo: categoria, data, origem, lembrete: false });
+    opVariaveis.edit(idx, nomeSalvo, valor, { tipo: categoria, data, origem, lembrete: false, fatura: itemEhFatura(itemAtual) });
   } else if (tipo === "caixinhas") {
     const icone = normalizarNomeIcone(document.getElementById("editIcone")?.value || "");
     const data = document.getElementById("editData").value;
@@ -6635,6 +6684,27 @@ if (document.readyState === "loading") {
       }, { formatarNome: true });
     }
 
+    function perguntarFaturaAntesDaData(callback) {
+      const pessoa = pessoaDaFaturaAtual();
+      const nomePessoa = nomePessoaFatura(pessoa);
+      const vencimento = dataVencimentoFaturaAtual();
+      appendMensagem("Esse gasto vai entrar em uma <strong>fatura</strong>?");
+      escolhaChat([
+        ["sim", `Sim, fatura do ${nomePessoa}`, `Vencimento em ${formatarDataParaChat(vencimento)}`],
+        ["nao", "Não", "Vou escolher a data manualmente"]
+      ], escolha => {
+        if (escolha === "sim") {
+          cadastroAtivo.fatura = true;
+          cadastroAtivo.data = vencimento;
+          appendMensagem(`Fatura do ${esc(nomePessoa)} · vencimento ${esc(formatarDataParaChat(vencimento))}.`);
+          callback(vencimento, true);
+        } else {
+          cadastroAtivo.fatura = false;
+          perguntaDataCadastro(data => callback(data, false));
+        }
+      });
+    }
+
     function fluxoGastoFixo() {
       categoriasEscolhiveis(cat => {
         cadastroAtivo.categoria = cat;
@@ -6648,11 +6718,11 @@ if (document.readyState === "loading") {
           if (modalidade === "parcelado") {
             selectChat("Em quantas parcelas?", Array.from({length:23}, (_,i)=>[String(i+2), `${i+2}x`]), qtd => {
               cadastroAtivo.parcelas = Number(qtd);
-              perguntaDataCadastro(data => { cadastroAtivo.data = data; statusFixo(); });
+              perguntarFaturaAntesDaData(data => { cadastroAtivo.data = data; statusFixo(); });
             }, { placeholder: "Escolha o número de parcelas…" });
           } else {
             cadastroAtivo.parcelas = modalidade === "avista" ? 1 : 0;
-            perguntaDataCadastro(data => { cadastroAtivo.data = data; statusFixo(); });
+            perguntarFaturaAntesDaData(data => { cadastroAtivo.data = data; statusFixo(); });
           }
         });
       });
@@ -6663,7 +6733,8 @@ if (document.readyState === "loading") {
         const n = cadastroAtivo.parcelas || 0;
         const valor = n > 0 ? Math.round((cadastroAtivo.valor / n) * 100) / 100 : cadastroAtivo.valor;
         const parcela = n > 0 ? `1/${n}` : "";
-        opFixos.add(cadastroAtivo.nome, valor, { pago, tipo: cadastroAtivo.categoria, data: dataDoLancamento(cadastroAtivo.data), parcela });
+        const nomeSalvo = cadastroAtivo.fatura ? nomeInternoFatura(cadastroAtivo.nome) : cadastroAtivo.nome;
+        opFixos.add(nomeSalvo, valor, { pago, tipo: cadastroAtivo.categoria, data: dataDoLancamento(cadastroAtivo.data), parcela, fatura: cadastroAtivo.fatura === true });
         finalizarCadastro("Gasto adicionado", `${esc(cadastroAtivo.nome)} · <span class="chat-valor chat-valor-neg">${chatFmt(valor)}</span>${n > 1 ? ` · parcela 1/${n}` : ""}.`);
       });
     }
@@ -6677,10 +6748,11 @@ if (document.readyState === "loading") {
           ["beneficio", "Benefício", "Sai do saldo do benefício"]
         ], origem => {
           cadastroAtivo.origem = origem;
-          perguntaDataCadastro(data => {
+          perguntarFaturaAntesDaData(data => {
             cadastroAtivo.data = data;
             perguntaStatusCadastro("Essa compra já foi paga?", "Sim, já paguei", "Não, está pendente", pago => {
-              opVariaveis.add(cadastroAtivo.nome, cadastroAtivo.valor, { pago, tipo: cadastroAtivo.categoria, data: dataDoLancamento(cadastroAtivo.data), origem: cadastroAtivo.origem });
+              const nomeSalvo = cadastroAtivo.fatura ? nomeInternoFatura(cadastroAtivo.nome) : cadastroAtivo.nome;
+              opVariaveis.add(nomeSalvo, cadastroAtivo.valor, { pago, tipo: cadastroAtivo.categoria, data: dataDoLancamento(cadastroAtivo.data), origem: cadastroAtivo.origem, fatura: cadastroAtivo.fatura === true });
               finalizarCadastro("Gasto adicionado", `${esc(cadastroAtivo.nome)} · <span class="chat-valor chat-valor-neg">${chatFmt(cadastroAtivo.valor)}</span>.`);
             });
           });
