@@ -6671,10 +6671,10 @@ if (document.readyState === "loading") {
         cadastroAtivo.nome = nome;
         campoValorCadastro("Qual foi o valor?", valor => {
           cadastroAtivo.valor = valor;
-          appendMensagem("Esse gasto é <strong>fixo</strong> ou <strong>variável</strong>?");
+          appendMensagem("Esse gasto acontece <strong>só este mês</strong> ou vai <strong>se repetir nos próximos meses</strong>?");
           escolhaChat([
-            ["fixo", "Gasto fixo", "Conta recorrente ou compra parcelada"],
-            ["variavel", "Gasto variável", "Compra ou despesa do dia a dia"]
+            ["fixo", "Vai se repetir", "Entra como gasto fixo"],
+            ["variavel", "Só este mês", "Entra como gasto variável"]
           ], tipoGasto => {
             cadastroAtivo.tipoGasto = tipoGasto;
             if (tipoGasto === "fixo") fluxoGastoFixo();
@@ -6685,18 +6685,16 @@ if (document.readyState === "loading") {
     }
 
     function perguntarFaturaAntesDaData(callback) {
-      const pessoa = pessoaDaFaturaAtual();
-      const nomePessoa = nomePessoaFatura(pessoa);
       const vencimento = dataVencimentoFaturaAtual();
       appendMensagem("Esse gasto vai entrar em uma <strong>fatura</strong>?");
       escolhaChat([
-        ["sim", `Sim, fatura do ${nomePessoa}`, `Vencimento em ${formatarDataParaChat(vencimento)}`],
-        ["nao", "Não", "Vou escolher a data manualmente"]
+        ["sim", "Sim"],
+        ["nao", "Não"]
       ], escolha => {
         if (escolha === "sim") {
           cadastroAtivo.fatura = true;
           cadastroAtivo.data = vencimento;
-          appendMensagem(`Fatura do ${esc(nomePessoa)} · vencimento ${esc(formatarDataParaChat(vencimento))}.`);
+          appendMensagem(esc(formatarDataParaChat(vencimento)));
           callback(vencimento, true);
         } else {
           cadastroAtivo.fatura = false;
@@ -6708,10 +6706,9 @@ if (document.readyState === "loading") {
     function fluxoGastoFixo() {
       categoriasEscolhiveis(cat => {
         cadastroAtivo.categoria = cat;
-        appendMensagem("Esse gasto é <strong>recorrente</strong>, <strong>à vista</strong> ou <strong>parcelado</strong>?");
+        appendMensagem("Esse gasto será <strong>à vista</strong> ou <strong>parcelado</strong>?");
         escolhaChat([
-          ["recorrente", "Recorrente", "Repete todo mês, sem prazo para acabar"],
-          ["avista", "À vista", "Uma única cobrança"],
+          ["avista", "À vista"],
           ["parcelado", "Parcelado", "Dividido em parcelas"]
         ], modalidade => {
           cadastroAtivo.modalidade = modalidade;
@@ -6721,7 +6718,9 @@ if (document.readyState === "loading") {
               perguntarFaturaAntesDaData(data => { cadastroAtivo.data = data; statusFixo(); });
             }, { placeholder: "Escolha o número de parcelas…" });
           } else {
-            cadastroAtivo.parcelas = modalidade === "avista" ? 1 : 0;
+            // Gasto fixo à vista continua recorrente; sem número de parcelas,
+            // o backend cria o mesmo gasto no mês seguinte.
+            cadastroAtivo.parcelas = 0;
             perguntarFaturaAntesDaData(data => { cadastroAtivo.data = data; statusFixo(); });
           }
         });
