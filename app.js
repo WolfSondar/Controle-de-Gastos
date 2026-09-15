@@ -5468,24 +5468,34 @@ if (document.readyState === "loading") {
     // nas caixinhas neste mês, somamos o que ainda vai entrar (somente ganhos
     // sem benefício) e reservamos os gastos fixos ainda não pagos.
     const saldoAtualConta = ganhosOrigem.ganhos - fixosPagos - saldoGasto - guardadoNoMes;
-    const aReceber = listaFinita(state.ganhos).reduce((a, i) =>
-      a + (i.recebido !== true && !ganhoEhBeneficio(i) ? Number(i.valor) || 0 : 0), 0);
+    // Para perguntas e indicadores DO MÊS ATUAL, considerar somente ganhos
+    // que pertencem ao mês aberto. Ganhos lançados para meses futuros ficam
+    // disponíveis separadamente para projeções de longo prazo.
+    const aReceberEsseMes = listaFinita(state.ganhos).reduce((a, i) =>
+      a + (i.recebido !== true && !ganhoEhBeneficio(i) && !ehFuturoDoMesAtual(i) ? Number(i.valor) || 0 : 0), 0);
+    const aReceberFuturos = Math.max(0, listaFinita(state.ganhos).reduce((a, i) =>
+      a + (i.recebido !== true && !ganhoEhBeneficio(i) ? Number(i.valor) || 0 : 0), 0) - aReceberEsseMes);
+    const aReceber = aReceberEsseMes;
     const aPagarFixos = listaFinita(state.gastosFixos).reduce((a, i) =>
       a + (i.pago !== true ? Number(i.valor) || 0 : 0), 0);
     const aPagarVariaveis = listaFinita(state.gastosVariaveis).reduce((a, i) =>
       a + (gastoVariavelEhReal(i) && i.pago !== true && !i.lembrete && !variavelEhBeneficio(i) ? Number(i.valor) || 0 : 0), 0);
-    // Para "quanto posso gastar", reservamos todas as contas ainda abertas,
-    // inclusive as já lançadas para o próximo mês. Isso é diferente de dizer
-    // que elas vencem agora: o detalhamento abaixo separa mês atual de futuro.
+    // Para "quanto posso gastar ESTE MÊS", reservamos somente as contas
+    // pendentes que vencem no mês aberto. Contas de meses futuros não reduzem
+    // a margem deste mês; elas ficam separadas para a projeção futura.
     const aPagarFixosEsseMes = listaFinita(state.gastosFixos).reduce((a, i) =>
       a + (i.pago !== true && !ehFuturoDoMesAtual(i) ? Number(i.valor) || 0 : 0), 0);
     const aPagarVariaveisEsseMes = listaFinita(state.gastosVariaveis).reduce((a, i) =>
       a + (gastoVariavelEhReal(i) && i.pago !== true && !i.lembrete && !variavelEhBeneficio(i) && !ehFuturoDoMesAtual(i) ? Number(i.valor) || 0 : 0), 0);
     const aPagarFixosFuturos = Math.max(0, aPagarFixos - aPagarFixosEsseMes);
     const aPagarVariaveisFuturos = Math.max(0, aPagarVariaveis - aPagarVariaveisEsseMes);
-    const conta = saldoAtualConta + aReceber - aPagarFixos - aPagarVariaveis;
+    // Margem de gasto do mês atual: saldo disponível hoje + ganhos ainda a
+    // receber neste mês - compromissos pendentes deste mês.
+    const conta = saldoAtualConta + aReceberEsseMes - aPagarFixosEsseMes - aPagarVariaveisEsseMes;
+    // Projeção de todos os lançamentos abertos, incluindo meses futuros.
+    const contaProjetadaTodosOsMeses = saldoAtualConta + (aReceberEsseMes + aReceberFuturos) - aPagarFixos - aPagarVariaveis;
     const saldoGeral = ganhosRecebidos - fixosPagos - variaveisPagos;
-    return { ganhosRecebidos, ganhosOrigem, fixosPagos, fixosTotais, variaveisPagos, beneficio, saldoAtualConta, conta, saldoGeral, aReceber, aPagarFixos, aPagarVariaveis, aPagarFixosEsseMes, aPagarVariaveisEsseMes, aPagarFixosFuturos, aPagarVariaveisFuturos };
+    return { ganhosRecebidos, ganhosOrigem, fixosPagos, fixosTotais, variaveisPagos, beneficio, saldoAtualConta, conta, contaProjetadaTodosOsMeses, saldoGeral, aReceber, aReceberEsseMes, aReceberFuturos, aPagarFixos, aPagarVariaveis, aPagarFixosEsseMes, aPagarVariaveisEsseMes, aPagarFixosFuturos, aPagarVariaveisFuturos };
   }
 
   function categoriasChat() {
@@ -5639,11 +5649,18 @@ if (document.readyState === "loading") {
         gastoVariavelPago: Number(t.variaveisPagos) || 0,
         gastos: totalGastos,
         saldoAtualEmConta: Number(t.saldoAtualConta) || 0,
-        saldoProjetadoComEntradas: (Number(t.saldoAtualConta) || 0) + (Number(t.aReceber) || 0),
-        contasAbertasTotal: (Number(t.aPagarFixos) || 0) + (Number(t.aPagarVariaveis) || 0),
+        saldoProjetadoComEntradas: (Number(t.saldoAtualConta) || 0) + (Number(t.aReceberEsseMes) || 0),
+        contasAbertasTotal: (Number(t.aPagarFixosEsseMes) || 0) + (Number(t.aPagarVariaveisEsseMes) || 0),
         limiteDeGastoProjetado: Number(t.conta) || 0,
+        // Projeção de longo prazo, separada da margem que a pessoa pode gastar
+        // no mês atual. Aqui entram ganhos e gastos futuros.
+        saldoProjetadoTodosOsMeses: Number(t.saldoAtualConta) || 0,
+        ganhosFuturos: Number(t.aReceberFuturos) || 0,
+        gastosFuturos: (Number(t.aPagarFixosFuturos) || 0) + (Number(t.aPagarVariaveisFuturos) || 0),
+        limiteProjetadoTodosOsMeses: Number(t.contaProjetadaTodosOsMeses) || 0,
         statusFinanceiro: statusFinanceiroAtual(t),
-        aindaAReceberEsseMes: Number(t.aReceber) || 0,
+        aindaAReceberEsseMes: Number(t.aReceberEsseMes) || 0,
+        aindaAReceberFuturos: Number(t.aReceberFuturos) || 0,
         aindaAPagarFixosEsseMes: Number(t.aPagarFixosEsseMes) || 0,
         aindaAPagarVariaveisEsseMes: Number(t.aPagarVariaveisEsseMes) || 0,
         gastosFuturos: (Number(t.aPagarFixosFuturos) || 0) + (Number(t.aPagarVariaveisFuturos) || 0),
@@ -5857,16 +5874,22 @@ if (document.readyState === "loading") {
     const totalGastos = (Number(t.fixosPagos) || 0) + (Number(t.variaveisPagos) || 0);
     const totalEntradas = Number(t.ganhosRecebidos) || 0;
     const totalContasAbertas = (Number(t.aPagarFixos) || 0) + (Number(t.aPagarVariaveis) || 0);
-    const saldoProjetado = (Number(t.saldoAtualConta) || 0) + (Number(t.aReceber) || 0);
-    const folgaProjetada = saldoProjetado - totalContasAbertas;
     const contasDesteMes = (Number(t.aPagarFixosEsseMes) || 0) + (Number(t.aPagarVariaveisEsseMes) || 0);
     const contasFuturas = (Number(t.aPagarFixosFuturos) || 0) + (Number(t.aPagarVariaveisFuturos) || 0);
+    const ganhosFuturos = Number(t.aReceberFuturos) || 0;
+    const saldoProjetado = (Number(t.saldoAtualConta) || 0) + (Number(t.aReceberEsseMes) || 0);
+    const folgaProjetada = saldoProjetado - contasDesteMes;
+    const saldoProjetadoFuturo = (Number(t.contaProjetadaTodosOsMeses) || 0);
 
-    if (t.aReceber > 0 && totalContasAbertas > 0) {
-      dicas.push({ dica: `Com a entrada de <span class="chat-valor chat-valor-pos">${chatFmt(t.aReceber)}</span>, seu saldo projetado vai para <span class="chat-valor chat-valor-pos">${chatFmt(saldoProjetado)}</span>. Depois de considerar <span class="chat-valor chat-valor-neg">${chatFmt(totalContasAbertas)}</span> em contas abertas, a folga projetada fica em <span class="chat-valor chat-valor-pos">${chatFmt(Math.max(folgaProjetada, 0))}</span>.` });
+    if (t.aReceberEsseMes > 0 && contasDesteMes > 0) {
+      dicas.push({ dica: `Com os <span class="chat-valor chat-valor-pos">${chatFmt(t.aReceberEsseMes)}</span> que ainda entram neste mês, a folga após os compromissos deste mês fica em <span class="chat-valor chat-valor-pos">${chatFmt(Math.max(folgaProjetada, 0))}</span>.` });
     }
-    if (contasFuturas > 0 && totalContasAbertas > 0) {
-      dicas.push({ dica: `Dos <span class="chat-valor chat-valor-neg">${chatFmt(totalContasAbertas)}</span> em contas abertas, <span class="chat-valor chat-valor-neg">${chatFmt(contasFuturas)}</span> só vencem nos próximos meses. Eles já estão no planejamento, mas não são contas deste mês.` });
+    if (contasFuturas > 0) {
+      if (ganhosFuturos > 0) {
+        dicas.push({ dica: `Para os próximos meses, há <span class="chat-valor chat-valor-neg">${chatFmt(contasFuturas)}</span> em gastos futuros e <span class="chat-valor chat-valor-pos">${chatFmt(ganhosFuturos)}</span> em ganhos futuros já lançados. A projeção de longo prazo fica em <span class="chat-valor chat-valor-pos">${chatFmt(Math.max(saldoProjetadoFuturo, 0))}</span>.` });
+      } else {
+        dicas.push({ dica: `Há <span class="chat-valor chat-valor-neg">${chatFmt(contasFuturas)}</span> em gastos futuros já lançados para os próximos meses. Eles não reduzem sua margem deste mês.` });
+      }
     }
     if (contasDesteMes > 0) {
       dicas.push({ dica: `Neste mês, ainda existem <span class="chat-valor chat-valor-neg">${chatFmt(contasDesteMes)}</span> em compromissos com vencimento agora.` });
