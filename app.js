@@ -656,6 +656,84 @@ function isAmbos() {
   return state.pessoaAtual === "ambos";
 }
 
+// ---------------------------------------------------------------------
+// URL DA API — evita respostas 404 de redirects antigos do Apps Script
+// ---------------------------------------------------------------------
+// O Web App do Apps Script pode redirecionar a URL /exec para
+// script.googleusercontent.com. Em alguns navegadores, um redirect antigo
+// pode permanecer associado ao cache/cookies do site e acabar retornando
+// 404, mesmo com a implantação funcionando normalmente.
+//
+// Cada chamada recebe um parâmetro único. Para GETs também fazemos uma
+// pequena retentativa quando o destino devolve 404. Isso força o navegador
+// a obter um novo redirect do Apps Script, sem exigir que o usuário limpe
+// cookies/dados do navegador.
+function urlApi(params = {}) {
+  if (!API_URL || API_URL.includes("COLE_AQUI")) return "";
+
+  try {
+    const url = new URL(API_URL, window.location.href);
+    Object.entries(params || {}).forEach(([chave, valor]) => {
+      if (valor !== undefined && valor !== null) {
+        url.searchParams.set(chave, String(valor));
+      }
+    });
+
+    url.searchParams.set(
+      "_caixa_cb",
+      `${Date.now()}-${Math.random().toString(36).slice(2, 10)}`
+    );
+
+    return url.toString();
+  } catch (_err) {
+    const separador = API_URL.includes("?") ? "&" : "?";
+    const extras = new URLSearchParams(params || {}).toString();
+    const cb = `_caixa_cb=${Date.now()}-${Math.random().toString(36).slice(2, 10)}`;
+    return `${API_URL}${separador}${extras}${extras ? "&" : ""}${cb}`;
+  }
+}
+
+async function fetchApiGet(params = {}) {
+  let ultimaResposta = null;
+  let ultimoErro = null;
+
+  // Um 404 aqui normalmente é do redirect intermediário do Apps Script,
+  // não da função doGet() (que devolve JSON de erro quando ela própria falha).
+  for (let tentativa = 0; tentativa < 3; tentativa++) {
+    try {
+      const res = await fetch(urlApi(params), {
+        method: "GET",
+        cache: "no-store",
+      });
+
+      ultimaResposta = res;
+      if (res.ok) return res;
+
+      if (res.status !== 404 || tentativa === 2) {
+        throw new Error(`HTTP ${res.status}`);
+      }
+
+      // Dá um pequeno intervalo para evitar repetir imediatamente o mesmo
+      // estado do redirect intermediário.
+      await new Promise((resolve) => setTimeout(resolve, 250 * (tentativa + 1)));
+    } catch (err) {
+      ultimoErro = err;
+
+      // Erros de rede também merecem uma nova tentativa; se a conexão caiu,
+      // a última tentativa continuará sendo tratada pelo fluxo normal.
+      if (tentativa < 2) {
+        await new Promise((resolve) => setTimeout(resolve, 250 * (tentativa + 1)));
+        continue;
+      }
+    }
+  }
+
+  if (ultimoErro) throw ultimoErro;
+  if (ultimaResposta) throw new Error(`HTTP ${ultimaResposta.status}`);
+  throw new Error("Não foi possível acessar a API");
+}
+
+
 async function carregarConfigIA() {
   if (!API_URL || API_URL.includes("COLE_AQUI")) return null;
   try {
@@ -663,7 +741,7 @@ async function carregarConfigIA() {
     if (salvo && salvo.expira > Date.now() && salvo.data) { state.iaConfig = salvo.data; return salvo.data; }
   } catch (err) {}
   try {
-    const res = await fetch(`${API_URL}?pessoa=iaConfig`);
+    const res = await fetchApiGet({ pessoa: "iaConfig" });
     const data = await res.json();
     if (!data || data.ok === false) throw new Error(data?.error || "Erro ao carregar configuração da IA");
     state.iaConfig = data;
@@ -832,8 +910,7 @@ async function carregarDados() {
 
   setSyncState("syncing");
   try {
-    const url = `${API_URL}?pessoa=${encodeURIComponent(pessoaRequisitada)}`;
-    const res = await fetch(url, { method: "GET", cache: "no-store" });
+    const res = await fetchApiGet({ pessoa: pessoaRequisitada });
     if (!res.ok) throw new Error(`HTTP ${res.status}`);
     const data = await res.json();
     if (data && data.ok === false) throw new Error(data.error || "Erro desconhecido");
@@ -890,7 +967,7 @@ function prefetchOutrasPessoas(pessoaJaCarregada) {
   return Promise.all(pessoas.map((p) =>
     getCache(p).then((cache) => {
       if (cache) return cache;
-      return fetch(`${API_URL}?pessoa=${encodeURIComponent(p)}`)
+      return fetchApiGet({ pessoa: p })
         .then((res) => res.json())
         .then((data) => {
           if (data && data.ok !== false) { setCache(p, data); return data; }
@@ -935,7 +1012,7 @@ async function salvarBloco(action, payload) {
     while (entrada.pendente !== null) {
       ultimoPayload = entrada.pendente;
       entrada.pendente = null;
-      const res = await fetch(API_URL, {
+      const res = await fetch(urlApi(), {
         method: "POST",
         body: JSON.stringify({ action, payload: ultimoPayload, pessoa: pessoaDoEnvio }),
       });
@@ -1016,7 +1093,7 @@ async function flushFilaOffline() {
     atualizarBadgeOffline(restantes);
     for (const { chaveIdb, valor } of itens) {
       try {
-        const res = await fetch(API_URL, {
+        const res = await fetch(urlApi(), {
           method: "POST",
           body: JSON.stringify({ action: valor.action, payload: valor.payload, pessoa: valor.pessoa }),
         });
@@ -1354,7 +1431,7 @@ async function obterListaLocal(pessoa, chave) {
   if (pessoa === state.pessoaAtual && !isAmbos()) return [...state[chave]];
   const cache = await getCache(pessoa);
   if (cache) return [...(cache[chave] || [])];
-  const data = await fetch(`${API_URL}?pessoa=${encodeURIComponent(pessoa)}`).then((r) => r.json());
+  const data = await fetchApiGet({ pessoa }).then((r) => r.json());
   if (data && data.ok === false) throw new Error(data.error || "Erro ao ler dados atuais");
   return (data && data[chave]) || [];
 }
@@ -1396,7 +1473,7 @@ async function criarGanhoAReceberDivisao(credor, devedor, nomeOriginal, valor, t
     const lista = await obterListaLocal(credor, "ganhos");
     lista.push({ nome: nomeGanhoDivisao(devedor, nomeOriginal), valor, data: data || dataHojeISO(), recebido: !!recebido, tipo: tipo || "" });
     if (state.pessoaAtual === credor) marcarAlteracaoLocal();
-    const res = await fetch(API_URL, { method: "POST", body: JSON.stringify({ action: "saveGanhos", payload: lista, pessoa: credor }) });
+    const res = await fetch(urlApi(), { method: "POST", body: JSON.stringify({ action: "saveGanhos", payload: lista, pessoa: credor }) });
     const dataRes = await res.json().catch(() => null);
     if (!dataRes || dataRes.ok === false) throw new Error("Erro ao criar ganho a receber");
     const cache = await getCache(credor);
@@ -1414,7 +1491,7 @@ async function atualizarGanhoDivisao(credor, devedor, nomeOriginal, valor, data,
     if (!achado) return false;
     achado.item.recebido = !!recebido;
     if (state.pessoaAtual === credor) marcarAlteracaoLocal();
-    const res = await fetch(API_URL, { method: "POST", body: JSON.stringify({ action: "saveGanhos", payload: lista, pessoa: credor }) });
+    const res = await fetch(urlApi(), { method: "POST", body: JSON.stringify({ action: "saveGanhos", payload: lista, pessoa: credor }) });
     const dataRes = await res.json().catch(() => null);
     if (!dataRes || dataRes.ok === false) throw new Error("Erro ao atualizar ganho da divisão");
     const cache = await getCache(credor);
@@ -1476,8 +1553,8 @@ async function dividirCompra(nome, valorTotal, categoria, opts) {
     if (state.pessoaAtual === "davi" || state.pessoaAtual === "gabriel") marcarAlteracaoLocal();
 
     const [resDavi, resGabriel] = await Promise.all([
-      fetch(API_URL, { method: "POST", body: JSON.stringify({ action, payload: listaDavi, pessoa: "davi" }) }),
-      fetch(API_URL, { method: "POST", body: JSON.stringify({ action, payload: listaGabriel, pessoa: "gabriel" }) }),
+      fetch(urlApi(), { method: "POST", body: JSON.stringify({ action, payload: listaDavi, pessoa: "davi" }) }),
+      fetch(urlApi(), { method: "POST", body: JSON.stringify({ action, payload: listaGabriel, pessoa: "gabriel" }) }),
     ]);
     const [dataDavi, dataGabriel] = await Promise.all([
       resDavi.json().catch(() => null),
@@ -1532,7 +1609,7 @@ async function transferirEntrePessoas(de, para, nome, valor, tipo) {
   const descricao = (nome || "").trim() || "Transferência";
   const hoje = dataHojeISO();
   try {
-    const res = await fetch(API_URL, {
+    const res = await fetch(urlApi(), {
       method: "POST",
       body: JSON.stringify({ action: "transferir", de, para, nome, valor, tipo }),
     });
@@ -1683,7 +1760,7 @@ async function sincronizarGanhoCorrespondenteFixo(devedor, item, recebido) {
     if (!achado) return false;
     achado.item.recebido = !!recebido;
 
-    const res = await fetch(API_URL, {
+    const res = await fetch(urlApi(), {
       method: "POST",
       body: JSON.stringify({ action: "saveGanhos", payload: lista, pessoa: credor })
     });
@@ -3947,7 +4024,7 @@ async function carregarHistorico() {
   }
   if (!API_URL || API_URL.includes("COLE_AQUI")) return;
   try {
-    const res = await fetch(`${API_URL}?pessoa=historico`);
+    const res = await fetchApiGet({ pessoa: "historico" });
     const data = await res.json();
     if (data && data.ok === false) throw new Error(data.error || "Erro desconhecido");
     state.historico = data;
@@ -5199,7 +5276,7 @@ async function fecharMesRequisicao(mes, ano) {
     return null;
   }
   try {
-    const res = await fetch(API_URL, {
+    const res = await fetch(urlApi(), {
       method: "POST",
       body: JSON.stringify({ action: "fecharMes", mes, ano }),
     });
@@ -5841,7 +5918,7 @@ if (document.readyState === "loading") {
     let timer = null;
     try {
       controller = typeof AbortController !== "undefined" ? new AbortController() : null;
-      const requisicao = fetch(API_URL, {
+      const requisicao = fetch(urlApi(), {
         method: "POST",
         body: JSON.stringify({
           action: "gerarRespostaGastarIA",
@@ -5890,7 +5967,7 @@ if (document.readyState === "loading") {
     let timer = null;
     try {
       controller = typeof AbortController !== "undefined" ? new AbortController() : null;
-      const requisicao = fetch(API_URL, {
+      const requisicao = fetch(urlApi(), {
         method: "POST",
         body: JSON.stringify({ action: "gerarInsightIA", pessoa: state.pessoaAtual || "davi", periodo: { mes: state.mesAtual, ano: state.anoAtual }, resumo: resumoParaIAChat(t), modo: opcoes.modo || "" }),
         signal: controller ? controller.signal : undefined
