@@ -5429,8 +5429,12 @@ function mostrarFechamentoMes(dados) {
   etapa.classList.remove("is-trocando");
   resumo.innerHTML = "";
   if (progresso) progresso.style.width = "0%";
-  titulo.textContent = `${mesNome} foi encerrado`;
-  texto.textContent = "Vamos guardar este capítulo antes de abrir o próximo.";
+  // Esta primeira cena só aparece depois da confirmação do fechamento.
+  // O overlay anterior fica responsável pelos preparativos enquanto a API trabalha.
+  titulo.textContent = `${proximoNome} começou`;
+  texto.textContent = "O fechamento foi concluído. Um novo mês começa agora. 🌱";
+  resumo.innerHTML = `<div class="fechamento-mes-proximo"><span>${String(proximoAno)}</span><strong>${proximoNome}</strong></div>`;
+  if (progresso) progresso.style.width = "22%";
 
   const trocar = (fn) => {
     etapa.classList.add("is-trocando");
@@ -5453,7 +5457,7 @@ function mostrarFechamentoMes(dados) {
       animarFechamentoNumero(resumo.querySelector('[data-fechamento-num="guardado"]'), dados.guardado, 1100);
     });
     if (progresso) progresso.style.width = "36%";
-  }, 1050);
+  }, 1250);
 
   window.setTimeout(() => {
     trocar(() => {
@@ -5470,22 +5474,22 @@ function mostrarFechamentoMes(dados) {
       }
     });
     if (progresso) progresso.style.width = "68%";
-  }, 2850);
+  }, 3050);
 
   window.setTimeout(() => {
     trocar(() => {
-      titulo.textContent = `${proximoNome} começou`;
-      texto.textContent = "Novo mês. Novas possibilidades. Vamos em frente. 🌱";
-      resumo.innerHTML = `<div class="fechamento-mes-proximo"><span>${String(proximoAno)}</span><strong>${proximoNome}</strong></div>`;
+      titulo.textContent = `${mesNome} ficou para trás`;
+      texto.textContent = "Tudo pronto para seguir para o próximo capítulo.";
+      resumo.innerHTML = `<div class="fechamento-mes-meta"><span>✦</span><p>Seu novo mês já está aberto. Vamos construir o próximo capítulo.</p></div>`;
     });
     if (progresso) progresso.style.width = "100%";
-  }, 4400);
+  }, 4750);
 
   fechamentoMesTimer = window.setTimeout(() => {
     cena.classList.add("fechamento-mes-finalizando");
     document.body.classList.remove("fechamento-mes-ativo");
     window.setTimeout(() => cena.classList.add("is-hidden"), 650);
-  }, 5750);
+  }, 6100);
 }
 
 async function fecharMesRequisicao(mes, ano) {
