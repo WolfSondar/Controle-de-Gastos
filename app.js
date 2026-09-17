@@ -5388,12 +5388,16 @@ function animarFechamentoNumero(el, valor, duracao = 850) {
 }
 
 function prepararDadosFechamentoMes(mes, ano) {
-  const t = totaisChat();
-  const guardado = Number(t.guardadoNoMes) || 0;
-  const gastos = (Number(t.fixosPagos) || 0) + (Number(t.variaveisPagos) || 0);
-  const ganhos = Number(t.ganhosRecebidos) || 0;
+  // Esta função fica fora do escopo do chat, então não pode chamar
+  // totaisChat(), que é uma função local criada mais abaixo no app.js.
+  // Calculamos aqui os mesmos dados diretamente a partir do state.
+  const ganhos = somaComStatus(state.ganhos || [], "recebido");
+  const gastosFixos = somaFixosPagos(state.gastosFixos || []);
+  const gastosVariaveis = somaVariaveisPagas(state.gastosVariaveis || []);
+  const gastos = gastosFixos + gastosVariaveis;
+  const guardado = somaCampo(state.caixinhas || [], "valorGuardadoMes");
   const saldo = ganhos - gastos;
-  const metasBatidas = listaFinita(state.caixinhas).filter((cx) => {
+  const metasBatidas = (Array.isArray(state.caixinhas) ? state.caixinhas : []).filter((cx) => {
     const objetivo = Number(cx.valorObjetivo) || 0;
     return objetivo > 0 && totalCaixinha(cx) >= objetivo;
   }).slice(0, 2);
@@ -5513,6 +5517,10 @@ on("formFecharMes", "submit", async (e) => {
   }
   mostrarProcessando("fecharMesOverlay");
 
+  // Captura os números ANTES do fechamento. Depois que o Apps Script
+  // consolida o mês, o state passa a representar o novo mês e os números
+  // do mês encerrado podem deixar de estar disponíveis para a cerimônia.
+  const dadosFechamentoAntes = prepararDadosFechamentoMes(mes, ano);
   const resultado = await fecharMesRequisicao(mes, ano);
 
   esconderProcessando("fecharMesOverlay");
@@ -5523,7 +5531,7 @@ on("formFecharMes", "submit", async (e) => {
 
   if (resultado) {
     const f = resultado.fechado;
-    const dadosFechamento = prepararDadosFechamentoMes(f.mes, f.ano);
+    const dadosFechamento = { ...dadosFechamentoAntes, mes: f.mes, ano: f.ano };
     const pessoaFechamento = state.pessoaAtual;
     state.mesAtual = resultado.mesAtual;
     state.anoAtual = resultado.anoAtual;
