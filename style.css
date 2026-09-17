@@ -148,10 +148,10 @@ button, input { font-family: inherit; }
   border: 1px solid rgba(255,255,255,0.18);
   background: rgba(255,255,255,0.06);
   color: #cfe3d8;
-  cursor: pointer;
-  transition: background 0.15s ease;
+  cursor: default;
+  transition: none;
 }
-.sync:active { transform: scale(0.94); }
+.sync:active { transform: none; }
 
 /* ==========================================
    STATUS DE CONEXÃO (APENAS ÍCONES)
