@@ -2540,16 +2540,18 @@ function habilitarSwipe(ul) {
 }
 
 document.addEventListener("touchstart", (e) => {
-    document.querySelectorAll(".item-list").forEach((ul) => {
-      if (!e.target.closest(`#${ul.id}`)) fecharTodosSwipes(ul);
-    });
-  }, { passive: true }
-);
+  document.querySelectorAll(".item-list").forEach((ul) => {
+    // Alguns .item-list não possuem id. Nunca passe "#" vazio ao closest(),
+    // pois isso lança SyntaxError e interrompe o restante do app.
+    if (!ul.id || !e.target.closest(`#${CSS.escape(ul.id)}`)) fecharTodosSwipes(ul);
+  });
+}, { passive: true });
 
 // Adicione este bloco para fazer o mesmo com o clique no PC:
 document.addEventListener("mousedown", (e) => {
   document.querySelectorAll(".item-list").forEach((ul) => {
-    if (!e.target.closest(`#${ul.id}`)) fecharTodosSwipes(ul);
+    // Alguns .item-list não possuem id. Evita o seletor inválido "#".
+    if (!ul.id || !e.target.closest(`#${CSS.escape(ul.id)}`)) fecharTodosSwipes(ul);
   });
 });
 
