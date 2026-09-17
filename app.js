@@ -5301,6 +5301,187 @@ function prepararFormFecharMes() {
   if (inputAno) inputAno.value = ano;
 }
 
+
+const FECHAMENTO_MES_CACHE_PREFIX = "caixa:fechamento-mes:v1:";
+let fechamentoMesTimer = null;
+
+function criarCenaFechamentoMes() {
+  let cena = document.getElementById("fechamentoMesCena");
+  if (cena) return cena;
+
+  cena = document.createElement("div");
+  cena.id = "fechamentoMesCena";
+  cena.className = "fechamento-mes-cena is-hidden";
+  cena.setAttribute("role", "dialog");
+  cena.setAttribute("aria-modal", "true");
+  cena.setAttribute("aria-label", "Fechamento do mês");
+  cena.innerHTML = `
+    <div class="fechamento-mes-linhas" aria-hidden="true"></div>
+    <div class="fechamento-mes-brilhos" aria-hidden="true"></div>
+    <div class="fechamento-mes-card">
+      <div class="fechamento-mes-orb" aria-hidden="true"><span></span></div>
+      <div class="fechamento-mes-etapa" id="fechamentoMesEtapa">
+        <div class="fechamento-mes-kicker">Fechamento concluído</div>
+        <h2 id="fechamentoMesTitulo">Setembro foi encerrado</h2>
+        <p id="fechamentoMesTexto">Um capítulo termina. O próximo começa.</p>
+      </div>
+      <div class="fechamento-mes-resumo" id="fechamentoMesResumo"></div>
+      <div class="fechamento-mes-progresso" aria-hidden="true"><span id="fechamentoMesProgresso"></span></div>
+    </div>
+  `;
+  document.body.appendChild(cena);
+
+  const linhas = cena.querySelector(".fechamento-mes-linhas");
+  for (let i = 0; i < 22; i++) {
+    const linha = document.createElement("span");
+    linha.style.setProperty("--x", `${2 + Math.random() * 96}%`);
+    linha.style.setProperty("--dur", `${3.2 + Math.random() * 3.8}s`);
+    linha.style.setProperty("--delay", `${-Math.random() * 6}s`);
+    linha.style.setProperty("--altura", `${70 + Math.random() * 35}vh`);
+    linha.style.setProperty("--op", `${0.08 + Math.random() * 0.14}`);
+    linhas.appendChild(linha);
+  }
+
+  const brilhos = cena.querySelector(".fechamento-mes-brilhos");
+  for (let i = 0; i < 16; i++) {
+    const brilho = document.createElement("i");
+    brilho.style.setProperty("--x", `${4 + Math.random() * 92}%`);
+    brilho.style.setProperty("--y", `${18 + Math.random() * 72}%`);
+    brilho.style.setProperty("--delay", `${-Math.random() * 4}s`);
+    brilho.style.setProperty("--dur", `${2.4 + Math.random() * 2.8}s`);
+    brilhos.appendChild(brilho);
+  }
+  return cena;
+}
+
+function fechamentoMesJaExibido(mes, ano, pessoa = state.pessoaAtual) {
+  try {
+    return localStorage.getItem(`${FECHAMENTO_MES_CACHE_PREFIX}${pessoa}:${ano}-${String(mes).padStart(2, "0")}`) === "1";
+  } catch (err) { return false; }
+}
+
+function marcarFechamentoMesExibido(mes, ano, pessoa = state.pessoaAtual) {
+  try {
+    localStorage.setItem(`${FECHAMENTO_MES_CACHE_PREFIX}${pessoa}:${ano}-${String(mes).padStart(2, "0")}`, "1");
+  } catch (err) {}
+}
+
+function formatarFechamentoValor(valor, sinal = "") {
+  const n = Number(valor) || 0;
+  return `${sinal}${fmt(Math.abs(n))}`;
+}
+
+function animarFechamentoNumero(el, valor, duracao = 850) {
+  if (!el) return;
+  const alvo = Number(valor) || 0;
+  const inicio = performance.now();
+  function passo(agora) {
+    const p = Math.min((agora - inicio) / duracao, 1);
+    const suavizado = 1 - Math.pow(1 - p, 4);
+    el.textContent = fmt(alvo * suavizado);
+    if (p < 1) requestAnimationFrame(passo);
+    else el.textContent = fmt(alvo);
+  }
+  requestAnimationFrame(passo);
+}
+
+function prepararDadosFechamentoMes(mes, ano) {
+  const t = totaisChat();
+  const guardado = Number(t.guardadoNoMes) || 0;
+  const gastos = (Number(t.fixosPagos) || 0) + (Number(t.variaveisPagos) || 0);
+  const ganhos = Number(t.ganhosRecebidos) || 0;
+  const saldo = ganhos - gastos;
+  const metasBatidas = listaFinita(state.caixinhas).filter((cx) => {
+    const objetivo = Number(cx.valorObjetivo) || 0;
+    return objetivo > 0 && totalCaixinha(cx) >= objetivo;
+  }).slice(0, 2);
+  return {
+    mes, ano, ganhos, gastos, guardado, saldo,
+    metasBatidas: metasBatidas.map((cx) => ({ nome: String(cx.nome || "Caixinha"), valor: Number(cx.valorObjetivo) || 0 }))
+  };
+}
+
+function mostrarFechamentoMes(dados) {
+  const cena = criarCenaFechamentoMes();
+  const titulo = document.getElementById("fechamentoMesTitulo");
+  const texto = document.getElementById("fechamentoMesTexto");
+  const etapa = document.getElementById("fechamentoMesEtapa");
+  const resumo = document.getElementById("fechamentoMesResumo");
+  const progresso = document.getElementById("fechamentoMesProgresso");
+  if (!titulo || !texto || !etapa || !resumo) return;
+
+  if (fechamentoMesTimer) window.clearTimeout(fechamentoMesTimer);
+  const mesNome = MESES_LABEL[dados.mes - 1] || "Mês";
+  const proximoMes = dados.mes === 12 ? 1 : dados.mes + 1;
+  const proximoAno = dados.mes === 12 ? dados.ano + 1 : dados.ano;
+  const proximoNome = MESES_LABEL[proximoMes - 1];
+
+  cena.classList.remove("is-hidden", "fechamento-mes-finalizando");
+  document.body.classList.add("fechamento-mes-ativo");
+  requestAnimationFrame(() => cena.classList.add("is-visible"));
+
+  etapa.classList.remove("is-trocando");
+  resumo.innerHTML = "";
+  if (progresso) progresso.style.width = "0%";
+  titulo.textContent = `${mesNome} foi encerrado`;
+  texto.textContent = "Vamos guardar este capítulo antes de abrir o próximo.";
+
+  const trocar = (fn) => {
+    etapa.classList.add("is-trocando");
+    window.setTimeout(() => { fn(); etapa.classList.remove("is-trocando"); }, 220);
+  };
+
+  window.setTimeout(() => {
+    trocar(() => {
+      titulo.textContent = "Olha o que você construiu";
+      texto.textContent = "Os números do mês, do jeitinho que aconteceram.";
+      resumo.innerHTML = `
+        <div class="fechamento-mes-metricas">
+          <div class="fechamento-mes-metrica"><span>Recebido</span><strong data-fechamento-num="ganhos">R$ 0,00</strong></div>
+          <div class="fechamento-mes-metrica"><span>Gasto</span><strong data-fechamento-num="gastos">R$ 0,00</strong></div>
+          <div class="fechamento-mes-metrica destaque"><span>Guardado</span><strong data-fechamento-num="guardado">R$ 0,00</strong></div>
+        </div>
+        <div class="fechamento-mes-saldo"><span>Resultado do mês</span><strong class="${dados.saldo >= 0 ? "positivo" : "negativo"}">${formatarFechamentoValor(dados.saldo)}</strong></div>`;
+      animarFechamentoNumero(resumo.querySelector('[data-fechamento-num="ganhos"]'), dados.ganhos);
+      animarFechamentoNumero(resumo.querySelector('[data-fechamento-num="gastos"]'), dados.gastos, 950);
+      animarFechamentoNumero(resumo.querySelector('[data-fechamento-num="guardado"]'), dados.guardado, 1100);
+    });
+    if (progresso) progresso.style.width = "36%";
+  }, 1050);
+
+  window.setTimeout(() => {
+    trocar(() => {
+      if (dados.guardado > 0) {
+        titulo.textContent = "Suas caixinhas continuam crescendo ✨";
+        const metas = dados.metasBatidas.length
+          ? `<div class="fechamento-mes-meta"><span>🎯</span><p>${dados.metasBatidas.map((m) => `<strong>${esc(m.nome)}</strong>`).join(" e ")} ${dados.metasBatidas.length === 1 ? "chegou" : "chegaram"} à meta.</p></div>`
+          : `<div class="fechamento-mes-meta"><span>✦</span><p>Cada valor guardado agora faz parte da sua história financeira.</p></div>`;
+        resumo.innerHTML = `<div class="fechamento-mes-caixinha"><div class="fechamento-mes-caixinha-icone">↓</div><div><span>Guardado nas caixinhas</span><strong>${fmt(dados.guardado)}</strong></div></div>${metas}`;
+      } else {
+        titulo.textContent = "Mês encerrado com calma";
+        texto.textContent = "As caixinhas seguem prontas para o próximo passo.";
+        resumo.innerHTML = `<div class="fechamento-mes-meta"><span>✦</span><p>Quando surgir o próximo valor, suas caixinhas estarão esperando por ele.</p></div>`;
+      }
+    });
+    if (progresso) progresso.style.width = "68%";
+  }, 2850);
+
+  window.setTimeout(() => {
+    trocar(() => {
+      titulo.textContent = `${proximoNome} começou`;
+      texto.textContent = "Novo mês. Novas possibilidades. Vamos em frente. 🌱";
+      resumo.innerHTML = `<div class="fechamento-mes-proximo"><span>${String(proximoAno)}</span><strong>${proximoNome}</strong></div>`;
+    });
+    if (progresso) progresso.style.width = "100%";
+  }, 4400);
+
+  fechamentoMesTimer = window.setTimeout(() => {
+    cena.classList.add("fechamento-mes-finalizando");
+    document.body.classList.remove("fechamento-mes-ativo");
+    window.setTimeout(() => cena.classList.add("is-hidden"), 650);
+  }, 5750);
+}
+
 async function fecharMesRequisicao(mes, ano) {
   if (!API_URL || API_URL.includes("COLE_AQUI")) {
     showToast("Configure a URL do Apps Script em config.js");
@@ -5340,14 +5521,20 @@ on("formFecharMes", "submit", async (e) => {
 
   if (resultado) {
     const f = resultado.fechado;
+    const dadosFechamento = prepararDadosFechamentoMes(f.mes, f.ano);
+    const pessoaFechamento = state.pessoaAtual;
     state.mesAtual = resultado.mesAtual;
     state.anoAtual = resultado.anoAtual;
     renderMesAtual();
 
     ["davi", "gabriel", "ambos", "historico"].forEach((p) => removerCache(p));
 
-    showToast(`${MESES_LABEL[f.mes - 1]}/${f.ano} foi fechado. Os saldos restantes foram levados para o próximo mês e os gastos variáveis foram encerrados. Recarregue a página para atualizar os dados da planilha.`);
+    showToast(`${MESES_LABEL[f.mes - 1]}/${f.ano} foi fechado. Os saldos restantes foram levados para o próximo mês e os gastos variáveis foram encerrados.`);
     fecharModalFecharMes();
+    if (!fechamentoMesJaExibido(f.mes, f.ano, pessoaFechamento)) {
+      marcarFechamentoMesExibido(f.mes, f.ano, pessoaFechamento);
+      mostrarFechamentoMes(dadosFechamento);
+    }
     ["davi", "gabriel", "ambos"].forEach((p) => removerCache(p));
     await removerCache("historico");
   } else {
