@@ -595,12 +595,25 @@ function getMesAtualCache() {
 
 const mesAtualCache = getMesAtualCache();
 
-const RESUMO_GRAFICO_CACHE_KEY = "caixa:resumo:grafico:v1";
+const RESUMO_GRAFICO_CACHE_KEY = "caixa:resumo:grafico:v2";
 function lerPaginaGraficoResumo() {
-  try { const raw = JSON.parse(localStorage.getItem(RESUMO_GRAFICO_CACHE_KEY) || "{}"); const chave = localStorage.getItem(PESSOA_STORAGE_KEY) || "davi"; const valor = Number(raw?.[chave]); return Number.isFinite(valor) && valor >= 0 ? Math.floor(valor) : 0; } catch (err) { return 0; }
+  try {
+    const raw = JSON.parse(localStorage.getItem(RESUMO_GRAFICO_CACHE_KEY) || "{}");
+    const chave = localStorage.getItem(PESSOA_STORAGE_KEY) || "davi";
+    return typeof raw?.[chave] === "string" ? raw[chave] : "";
+  } catch (err) {
+    return "";
+  }
 }
-function salvarPaginaGraficoResumo(indice) {
-  try { const raw = JSON.parse(localStorage.getItem(RESUMO_GRAFICO_CACHE_KEY) || "{}"); const chave = localStorage.getItem(PESSOA_STORAGE_KEY) || "davi"; raw[chave] = Math.max(0, Math.floor(Number(indice) || 0)); localStorage.setItem(RESUMO_GRAFICO_CACHE_KEY, JSON.stringify(raw)); } catch (err) {}
+function salvarPaginaGraficoResumo(indiceOuId) {
+  try {
+    const valor = String(indiceOuId || "");
+    if (!valor) return;
+    const raw = JSON.parse(localStorage.getItem(RESUMO_GRAFICO_CACHE_KEY) || "{}");
+    const chave = localStorage.getItem(PESSOA_STORAGE_KEY) || "davi";
+    raw[chave] = valor;
+    localStorage.setItem(RESUMO_GRAFICO_CACHE_KEY, JSON.stringify(raw));
+  } catch (err) {}
 }
 
 const PESSOAS_VALIDAS = new Set(["davi", "gabriel", "ambos"]);
@@ -3323,7 +3336,15 @@ function renderRecentes() {
    })
    .sort((a, b) => String(b.data || "").localeCompare(String(a.data || "")) || b._ordem - a._ordem);
 
-  const exibidos = mostrarTodosRecentes ? base : base.slice(0, 2);
+  let exibidos;
+  if (mostrarTodosRecentes) {
+    exibidos = base;
+  } else {
+    // "Mostrar menos" mantém os dois dias mais recentes completos.
+    const ultimasDatas = [...new Set(base.map((item) => String(item.data || "").slice(0, 10)))].slice(0, 2);
+    const datasPermitidas = new Set(ultimasDatas);
+    exibidos = base.filter((item) => datasPermitidas.has(String(item.data || "").slice(0, 10)));
+  }
   ledger.innerHTML = "";
 
   if (!base.length) {
@@ -3602,7 +3623,17 @@ function atualizarCarrosselGraficos(wrapId = "graficosCarousel", dotsId = "grafi
   if (wrapId === "graficosCarousel" && !wrap.dataset.resumoPaginaRestaurada) {
     wrap.dataset.resumoPaginaRestaurada = "1";
     const salvo = lerPaginaGraficoResumo();
-    if (salvo > 0) { const alvo = cards[Math.min(salvo, cards.length - 1)]; if (alvo) wrap.scrollLeft = alvo.offsetLeft - wrap.offsetLeft; }
+    let alvo = salvo ? cards.find((card) => card.id === salvo) : null;
+    if (!alvo && /^\d+$/.test(String(salvo))) {
+      alvo = cards[Math.min(Number(salvo), cards.length - 1)];
+    }
+    if (!alvo) alvo = cards[0];
+    if (alvo) {
+      requestAnimationFrame(() => {
+        wrap.scrollLeft = Math.max(0, alvo.offsetLeft - wrap.offsetLeft);
+        marcarDotAtivo(wrap, dotsEl);
+      });
+    }
   }
   marcarDotAtivo(wrap, dotsEl);
 }
@@ -3628,7 +3659,7 @@ function marcarDotAtivo(wrap, dotsEl) {
   });
 
   if (dots.length) dots.forEach((d, i) => d.classList.toggle("is-active", i === ativo));
-  if (wrap.id === "graficosCarousel") salvarPaginaGraficoResumo(ativo);
+  if (wrap.id === "graficosCarousel") salvarPaginaGraficoResumo(cards[ativo]?.id || "");
 
   sincronizarAlturaCarrossel(wrap, cards, ativo);
 }
