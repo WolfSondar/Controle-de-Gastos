@@ -5648,7 +5648,24 @@ on("formFecharMes", "submit", async (e) => {
   const dadosFechamentoAntes = prepararDadosFechamentoMes(mes, ano);
   const pessoaFechamento = state.pessoaAtual;
   const podeExibirCerimonia = !fechamentoMesJaExibido(mes, ano, pessoaFechamento);
-  if (podeExibirCerimonia) mostrarFechamentoMes(dadosFechamentoAntes, { aguardandoFechamento: true });
+  if (podeExibirCerimonia) {
+    const cenaFechamento = mostrarFechamentoMes(dadosFechamentoAntes, { aguardandoFechamento: true });
+
+    // A cerimônia precisa ficar visível DURANTE o processamento.
+    // Fechamos o modal de confirmação imediatamente depois de abrir a cena;
+    // caso contrário, o backdrop/modal original pode ficar por cima dela e
+    // dá a impressão de que nada aconteceu até o Apps Script terminar.
+    if (cenaFechamento) {
+      cenaFechamento.style.zIndex = "99999";
+      requestAnimationFrame(() => {
+        fecharModalFecharMes();
+      });
+    }
+  } else {
+    // Mesmo quando a cerimônia já foi exibida para este mês, não deixe o
+    // modal de confirmação preso durante a requisição.
+    fecharModalFecharMes();
+  }
 
   // Mantém o overlay antigo oculto: a própria cerimônia agora é a experiência
   // visual de processamento, sem trocar de tela no meio da operação.
