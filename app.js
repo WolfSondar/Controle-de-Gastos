@@ -5648,28 +5648,30 @@ on("formFecharMes", "submit", async (e) => {
   const dadosFechamentoAntes = prepararDadosFechamentoMes(mes, ano);
   const pessoaFechamento = state.pessoaAtual;
   const podeExibirCerimonia = !fechamentoMesJaExibido(mes, ano, pessoaFechamento);
+  let cenaFechamento = null;
   if (podeExibirCerimonia) {
-    const cenaFechamento = mostrarFechamentoMes(dadosFechamentoAntes, { aguardandoFechamento: true });
-
-    // A cerimônia precisa ficar visível DURANTE o processamento.
-    // Fechamos o modal de confirmação imediatamente depois de abrir a cena;
-    // caso contrário, o backdrop/modal original pode ficar por cima dela e
-    // dá a impressão de que nada aconteceu até o Apps Script terminar.
+    // Abre a cerimônia ANTES de fechar o modal, e força a pintura visual
+    // imediatamente. Assim o usuário vê a cena enquanto o fetch trabalha.
+    cenaFechamento = mostrarFechamentoMes(dadosFechamentoAntes, { aguardandoFechamento: true });
     if (cenaFechamento) {
       cenaFechamento.style.zIndex = "99999";
-      requestAnimationFrame(() => {
-        fecharModalFecharMes();
-      });
+      cenaFechamento.classList.remove("is-hidden");
+      cenaFechamento.classList.add("is-visible");
+      void cenaFechamento.offsetWidth;
     }
-  } else {
-    // Mesmo quando a cerimônia já foi exibida para este mês, não deixe o
-    // modal de confirmação preso durante a requisição.
-    fecharModalFecharMes();
   }
 
-  // Mantém o overlay antigo oculto: a própria cerimônia agora é a experiência
-  // visual de processamento, sem trocar de tela no meio da operação.
+  // Fecha SOMENTE o modal de confirmação. Não usa fecharModalFecharMes()
+  // aqui porque ele passa pelo histórico de modais e pode desmontar a cena
+  // recém-aberta antes que o navegador consiga pintá-la.
+  if (fecharMesBackdrop) fecharMesBackdrop.classList.add("is-hidden");
+  const idxModalFecharMes = pilhaModais.lastIndexOf("fecharMesBackdrop");
+  if (idxModalFecharMes !== -1) pilhaModais.splice(idxModalFecharMes, 1);
   esconderProcessando("fecharMesOverlay");
+
+  // Dá ao navegador uma oportunidade de pintar a cerimônia antes de iniciar
+  // a requisição real. O fechamento continua acontecendo normalmente.
+  await new Promise((resolve) => requestAnimationFrame(() => requestAnimationFrame(resolve)));
   const resultado = await fecharMesRequisicao(mes, ano);
   if (btnSubmit) {
     btnSubmit.disabled = false;
@@ -5686,7 +5688,8 @@ on("formFecharMes", "submit", async (e) => {
     ["davi", "gabriel", "ambos", "historico"].forEach((p) => removerCache(p));
 
     showToast(`${MESES_LABEL[f.mes - 1]}/${f.ano} foi fechado. Os saldos restantes foram levados para o próximo mês e os gastos variáveis foram encerrados.`);
-    fecharModalFecharMes();
+    // O modal já foi fechado antes da requisição para que a cerimônia fique
+    // livre na tela. Não feche novamente por histórico aqui.
     if (podeExibirCerimonia) {
       marcarFechamentoMesExibido(f.mes, f.ano, pessoaFechamento);
       concluirFechamentoMes(dadosFechamento);
