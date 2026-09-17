@@ -5424,6 +5424,7 @@ function mostrarFechamentoMes(dados, { aguardandoFechamento = false } = {}) {
   const proximoNome = MESES_LABEL[proximoMes - 1];
 
   cena.classList.remove("is-hidden", "fechamento-mes-finalizando");
+  cena.dataset.cerimoniaInicio = String(Date.now());
   document.body.classList.add("fechamento-mes-ativo");
   requestAnimationFrame(() => cena.classList.add("is-visible"));
 
@@ -5491,7 +5492,7 @@ function mostrarFechamentoMes(dados, { aguardandoFechamento = false } = {}) {
         animarFechamentoNumero(resumo.querySelector('[data-fechamento-num="gastos"]'), dados.gastos, 950);
         animarFechamentoNumero(resumo.querySelector('[data-fechamento-num="guardado"]'), dados.guardado, 1100);
       });
-    }, 950);
+    }, 1200);
 
     window.setTimeout(() => {
       if (cena.dataset.aguardandoFechamento !== "1") return;
@@ -5509,7 +5510,7 @@ function mostrarFechamentoMes(dados, { aguardandoFechamento = false } = {}) {
           resumo.innerHTML = `<div class="fechamento-mes-meta"><span>✦</span><p>Os próximos passos já estão sendo preparados.</p></div>`;
         }
       });
-    }, 2750);
+    }, 4500);
 
     return cena;
   }
@@ -5586,24 +5587,33 @@ function concluirFechamentoMes(dados) {
   progresso?.closest(".fechamento-mes-progresso")?.classList.remove("is-processando");
   if (progresso) progresso.style.width = "100%";
 
-  // O mês seguinte só é revelado AGORA: o fechamento do Apps Script já foi
-  // confirmado. Todo o restante da cerimônia aconteceu enquanto ele trabalhava.
-  etapa.classList.add("is-trocando");
-  window.setTimeout(() => {
-    const proximoMes = dados.mes === 12 ? 1 : dados.mes + 1;
-    const proximoAno = dados.mes === 12 ? dados.ano + 1 : dados.ano;
-    const proximoNome = MESES_LABEL[proximoMes - 1];
-    titulo.textContent = `${proximoNome} começou`;
-    texto.textContent = "O fechamento foi concluído. Um novo mês começa agora. 🌱";
-    resumo.innerHTML = `<div class="fechamento-mes-proximo"><span>${String(proximoAno)}</span><strong>${proximoNome}</strong></div>`;
-    etapa.classList.remove("is-trocando");
-  }, 220);
+  // Mesmo que o servidor responda rápido, deixamos a cerimônia respirar.
+  // Assim, "Olha o que você construiu" e a etapa das caixinhas não passam
+  // correndo antes da revelação do próximo mês.
+  const inicio = Number(cena.dataset.cerimoniaInicio) || Date.now();
+  const tempoMinimo = 7000;
+  const esperar = Math.max(0, tempoMinimo - (Date.now() - inicio));
 
-  fechamentoMesTimer = window.setTimeout(() => {
-    cena.classList.add("fechamento-mes-finalizando");
-    document.body.classList.remove("fechamento-mes-ativo");
-    window.setTimeout(() => cena.classList.add("is-hidden"), 650);
-  }, 2200);
+  window.setTimeout(() => {
+    // O mês seguinte só é revelado AGORA: o fechamento real já foi confirmado
+    // e a cerimônia teve tempo suficiente para mostrar suas etapas.
+    etapa.classList.add("is-trocando");
+    window.setTimeout(() => {
+      const proximoMes = dados.mes === 12 ? 1 : dados.mes + 1;
+      const proximoAno = dados.mes === 12 ? dados.ano + 1 : dados.ano;
+      const proximoNome = MESES_LABEL[proximoMes - 1];
+      titulo.textContent = `${proximoNome} começou`;
+      texto.textContent = "O fechamento foi concluído. Um novo mês começa agora. 🌱";
+      resumo.innerHTML = `<div class="fechamento-mes-proximo"><span>${String(proximoAno)}</span><strong>${proximoNome}</strong></div>`;
+      etapa.classList.remove("is-trocando");
+    }, 220);
+
+    fechamentoMesTimer = window.setTimeout(() => {
+      cena.classList.add("fechamento-mes-finalizando");
+      document.body.classList.remove("fechamento-mes-ativo");
+      window.setTimeout(() => cena.classList.add("is-hidden"), 650);
+    }, 2200);
+  }, esperar);
 }
 
 async function fecharMesRequisicao(mes, ano) {
