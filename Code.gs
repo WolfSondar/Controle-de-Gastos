@@ -1569,70 +1569,163 @@ function readGanhos(sheet) {
 
 function fusoHorarioDaPlanilha(sheet) {
   try {
-    return sheet.getParent().getSpreadsheetTimeZone() || "America/Sao_Paulo";
+    return sheet.getParent().getSpreadsheetTimeZone() || Session.getScriptTimeZone() || "America/Sao_Paulo";
   } catch (e) {
-    return "America/Sao_Paulo";
+    return Session.getScriptTimeZone() || "America/Sao_Paulo";
   }
 }
 
-// Mantém a data/hora exatamente como o usuário informou, sem passar por
-// conversões de UTC. Para gravação, retornamos texto no formato brasileiro;
-// o próprio Sheets converte para um valor de data/hora de acordo com a
-// configuração regional da planilha.
-function normalizarDataParaPlanilha(valor) {
+function dataTextoParaDate(valor, timezone) {
+  if (!valor) return null;
+  if (Object.prototype.toString.call(valor) === "[object Date]" && !isNaN(valor.getTime())) return valor;
+  var texto = String(valor).trim();
+  var m = /^(\d{4})-(\d{2})-(\d{2})(?:[T ](\d{2}):(\d{2})(?::(\d{2}))?)?$/.exec(texto);
+  if (m) {
+    var hora = m[4] || "00", minuto = m[5] || "00", segundo = m[6] || "00";
+    return Utilities.parseDate(m[1] + "-" + m[2] + "-" + m[3] + " " + hora + ":" + minuto + ":" + segundo, timezone, "yyyy-MM-dd HH:mm:ss");
+  }
+  m = /^(\d{2})[\/.-](\d{2})[\/.-](\d{4})(?:[ T](\d{2}):(\d{2})(?::(\d{2}))?)?$/.exec(texto);
+  if (m) {
+    var h = m[4] || "00", mi = m[5] || "00", se = m[6] || "00";
+    return Utilities.parseDate(m[3] + "-" + m[2] + "-" + m[1] + " " + h + ":" + mi + ":" + se, timezone, "yyyy-MM-dd HH:mm:ss");
+  }
+  return null;
+}
+
+function normalizarDataParaPlanilha(valor, sheet) {
   if (!valor) return "";
-  if (Object.prototype.toString.call(valor) === "[object Date]" && !isNaN(valor.getTime())) {
-    const tz = Session.getScriptTimeZone() || "America/Sao_Paulo";
-    return Utilities.formatDate(valor, tz, "dd/MM/yyyy HH:mm:ss");
-  }
-  const texto = String(valor).trim();
-  let m = /^(\d{4})-(\d{2})-(\d{2})[T ](\d{2}):(\d{2})(?::(\d{2}))?$/.exec(texto);
-  if (m) return m[3] + "/" + m[2] + "/" + m[1] + " " + m[4] + ":" + m[5] + ":" + (m[6] || "00");
-  m = /^(\d{4})-(\d{2})-(\d{2})$/.exec(texto);
-  if (m) return m[3] + "/" + m[2] + "/" + m[1] + " 00:00:00";
-  m = /^(\d{2})[\/.\-](\d{2})[\/.\-](\d{4})(?:[ T](\d{2}):(\d{2})(?::(\d{2}))?)?$/.exec(texto);
-  if (m) return m[1] + "/" + m[2] + "/" + m[3] + " " + (m[4] || "00") + ":" + (m[5] || "00") + ":" + (m[6] || "00");
-  return texto;
+  var timezone = fusoHorarioDaPlanilha(sheet);
+  return dataTextoParaDate(valor, timezone) || String(valor).trim();
 }
 
+// Normaliza apenas textos que representam datas. Valores Date existentes são
+// mantidos exatamente como estão para não alterar nenhum lançamento já salvo.
 function normalizarDatasExistentes(sheet) {
-  const ultima = Math.max(sheet.getLastRow(), 2);
-  const quantidade = Math.max(ultima - 1, 1);
+  var ultima = Math.max(sheet.getLastRow(), 2);
+  var quantidade = Math.max(ultima - 1, 1);
   [COL_DATA_GANHO, COL_DATA_FIXO, COL_DATA_VARIAVEL, COL_DATA_CAIXINHA].forEach(function (col) {
-    const range = sheet.getRange(2, col, quantidade, 1);
-    const valores = range.getValues();
-    const exibicao = valores.map(function (row) {
-      const valor = row[0];
+    var range = sheet.getRange(2, col, quantidade, 1);
+    var valores = range.getValues();
+    var timezone = fusoHorarioDaPlanilha(sheet);
+    var mudou = false;
+    var convertidos = valores.map(function (row) {
+      var valor = row[0];
       if (valor === "" || valor === null || valor === undefined) return [""];
-      return [normalizarDataParaPlanilha(valor)];
+      if (Object.prototype.toString.call(valor) === "[object Date]" && !isNaN(valor.getTime())) return [valor];
+      var convertido = dataTextoParaDate(valor, timezone);
+      if (convertido) { mudou = true; return [convertido]; }
+      return [valor];
     });
-    // Não converte Date -> Date novamente. Escreve a representação local
-    // exatamente como deve aparecer, evitando deslocamento de fuso.
-    range.setValues(exibicao);
-    range.setNumberFormat("dd/MM/yyyy HH:mm:ss");
+    if (mudou) range.setValues(convertidos);
   });
 }
 
 function aplicarFormatoDatasLancamentos(sheet) {
-  const ultima = Math.max(sheet.getLastRow(), 2);
-  const quantidade = Math.max(ultima - 1, 1);
+  var ultima = Math.max(sheet.getLastRow(), 2);
+  var quantidade = Math.max(ultima - 1, 1);
   [COL_DATA_GANHO, COL_DATA_FIXO, COL_DATA_VARIAVEL, COL_DATA_CAIXINHA].forEach(function (col) {
     sheet.getRange(2, col, quantidade, 1).setNumberFormat("dd/MM/yyyy HH:mm:ss");
   });
 }
 
+function saveGanhos(sheet, rows) {
+  normalizarDatasExistentes(sheet);
+  aplicarFormatoDatasLancamentos(sheet);
+  const rowsToClear = linhasParaLimpar(sheet, rows);
+  sheet.getRange(2, COL_GANHOS, rowsToClear, 4).clearContent();
+  if (!rows || rows.length === 0) return;
+  const valores = rows.map(function (r) {
+    return [r.nome, r.valor, normalizarDataParaPlanilha(r.data, sheet), r.recebido === true];
+  });
+  sheet.getRange(2, COL_GANHOS, valores.length, 4).setValues(valores);
+  sheet.getRange(2, COL_DATA_GANHO, valores.length, 1).setNumberFormat("dd/MM/yyyy HH:mm:ss");
+}
+
+
+function readGastosFixos(sheet) {
+  const lastRow = sheet.getLastRow();
+  if (lastRow < 2) return [];
+  const valores = sheet.getRange(2, COL_GASTOS_FIXOS, lastRow - 1, 6).getValues(); // E,F,G,H,I,J
+  const result = [];
+  valores.forEach(function (row) {
+    const nome = row[0];
+    if (nome !== "" && nome !== null) {
+      result.push({
+        nome: String(nome),
+        valor: Number(row[1]) || 0,
+        tipo: row[2] ? String(row[2]) : "",
+        data: formatarDataCelula(row[3], sheet),
+        parcela: row[4] ? String(row[4]) : "",
+        pago: row[5] === true,
+      });
+    }
+  });
+  return result;
+}
+
+function saveGastosFixos(sheet, rows) {
+  normalizarDatasExistentes(sheet);
+  aplicarFormatoDatasLancamentos(sheet);
+  const rowsToClear = linhasParaLimpar(sheet, rows);
+  sheet.getRange(2, COL_GASTOS_FIXOS, rowsToClear, 6).clearContent();
+  if (!rows || rows.length === 0) return;
+  const valores = rows.map(function (r) {
+    return [r.nome, r.valor, r.tipo || "", normalizarDataParaPlanilha(r.data, sheet), r.parcela || "", r.pago === true];
+  });
+  sheet.getRange(2, COL_GASTOS_FIXOS, valores.length, 6).setValues(valores);
+  sheet.getRange(2, COL_DATA_FIXO, valores.length, 1).setNumberFormat("dd/MM/yyyy HH:mm:ss");
+}
+
+
+function readGastosVariaveis(sheet) {
+  const lastRow = sheet.getLastRow();
+  if (lastRow < 2) return [];
+  const valores = sheet.getRange(2, COL_GASTOS_VARIAVEIS, lastRow - 1, 5).getValues(); // K,L,M,N,O
+  const origens = sheet.getRange(2, COL_ORIGEM_VARIAVEL, lastRow - 1, 1).getValues(); // P
+  const result = [];
+  valores.forEach(function (row, i) {
+    const nome = row[0];
+    if (nome !== "" && nome !== null) {
+      result.push({
+        nome: String(nome),
+        valor: Number(row[1]) || 0,
+        tipo: row[2] ? String(row[2]) : "",
+        data: formatarDataCelula(row[3], sheet),
+        pago: row[4] === true,
+        origem: String((origens[i] && origens[i][0]) || "saldo").toLowerCase() === "beneficio" ? "beneficio" : "saldo",
+      });
+    }
+  });
+  return result;
+}
+
+function saveGastosVariaveis(sheet, rows) {
+  normalizarDatasExistentes(sheet);
+  aplicarFormatoDatasLancamentos(sheet);
+  const rowsToClear = linhasParaLimpar(sheet, rows);
+  sheet.getRange(2, COL_GASTOS_VARIAVEIS, rowsToClear, 5).clearContent();
+  sheet.getRange(2, COL_ORIGEM_VARIAVEL, rowsToClear, 1).clearContent();
+  if (!rows || rows.length === 0) return;
+  const valores = rows.map(function (r) {
+    return [r.nome, r.valor, r.tipo || "", normalizarDataParaPlanilha(r.data, sheet), r.pago === true];
+  });
+  const origens = rows.map(function (r) {
+    return [String(r.origem || "saldo").toLowerCase() === "beneficio" ? "beneficio" : "saldo"];
+  });
+  sheet.getRange(2, COL_GASTOS_VARIAVEIS, valores.length, 5).setValues(valores);
+  sheet.getRange(2, COL_ORIGEM_VARIAVEL, origens.length, 1).setValues(origens);
+  sheet.getRange(2, COL_DATA_VARIAVEL, valores.length, 1).setNumberFormat("dd/MM/yyyy HH:mm:ss");
+}
+
 function formatarDataCelula(valor, sheet) {
   if (!valor) return "";
-  const timezone = sheet ? fusoHorarioDaPlanilha(sheet) : (Session.getScriptTimeZone() || "America/Sao_Paulo");
+  var timezone = sheet ? fusoHorarioDaPlanilha(sheet) : (Session.getScriptTimeZone() || "America/Sao_Paulo");
   if (Object.prototype.toString.call(valor) === "[object Date]" && !isNaN(valor.getTime())) {
     return Utilities.formatDate(valor, timezone, "yyyy-MM-dd'T'HH:mm:ss");
   }
-  const texto = String(valor).trim();
-  const iso = /^(\d{4})-(\d{2})-(\d{2})(?:[T ](\d{2}):(\d{2})(?::(\d{2}))?)?$/.exec(texto);
-  if (iso) return iso[1] + "-" + iso[2] + "-" + iso[3] + "T" + (iso[4] || "00") + ":" + (iso[5] || "00") + ":" + (iso[6] || "00");
-  const br = /^(\d{2})[\/.\-](\d{2})[\/.\-](\d{4})(?:[ T](\d{2}):(\d{2})(?::(\d{2}))?)?$/.exec(texto);
-  if (br) return br[3] + "-" + br[2] + "-" + br[1] + "T" + (br[4] || "00") + ":" + (br[5] || "00") + ":" + (br[6] || "00");
-  return texto;
+  var convertido = dataTextoParaDate(valor, timezone);
+  if (convertido) return Utilities.formatDate(convertido, timezone, "yyyy-MM-dd'T'HH:mm:ss");
+  return String(valor).trim();
 }
 
 // ---------------------------------------------------------------------
@@ -1683,7 +1776,7 @@ function saveCaixinhasBlock(sheet, rows) {
   sheet.getRange(2, COL_GUARDADO, rowsToClear, 7).clearContent(); // Limpa Q:W, incluindo prazo e ícone
   if (!rows || rows.length === 0) return;
   const values = rows.map(function (r) {
-    return [r.nome, r.valorObjetivo, r.valorGuardado, r.rendimentoTotal || 0, r.valorGuardadoMes || 0, normalizarDataParaPlanilha(r.data), r.icone || ""];
+    return [r.nome, r.valorObjetivo, r.valorGuardado, r.rendimentoTotal || 0, r.valorGuardadoMes || 0, r.data || "", r.icone || ""];
   });
   sheet.getRange(2, COL_GUARDADO, values.length, 7).setValues(values);
 }

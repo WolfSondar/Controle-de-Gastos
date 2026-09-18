@@ -461,9 +461,9 @@ function dataHojeISO() {
   return `${ano}-${mes}-${dia}`;
 }
 
-// Datas de lançamentos usam o dia escolhido + o horário local atual quando
-// o campo fornece somente a data. Não usamos toISOString(), pois ele converte
-// para UTC e pode deslocar o horário em 3 horas no Brasil.
+// Data de lançamento: mantém o dia escolhido e, quando o usuário escolhe
+// apenas uma data, acrescenta o horário LOCAL do navegador.
+// Não usamos toISOString()/UTC aqui, pois isso deslocaria o horário em 3h.
 function dataHoraAgoraISO() {
   const d = new Date();
   const ano = d.getFullYear();
@@ -478,8 +478,20 @@ function dataHoraAgoraISO() {
 function dataDoLancamento(data) {
   const dataLimpa = String(data || "").trim();
   if (!dataLimpa) return "";
-  if (/^\d{4}-\d{2}-\d{2}$/.test(dataLimpa)) return `${dataLimpa}T${dataHoraAgoraISO().slice(11)}`;
-  return dataLimpa.slice(0, 19);
+
+  const isoData = dataLimpa.match(/^(\d{4})-(\d{2})-(\d{2})$/);
+  if (isoData) return `${isoData[1]}-${isoData[2]}-${isoData[3]}T${dataHoraAgoraISO().slice(11)}`;
+
+  const isoDataHora = dataLimpa.match(/^(\d{4}-\d{2}-\d{2})[T ](\d{2}:\d{2}(?::\d{2})?)$/);
+  if (isoDataHora) return `${isoDataHora[1]}T${isoDataHora[2].length === 5 ? isoDataHora[2] + ":00" : isoDataHora[2]}`;
+
+  const br = dataLimpa.match(/^(\d{2})[\/.-](\d{2})[\/.-](\d{4})(?:[ T](\d{2}:\d{2}(?::\d{2})?))?$/);
+  if (br) {
+    const hora = br[4] ? (br[4].length === 5 ? br[4] + ":00" : br[4]) : dataHoraAgoraISO().slice(11);
+    return `${br[3]}-${br[2]}-${br[1]}T${hora}`;
+  }
+
+  return dataLimpa;
 }
 
 function dataBrasileira(data) {
@@ -682,80 +694,31 @@ function isAmbos() {
 }
 
 // ---------------------------------------------------------------------
-// URL DA API — evita respostas 404 de redirects antigos do Apps Script
+// URL DA API
 // ---------------------------------------------------------------------
-// O Web App do Apps Script pode redirecionar a URL /exec para
-// script.googleusercontent.com. Em alguns navegadores, um redirect antigo
-// pode permanecer associado ao cache/cookies do site e acabar retornando
-// 404, mesmo com a implantação funcionando normalmente.
-//
-// Cada chamada recebe um parâmetro único. Para GETs também fazemos uma
-// pequena retentativa quando o destino devolve 404. Isso força o navegador
-// a obter um novo redirect do Apps Script, sem exigir que o usuário limpe
-// cookies/dados do navegador.
+// Mantemos a URL do Apps Script exatamente como configurada em config.js.
+// Os parâmetros opcionais são adicionados somente quando necessários; não
+// alteramos o endpoint nem adicionamos cache-busters, pois isso pode quebrar
+// redirects do Web App do Apps Script.
 function urlApi(params = {}) {
   if (!API_URL || API_URL.includes("COLE_AQUI")) return "";
+  if (!params || !Object.keys(params).length) return API_URL;
 
   try {
     const url = new URL(API_URL, window.location.href);
-    Object.entries(params || {}).forEach(([chave, valor]) => {
-      if (valor !== undefined && valor !== null) {
-        url.searchParams.set(chave, String(valor));
-      }
+    Object.entries(params).forEach(([chave, valor]) => {
+      if (valor !== undefined && valor !== null) url.searchParams.set(chave, String(valor));
     });
-
-    url.searchParams.set(
-      "_caixa_cb",
-      `${Date.now()}-${Math.random().toString(36).slice(2, 10)}`
-    );
-
     return url.toString();
   } catch (_err) {
-    const separador = API_URL.includes("?") ? "&" : "?";
-    const extras = new URLSearchParams(params || {}).toString();
-    const cb = `_caixa_cb=${Date.now()}-${Math.random().toString(36).slice(2, 10)}`;
-    return `${API_URL}${separador}${extras}${extras ? "&" : ""}${cb}`;
+    const extras = new URLSearchParams(params).toString();
+    if (!extras) return API_URL;
+    return `${API_URL}${API_URL.includes("?") ? "&" : "?"}${extras}`;
   }
 }
 
 async function fetchApiGet(params = {}) {
-  let ultimaResposta = null;
-  let ultimoErro = null;
-
-  // Um 404 aqui normalmente é do redirect intermediário do Apps Script,
-  // não da função doGet() (que devolve JSON de erro quando ela própria falha).
-  for (let tentativa = 0; tentativa < 3; tentativa++) {
-    try {
-      const res = await fetch(urlApi(params), {
-        method: "GET",
-        cache: "no-store",
-      });
-
-      ultimaResposta = res;
-      if (res.ok) return res;
-
-      if (res.status !== 404 || tentativa === 2) {
-        throw new Error(`HTTP ${res.status}`);
-      }
-
-      // Dá um pequeno intervalo para evitar repetir imediatamente o mesmo
-      // estado do redirect intermediário.
-      await new Promise((resolve) => setTimeout(resolve, 250 * (tentativa + 1)));
-    } catch (err) {
-      ultimoErro = err;
-
-      // Erros de rede também merecem uma nova tentativa; se a conexão caiu,
-      // a última tentativa continuará sendo tratada pelo fluxo normal.
-      if (tentativa < 2) {
-        await new Promise((resolve) => setTimeout(resolve, 250 * (tentativa + 1)));
-        continue;
-      }
-    }
-  }
-
-  if (ultimoErro) throw ultimoErro;
-  if (ultimaResposta) throw new Error(`HTTP ${ultimaResposta.status}`);
-  throw new Error("Não foi possível acessar a API");
+  return fetch(urlApi(params), { method: "GET", cache: "no-store" });
 }
 
 
