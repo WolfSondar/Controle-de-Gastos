@@ -1559,7 +1559,7 @@ function readGanhos(sheet) {
       result.push({
         nome: String(nome),
         valor: Number(row[1]) || 0,
-        data: formatarDataCelula(row[2]),
+        data: formatarDataCelula(row[2], sheet),
         recebido: row[3] === true,
       });
     }
@@ -1567,40 +1567,47 @@ function readGanhos(sheet) {
   return result;
 }
 
-function dataTextoParaDate(valor) {
+function fusoHorarioDaPlanilha(sheet) {
+  try {
+    return sheet.getParent().getSpreadsheetTimeZone() || Session.getScriptTimeZone() || "America/Sao_Paulo";
+  } catch (e) {
+    return Session.getScriptTimeZone() || "America/Sao_Paulo";
+  }
+}
+
+function dataTextoParaDate(valor, timezone) {
   const texto = String(valor || "").trim();
   if (!texto) return null;
-  let m = /^(\d{4})-(\d{2})-(\d{2})(?:[T\s](\d{2}):(\d{2})(?::(\d{2}))?)?/.exec(texto);
+  if (Object.prototype.toString.call(valor) === "[object Date]" && !isNaN(valor.getTime())) return new Date(valor.getTime());
+
+  let m = /^(\d{4})-(\d{2})-(\d{2})(?:[T ](\d{2}):(\d{2})(?::(\d{2}))?)?$/.exec(texto);
   if (m) {
-    const ano = Number(m[1]), mes = Number(m[2]), dia = Number(m[3]);
-    const hora = Number(m[4] || 0), minuto = Number(m[5] || 0), segundo = Number(m[6] || 0);
-    const d = new Date(ano, mes - 1, dia, hora, minuto, segundo);
-    if (d.getFullYear() !== ano || d.getMonth() !== mes - 1 || d.getDate() !== dia || d.getHours() !== hora || d.getMinutes() !== minuto || d.getSeconds() !== segundo) return null;
-    return d;
+    const data = m[3] + "/" + m[2] + "/" + m[1];
+    const hora = m[4] ? (m[4] + ":" + m[5] + ":" + (m[6] || "00")) : "00:00:00";
+    return Utilities.parseDate(data + " " + hora, timezone, "dd/MM/yyyy HH:mm:ss");
   }
-  m = /^(\d{2})[\/.-](\d{2})[\/.-](\d{4})(?:[T\s](\d{2}):(\d{2})(?::(\d{2}))?)?/.exec(texto);
+
+  m = /^(\d{2})[\/.-](\d{2})[\/.-](\d{4})(?:[ T](\d{2}):(\d{2})(?::(\d{2}))?)?$/.exec(texto);
   if (m) {
-    const ano = Number(m[3]), mes = Number(m[2]), dia = Number(m[1]);
-    const hora = Number(m[4] || 0), minuto = Number(m[5] || 0), segundo = Number(m[6] || 0);
-    const d = new Date(ano, mes - 1, dia, hora, minuto, segundo);
-    if (d.getFullYear() !== ano || d.getMonth() !== mes - 1 || d.getDate() !== dia || d.getHours() !== hora || d.getMinutes() !== minuto || d.getSeconds() !== segundo) return null;
-    return d;
+    const hora = m[4] ? (m[4] + ":" + m[5] + ":" + (m[6] || "00")) : "00:00:00";
+    return Utilities.parseDate(m[1] + "/" + m[2] + "/" + m[3] + " " + hora, timezone, "dd/MM/yyyy HH:mm:ss");
   }
   return null;
 }
 
-function normalizarDataParaPlanilha(valor) {
+function normalizarDataParaPlanilha(valor, sheet) {
   if (!valor) return "";
-  if (Object.prototype.toString.call(valor) === "[object Date]" && !isNaN(valor.getTime())) return new Date(valor.getTime());
-  return dataTextoParaDate(valor) || String(valor).trim();
+  const timezone = fusoHorarioDaPlanilha(sheet);
+  const data = dataTextoParaDate(valor, timezone);
+  return data || String(valor).trim();
 }
 
-// Converte datas antigas que estejam como texto para datas reais da planilha,
-// preservando exatamente o dia e o horário informado. Não faz ajustes de fuso,
-// não soma/subtrai dias e não usa Date.parse().
+// Normaliza apenas o tipo/formato das datas antigas. Datas que já são Date
+// não são recriadas, portanto o dia e o horário existentes permanecem intactos.
 function normalizarDatasExistentes(sheet) {
   const ultima = Math.max(sheet.getLastRow(), 2);
   const quantidade = Math.max(ultima - 1, 1);
+  const timezone = fusoHorarioDaPlanilha(sheet);
   [COL_DATA_GANHO, COL_DATA_FIXO, COL_DATA_VARIAVEL, COL_DATA_CAIXINHA].forEach(function (col) {
     const range = sheet.getRange(2, col, quantidade, 1);
     const valores = range.getValues();
@@ -1609,7 +1616,7 @@ function normalizarDatasExistentes(sheet) {
       const valor = row[0];
       if (valor === "" || valor === null || valor === undefined) return [""];
       if (Object.prototype.toString.call(valor) === "[object Date]" && !isNaN(valor.getTime())) return [valor];
-      const convertido = dataTextoParaDate(valor);
+      const convertido = dataTextoParaDate(valor, timezone);
       if (convertido) { mudou = true; return [convertido]; }
       return [valor];
     });
@@ -1621,10 +1628,20 @@ function normalizarDatasExistentes(sheet) {
 function aplicarFormatoDatasLancamentos(sheet) {
   const ultima = Math.max(sheet.getLastRow(), 2);
   const quantidade = Math.max(ultima - 1, 1);
-  sheet.getRange(2, COL_DATA_GANHO, quantidade, 1).setNumberFormat("dd/MM/yyyy HH:mm:ss");
-  sheet.getRange(2, COL_DATA_FIXO, quantidade, 1).setNumberFormat("dd/MM/yyyy HH:mm:ss");
-  sheet.getRange(2, COL_DATA_VARIAVEL, quantidade, 1).setNumberFormat("dd/MM/yyyy HH:mm:ss");
-  sheet.getRange(2, COL_DATA_CAIXINHA, quantidade, 1).setNumberFormat("dd/MM/yyyy HH:mm:ss");
+  [COL_DATA_GANHO, COL_DATA_FIXO, COL_DATA_VARIAVEL, COL_DATA_CAIXINHA].forEach(function (col) {
+    sheet.getRange(2, col, quantidade, 1).setNumberFormat("dd/MM/yyyy HH:mm:ss");
+  });
+}
+
+function formatarDataCelula(valor, sheet) {
+  if (!valor) return "";
+  const timezone = sheet ? fusoHorarioDaPlanilha(sheet) : (Session.getScriptTimeZone() || "America/Sao_Paulo");
+  if (Object.prototype.toString.call(valor) === "[object Date]" && !isNaN(valor.getTime())) {
+    return Utilities.formatDate(valor, timezone, "yyyy-MM-dd'T'HH:mm:ss");
+  }
+  const convertido = dataTextoParaDate(valor, timezone);
+  if (convertido) return Utilities.formatDate(convertido, timezone, "yyyy-MM-dd'T'HH:mm:ss");
+  return String(valor).trim();
 }
 
 function saveGanhos(sheet, rows) {
@@ -1634,7 +1651,7 @@ function saveGanhos(sheet, rows) {
   sheet.getRange(2, COL_GANHOS, rowsToClear, 4).clearContent();
   if (!rows || rows.length === 0) return;
   const valores = rows.map(function (r) {
-    return [r.nome, r.valor, normalizarDataParaPlanilha(r.data), r.recebido === true];
+    return [r.nome, r.valor, normalizarDataParaPlanilha(r.data, sheet), r.recebido === true];
   });
   sheet.getRange(2, COL_GANHOS, valores.length, 4).setValues(valores);
   sheet.getRange(2, COL_DATA_GANHO, valores.length, 1).setNumberFormat("dd/MM/yyyy HH:mm:ss");
@@ -1653,7 +1670,7 @@ function readGastosFixos(sheet) {
         nome: String(nome),
         valor: Number(row[1]) || 0,
         tipo: row[2] ? String(row[2]) : "",
-        data: formatarDataCelula(row[3]),
+        data: formatarDataCelula(row[3], sheet),
         parcela: row[4] ? String(row[4]) : "",
         pago: row[5] === true,
       });
@@ -1669,7 +1686,7 @@ function saveGastosFixos(sheet, rows) {
   sheet.getRange(2, COL_GASTOS_FIXOS, rowsToClear, 6).clearContent();
   if (!rows || rows.length === 0) return;
   const valores = rows.map(function (r) {
-    return [r.nome, r.valor, r.tipo || "", normalizarDataParaPlanilha(r.data), r.parcela || "", r.pago === true];
+    return [r.nome, r.valor, r.tipo || "", normalizarDataParaPlanilha(r.data, sheet), r.parcela || "", r.pago === true];
   });
   sheet.getRange(2, COL_GASTOS_FIXOS, valores.length, 6).setValues(valores);
   sheet.getRange(2, COL_DATA_FIXO, valores.length, 1).setNumberFormat("dd/MM/yyyy HH:mm:ss");
@@ -1689,7 +1706,7 @@ function readGastosVariaveis(sheet) {
         nome: String(nome),
         valor: Number(row[1]) || 0,
         tipo: row[2] ? String(row[2]) : "",
-        data: formatarDataCelula(row[3]),
+        data: formatarDataCelula(row[3], sheet),
         pago: row[4] === true,
         origem: String((origens[i] && origens[i][0]) || "saldo").toLowerCase() === "beneficio" ? "beneficio" : "saldo",
       });
@@ -1706,7 +1723,7 @@ function saveGastosVariaveis(sheet, rows) {
   sheet.getRange(2, COL_ORIGEM_VARIAVEL, rowsToClear, 1).clearContent();
   if (!rows || rows.length === 0) return;
   const valores = rows.map(function (r) {
-    return [r.nome, r.valor, r.tipo || "", normalizarDataParaPlanilha(r.data), r.pago === true];
+    return [r.nome, r.valor, r.tipo || "", normalizarDataParaPlanilha(r.data, sheet), r.pago === true];
   });
   const origens = rows.map(function (r) {
     return [String(r.origem || "saldo").toLowerCase() === "beneficio" ? "beneficio" : "saldo"];
@@ -1714,17 +1731,6 @@ function saveGastosVariaveis(sheet, rows) {
   sheet.getRange(2, COL_GASTOS_VARIAVEIS, valores.length, 5).setValues(valores);
   sheet.getRange(2, COL_ORIGEM_VARIAVEL, origens.length, 1).setValues(origens);
   sheet.getRange(2, COL_DATA_VARIAVEL, valores.length, 1).setNumberFormat("dd/MM/yyyy HH:mm:ss");
-}
-
-function formatarDataCelula(valor) {
-  if (!valor) return "";
-  const timezone = Session.getScriptTimeZone() || "America/Sao_Paulo";
-  if (Object.prototype.toString.call(valor) === "[object Date]" && !isNaN(valor.getTime())) {
-    return Utilities.formatDate(valor, timezone, "yyyy-MM-dd'T'HH:mm:ss");
-  }
-  const convertido = dataTextoParaDate(valor);
-  if (convertido) return Utilities.formatDate(convertido, timezone, "yyyy-MM-dd'T'HH:mm:ss");
-  return String(valor).trim();
 }
 
 // ---------------------------------------------------------------------
@@ -1745,7 +1751,7 @@ function readCaixinhas(sheet) {
         valorGuardado: Number(row[2]) || 0,
         rendimentoTotal: Number(row[3]) || 0, // Coluna S
         valorGuardadoMes: Number(row[4]) || 0, // Coluna T
-        data: formatarDataCelula(row[5]), // Coluna U
+        data: formatarDataCelula(row[5], sheet), // Coluna U
         icone: row[6] ? String(row[6]).trim() : "" // Coluna V
       });
     }
@@ -1775,10 +1781,10 @@ function saveCaixinhasBlock(sheet, rows) {
   sheet.getRange(2, COL_GUARDADO, rowsToClear, 7).clearContent(); // Limpa Q:W, incluindo prazo e ícone
   if (!rows || rows.length === 0) return;
   const values = rows.map(function (r) {
-    return [r.nome, r.valorObjetivo, r.valorGuardado, r.rendimentoTotal || 0, r.valorGuardadoMes || 0, r.data || "", r.icone || ""];
+    return [r.nome, r.valorObjetivo, r.valorGuardado, r.rendimentoTotal || 0, r.valorGuardadoMes || 0, normalizarDataParaPlanilha(r.data, sheet) || "", r.icone || ""];
   });
   sheet.getRange(2, COL_GUARDADO, values.length, 7).setValues(values);
-  if (values.length) sheet.getRange(2, COL_DATA_CAIXINHA, values.length, 1).setNumberFormat("dd/MM/yyyy HH:mm:ss");
+  sheet.getRange(2, COL_DATA_CAIXINHA, values.length, 1).setNumberFormat("dd/MM/yyyy HH:mm:ss");
 }
 
 /**

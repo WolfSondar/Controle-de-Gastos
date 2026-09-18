@@ -461,29 +461,34 @@ function dataHojeISO() {
   return `${ano}-${mes}-${dia}`;
 }
 
-// Datas de lançamentos são salvas somente como dia, sem horário.
-// Mantemos o formato interno AAAA-MM-DD para não quebrar filtros,
-// ordenação e campos HTML de data; a exibição para o usuário é brasileira.
+function dataHoraAgoraISO() {
+  const d = new Date();
+  const ano = d.getFullYear();
+  const mes = String(d.getMonth() + 1).padStart(2, "0");
+  const dia = String(d.getDate()).padStart(2, "0");
+  const hora = String(d.getHours()).padStart(2, "0");
+  const minuto = String(d.getMinutes()).padStart(2, "0");
+  const segundo = String(d.getSeconds()).padStart(2, "0");
+  return `${ano}-${mes}-${dia}T${hora}:${minuto}:${segundo}`;
+}
+
+// Lançamentos novos carregam data + horário local do dispositivo.
+// Se o usuário escolheu apenas uma data, usamos o horário atual sem
+// converter para UTC. Datas que já possuem horário são preservadas.
 function dataDoLancamento(data) {
   const dataLimpa = String(data || "").trim();
   if (!dataLimpa) return "";
-  // Nunca converte a data para Date nem usa toISOString(): isso evita
-  // deslocamentos de dia por UTC/fuso. Mantemos também a hora, se existir.
-  const iso = dataLimpa.match(/^(\d{4}-\d{2}-\d{2})(?:[T\s](\d{2}:\d{2}(?::\d{2})?))?/);
-  if (iso) return iso[2] ? `${iso[1]}T${iso[2]}` : iso[1];
-  const br = dataLimpa.match(/^(\d{2})[\/.-](\d{2})[\/.-](\d{4})(?:[T\s](\d{2}:\d{2}(?::\d{2})?))?/);
-  if (br) return `${br[3]}-${br[2]}-${br[1]}${br[5] ? `T${br[5]}` : ""}`;
+  const iso = dataLimpa.match(/^(\d{4}-\d{2}-\d{2})(?:[T ](\d{2}:\d{2}(?::\d{2})?))?/);
+  if (iso) {
+    if (!iso[2]) return `${iso[1]}T${dataHoraAgoraISO().slice(11)}`;
+    return `${iso[1]}T${iso[2].length === 5 ? iso[2] + ":00" : iso[2]}`;
+  }
+  const br = dataLimpa.match(/^(\d{2})[\/.-](\d{2})[\/.-](\d{4})(?:[ T](\d{2}:\d{2}(?::\d{2})?))?/);
+  if (br) {
+    const hora = br[4] ? (br[4].length === 5 ? br[4] + ":00" : br[4]) : dataHoraAgoraISO().slice(11);
+    return `${br[3]}-${br[2]}-${br[1]}T${hora}`;
+  }
   return dataLimpa;
-}
-
-function preservarHoraDaDataOriginal(dataSelecionada, dataOriginal) {
-  const nova = dataDoLancamento(dataSelecionada);
-  if (!nova) return "";
-  const original = String(dataOriginal || "").trim();
-  const hora = original.match(/(?:T|\s)(\d{2}:\d{2}(?::\d{2})?)$/)?.[1];
-  return hora && /^\d{4}-\d{2}-\d{2}/.test(nova) && !/[T\s]\d{2}:\d{2}/.test(nova)
-    ? `${nova.slice(0, 10)}T${hora}`
-    : nova;
 }
 
 function dataBrasileira(data) {
@@ -4727,11 +4732,10 @@ function abrirModalEditar(tipo, idx, item) {
     // input[type=date] aceita somente AAAA-MM-DD. Alguns lançamentos guardam
     // também horário (ex.: AAAA-MM-DDTHH:mm:ss), então usamos apenas a parte
     // da data ao abrir a edição. Se o lançamento não tiver data, permanece vazio.
-    const dataEdicao = dataDoLancamento(item.data);
-    dataEl.dataset.originalDateTime = temData ? String(item.data || "") : "";
-    dataEl.value = temData && /^\d{4}-\d{2}-\d{2}/.test(dataEdicao)
-      ? dataEdicao.slice(0, 10)
-      : "";
+    const dataEdicao = String(item.data || "").trim();
+    dataEl.dataset.originalDateTime = dataEdicao;
+    const dataBase = dataEdicao.match(/^(\d{4}-\d{2}-\d{2})/);
+    dataEl.value = temData && dataBase ? dataBase[1] : "";
   }
   if (parcelaEl) {
     parcelaEl.classList.toggle("is-hidden", !temParcela);
@@ -4759,6 +4763,16 @@ if (editBackdrop) {
     if (e.target === editBackdrop) fecharModalEditar();
   });
 }
+function dataEditadaPreservandoHorario(dataSelecionada, dataOriginal) {
+  const novaData = String(dataSelecionada || "").trim();
+  if (!novaData) return "";
+  const base = novaData.slice(0, 10);
+  const original = String(dataOriginal || "").trim();
+  const hora = original.match(/[T ](\d{2}:\d{2}(?::\d{2})?)/);
+  if (hora) return `${base}T${hora[1].length === 5 ? hora[1] + ":00" : hora[1]}`;
+  return dataDoLancamento(base);
+}
+
 on("formEditar", "submit", (e) => {
   e.preventDefault();
   if (!editContext || isAmbos()) return;
@@ -4778,21 +4792,18 @@ on("formEditar", "submit", (e) => {
   }
 
   if (tipo === "ganhos") {
-    const dataEl = document.getElementById("editData");
-    const data = preservarHoraDaDataOriginal(dataEl.value, dataEl.dataset.originalDateTime);
+    const data = dataEditadaPreservandoHorario(document.getElementById("editData").value, document.getElementById("editData").dataset.originalDateTime);
     opGanhos.edit(idx, nome, valor, { data });
   } else if (tipo === "fixos") {
     const categoria = document.getElementById("editCategoria").value;
-    const dataEl = document.getElementById("editData");
-    const data = preservarHoraDaDataOriginal(dataEl.value, dataEl.dataset.originalDateTime);
+    const data = dataEditadaPreservandoHorario(document.getElementById("editData").value, document.getElementById("editData").dataset.originalDateTime);
     const parcela = document.getElementById("editParcela").value.trim();
     const itemAtual = state.gastosFixos[idx];
     const nomeSalvo = itemEhFatura(itemAtual) ? nomeInternoFatura(nome) : nome;
     opFixos.edit(idx, nomeSalvo, valor, { tipo: categoria, data, parcela, fatura: itemEhFatura(itemAtual) });
   } else if (tipo === "variaveis") {
     const categoria = document.getElementById("editCategoria").value;
-    const dataEl = document.getElementById("editData");
-    const data = preservarHoraDaDataOriginal(dataEl.value, dataEl.dataset.originalDateTime);
+    const data = dataEditadaPreservandoHorario(document.getElementById("editData").value, document.getElementById("editData").dataset.originalDateTime);
     const origem = document.getElementById("editOrigem").value === "beneficio" ? "beneficio" : "saldo";
     const itemAtual = state.gastosVariaveis[idx];
     const nomeSalvo = itemEhFatura(itemAtual) ? nomeInternoFatura(nome) : nome;
@@ -4802,8 +4813,7 @@ on("formEditar", "submit", (e) => {
     opVariaveis.edit(idx, nomeSalvo, valor, { tipo: categoria, data, origem, lembrete: false, fatura: itemEhFatura(itemAtual) });
   } else if (tipo === "caixinhas") {
     const icone = normalizarNomeIcone(document.getElementById("editIcone")?.value || "");
-    const dataEl = document.getElementById("editData");
-    const data = preservarHoraDaDataOriginal(dataEl.value, dataEl.dataset.originalDateTime);
+    const data = dataEditadaPreservandoHorario(document.getElementById("editData").value, document.getElementById("editData").dataset.originalDateTime);
     editCaixinha(idx, nome, valor, icone, data);
   }
   fecharModalEditar();
