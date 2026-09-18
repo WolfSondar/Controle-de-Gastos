@@ -1567,26 +1567,41 @@ function readGanhos(sheet) {
   return result;
 }
 
-function normalizarDataParaPlanilha(valor) {
-  if (!valor) return "";
-  if (Object.prototype.toString.call(valor) === "[object Date]" && !isNaN(valor.getTime())) {
-    return new Date(valor.getTime());
+function dataTextoParaDate(valor) {
+  const texto = String(valor || "").trim();
+  if (!texto) return null;
+  let m = /^(\d{4})-(\d{2})-(\d{2})(?:[T\s](\d{2}):(\d{2})(?::(\d{2}))?)?/.exec(texto);
+  if (m) {
+    const ano = Number(m[1]), mes = Number(m[2]), dia = Number(m[3]);
+    const hora = Number(m[4] || 0), minuto = Number(m[5] || 0), segundo = Number(m[6] || 0);
+    const d = new Date(ano, mes - 1, dia, hora, minuto, segundo);
+    if (d.getFullYear() !== ano || d.getMonth() !== mes - 1 || d.getDate() !== dia || d.getHours() !== hora || d.getMinutes() !== minuto || d.getSeconds() !== segundo) return null;
+    return d;
   }
-  const texto = String(valor).trim();
-  const m = /^(\d{4})-(\d{2})-(\d{2})/.exec(texto);
-  if (!m) return texto;
-  // Meio-dia evita deslocamentos de dia por conversões de fuso.
-  return new Date(Number(m[1]), Number(m[2]) - 1, Number(m[3]), 12, 0, 0);
+  m = /^(\d{2})[\/.-](\d{2})[\/.-](\d{4})(?:[T\s](\d{2}):(\d{2})(?::(\d{2}))?)?/.exec(texto);
+  if (m) {
+    const ano = Number(m[3]), mes = Number(m[2]), dia = Number(m[1]);
+    const hora = Number(m[4] || 0), minuto = Number(m[5] || 0), segundo = Number(m[6] || 0);
+    const d = new Date(ano, mes - 1, dia, hora, minuto, segundo);
+    if (d.getFullYear() !== ano || d.getMonth() !== mes - 1 || d.getDate() !== dia || d.getHours() !== hora || d.getMinutes() !== minuto || d.getSeconds() !== segundo) return null;
+    return d;
+  }
+  return null;
 }
 
+function normalizarDataParaPlanilha(valor) {
+  if (!valor) return "";
+  if (Object.prototype.toString.call(valor) === "[object Date]" && !isNaN(valor.getTime())) return new Date(valor.getTime());
+  return dataTextoParaDate(valor) || String(valor).trim();
+}
 
-// Converte automaticamente datas antigas que estejam salvas como texto
-// ("2026-09-09 21:00:00", "2026-09-09" ou "09/09/2026") para datas reais
-// da planilha e aplica a exibição brasileira. Pode ser executada várias vezes.
+// Converte datas antigas que estejam como texto para datas reais da planilha,
+// preservando exatamente o dia e o horário informado. Não faz ajustes de fuso,
+// não soma/subtrai dias e não usa Date.parse().
 function normalizarDatasExistentes(sheet) {
   const ultima = Math.max(sheet.getLastRow(), 2);
   const quantidade = Math.max(ultima - 1, 1);
-  [COL_DATA_GANHO, COL_DATA_FIXO, COL_DATA_VARIAVEL].forEach(function (col) {
+  [COL_DATA_GANHO, COL_DATA_FIXO, COL_DATA_VARIAVEL, COL_DATA_CAIXINHA].forEach(function (col) {
     const range = sheet.getRange(2, col, quantidade, 1);
     const valores = range.getValues();
     let mudou = false;
@@ -1594,31 +1609,22 @@ function normalizarDatasExistentes(sheet) {
       const valor = row[0];
       if (valor === "" || valor === null || valor === undefined) return [""];
       if (Object.prototype.toString.call(valor) === "[object Date]" && !isNaN(valor.getTime())) return [valor];
-
-      const texto = String(valor).trim();
-      let m = /^(\d{4})-(\d{2})-(\d{2})/.exec(texto);
-      if (m) {
-        mudou = true;
-        return [new Date(Number(m[1]), Number(m[2]) - 1, Number(m[3]), 12, 0, 0)];
-      }
-      m = /^(\d{2})[\/.-](\d{2})[\/.-](\d{4})/.exec(texto);
-      if (m) {
-        mudou = true;
-        return [new Date(Number(m[3]), Number(m[2]) - 1, Number(m[1]), 12, 0, 0)];
-      }
+      const convertido = dataTextoParaDate(valor);
+      if (convertido) { mudou = true; return [convertido]; }
       return [valor];
     });
     if (mudou) range.setValues(convertidos);
-    range.setNumberFormat("dd/MM/yyyy");
+    range.setNumberFormat("dd/MM/yyyy HH:mm:ss");
   });
 }
 
 function aplicarFormatoDatasLancamentos(sheet) {
   const ultima = Math.max(sheet.getLastRow(), 2);
   const quantidade = Math.max(ultima - 1, 1);
-  sheet.getRange(2, COL_DATA_GANHO, quantidade, 1).setNumberFormat("dd/MM/yyyy");
-  sheet.getRange(2, COL_DATA_FIXO, quantidade, 1).setNumberFormat("dd/MM/yyyy");
-  sheet.getRange(2, COL_DATA_VARIAVEL, quantidade, 1).setNumberFormat("dd/MM/yyyy");
+  sheet.getRange(2, COL_DATA_GANHO, quantidade, 1).setNumberFormat("dd/MM/yyyy HH:mm:ss");
+  sheet.getRange(2, COL_DATA_FIXO, quantidade, 1).setNumberFormat("dd/MM/yyyy HH:mm:ss");
+  sheet.getRange(2, COL_DATA_VARIAVEL, quantidade, 1).setNumberFormat("dd/MM/yyyy HH:mm:ss");
+  sheet.getRange(2, COL_DATA_CAIXINHA, quantidade, 1).setNumberFormat("dd/MM/yyyy HH:mm:ss");
 }
 
 function saveGanhos(sheet, rows) {
@@ -1631,7 +1637,7 @@ function saveGanhos(sheet, rows) {
     return [r.nome, r.valor, normalizarDataParaPlanilha(r.data), r.recebido === true];
   });
   sheet.getRange(2, COL_GANHOS, valores.length, 4).setValues(valores);
-  sheet.getRange(2, COL_DATA_GANHO, valores.length, 1).setNumberFormat("dd/MM/yyyy");
+  sheet.getRange(2, COL_DATA_GANHO, valores.length, 1).setNumberFormat("dd/MM/yyyy HH:mm:ss");
 }
 
 
@@ -1666,7 +1672,7 @@ function saveGastosFixos(sheet, rows) {
     return [r.nome, r.valor, r.tipo || "", normalizarDataParaPlanilha(r.data), r.parcela || "", r.pago === true];
   });
   sheet.getRange(2, COL_GASTOS_FIXOS, valores.length, 6).setValues(valores);
-  sheet.getRange(2, COL_DATA_FIXO, valores.length, 1).setNumberFormat("dd/MM/yyyy");
+  sheet.getRange(2, COL_DATA_FIXO, valores.length, 1).setNumberFormat("dd/MM/yyyy HH:mm:ss");
 }
 
 
@@ -1707,21 +1713,18 @@ function saveGastosVariaveis(sheet, rows) {
   });
   sheet.getRange(2, COL_GASTOS_VARIAVEIS, valores.length, 5).setValues(valores);
   sheet.getRange(2, COL_ORIGEM_VARIAVEL, origens.length, 1).setValues(origens);
-  sheet.getRange(2, COL_DATA_VARIAVEL, valores.length, 1).setNumberFormat("dd/MM/yyyy");
+  sheet.getRange(2, COL_DATA_VARIAVEL, valores.length, 1).setNumberFormat("dd/MM/yyyy HH:mm:ss");
 }
 
 function formatarDataCelula(valor) {
   if (!valor) return "";
   const timezone = Session.getScriptTimeZone() || "America/Sao_Paulo";
   if (Object.prototype.toString.call(valor) === "[object Date]" && !isNaN(valor.getTime())) {
-    return Utilities.formatDate(valor, timezone, "yyyy-MM-dd");
+    return Utilities.formatDate(valor, timezone, "yyyy-MM-dd'T'HH:mm:ss");
   }
-  const texto = String(valor).trim();
-  const iso = /^(\d{4})-(\d{2})-(\d{2})/.exec(texto);
-  if (iso) return iso[0];
-  const br = /^(\d{2})[\/.-](\d{2})[\/.-](\d{4})/.exec(texto);
-  if (br) return br[3] + "-" + br[2] + "-" + br[1];
-  return texto;
+  const convertido = dataTextoParaDate(valor);
+  if (convertido) return Utilities.formatDate(convertido, timezone, "yyyy-MM-dd'T'HH:mm:ss");
+  return String(valor).trim();
 }
 
 // ---------------------------------------------------------------------
@@ -1775,6 +1778,7 @@ function saveCaixinhasBlock(sheet, rows) {
     return [r.nome, r.valorObjetivo, r.valorGuardado, r.rendimentoTotal || 0, r.valorGuardadoMes || 0, r.data || "", r.icone || ""];
   });
   sheet.getRange(2, COL_GUARDADO, values.length, 7).setValues(values);
+  if (values.length) sheet.getRange(2, COL_DATA_CAIXINHA, values.length, 1).setNumberFormat("dd/MM/yyyy HH:mm:ss");
 }
 
 /**
