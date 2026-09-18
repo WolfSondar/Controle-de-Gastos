@@ -1592,12 +1592,14 @@ function dataTextoParaDate(valor, timezone) {
     hora = Number(m[4] || 12); minuto = Number(m[5] || 0); segundo = Number(m[6] || 0);
   }
 
-  // O texto recebido do navegador representa um horário de parede em
-  // Brasília (ex.: 09:26). Criamos o Date diretamente nesse horário UTC
-  // equivalente (12:26 UTC), para que uma planilha configurada em
-  // America/Sao_Paulo exiba exatamente 09:26. Utilities.parseDate() estava
-  // introduzindo um deslocamento de +3h neste fluxo.
-  return new Date(Date.UTC(ano, mes - 1, dia, hora, minuto, segundo));
+  // O texto do app representa um horário de parede, não um instante UTC.
+  // O projeto e a planilha usam America/Sao_Paulo; por isso criamos o Date
+  // com os próprios componentes locais. Assim, 15/09 00:00 continua sendo
+  // 15/09 00:00 quando o lançamento é lido e salvo novamente.
+  //
+  // IMPORTANTE: não usar Date.UTC() aqui. Ele transforma 00:00 em meia-noite
+  // UTC e, ao ser exibido em Brasília, pode fazer o calendário voltar um dia.
+  return new Date(ano, mes - 1, dia, hora, minuto, segundo);
 }
 
 function normalizarDataParaPlanilha(valor, sheet) {
@@ -1637,8 +1639,6 @@ function aplicarFormatoDatasLancamentos(sheet) {
 }
 
 function saveGanhos(sheet, rows) {
-  normalizarDatasExistentes(sheet);
-  aplicarFormatoDatasLancamentos(sheet);
   const rowsToClear = linhasParaLimpar(sheet, rows);
   sheet.getRange(2, COL_GANHOS, rowsToClear, 4).clearContent();
   if (!rows || rows.length === 0) return;
@@ -1672,8 +1672,6 @@ function readGastosFixos(sheet) {
 }
 
 function saveGastosFixos(sheet, rows) {
-  normalizarDatasExistentes(sheet);
-  aplicarFormatoDatasLancamentos(sheet);
   const rowsToClear = linhasParaLimpar(sheet, rows);
   sheet.getRange(2, COL_GASTOS_FIXOS, rowsToClear, 6).clearContent();
   if (!rows || rows.length === 0) return;
@@ -1708,8 +1706,6 @@ function readGastosVariaveis(sheet) {
 }
 
 function saveGastosVariaveis(sheet, rows) {
-  normalizarDatasExistentes(sheet);
-  aplicarFormatoDatasLancamentos(sheet);
   const rowsToClear = linhasParaLimpar(sheet, rows);
   sheet.getRange(2, COL_GASTOS_VARIAVEIS, rowsToClear, 5).clearContent();
   sheet.getRange(2, COL_ORIGEM_VARIAVEL, rowsToClear, 1).clearContent();
@@ -1763,7 +1759,6 @@ function readCaixinhas(sheet) {
 }
 
 function getAllData(sheet) {
-  normalizarDatasExistentes(sheet);
   return {
     ganhos: readGanhos(sheet),
     gastosFixos: readGastosFixos(sheet),
