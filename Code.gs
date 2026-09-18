@@ -1579,17 +1579,25 @@ function dataTextoParaDate(valor, timezone) {
   if (!valor) return null;
   if (Object.prototype.toString.call(valor) === "[object Date]" && !isNaN(valor.getTime())) return valor;
   var texto = String(valor).trim();
-  var m = /^(\d{4})-(\d{2})-(\d{2})(?:[T ](\d{2}):(\d{2})(?::(\d{2}))?)?$/.exec(texto);
+  var ano, mes, dia, hora, minuto, segundo, m;
+
+  m = /^(\d{4})-(\d{2})-(\d{2})(?:[T ](\d{2}):(\d{2})(?::(\d{2}))?)?$/.exec(texto);
   if (m) {
-    var hora = m[4] || "00", minuto = m[5] || "00", segundo = m[6] || "00";
-    return Utilities.parseDate(m[1] + "-" + m[2] + "-" + m[3] + " " + hora + ":" + minuto + ":" + segundo, timezone, "yyyy-MM-dd HH:mm:ss");
+    ano = Number(m[1]); mes = Number(m[2]); dia = Number(m[3]);
+    hora = Number(m[4] || 12); minuto = Number(m[5] || 0); segundo = Number(m[6] || 0);
+  } else {
+    m = /^(\d{2})[\/.-](\d{2})[\/.-](\d{4})(?:[ T](\d{2}):(\d{2})(?::(\d{2}))?)?$/.exec(texto);
+    if (!m) return null;
+    ano = Number(m[3]); mes = Number(m[2]); dia = Number(m[1]);
+    hora = Number(m[4] || 12); minuto = Number(m[5] || 0); segundo = Number(m[6] || 0);
   }
-  m = /^(\d{2})[\/.-](\d{2})[\/.-](\d{4})(?:[ T](\d{2}):(\d{2})(?::(\d{2}))?)?$/.exec(texto);
-  if (m) {
-    var h = m[4] || "00", mi = m[5] || "00", se = m[6] || "00";
-    return Utilities.parseDate(m[3] + "-" + m[2] + "-" + m[1] + " " + h + ":" + mi + ":" + se, timezone, "yyyy-MM-dd HH:mm:ss");
-  }
-  return null;
+
+  // O texto recebido do navegador representa um horário de parede em
+  // Brasília (ex.: 09:26). Criamos o Date diretamente nesse horário UTC
+  // equivalente (12:26 UTC), para que uma planilha configurada em
+  // America/Sao_Paulo exiba exatamente 09:26. Utilities.parseDate() estava
+  // introduzindo um deslocamento de +3h neste fluxo.
+  return new Date(Date.UTC(ano, mes - 1, dia, hora, minuto, segundo));
 }
 
 function normalizarDataParaPlanilha(valor, sheet) {
