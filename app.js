@@ -461,6 +461,9 @@ function dataHojeISO() {
   return `${ano}-${mes}-${dia}`;
 }
 
+// Datas de lançamentos usam o dia escolhido + o horário local atual quando
+// o campo fornece somente a data. Não usamos toISOString(), pois ele converte
+// para UTC e pode deslocar o horário em 3 horas no Brasil.
 function dataHoraAgoraISO() {
   const d = new Date();
   const ano = d.getFullYear();
@@ -472,23 +475,11 @@ function dataHoraAgoraISO() {
   return `${ano}-${mes}-${dia}T${hora}:${minuto}:${segundo}`;
 }
 
-// Lançamentos novos carregam data + horário local do dispositivo.
-// Se o usuário escolheu apenas uma data, usamos o horário atual sem
-// converter para UTC. Datas que já possuem horário são preservadas.
 function dataDoLancamento(data) {
   const dataLimpa = String(data || "").trim();
   if (!dataLimpa) return "";
-  const iso = dataLimpa.match(/^(\d{4}-\d{2}-\d{2})(?:[T ](\d{2}:\d{2}(?::\d{2})?))?/);
-  if (iso) {
-    if (!iso[2]) return `${iso[1]}T${dataHoraAgoraISO().slice(11)}`;
-    return `${iso[1]}T${iso[2].length === 5 ? iso[2] + ":00" : iso[2]}`;
-  }
-  const br = dataLimpa.match(/^(\d{2})[\/.-](\d{2})[\/.-](\d{4})(?:[ T](\d{2}:\d{2}(?::\d{2})?))?/);
-  if (br) {
-    const hora = br[4] ? (br[4].length === 5 ? br[4] + ":00" : br[4]) : dataHoraAgoraISO().slice(11);
-    return `${br[3]}-${br[2]}-${br[1]}T${hora}`;
-  }
-  return dataLimpa;
+  if (/^\d{4}-\d{2}-\d{2}$/.test(dataLimpa)) return `${dataLimpa}T${dataHoraAgoraISO().slice(11)}`;
+  return dataLimpa.slice(0, 19);
 }
 
 function dataBrasileira(data) {
@@ -4732,10 +4723,10 @@ function abrirModalEditar(tipo, idx, item) {
     // input[type=date] aceita somente AAAA-MM-DD. Alguns lançamentos guardam
     // também horário (ex.: AAAA-MM-DDTHH:mm:ss), então usamos apenas a parte
     // da data ao abrir a edição. Se o lançamento não tiver data, permanece vazio.
-    const dataEdicao = String(item.data || "").trim();
-    dataEl.dataset.originalDateTime = dataEdicao;
-    const dataBase = dataEdicao.match(/^(\d{4}-\d{2}-\d{2})/);
-    dataEl.value = temData && dataBase ? dataBase[1] : "";
+    const dataEdicao = dataDoLancamento(item.data);
+    dataEl.value = temData && /^\d{4}-\d{2}-\d{2}/.test(dataEdicao)
+      ? dataEdicao.slice(0, 10)
+      : "";
   }
   if (parcelaEl) {
     parcelaEl.classList.toggle("is-hidden", !temParcela);
@@ -4763,16 +4754,6 @@ if (editBackdrop) {
     if (e.target === editBackdrop) fecharModalEditar();
   });
 }
-function dataEditadaPreservandoHorario(dataSelecionada, dataOriginal) {
-  const novaData = String(dataSelecionada || "").trim();
-  if (!novaData) return "";
-  const base = novaData.slice(0, 10);
-  const original = String(dataOriginal || "").trim();
-  const hora = original.match(/[T ](\d{2}:\d{2}(?::\d{2})?)/);
-  if (hora) return `${base}T${hora[1].length === 5 ? hora[1] + ":00" : hora[1]}`;
-  return dataDoLancamento(base);
-}
-
 on("formEditar", "submit", (e) => {
   e.preventDefault();
   if (!editContext || isAmbos()) return;
@@ -4792,18 +4773,18 @@ on("formEditar", "submit", (e) => {
   }
 
   if (tipo === "ganhos") {
-    const data = dataEditadaPreservandoHorario(document.getElementById("editData").value, document.getElementById("editData").dataset.originalDateTime);
+    const data = document.getElementById("editData").value;
     opGanhos.edit(idx, nome, valor, { data });
   } else if (tipo === "fixos") {
     const categoria = document.getElementById("editCategoria").value;
-    const data = dataEditadaPreservandoHorario(document.getElementById("editData").value, document.getElementById("editData").dataset.originalDateTime);
+    const data = document.getElementById("editData").value;
     const parcela = document.getElementById("editParcela").value.trim();
     const itemAtual = state.gastosFixos[idx];
     const nomeSalvo = itemEhFatura(itemAtual) ? nomeInternoFatura(nome) : nome;
     opFixos.edit(idx, nomeSalvo, valor, { tipo: categoria, data, parcela, fatura: itemEhFatura(itemAtual) });
   } else if (tipo === "variaveis") {
     const categoria = document.getElementById("editCategoria").value;
-    const data = dataEditadaPreservandoHorario(document.getElementById("editData").value, document.getElementById("editData").dataset.originalDateTime);
+    const data = document.getElementById("editData").value;
     const origem = document.getElementById("editOrigem").value === "beneficio" ? "beneficio" : "saldo";
     const itemAtual = state.gastosVariaveis[idx];
     const nomeSalvo = itemEhFatura(itemAtual) ? nomeInternoFatura(nome) : nome;
@@ -4813,7 +4794,7 @@ on("formEditar", "submit", (e) => {
     opVariaveis.edit(idx, nomeSalvo, valor, { tipo: categoria, data, origem, lembrete: false, fatura: itemEhFatura(itemAtual) });
   } else if (tipo === "caixinhas") {
     const icone = normalizarNomeIcone(document.getElementById("editIcone")?.value || "");
-    const data = dataEditadaPreservandoHorario(document.getElementById("editData").value, document.getElementById("editData").dataset.originalDateTime);
+    const data = document.getElementById("editData").value;
     editCaixinha(idx, nome, valor, icone, data);
   }
   fecharModalEditar();
