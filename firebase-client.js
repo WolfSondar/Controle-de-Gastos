@@ -167,6 +167,101 @@ if (!cfg.apiKey || cfg.apiKey.includes("COLE_")) {
       return {ok:true,fechado:{mes,ano,pessoa,ganhos,debitos,saldo,saldoGanhos:saldos.ganhos,saldoBeneficios:saldos.beneficios,guardado,guardadoMes,rendimento},pessoa,mesAtual:next.mes,anoAtual:next.ano,configDavi:pessoa==="davi"?{mesAtual:next.mes,anoAtual:next.ano}:undefined,configGabriel:pessoa==="gabriel"?{mesAtual:next.mes,anoAtual:next.ano}:undefined};
     });
   }
+
+  function nomeGanhoDivisaoLocal(devedor, nomeOriginal) {
+    return `A receber de ${devedor === "davi" ? "Davi" : "Gabriel"}: ${String(nomeOriginal || "").trim()}`;
+  }
+  function encontrarGanhoDivisaoLocal(lista, devedor, nomeOriginal, valor, data) {
+    const esperado = nomeGanhoDivisaoLocal(devedor, nomeOriginal);
+    const candidatos = (lista || []).map((item, idx) => ({item, idx})).filter(({item}) => {
+      if (String(item?.nome || "") !== esperado) return false;
+      if (Math.abs((Number(item?.valor)||0) - (Number(valor)||0)) > 0.009) return false;
+      return !data || !item.data || String(item.data).slice(0,10) === String(data).slice(0,10);
+    });
+    return candidatos.length ? candidatos[candidatos.length - 1] : null;
+  }
+  async function dividirCompraFirestore(uid, body) {
+    const categoria = body.categoria === "fixos" ? "gastosFixos" : body.categoria === "variaveis" ? "gastosVariaveis" : null;
+    if (!categoria) throw new Error("Categoria inválida para divisão");
+    const valorTotal = Number(body.valorTotal);
+    if (!(valorTotal > 0)) throw new Error("Valor inválido para divisão");
+    const tipo = String(body.tipo || "");
+    const data = String(body.data || "");
+    const pago = body.pago !== false;
+    const quemPagouTudo = body.quemPagouTudo === "davi" || body.quemPagouTudo === "gabriel" ? body.quemPagouTudo : null;
+    const nome = String(body.nome || "").trim();
+    if (!nome) throw new Error("Nome da compra obrigatório");
+    const metade = Math.round((valorTotal / 2) * 100) / 100;
+
+    return runTransaction(db, async tx => {
+      const rd = perfilRef(uid,"davi"), rg = perfilRef(uid,"gabriel");
+      const [sd, sg] = await Promise.all([tx.get(rd), tx.get(rg)]);
+      const d = sd.exists() ? sd.data() : {};
+      const g = sg.exists() ? sg.data() : {};
+      const ld = [...(d[categoria] || [])], lg = [...(g[categoria] || [])];
+      const base = {tipo, data, origem:"saldo"};
+      let itemDavi, itemGabriel;
+      if (quemPagouTudo) {
+        const devedor = quemPagouTudo === "davi" ? "gabriel" : "davi";
+        const itemPagador = {...base,nome,valor:valorTotal,pago:true};
+        const itemDevedor = pago ? {...base,nome,valor:metade,pago:true} : {...base,nome:`${nome} (deve pra ${quemPagouTudo === "davi" ? "Davi" : "Gabriel"})`,valor:metade,pago:false};
+        if (quemPagouTudo === "davi") { itemDavi=itemPagador; itemGabriel=itemDevedor; }
+        else { itemGabriel=itemPagador; itemDavi=itemDevedor; }
+      } else {
+        itemDavi={...base,nome,valor:metade,pago}; itemGabriel={...base,nome,valor:metade,pago};
+      }
+      ld.push(itemDavi); lg.push(itemGabriel);
+
+      let gd = [...(d.ganhos || [])], gg = [...(g.ganhos || [])];
+      if (quemPagouTudo) {
+        const devedor = quemPagouTudo === "davi" ? "gabriel" : "davi";
+        const nomeGanho = nomeGanhoDivisaoLocal(devedor, nome);
+        const ganho = {nome:nomeGanho,valor:metade,data:data || hojeISO(),recebido:!!pago,tipo};
+        if (quemPagouTudo === "davi") gd.push(ganho); else gg.push(ganho);
+      }
+      tx.set(rd,{...d,[categoria]:ld,ganhos:gd},{merge:false});
+      tx.set(rg,{...g,[categoria]:lg,ganhos:gg},{merge:false});
+      return {ok:true,davi:{[categoria]:ld,ganhos:gd},gabriel:{[categoria]:lg,ganhos:gg}};
+    });
+  }
+
+  async function atualizarGanhoDivisaoFirestore(uid, body) {
+    const credor = escPessoa(body.pessoa), devedor = escPessoa(body.devedor);
+    if (credor === devedor) throw new Error("Credor e devedor devem ser pessoas diferentes");
+    const valor = Number(body.valor), nomeOriginal = String(body.nomeOriginal || "").trim(), data = String(body.data || "");
+    if (!(valor > 0) || !nomeOriginal) throw new Error("Dados inválidos para ganho da divisão");
+    const ref = perfilRef(uid,credor);
+    return runTransaction(db, async tx => {
+      const snap = await tx.get(ref); const dados = snap.exists()?snap.data():{}; const ganhos=[...(dados.ganhos||[])];
+      const achado = encontrarGanhoDivisaoLocal(ganhos,devedor,nomeOriginal,valor,data);
+      if (!achado && body.criarSeNaoEncontrar !== true) return {ok:true,atualizado:false,ganhos};
+      if (achado) achado.item.recebido = !!body.recebido;
+      else ganhos.push({nome:nomeGanhoDivisaoLocal(devedor,nomeOriginal),valor,data:data||hojeISO(),recebido:!!body.recebido,tipo:String(body.tipo||"")});
+      tx.set(ref,{...dados,ganhos},{merge:false});
+      return {ok:true,atualizado:true,ganhos};
+    });
+  }
+
+  async function sincronizarGanhoCorrespondenteFixoFirestore(uid, body) {
+    const devedor = escPessoa(body.pessoa), credor = devedor === "davi" ? "gabriel" : "davi";
+    const nome = String(body.nome || "").trim(), valor = Number(body.valor), data = String(body.data || "");
+    const ref = perfilRef(uid,credor);
+    return runTransaction(db, async tx => {
+      const snap=await tx.get(ref); const dados=snap.exists()?snap.data():{}; const ganhos=[...(dados.ganhos||[])];
+      const nomeN=normalizarTexto(nome), dataN=data.slice(0,10);
+      const candidatos=ganhos.map((item,idx)=>({item,idx})).filter(({item})=>normalizarTexto(item.nome)===nomeN && Math.abs((Number(item.valor)||0)-valor)<=0.009 && (item.recebido===true)!==!!body.recebido);
+      if(!candidatos.length)return {ok:true,atualizado:false,ganhos};
+      candidatos.sort((a,b)=>{
+        const da=String(a.item.data||"").slice(0,10), dbb=String(b.item.data||"").slice(0,10);
+        const dist=(x)=>dataN && /^\d{4}-\d{2}-\d{2}$/.test(x)?Math.abs(new Date(`${x}T00:00:00`)-new Date(`${dataN}T00:00:00`)):Number.MAX_SAFE_INTEGER;
+        return dist(da)-dist(dbb)||a.idx-b.idx;
+      });
+      candidatos[0].item.recebido=!!body.recebido;
+      tx.set(ref,{...dados,ganhos},{merge:false});
+      return {ok:true,atualizado:true,ganhos};
+    });
+  }
+
   async function request({method="POST",body}){
     await window.CAIXA_FIREBASE_READY;
     if(!currentUser) return respostaJson({ok:false,error:"Faça login para usar o Caixa."},401);
@@ -174,11 +269,15 @@ if (!cfg.apiKey || cfg.apiKey.includes("COLE_")) {
     if(method==="GET") return get({pessoa:body?.pessoa||"davi"});
     const action=body?.action;
     if(action==="fecharMes") return respostaJson(await fecharMes(uid,body));
+    if(action==="dividirCompra") return respostaJson(await dividirCompraFirestore(uid,body));
+    if(action==="atualizarGanhoDivisao") return respostaJson(await atualizarGanhoDivisaoFirestore(uid,body));
+    if(action==="sincronizarGanhoCorrespondenteFixo") return respostaJson(await sincronizarGanhoCorrespondenteFixoFirestore(uid,body));
     if(action==="transferir"){
       const de=escPessoa(body.de),para=escPessoa(body.para),valor=Number(body.valor);if(de===para||!valor||valor<=0)throw new Error("Transferência inválida");
       const hoje=hojeISO(),desc=String(body.nome||"").trim()||"Transferência";
-      await runTransaction(db,async tx=>{const rd=perfilRef(uid,de),rp=perfilRef(uid,para),sd=await tx.get(rd),sp=await tx.get(rp),dd=sd.exists()?sd.data():{},dp=sp.exists()?sp.data():{};const vd=[...(dd.gastosVariaveis||[])];vd.push({nome:"Transferência p/ "+(para==="davi"?"Davi":"Gabriel")+": "+desc,valor,tipo:"",data:hoje,pago:true,origem:"saldo"});const gp=[...(dp.ganhos||[])];gp.push({nome:"Transferência de "+(de==="davi"?"Davi":"Gabriel")+": "+desc,valor,data:hoje,recebido:true});tx.set(rd,{...dd,gastosVariaveis:vd},{merge:false});tx.set(rp,{...dp,ganhos:gp},{merge:false});});
-      return respostaJson({ok:true,de,para,valor});
+      let returnData={deData:null,paraData:null};
+      await runTransaction(db,async tx=>{const rd=perfilRef(uid,de),rp=perfilRef(uid,para),sd=await tx.get(rd),sp=await tx.get(rp),dd=sd.exists()?sd.data():{},dp=sp.exists()?sp.data():{};const vd=[...(dd.gastosVariaveis||[])];vd.push({nome:"Transferência p/ "+(para==="davi"?"Davi":"Gabriel")+": "+desc,valor,tipo:String(body.tipo||""),data:hoje,pago:true,origem:"saldo"});const gp=[...(dp.ganhos||[])];gp.push({nome:"Transferência de "+(de==="davi"?"Davi":"Gabriel")+": "+desc,valor,data:hoje,recebido:true});tx.set(rd,{...dd,gastosVariaveis:vd},{merge:false});tx.set(rp,{...dp,ganhos:gp},{merge:false});returnData={deData:{...dd,gastosVariaveis:vd},paraData:{...dp,ganhos:gp}};});
+      return respostaJson({ok:true,de,para,valor,deData:returnData.deData,paraData:returnData.paraData});
     }
     const pessoa=escPessoa(body?.pessoa);
     if (!["saveGanhos","saveGastosFixos","saveGastosVariaveis","saveCaixinhas"].includes(action)) {

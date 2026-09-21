@@ -736,7 +736,7 @@ async function caixaApiRequest(options = {}) {
   try { body = typeof bodyText === "string" ? JSON.parse(bodyText) : bodyText; } catch (_err) {}
   const action = body?.action || "";
   const usaFirebase = window.CAIXA_FIREBASE && typeof window.CAIXA_FIREBASE.request === "function";
-  const acoesFirebase = new Set(["saveGanhos","saveGastosFixos","saveGastosVariaveis","saveCaixinhas","transferir","fecharMes"]);
+  const acoesFirebase = new Set(["saveGanhos","saveGastosFixos","saveGastosVariaveis","saveCaixinhas","transferir","fecharMes","dividirCompra","atualizarGanhoDivisao","sincronizarGanhoCorrespondenteFixo"]);
   if (usaFirebase && acoesFirebase.has(action)) {
     return window.CAIXA_FIREBASE.request({ method: options.method || "POST", body });
   }
@@ -1599,46 +1599,58 @@ function encontrarGanhoDivisao(listaGanhos, devedor, nomeOriginal, valor, data) 
 async function criarGanhoAReceberDivisao(credor, devedor, nomeOriginal, valor, tipo, data, recebido) {
   if (!temBackendDados()) return false;
   try {
-    const lista = await obterListaLocal(credor, "ganhos");
-    lista.push({ nome: nomeGanhoDivisao(devedor, nomeOriginal), valor, data: data || dataHojeISO(), recebido: !!recebido, tipo: tipo || "" });
-    if (state.pessoaAtual === credor) marcarAlteracaoLocal();
-    const res = await caixaApiRequest({ method: "POST", body: JSON.stringify({ action: "saveGanhos", payload: lista, pessoa: credor }) });
+    const res = await caixaApiRequest({ method: "POST", body: JSON.stringify({
+      action: "atualizarGanhoDivisao",
+      pessoa: credor,
+      devedor,
+      nomeOriginal,
+      valor,
+      tipo,
+      data,
+      recebido: !!recebido,
+      criarSeNaoEncontrar: true,
+    }) });
     const dataRes = await res.json().catch(() => null);
     if (!dataRes || dataRes.ok === false) throw new Error("Erro ao criar ganho a receber");
-    const cache = await getCache(credor);
-    setCache(credor, { ...(cache || {}), ganhos: lista });
-    if (state.pessoaAtual === credor) state.ganhos = lista;
-    removerCache("ambos");
-    return true;
-  } catch { return false; }
-}
-async function atualizarGanhoDivisao(credor, devedor, nomeOriginal, valor, data, recebido) {
-  if (!temBackendDados()) return false;
-  try {
-    const lista = await obterListaLocal(credor, "ganhos");
-    const achado = encontrarGanhoDivisao(lista, devedor, nomeOriginal, valor, data);
-    if (!achado) return false;
-    achado.item.recebido = !!recebido;
-    if (state.pessoaAtual === credor) marcarAlteracaoLocal();
-    const res = await caixaApiRequest({ method: "POST", body: JSON.stringify({ action: "saveGanhos", payload: lista, pessoa: credor }) });
-    const dataRes = await res.json().catch(() => null);
-    if (!dataRes || dataRes.ok === false) throw new Error("Erro ao atualizar ganho da divisão");
-    const cache = await getCache(credor);
-    setCache(credor, { ...(cache || {}), ganhos: lista });
-    if (state.pessoaAtual === credor) state.ganhos = lista;
-    removerCache("ambos");
+    if (dataRes.ganhos) {
+      const cache = await getCache(credor);
+      setCache(credor, { ...(cache || {}), ganhos: dataRes.ganhos });
+      if (state.pessoaAtual === credor) state.ganhos = dataRes.ganhos;
+      removerCache("ambos");
+    }
     return true;
   } catch { return false; }
 }
 
+async function atualizarGanhoDivisao(credor, devedor, nomeOriginal, valor, data, recebido) {
+  if (!temBackendDados()) return false;
+  try {
+    const res = await caixaApiRequest({ method: "POST", body: JSON.stringify({
+      action: "atualizarGanhoDivisao",
+      pessoa: credor,
+      devedor,
+      nomeOriginal,
+      valor,
+      data,
+      recebido: !!recebido,
+      criarSeNaoEncontrar: false,
+    }) });
+    const dataRes = await res.json().catch(() => null);
+    if (!dataRes || dataRes.ok === false) return false;
+    if (dataRes.ganhos) {
+      const cache = await getCache(credor);
+      setCache(credor, { ...(cache || {}), ganhos: dataRes.ganhos });
+      if (state.pessoaAtual === credor) state.ganhos = dataRes.ganhos;
+      removerCache("ambos");
+    }
+    return !!dataRes.atualizado;
+  } catch { return false; }
+}
+
 // opts: { tipo, data, pago, quemPagouTudo }
-//   - quemPagouTudo ausente/null: modo padrão, metade pro Davi e metade pro
-//     Gabriel, cada entrada com o status de "pago" escolhido no checkbox.
-//   - quemPagouTudo = "davi" | "gabriel": essa pessoa pagou o valor CHEIO na
-//     hora (entra como gasto integral e já pago pra ela); a outra entra só
-//     com a metade, que é uma dívida com ela — se "pago" já vier marcado, a
-//     metade já é creditada de cara; se não, fica pendente e só é creditada
-//     quando a pessoa marcar essa metade como paga depois (ver os toggles).
+// A divisão agora é uma operação atômica no Firestore: os dois perfis e,
+// quando necessário, o "A receber" são gravados juntos. Isso elimina a
+// dependência do Apps Script e evita deixar Davi e Gabriel em estados diferentes.
 async function dividirCompra(nome, valorTotal, categoria, opts) {
   if (!temBackendDados()) {
     showToast("Configure o Firebase antes de continuar.");
@@ -1649,66 +1661,41 @@ async function dividirCompra(nome, valorTotal, categoria, opts) {
   const data = opts.data || "";
   const pago = opts.pago !== false;
   const quemPagouTudo = opts.quemPagouTudo || null;
-
-  const metade = Math.round((valorTotal / 2) * 100) / 100;
-  const action = categoria === "fixos" ? "saveGastosFixos" : "saveGastosVariaveis";
-  const chave = categoria === "fixos" ? "gastosFixos" : "gastosVariaveis";
-  const base = { tipo, data, origem: "saldo" };
-
-  let itemDavi, itemGabriel;
-  if (quemPagouTudo) {
-    const devedor = quemPagouTudo === "davi" ? "gabriel" : "davi";
-    const itemPagador = { ...base, nome, valor: valorTotal, pago: true };
-    const itemDevedor = pago
-      ? { ...base, nome, valor: metade, pago: true }
-      : { ...base, nome: nome + sufixoDivisao(quemPagouTudo), valor: metade, pago: false };
-    if (quemPagouTudo === "davi") { itemDavi = itemPagador; itemGabriel = itemDevedor; }
-    else { itemGabriel = itemPagador; itemDavi = itemDevedor; }
-  } else {
-    itemDavi = { ...base, nome, valor: metade, pago };
-    itemGabriel = { ...base, nome, valor: metade, pago };
-  }
-
   try {
-    const [listaDavi, listaGabriel] = await Promise.all([
-      obterListaLocal("davi", chave),
-      obterListaLocal("gabriel", chave),
-    ]);
+    const res = await caixaApiRequest({ method: "POST", body: JSON.stringify({
+      action: "dividirCompra",
+      nome,
+      valorTotal,
+      categoria,
+      tipo,
+      data,
+      pago,
+      quemPagouTudo,
+    }) });
+    const dataRes = await res.json().catch(() => null);
+    if (!dataRes || dataRes.ok === false) throw new Error((dataRes && dataRes.error) || "Erro ao dividir compra");
 
-    listaDavi.push(itemDavi);
-    listaGabriel.push(itemGabriel);
-    // A partir daqui há uma alteração local lógica para a pessoa que estiver
-    // em foco; qualquer GET antigo não pode sobrescrevê-la.
-    if (state.pessoaAtual === "davi" || state.pessoaAtual === "gabriel") marcarAlteracaoLocal();
-
-    const [resDavi, resGabriel] = await Promise.all([
-      caixaApiRequest({ method: "POST", body: JSON.stringify({ action, payload: listaDavi, pessoa: "davi" }) }),
-      caixaApiRequest({ method: "POST", body: JSON.stringify({ action, payload: listaGabriel, pessoa: "gabriel" }) }),
-    ]);
-    const [dataDavi, dataGabriel] = await Promise.all([
-      resDavi.json().catch(() => null),
-      resGabriel.json().catch(() => null),
-    ]);
-    if ((dataDavi && dataDavi.ok === false) || (dataGabriel && dataGabriel.ok === false)) {
-      throw new Error("Erro ao salvar em um dos dois");
+    const chave = categoria === "fixos" ? "gastosFixos" : "gastosVariaveis";
+    if (dataRes.davi?.[chave] && dataRes.gabriel?.[chave]) {
+      const cacheDavi = await getCache("davi");
+      const cacheGabriel = await getCache("gabriel");
+      setCache("davi", { ...(cacheDavi || {}), [chave]: dataRes.davi[chave] });
+      setCache("gabriel", { ...(cacheGabriel || {}), [chave]: dataRes.gabriel[chave] });
+      if (state.pessoaAtual === "davi") state[chave] = dataRes.davi[chave];
+      if (state.pessoaAtual === "gabriel") state[chave] = dataRes.gabriel[chave];
     }
-
-    const [cacheDavi, cacheGabriel] = await Promise.all([getCache("davi"), getCache("gabriel")]);
-    setCache("davi", { ...(cacheDavi || {}), [chave]: listaDavi });
-    setCache("gabriel", { ...(cacheGabriel || {}), [chave]: listaGabriel });
-    if (state.pessoaAtual === "davi") state[chave] = listaDavi;
-    if (state.pessoaAtual === "gabriel") state[chave] = listaGabriel;
-    removerCache("ambos"); // visão "Juntos" combina os dois — só invalida, recalcula quando for aberta
-
-    // Se uma pessoa pagou tudo, a metade da outra vira um ganho A RECEBER
-    // para quem pagou. O mesmo lançamento será marcado como recebido quando
-    // a outra pessoa confirmar o pagamento; a categoria original é herdada.
-    if (quemPagouTudo) {
-      const devedor = quemPagouTudo === "davi" ? "gabriel" : "davi";
-      const criouGanho = await criarGanhoAReceberDivisao(quemPagouTudo, devedor, nome, metade, tipo, data, pago);
-      if (!criouGanho) return false;
+    if (dataRes.davi?.ganhos) {
+      const cacheDavi = await getCache("davi");
+      setCache("davi", { ...(cacheDavi || {}), ganhos: dataRes.davi.ganhos });
+      if (state.pessoaAtual === "davi") state.ganhos = dataRes.davi.ganhos;
     }
-
+    if (dataRes.gabriel?.ganhos) {
+      const cacheGabriel = await getCache("gabriel");
+      setCache("gabriel", { ...(cacheGabriel || {}), ganhos: dataRes.gabriel.ganhos });
+      if (state.pessoaAtual === "gabriel") state.ganhos = dataRes.gabriel.ganhos;
+    }
+    marcarAlteracaoLocal();
+    removerCache("ambos");
     return true;
   } catch (err) {
     return false;
@@ -1735,37 +1722,23 @@ async function transferirEntrePessoas(de, para, nome, valor, tipo) {
     showToast("Configure o Firebase antes de continuar.");
     return false;
   }
-  const descricao = (nome || "").trim() || "Transferência";
-  const hoje = dataHojeISO();
   try {
     const res = await caixaApiRequest({
       method: "POST",
       body: JSON.stringify({ action: "transferir", de, para, nome, valor, tipo }),
     });
-    const data = await res.json().catch(() => null);
-    if (!data || data.ok === false) throw new Error((data && data.error) || "Erro desconhecido");
-
-    const [listaVariaveisDe, listaGanhosPara] = await Promise.all([
-      obterListaLocal(de, "gastosVariaveis"),
-      obterListaLocal(para, "ganhos"),
-    ]);
-    listaVariaveisDe.push({
-      nome: `Transferência p/ ${PESSOA_LABEL[para]}: ${descricao}`,
-      valor, tipo: tipo || "", data: hoje, pago: true,
-    });
-    listaGanhosPara.push({
-      nome: `Transferência de ${PESSOA_LABEL[de]}: ${descricao}`,
-      valor, data: hoje, recebido: true,
-    });
-    if (state.pessoaAtual === de || state.pessoaAtual === para) marcarAlteracaoLocal();
-
-    const [cacheDe, cachePara] = await Promise.all([getCache(de), getCache(para)]);
-    setCache(de, { ...(cacheDe || {}), gastosVariaveis: listaVariaveisDe });
-    setCache(para, { ...(cachePara || {}), ganhos: listaGanhosPara });
-    if (state.pessoaAtual === de) state.gastosVariaveis = listaVariaveisDe;
-    if (state.pessoaAtual === para) state.ganhos = listaGanhosPara;
+    const dataRes = await res.json().catch(() => null);
+    if (!dataRes || dataRes.ok === false) throw new Error((dataRes && dataRes.error) || "Erro desconhecido");
+    if (dataRes.de?.gastosVariaveis && dataRes.para?.ganhos) {
+      const cacheDe = await getCache(de);
+      const cachePara = await getCache(para);
+      setCache(de, { ...(cacheDe || {}), gastosVariaveis: dataRes.de.gastosVariaveis });
+      setCache(para, { ...(cachePara || {}), ganhos: dataRes.para.ganhos });
+      if (state.pessoaAtual === de) state.gastosVariaveis = dataRes.de.gastosVariaveis;
+      if (state.pessoaAtual === para) state.ganhos = dataRes.para.ganhos;
+    }
+    marcarAlteracaoLocal();
     removerCache("ambos");
-
     return true;
   } catch (err) {
     return false;
@@ -1884,21 +1857,25 @@ async function sincronizarGanhoCorrespondenteFixo(devedor, item, recebido) {
   if (!item || !devedor || !temBackendDados()) return false;
   const credor = devedor === "davi" ? "gabriel" : "davi";
   try {
-    const lista = await obterListaLocal(credor, "ganhos");
-    const achado = encontrarGanhoCorrespondenteFixo(lista, item.nome, item.valor, item.data, recebido);
-    if (!achado) return false;
-    achado.item.recebido = !!recebido;
-
     const res = await caixaApiRequest({
       method: "POST",
-      body: JSON.stringify({ action: "saveGanhos", payload: lista, pessoa: credor })
+      body: JSON.stringify({
+        action: "sincronizarGanhoCorrespondenteFixo",
+        pessoa: credor,
+        nome: item.nome,
+        valor: item.valor,
+        data: item.data,
+        recebido: !!recebido,
+      })
     });
     const dataRes = await res.json().catch(() => null);
-    if (!dataRes || dataRes.ok === false) throw new Error("Erro ao sincronizar ganho correspondente");
-
-    const cache = await getCache(credor);
-    setCache(credor, { ...(cache || {}), ganhos: lista });
-    removerCache("ambos");
+    if (!dataRes || dataRes.ok === false || !dataRes.atualizado) return false;
+    if (dataRes.ganhos) {
+      const cache = await getCache(credor);
+      setCache(credor, { ...(cache || {}), ganhos: dataRes.ganhos });
+      if (state.pessoaAtual === credor) state.ganhos = dataRes.ganhos;
+      removerCache("ambos");
+    }
     return true;
   } catch {
     return false;
