@@ -5548,10 +5548,16 @@ function concluirFechamentoMes(dados) {
   progresso?.parentElement?.classList.remove("is-processando");
   if (progresso) progresso.style.width = "100%";
 
-  // Se a cerimônia ainda estiver nas primeiras telas, não interrompemos.
-  // Se o servidor demorou mais que o tempo da última etapa, retomamos a
-  // última tela assim que a confirmação chegar.
-  if (typeof cena._fechamentoMostrarFinal === "function") cena._fechamentoMostrarFinal();
+  // A confirmação do servidor NÃO pode avançar a cerimônia.
+  // Ela apenas libera a última tela para aparecer no momento programado.
+  // Se, por alguma razão, a cerimônia já tiver passado do ponto final,
+  // aí sim mostramos a última tela imediatamente.
+  const inicio = Number(cena.dataset.cerimoniaInicio || 0);
+  const decorrido = inicio ? (Date.now() - inicio) : 0;
+  const finalJaDeveriaTerAparecido = decorrido >= 13000;
+  if (finalJaDeveriaTerAparecido && typeof cena._fechamentoMostrarFinal === "function") {
+    cena._fechamentoMostrarFinal();
+  }
 }
 
 async function fecharMesRequisicao(mes, ano, pessoa) {
