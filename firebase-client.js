@@ -539,6 +539,9 @@ if (!cfg.apiKey || cfg.apiKey.includes("COLE_")) {
     return {ok:true, jaMigrado:false, backupPath:estadoFinal.backupPath, resumo:verificado.resumo};
   }
   window.CAIXA_FIREBASE={app,auth,db,request,get,getIAConfig,loginGoogle,signOut,importarDados,verificarMigracaoFirebase,testarFirestore,apagarTesteFirestore,criarBackupFirebase,listarBackupsFirebase,restaurarBackupFirebase};
+  window.criarBackupFirebase = criarBackupFirebase;
+  window.listarBackupsFirebase = listarBackupsFirebase;
+  window.restaurarBackupFirebase = restaurarBackupFirebase;
   window.CAIXA_FIREBASE_CONFIG_STATUS = { ok: true, projectId: cfg.projectId };
   function montarLogin() {
     if (document.getElementById("caixaFirebaseLogin")) return;
