@@ -1729,18 +1729,21 @@ async function transferirEntrePessoas(de, para, nome, valor, tipo) {
     });
     const dataRes = await res.json().catch(() => null);
     if (!dataRes || dataRes.ok === false) throw new Error((dataRes && dataRes.error) || "Erro desconhecido");
-    if (dataRes.de?.gastosVariaveis && dataRes.para?.ganhos) {
+    const deData = dataRes.de || dataRes.deData;
+    const paraData = dataRes.para || dataRes.paraData;
+    if (deData?.gastosVariaveis && paraData?.ganhos) {
       const cacheDe = await getCache(de);
       const cachePara = await getCache(para);
-      setCache(de, { ...(cacheDe || {}), gastosVariaveis: dataRes.de.gastosVariaveis });
-      setCache(para, { ...(cachePara || {}), ganhos: dataRes.para.ganhos });
-      if (state.pessoaAtual === de) state.gastosVariaveis = dataRes.de.gastosVariaveis;
-      if (state.pessoaAtual === para) state.ganhos = dataRes.para.ganhos;
+      setCache(de, { ...(cacheDe || {}), gastosVariaveis: deData.gastosVariaveis });
+      setCache(para, { ...(cachePara || {}), ganhos: paraData.ganhos });
+      if (state.pessoaAtual === de) state.gastosVariaveis = deData.gastosVariaveis;
+      if (state.pessoaAtual === para) state.ganhos = paraData.ganhos;
     }
     marcarAlteracaoLocal();
     removerCache("ambos");
     return true;
   } catch (err) {
+    console.error("Transferência Firebase:", err);
     return false;
   }
 }
@@ -5948,8 +5951,9 @@ async function fecharMesRequisicao(mes, ano, pessoa) {
       if (data && data.ok !== false) return data;
     }
   } catch (err) {
-    // Não declaramos falha imediatamente. Em Apps Script, o navegador pode
-    // perder a resposta/redirect enquanto a execução continua no servidor.
+    console.error("Fechamento Firebase:", err);
+    // Ainda confirmamos pelo estado persistido, pois a gravação pode ter
+    // concluído mesmo que a resposta tenha sido interrompida.
   }
 
   // Confirma pelo estado persistido. Se o servidor concluiu o fechamento,

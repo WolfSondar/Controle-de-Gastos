@@ -158,7 +158,14 @@ if (!cfg.apiKey || cfg.apiKey.includes("COLE_")) {
       let m=bloco.meses.find(x=>Number(x.mes)===mes);if(!m){m={mes,nome:tituloMes(mes)};bloco.meses.push(m);}const suf=pessoa==="davi"?"Davi":"Gabriel";
       m[`ganhos${suf}`]=ganhos;m[`debitos${suf}`]=-debitos;m[`saldo${suf}`]=saldo;m[`guardado${suf}`]=guardado;m[`guardado${suf}Mes`]=guardadoMes;m[`categorias${suf}`]=categorias;m[`rendimento${suf}`]=rendimento;
       const orig=separarGanhos(dados.ganhos),saldos=separarSaldo(orig,somaPagos(dados.gastosFixos),dados.gastosVariaveis);
-      const ganhosProx=[];(dados.ganhos||[]).forEach(g=>{if(g.recebido===false||ehGanhoRecorrente(g.nome))ganhosProx.push({nome:g.nome,valor:g.valor,data:proximaDataMesmoDia(g.data),recebido:false,origem:g.origem||undefined,tipo:g.tipo||undefined});});
+      const ganhosProx=[];(dados.ganhos||[]).forEach(g=>{
+        if(g.recebido===false||ehGanhoRecorrente(g.nome)){
+          const ganhoProx={nome:g.nome,valor:g.valor,data:proximaDataMesmoDia(g.data),recebido:false};
+          if(g.origem!==undefined&&g.origem!==null&&g.origem!=="")ganhoProx.origem=g.origem;
+          if(g.tipo!==undefined&&g.tipo!==null&&g.tipo!=="")ganhoProx.tipo=g.tipo;
+          ganhosProx.push(ganhoProx);
+        }
+      });
       if(saldos.ganhos>0)ganhosProx.push({nome:"Saldo "+tituloMes(mes),valor:saldos.ganhos,data:"",recebido:true,origem:"saldo"});
       if(saldos.beneficios>0)ganhosProx.push({nome:"Saldo Beneficios "+tituloMes(mes),valor:saldos.beneficios,data:"",recebido:true,origem:"beneficio"});
       const fixos=(dados.gastosFixos||[]).map(proximoFixo).filter(Boolean);
@@ -279,7 +286,7 @@ if (!cfg.apiKey || cfg.apiKey.includes("COLE_")) {
       const hoje=hojeISO(),desc=String(body.nome||"").trim()||"Transferência";
       let returnData={deData:null,paraData:null};
       await runTransaction(db,async tx=>{const rd=perfilRef(uid,de),rp=perfilRef(uid,para),sd=await tx.get(rd),sp=await tx.get(rp),dd=sd.exists()?sd.data():{},dp=sp.exists()?sp.data():{};const vd=[...(dd.gastosVariaveis||[])];vd.push({nome:"Transferência p/ "+(para==="davi"?"Davi":"Gabriel")+": "+desc,valor,tipo:String(body.tipo||""),data:hoje,pago:true,origem:"saldo"});const gp=[...(dp.ganhos||[])];gp.push({nome:"Transferência de "+(de==="davi"?"Davi":"Gabriel")+": "+desc,valor,data:hoje,recebido:true});tx.set(rd,{...dd,gastosVariaveis:vd},{merge:false});tx.set(rp,{...dp,ganhos:gp},{merge:false});returnData={deData:{...dd,gastosVariaveis:vd},paraData:{...dp,ganhos:gp}};});
-      return respostaJson({ok:true,de,para,valor,deData:returnData.deData,paraData:returnData.paraData});
+      return respostaJson({ok:true,de,para,valor,de:returnData.deData,para:returnData.paraData,deData:returnData.deData,paraData:returnData.paraData});
     }
     const pessoa=escPessoa(body?.pessoa);
     if (!["saveGanhos","saveGastosFixos","saveGastosVariaveis","saveCaixinhas"].includes(action)) {
