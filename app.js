@@ -653,6 +653,8 @@ const state = {
   gastosFixos: [],
   gastosVariaveis: [],
   caixinhas: [],
+  saldoInicialConta: 0,
+  saldoInicialBeneficio: 0,
   loaded: false,
   // Incrementa a cada alteração feita pelo usuário. Uma busca iniciada antes
   // dessa alteração nunca pode sobrescrever o estado local mais novo.
@@ -861,6 +863,8 @@ async function setCache(pessoa, data) {
     gastosFixos: data.gastosFixos || [],
     gastosVariaveis: data.gastosVariaveis || [],
     caixinhas: data.caixinhas || [],
+    saldoInicialConta: Number(data.saldoInicialConta) || 0,
+    saldoInicialBeneficio: Number(data.saldoInicialBeneficio) || 0,
     categorias: data.categorias || null,
     iconCategorias: data.iconCategorias || [],
     mesAtual: data.mesAtual || null,
@@ -997,6 +1001,8 @@ async function carregarDados() {
     state.gastosFixos = cache.gastosFixos;
     state.gastosVariaveis = cache.gastosVariaveis;
     state.caixinhas = cache.caixinhas || [];
+    state.saldoInicialConta = Number(cache.saldoInicialConta) || 0;
+    state.saldoInicialBeneficio = Number(cache.saldoInicialBeneficio) || 0;
     state.categoriasConfig = cache.categorias || null;
     state.iconCategorias = cache.iconCategorias || [];
     state.loaded = true;
@@ -1042,6 +1048,8 @@ async function carregarDados() {
     state.gastosFixos = data.gastosFixos || [];
     state.gastosVariaveis = data.gastosVariaveis || [];
     state.caixinhas = data.caixinhas || [];
+    state.saldoInicialConta = Number(data.saldoInicialConta) || 0;
+    state.saldoInicialBeneficio = Number(data.saldoInicialBeneficio) || 0;
     state.categoriasConfig = data.categorias || null;
     state.iconCategorias = data.iconCategorias || [];
     state.loaded = true;
@@ -1285,6 +1293,8 @@ async function trocarPessoa(pessoa) {
     state.gastosFixos = cache.gastosFixos || [];
     state.gastosVariaveis = cache.gastosVariaveis || [];
     state.caixinhas = cache.caixinhas || [];
+    state.saldoInicialConta = Number(cache.saldoInicialConta) || 0;
+    state.saldoInicialBeneficio = Number(cache.saldoInicialBeneficio) || 0;
     state.categoriasConfig = cache.categorias || null;
     state.iconCategorias = cache.iconCategorias || [];
     if (cache.mesAtual) state.mesAtual = cache.mesAtual;
@@ -1369,6 +1379,8 @@ function sincronizarCacheAtual() {
     gastosFixos: state.gastosFixos,
     gastosVariaveis: state.gastosVariaveis,
     caixinhas: state.caixinhas,
+    saldoInicialConta: state.saldoInicialConta,
+    saldoInicialBeneficio: state.saldoInicialBeneficio,
   });
 }
 
@@ -2239,6 +2251,8 @@ function renderTotais() {
         gastosFixos: state.gastosFixos,
         gastosVariaveis: state.gastosVariaveis,
         caixinhas: state.caixinhas,
+        saldoInicialConta: state.saldoInicialConta,
+        saldoInicialBeneficio: state.saldoInicialBeneficio,
       })
     : null;
   const saldo = saldosDisponiveis ? saldosDisponiveis.total : (ganhosPorOrigem.beneficios + ganhosPorOrigem.ganhos - totalFixosPagos - totalVariaveisPagos - totalGuardadoNoMes);
