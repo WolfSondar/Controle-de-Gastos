@@ -5389,36 +5389,112 @@ function animarFechamentoNumero(el, valor, duracao = 1200) {
 }
 
 function prepararDadosFechamentoMes(mes, ano) {
-  const ganhos = somaComStatus(state.ganhos || [], "recebido");
-  const gastosFixos = somaFixosPagos(state.gastosFixos || []);
-  const gastosVariaveis = somaVariaveisPagas(state.gastosVariaveis || []);
-  const gastos = gastosFixos + gastosVariaveis;
-  const guardado = somaCampo(state.caixinhas || [], "valorGuardadoMes");
-  const saldo = ganhos - gastos;
+  const ganhosLista = Array.isArray(state.ganhos) ? state.ganhos : [];
+  const fixosLista = Array.isArray(state.gastosFixos) ? state.gastosFixos : [];
+  const variaveisLista = Array.isArray(state.gastosVariaveis) ? state.gastosVariaveis : [];
   const caixinhas = Array.isArray(state.caixinhas) ? state.caixinhas : [];
-  const metasBatidas = caixinhas.filter((cx) => {
-    const objetivo = Number(cx.valorObjetivo) || 0;
-    return objetivo > 0 && totalCaixinha(cx) >= objetivo;
-  }).slice(0, 3);
+
+  const ganhos = somaComStatus(ganhosLista, "recebido");
+  const gastosFixos = somaFixosPagos(fixosLista);
+  const gastosVariaveis = somaVariaveisPagas(variaveisLista);
+  const gastos = gastosFixos + gastosVariaveis;
+  const guardado = somaCampo(caixinhas, "valorGuardadoMes");
+  const saldo = ganhos - gastos;
+
+  // Dados da cerimônia são capturados ANTES do fechamento, porque é aqui que
+  // ainda temos acesso às parcelas que acabaram, aos aportes do mês e aos
+  // lançamentos que contam para a história daquele mês.
+  const parcelasEncerradas = fixosLista
+    .filter(g => g && g.pago === true && /^\d+\s*\/\s*\d+$/.test(String(g.parcela || "").trim()))
+    .filter(g => {
+      const m = String(g.parcela).trim().match(/^(\d+)\s*\/\s*(\d+)$/);
+      return m && Number(m[1]) === Number(m[2]) && Number(m[2]) > 1;
+    })
+    .map(g => ({ nome: String(g.nome || "Compromisso"), valor: Number(g.valor) || 0, parcela: String(g.parcela).replace(/\s+/g, "") }));
+
+  const valorMensalEncerrado = parcelasEncerradas.reduce((a, g) => a + g.valor, 0);
+
+  const metasBatidas = caixinhas
+    .map(cx => {
+      const objetivo = Number(cx.valorObjetivo) || 0;
+      const total = totalCaixinha(cx);
+      return { nome: String(cx.nome || "Caixinha"), valor: total, objetivo, icone: String(cx.icone || "") };
+    })
+    .filter(cx => cx.objetivo > 0 && cx.valor >= cx.objetivo);
+
+  const maiorCaixinha = caixinhas.reduce((maior, cx) => {
+    const valor = Number(cx.valorGuardadoMes) || 0;
+    if (!maior || valor > maior.valor) return { nome: String(cx.nome || "Caixinha"), valor, icone: String(cx.icone || "") };
+    return maior;
+  }, null);
 
   const pendencias = [
-    ...(state.gastosFixos || []).filter((g) => !g.pago),
-    ...(state.gastosVariaveis || []).filter((g) => !g.pago),
-    ...(state.ganhos || []).filter((g) => g.recebido === false),
+    ...fixosLista.filter(g => g && g.pago !== true),
+    ...variaveisLista.filter(g => g && g.pago !== true && !ehLancamentoDeCaixinha(g.nome))
   ];
 
-  let maiorCaixinha = null;
-  caixinhas.forEach((cx) => {
-    const valor = Number(cx.valorGuardadoMes) || 0;
-    if (valor > (maiorCaixinha?.valor || 0)) maiorCaixinha = { nome: String(cx.nome || "Caixinha"), valor };
-  });
+  const categorias = {};
+  [...fixosLista.filter(g => g && g.pago === true), ...variaveisLista.filter(g => g && g.pago === true && !ehLancamentoDeCaixinha(g.nome))]
+    .forEach(g => {
+      const cat = String(g.tipo || "Outros").trim() || "Outros";
+      categorias[cat] = (categorias[cat] || 0) + (Number(g.valor) || 0);
+    });
+  const categoriaPrincipal = Object.entries(categorias).sort((a,b) => b[1] - a[1])[0];
+
+  const maiorMovimento = [
+    ...ganhosLista.filter(g => g && g.recebido === true).map(g => ({ nome: String(g.nome || "Ganho"), valor: Number(g.valor)||0, tipo: "ganho" })),
+    ...fixosLista.filter(g => g && g.pago === true).map(g => ({ nome: String(g.nome || "Gasto"), valor: Number(g.valor)||0, tipo: "gasto" })),
+    ...variaveisLista.filter(g => g && g.pago === true && !ehLancamentoDeCaixinha(g.nome)).map(g => ({ nome: String(g.nome || "Gasto"), valor: Number(g.valor)||0, tipo: "gasto" }))
+  ].sort((a,b) => b.valor-a.valor)[0] || null;
+
+  const comparacao = (() => {
+    const anos = Array.isArray(state.historico?.anos) ? state.historico.anos : [];
+    let pm = mes - 1, pa = ano;
+    if (pm === 0) { pm = 12; pa--; }
+    const bloco = anos.find(a => Number(a.ano) === pa);
+    const anterior = bloco?.meses?.find(m => Number(m.mes) === pm);
+    if (!anterior) return null;
+    const suf = state.pessoaAtual === "gabriel" ? "Gabriel" : "Davi";
+    const gastosAnterior = Math.abs(Number(anterior[`debitos${suf}`]) || 0);
+    if (gastosAnterior <= 0 && gastos <= 0) return null;
+    return { nome: String(anterior.nome || MESES_LABEL[pm - 1] || "mês anterior"), gastos: gastosAnterior, diferenca: gastos - gastosAnterior };
+  })();
+
+  const crescimentoCaixinha = caixinhas.map(cx => {
+    const base = Number(cx.valorGuardado) || 0;
+    const atual = totalCaixinha(cx);
+    const crescimento = base > 0 ? ((atual - base) / base) * 100 : 0;
+    return { nome: String(cx.nome || "Caixinha"), base, atual, crescimento };
+  }).filter(x => x.base > 0 && x.crescimento >= 10).sort((a,b) => b.crescimento-a.crescimento)[0] || null;
+
+  const rendimento = somaCampo(caixinhas, "rendimentoTotal");
+  const quantidadeLancamentos = ganhosLista.length + fixosLista.length + variaveisLista.length;
 
   return {
     mes, ano, ganhos, gastos, guardado, saldo,
+    ganhosLista, fixosLista, variaveisLista,
     pendencias: pendencias.length,
-    quantidadeLancamentos: (state.ganhos || []).length + (state.gastosFixos || []).length + (state.gastosVariaveis || []).length,
+    quantidadeLancamentos,
+    parcelasEncerradas,
+    valorMensalEncerrado,
+    metasBatidas,
     maiorCaixinha,
-    metasBatidas: metasBatidas.map((cx) => ({ nome: String(cx.nome || "Caixinha"), valor: Number(cx.valorObjetivo) || 0 }))
+    categoriaPrincipal: categoriaPrincipal ? { nome: categoriaPrincipal[0], valor: categoriaPrincipal[1] } : null,
+    comparacao,
+    maiorMovimento,
+    crescimentoCaixinha,
+    rendimento,
+    caixinhas,
+    // Uma conquista simples e verificável: primeiro mês do histórico com aporte.
+    primeiraConstrucao: (() => {
+      const anos = Array.isArray(state.historico?.anos) ? state.historico.anos : [];
+      let pm = mes - 1, pa = ano;
+      if (pm === 0) { pm = 12; pa--; }
+      const bloco = anos.find(a => Number(a.ano) === pa);
+      const ant = bloco?.meses?.find(m => Number(m.mes) === pm);
+      const campoGuardadoAnterior = state.pessoaAtual === "gabriel" ? "guardadoMesGabriel" : "guardadoMesDavi";
+      return !!(guardado > 0 && (!ant || Number(ant[campoGuardadoAnterior]) <= 0));
+    })()
   };
 }
 
@@ -5432,149 +5508,224 @@ function mostrarFechamentoMes(dados, { aguardandoFechamento = false } = {}) {
   const kicker = cena.querySelector("#fechamentoMesEtapa .fechamento-mes-kicker");
   if (!titulo || !texto || !etapa || !resumo) return null;
 
-  const mesNome = MESES_LABEL[dados.mes - 1] || "Mês";
-  const proximoMes = dados.mes === 12 ? 1 : dados.mes + 1;
-  const proximoAno = dados.mes === 12 ? dados.ano + 1 : dados.ano;
-  const proximoNome = MESES_LABEL[proximoMes - 1];
-
-  // Cada abertura cria uma única fila de cerimônia. Não há timers globais
-  // competindo entre si e uma nova renderização não cancela a fila atual.
   if (cena._cerimoniaAtiva) return cena;
   cena._cerimoniaAtiva = true;
   cena._fechamentoConfirmado = !aguardandoFechamento;
   cena._resolverFechamento = null;
-
   cena.classList.remove("is-hidden", "fechamento-mes-finalizando");
   cena.dataset.aguardandoFechamento = aguardandoFechamento ? "1" : "0";
   cena.dataset.fechamentoConfirmado = cena._fechamentoConfirmado ? "1" : "0";
   document.body.classList.add("fechamento-mes-ativo");
   requestAnimationFrame(() => cena.classList.add("is-visible"));
 
-  if (kicker) kicker.textContent = aguardandoFechamento ? "Fechando" : "Fechamento concluído";
-  if (progresso) {
-    progresso.style.width = "7%";
-    progresso.parentElement?.classList.toggle("is-processando", aguardandoFechamento);
-  }
+  const mesNome = MESES_LABEL[dados.mes - 1] || "Mês";
+  const proximoMes = dados.mes === 12 ? 1 : dados.mes + 1;
+  const proximoAno = dados.mes === 12 ? dados.ano + 1 : dados.ano;
+  const proximoNome = MESES_LABEL[proximoMes - 1];
+  if (kicker) kicker.textContent = "Fechamento";
+  if (progresso) progresso.style.width = "5%";
 
-  // Abertura curta e propositalmente simples.
   titulo.textContent = "Só um instante";
   texto.textContent = "Fechando o mês.";
   resumo.innerHTML = `<div class="fechamento-mes-preparando"><span>✦</span><p>${escapeHtml(mesNome)}.</p></div>`;
 
-  const esperar = (ms) => new Promise(resolve => window.setTimeout(resolve, ms));
-
+  const esperar = ms => new Promise(resolve => window.setTimeout(resolve, ms));
   const trocarTela = async (config) => {
-    // Troca título, texto e conteúdo no mesmo passo DOM; só depois inicia a
-    // transição. Assim nunca existe conteúdo de uma tela com o título da outra.
     etapa.classList.add("is-trocando");
-    await esperar(300);
+    await esperar(380);
     titulo.textContent = config.titulo;
-    texto.textContent = config.texto;
-    resumo.innerHTML = config.html;
+    texto.textContent = config.texto || "";
+    resumo.innerHTML = config.html || "";
     etapa.classList.remove("is-trocando");
     await new Promise(resolve => requestAnimationFrame(() => requestAnimationFrame(resolve)));
   };
 
-  const mostrarNumeros = async () => {
+  const etapas = [];
+  etapas.push(async () => {
     await trocarTela({
       titulo: "Olha o que você construiu",
       texto: "Os números do mês, do jeitinho que aconteceram.",
-      html: `
-        <div class="fechamento-mes-metricas">
-          <div class="fechamento-mes-metrica"><span>Recebido</span><strong data-fechamento-num="ganhos">R$ 0,00</strong></div>
-          <div class="fechamento-mes-metrica"><span>Gasto</span><strong data-fechamento-num="gastos">R$ 0,00</strong></div>
-          <div class="fechamento-mes-metrica destaque"><span>Guardado</span><strong data-fechamento-num="guardado">R$ 0,00</strong></div>
-        </div>
-        <div class="fechamento-mes-saldo"><span>Resultado do mês</span><strong class="${dados.saldo >= 0 ? "positivo" : "negativo"}">${formatarFechamentoValor(dados.saldo)}</strong></div>`
+      html: `<div class="fechamento-mes-metricas">
+        <div class="fechamento-mes-metrica"><span>Recebido</span><strong data-fechamento-num="ganhos">R$ 0,00</strong></div>
+        <div class="fechamento-mes-metrica"><span>Gasto</span><strong data-fechamento-num="gastos">R$ 0,00</strong></div>
+        <div class="fechamento-mes-metrica destaque"><span>Guardado</span><strong data-fechamento-num="guardado">R$ 0,00</strong></div>
+      </div><div class="fechamento-mes-saldo"><span>Resultado do mês</span><strong class="${dados.saldo >= 0 ? "positivo" : "negativo"}">${formatarFechamentoValor(dados.saldo)}</strong></div>`
     });
-
-    animarFechamentoNumero(resumo.querySelector('[data-fechamento-num="ganhos"]'), dados.ganhos, 1500);
-    animarFechamentoNumero(resumo.querySelector('[data-fechamento-num="gastos"]'), dados.gastos, 1700);
-    animarFechamentoNumero(resumo.querySelector('[data-fechamento-num="guardado"]'), dados.guardado, 1900);
-    if (progresso) progresso.style.width = "38%";
-    await esperar(3300);
-  };
-
-  const temConteudoCaixinhas = Number(dados.guardado) > 0 ||
-    (Array.isArray(dados.metasBatidas) && dados.metasBatidas.length > 0) ||
-    !!dados.maiorCaixinha;
-
-  const mostrarCaixinhas = async () => {
-    if (!temConteudoCaixinhas) return;
-
-    const metas = dados.metasBatidas.length
-      ? `<div class="fechamento-mes-meta"><span>🎯</span><p>${dados.metasBatidas.map(m => `<strong>${esc(m.nome)}</strong>`).join(" e ")} ${dados.metasBatidas.length === 1 ? "chegou" : "chegaram"} à meta.</p></div>`
-      : "";
-    const aporte = dados.maiorCaixinha
-      ? `<div class="fechamento-mes-meta"><span>↓</span><p>O maior aporte foi para <strong>${esc(dados.maiorCaixinha.nome)}</strong>: ${fmt(dados.maiorCaixinha.valor)}.</p></div>`
-      : "";
-    const total = dados.guardado > 0
-      ? `<div class="fechamento-mes-caixinha"><div class="fechamento-mes-caixinha-icone">↓</div><div><span>Guardado nas caixinhas</span><strong>${fmt(dados.guardado)}</strong></div></div>`
-      : "";
-
-    await trocarTela({
-      titulo: "Suas caixinhas continuam crescendo ✨",
-      texto: "Cada valor guardado continua fazendo parte da sua história.",
-      html: `${total}${metas}${aporte}`
-    });
-    if (progresso) progresso.style.width = "68%";
-    await esperar(3500);
-  };
-
-  const mostrarFinal = async () => {
-    await trocarTela({
-      titulo: `${proximoNome} começou`,
-      texto: "Uma nova página está aberta. 🌱",
-      html: `<div class="fechamento-mes-proximo"><span>${String(proximoAno)}</span><strong>${proximoNome}</strong></div>`
-    });
-    if (progresso) progresso.style.width = "100%";
-    progresso?.parentElement?.classList.remove("is-processando");
-    await esperar(3500);
-    cena.classList.add("fechamento-mes-finalizando");
-    document.body.classList.remove("fechamento-mes-ativo");
-    window.setTimeout(() => {
-      cena.classList.add("is-hidden");
-      cena._cerimoniaAtiva = false;
-    }, 750);
-  };
-
-  cena._resolverFechamento = () => {
-    cena._fechamentoConfirmado = true;
-    cena.dataset.fechamentoConfirmado = "1";
-    cena._resolverFechamento = null;
-  };
-
-  cena._cerimoniaPromise = (async () => {
-    // Abertura curta, sem transformar a tela em uma espera longa.
-    await esperar(900);
-
-    // Se o Apps Script ainda estiver trabalhando, a cerimônia aguarda aqui.
-    // Depois disso ela segue sempre na mesma ordem.
-    if (!cena._fechamentoConfirmado) {
-      await new Promise(resolve => {
-        cena._resolverFechamento = () => {
-          cena._fechamentoConfirmado = true;
-          cena.dataset.fechamentoConfirmado = "1";
-          cena._resolverFechamento = null;
-          resolve();
-        };
-      });
-    }
-
-    await mostrarNumeros();
-    await mostrarCaixinhas();
-    await mostrarFinal();
-  })().catch(err => {
-    console.error("Cerimônia de fechamento:", err);
-    // Nunca deixa uma exceção de uma etapa congelar a tela para sempre.
-    document.body.classList.remove("fechamento-mes-ativo");
-    cena.classList.add("fechamento-mes-finalizando");
-    window.setTimeout(() => {
-      cena.classList.add("is-hidden");
-      cena._cerimoniaAtiva = false;
-    }, 750);
+    animarFechamentoNumero(resumo.querySelector('[data-fechamento-num="ganhos"]'), dados.ganhos, 1900);
+    animarFechamentoNumero(resumo.querySelector('[data-fechamento-num="gastos"]'), dados.gastos, 2100);
+    animarFechamentoNumero(resumo.querySelector('[data-fechamento-num="guardado"]'), dados.guardado, 2300);
+    if (progresso) progresso.style.width = "22%";
+    await esperar(3900);
   });
 
+  // Eventos reais do mês. A ordem é narrativa: primeiro acontecimentos,
+  // depois descobertas, depois a situação final do mês.
+  dados.parcelasEncerradas.forEach(parcela => {
+    etapas.push(async () => {
+      await trocarTela({
+        titulo: `${escapeHtml(parcela.nome)} chegou ao fim.`,
+        texto: `Parcela ${escapeHtml(parcela.parcela)} concluída.`,
+        html: `<div class="fechamento-mes-meta"><span>✓</span><p>Mais um compromisso encerrado.</p>${parcela.valor > 0 ? `<strong class="fechamento-mes-destaque-valor">${fmt(parcela.valor)}/mês</strong><small>deixam de ocupar seu orçamento.</small>` : ""}</div>`
+      });
+      await esperar(3100);
+    });
+  });
+
+  if (dados.valorMensalEncerrado > 0) {
+    etapas.push(async () => {
+      const qtd = dados.parcelasEncerradas.length;
+      await trocarTela({
+        titulo: "O próximo mês começa mais leve.",
+        texto: qtd === 1 ? "Um compromisso terminou." : `${qtd} parcelas chegaram ao fim.`,
+        html: `<div class="fechamento-mes-proximo"><span>− ${fmt(dados.valorMensalEncerrado)}/mês</span><strong>de compromisso mensal</strong></div>`
+      });
+      await esperar(3100);
+    });
+  }
+
+  dados.metasBatidas.forEach(meta => {
+    etapas.push(async () => {
+      const passou = meta.valor > meta.objetivo;
+      await trocarTela({
+        titulo: passou ? "E ainda passou da meta." : "Uma promessa cumprida.",
+        texto: `${meta.icone ? meta.icone + " " : ""}${meta.nome} atingiu sua meta de ${fmt(meta.objetivo)}.`,
+        html: `<div class="fechamento-mes-meta"><span>🎯</span><p><strong>${escapeHtml(meta.nome)}</strong></p><strong class="fechamento-mes-destaque-valor">${fmt(meta.valor)} guardados</strong>${passou ? `<small>Meta: ${fmt(meta.objetivo)}</small>` : ""}</div>`
+      });
+      await esperar(3300);
+    });
+  });
+
+  if (dados.categoriaPrincipal) {
+    etapas.push(async () => {
+      await trocarTela({ titulo: "E agora…", texto: "Onde foi parar boa parte do seu dinheiro?", html: `<div class="fechamento-mes-suspense">✦</div>` });
+      await esperar(1800);
+      await trocarTela({ titulo: "A categoria que mais recebeu seus gastos foi…", texto: "", html: `<div class="fechamento-mes-categoria"><span>▣</span><strong>${escapeHtml(dados.categoriaPrincipal.nome)}</strong><b>${fmt(dados.categoriaPrincipal.valor)}</b><small>Foi onde você mais gastou neste mês.</small></div>` });
+      await esperar(3500);
+    });
+  }
+
+  if (dados.comparacao) {
+    etapas.push(async () => {
+      const d = dados.comparacao.diferenca;
+      const abs = Math.abs(d);
+      const frase = d < 0 ? `Você gastou ${fmt(abs)} a menos.` : d > 0 ? `Seus gastos foram ${fmt(abs)} maiores.` : "Seus gastos ficaram no mesmo nível.";
+      await trocarTela({ titulo: `Em relação a ${escapeHtml(dados.comparacao.nome)}…`, texto: frase, html: `<div class="fechamento-mes-comparacao"><strong>${fmt(abs)}</strong><span>${d < 0 ? "a menos" : d > 0 ? "a mais" : "de diferença"}</span></div>` });
+      await esperar(3000);
+    });
+  }
+
+  if (dados.maiorCaixinha && dados.maiorCaixinha.valor > 0) {
+    etapas.push(async () => {
+      await trocarTela({ titulo: "Seu maior movimento de construção foi…", texto: "", html: `<div class="fechamento-mes-meta"><span>↓</span><p>✦ <strong>${escapeHtml(dados.maiorCaixinha.nome)}</strong></p><strong class="fechamento-mes-destaque-valor">${fmt(dados.maiorCaixinha.valor)} guardados</strong></div>` });
+      await esperar(3100);
+    });
+  }
+
+  if (dados.guardado > 0) {
+    etapas.push(async () => {
+      await trocarTela({ titulo: "E quanto você construiu este mês?", texto: "Guardar também é avançar.", html: `<div class="fechamento-mes-proximo"><span>${fmt(dados.guardado)}</span><strong>destinados às suas caixinhas</strong></div>` });
+      await esperar(3000);
+    });
+  }
+
+  if (dados.rendimento > 0) {
+    etapas.push(async () => {
+      await trocarTela({ titulo: "Seu dinheiro também trabalhou.", texto: "As caixinhas renderam neste mês.", html: `<div class="fechamento-mes-proximo"><span>+ ${fmt(dados.rendimento)}</span><strong>de rendimento</strong></div>` });
+      await esperar(3000);
+    });
+  }
+
+  if (dados.crescimentoCaixinha) {
+    etapas.push(async () => {
+      await trocarTela({ titulo: "Uma caixinha ganhou espaço.", texto: "", html: `<div class="fechamento-mes-meta"><span>🌱</span><p><strong>${escapeHtml(dados.crescimentoCaixinha.nome)}</strong></p><strong class="fechamento-mes-destaque-valor">${dados.crescimentoCaixinha.crescimento.toFixed(0)}%</strong><small>de crescimento neste mês</small></div>` });
+      await esperar(3000);
+    });
+  }
+
+  if (dados.primeiraConstrucao) {
+    etapas.push(async () => {
+      await trocarTela({ titulo: "Uma pequena conquista.", texto: "", html: `<div class="fechamento-mes-meta"><span>✦</span><p>Este foi um mês em que você começou a construir dinheiro nas suas caixinhas.</p></div>` });
+      await esperar(3000);
+    });
+  }
+
+  if (dados.maiorMovimento && dados.maiorMovimento.valor > 0) {
+    etapas.push(async () => {
+      await trocarTela({ titulo: "O maior movimento do mês foi…", texto: "", html: `<div class="fechamento-mes-categoria"><span>${dados.maiorMovimento.tipo === "ganho" ? "+" : "−"}</span><strong>${escapeHtml(dados.maiorMovimento.nome)}</strong><b>${fmt(dados.maiorMovimento.valor)}</b></div>` });
+      await esperar(3000);
+    });
+  }
+
+  if (dados.quantidadeLancamentos > 0) {
+    etapas.push(async () => {
+      await trocarTela({ titulo: `${mesNome} está oficialmente fechado.`, texto: "", html: `<div class="fechamento-mes-proximo"><span>${dados.quantidadeLancamentos}</span><strong>lançamentos registrados ao longo do mês</strong></div>` });
+      await esperar(2800);
+    });
+  }
+
+  if (dados.pendencias === 0) {
+    etapas.push(async () => {
+      await trocarTela({ titulo: "Tudo em ordem.", texto: "", html: `<div class="fechamento-mes-meta"><span>✓</span><p>Nenhuma conta ficou pendente para o próximo mês.</p></div>` });
+      await esperar(2900);
+    });
+  } else {
+    etapas.push(async () => {
+      await trocarTela({ titulo: "Antes de fechar o livro…", texto: "", html: `<div class="fechamento-mes-meta"><span>!</span><p>Ainda ficaram <strong>${dados.pendencias}</strong> compromissos pendentes.</p></div>` });
+      await esperar(2900);
+    });
+  }
+
+  if (dados.mes === 12) {
+    etapas.push(async () => {
+      const anos = Array.isArray(state.historico?.anos) ? state.historico.anos : [];
+      const bloco = anos.find(a => Number(a.ano) === Number(dados.ano));
+      const meses = bloco?.meses || [];
+      const campoGuardadoAno = state.pessoaAtual === "gabriel" ? "guardadoMesGabriel" : "guardadoMesDavi";
+      const totalGuardadoAno = meses.reduce((a,m) => a + Math.max(0, Number(m[campoGuardadoAno]) || 0), 0) + Math.max(0, dados.guardado);
+      await trocarTela({ titulo: `O livro de ${dados.ano} foi encerrado.`, texto: `Agora começa ${proximoAno}.`, html: `<div class="fechamento-mes-ano"><strong>${fmt(totalGuardadoAno)}</strong><span>guardados ao longo do ano</span><em>Uma nova página está aberta.</em></div>` });
+      await esperar(4300);
+    });
+  }
+
+  const finais = [
+    "E assim termina {mes}. O que precisava ser registrado, foi registrado. O que foi conquistado, ficou guardado.",
+    "{mes} chega ao fim. Mais uma página foi preenchida — e a próxima já está esperando.",
+    "O livro de {mes} foi fechado. O que você construiu neste mês segue com você.",
+    "Fim de {mes}. Uma página a menos, uma história financeira a mais.",
+    "{mes} termina por aqui. Agora, uma nova página pode começar."
+  ];
+  const fraseFinal = finais[(Number(dados.mes) - 1) % finais.length].replace("{mes}", mesNome);
+  etapas.push(async () => {
+    await trocarTela({ titulo: "Até aqui, {mes}.".replace("{mes}", mesNome), texto: "", html: `<div class="fechamento-mes-final"><p>${escapeHtml(fraseFinal)}</p></div>` });
+    if (progresso) progresso.style.width = "100%";
+    progresso?.parentElement?.classList.remove("is-processando");
+    await esperar(3900);
+  });
+
+  cena._resolverFechamento = null;
+
+  cena._cerimoniaPromise = (async () => {
+    await esperar(800);
+    if (!cena._fechamentoConfirmado) {
+      await new Promise(resolve => { cena._resolverFechamento = resolve; });
+    }
+    for (let i = 0; i < etapas.length; i++) {
+      await etapas[i]();
+      if (progresso && i < etapas.length - 1) {
+        progresso.style.width = `${Math.min(96, 22 + ((i + 1) / etapas.length) * 70)}%`;
+      }
+    }
+    cena.classList.add("fechamento-mes-finalizando");
+    document.body.classList.remove("fechamento-mes-ativo");
+    await esperar(750);
+    cena.classList.add("is-hidden");
+    cena._cerimoniaAtiva = false;
+  })().catch(err => {
+    console.error("Cerimônia de fechamento:", err);
+    document.body.classList.remove("fechamento-mes-ativo");
+    cena.classList.add("fechamento-mes-finalizando");
+    window.setTimeout(() => { cena.classList.add("is-hidden"); cena._cerimoniaAtiva = false; }, 750);
+  });
   return cena;
 }
 
@@ -6400,7 +6551,7 @@ if (document.readyState === "loading") {
     if (metas.length) {
       const meta = metas[0];
       const pct = meta.objetivo > 0 ? Math.min(100, Math.round(meta.atual / meta.objetivo * 100)) : 0;
-      dicas.push({ dica: `A caixinha <strong>${esc(meta.nome)}</strong> está em ${pct}% da meta, com <span class="chat-valor chat-valor-gold">${chatFmt(meta.atual)}</span> de <span class="chat-valor chat-valor-gold">${chatFmt(meta.objetivo)}</span>.` });
+      dicas.push({ dica: `A caixinha <strong>${escapeHtml(meta.nome)}</strong> está em ${pct}% da meta, com <span class="chat-valor chat-valor-gold">${chatFmt(meta.atual)}</span> de <span class="chat-valor chat-valor-gold">${chatFmt(meta.objetivo)}</span>.` });
     }
     if (t.saldoAtualConta > 0 && contasDesteMes > 0) {
       const comprometido = Math.min(100, Math.round(contasDesteMes / Math.max(t.saldoAtualConta + t.aReceberEsseMes, 1) * 100));

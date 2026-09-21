@@ -1,13 +1,16 @@
-CAIXA — Fechamento individual v20
+CAIXA — FECHAMENTO INDIVIDUAL v21
 
-Correção da cerimônia de fechamento:
-- sequência única, sem timers concorrentes;
-- título, texto e conteúdo de cada tela são trocados juntos;
-- abertura “Só um instante” curta;
-- a cerimônia aguarda a confirmação real do Apps Script sem travar a tela;
-- a etapa de números permanece visível por tempo controlado;
-- a etapa de caixinhas só aparece quando existe conteúdo;
-- a tela final só aparece depois das etapas anteriores;
-- exceções na cerimônia não deixam o overlay preso indefinidamente.
+Cerimônia de fechamento reconstruída como uma sequência de acontecimentos reais do mês.
 
-Mantida a arquitetura de fechamento individual Davi/Gabriel e mês/ano separados em P/Q.
+- Davi e Gabriel fecham separadamente; Juntos não fecha.
+- Mês/ano atual permanecem separados na configuração (P/Q).
+- A cerimônia não depende de cookie/localStorage para aparecer.
+- A confirmação do servidor apenas libera a sequência; não pula etapas.
+- Abertura curta: “Só um instante”.
+- “Olha o que você construiu” mostra os números e aguarda a animação.
+- Em seguida são exibidos, quando existirem: última parcela paga, mês mais leve,
+  meta atingida, categoria com suspense, comparação com mês anterior, maior aporte,
+  dinheiro construído, rendimento, caixinha que mais cresceu, conquista silenciosa,
+  maior movimento, quantidade de lançamentos, pendências e virada do ano.
+- Eventos inexistentes são pulados, sem telas vazias.
+- A cerimônia termina com uma frase sem números e uma transição suave para o próximo mês.
