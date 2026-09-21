@@ -5658,14 +5658,17 @@ function mostrarFechamentoMes(dados, { resultadoPromessa = null } = {}) {
       const d = dados.comparacao.diferenca;
       const abs = Math.abs(d);
       const frase = d < 0 ? `Você gastou ${fmt(abs)} a menos.` : d > 0 ? `Seus gastos foram ${fmt(abs)} maiores.` : "Seus gastos ficaram no mesmo nível.";
-      await trocarTela({ titulo: `Em relação a ${escapeHtml(dados.comparacao.nome)}…`, texto: frase, html: `<div class="fechamento-mes-comparacao fechamento-mes-comparacao-simples"><span>${d < 0 ? "↓" : d > 0 ? "↑" : "="}</span><strong>${d < 0 ? "Você gastou menos" : d > 0 ? "Você gastou mais" : "Seus gastos ficaram iguais"}</strong></div>` });
+      const comparacaoClasse = d > 0 ? "gastos-maiores" : d < 0 ? "gastos-menores" : "gastos-iguais";
+      const comparacaoIcone = d > 0 ? "↓" : d < 0 ? "↑" : "=";
+      const comparacaoLabel = d > 0 ? "Você gastou mais" : d < 0 ? "Você gastou menos" : "Seus gastos ficaram iguais";
+      await trocarTela({ titulo: `Em relação a ${escapeHtml(dados.comparacao.nome)}…`, texto: frase, html: `<div class="fechamento-mes-comparacao fechamento-mes-comparacao-simples ${comparacaoClasse}"><span>${comparacaoIcone}</span><strong>${comparacaoLabel}</strong></div>` });
       await esperar(6000);
     });
   }
 
   if (dados.maiorCaixinha && dados.maiorCaixinha.valor > 0) {
     etapas.push(async () => {
-      await trocarTela({ titulo: "Qual caixinha recebeu mais este mês?", texto: "Seu maior aporte foi para esta caixinha.", html: `<div class="fechamento-mes-meta"><span>↓</span><p>✦ <strong>${escapeHtml(dados.maiorCaixinha.nome)}</strong></p><strong class="fechamento-mes-destaque-valor">${fmt(dados.maiorCaixinha.valor)} guardados</strong></div>` });
+      await trocarTela({ titulo: "Qual caixinha recebeu mais este mês?", texto: "Seu maior aporte foi para esta caixinha.", html: `<div class="fechamento-mes-meta"><span class="fechamento-mes-caixinha-icone">${dados.maiorCaixinha.icone ? `<img src="${escapeHtml(urlIconeCaixinha(normalizarNomeIcone(dados.maiorCaixinha.icone)))}" alt="" loading="lazy" onerror="this.onerror=null;this.style.display='none';this.nextElementSibling.style.display='inline-flex';"><span class="fechamento-mes-caixinha-icone-fallback">↓</span>` : "↓"}</span><p><strong>${escapeHtml(dados.maiorCaixinha.nome)}</strong></p><strong class="fechamento-mes-destaque-valor">${fmt(dados.maiorCaixinha.valor)} guardados</strong></div>` });
       await esperar(4500);
     });
   }

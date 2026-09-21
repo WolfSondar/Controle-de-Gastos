@@ -8370,3 +8370,46 @@ body.fechamento-mes-ativo { overflow: hidden !important; }
   font-size: clamp(1.15rem, 2vw, 1.45rem);
   line-height: 1.15;
 }
+
+
+/* v28 — ícone da caixinha e comparação de gastos com leitura visual correta */
+.fechamento-mes-caixinha-icone {
+  width: 46px;
+  height: 46px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  margin-bottom: 8px;
+  border-radius: 14px;
+  border: 1px solid rgba(217,174,97,.18);
+  background: rgba(217,174,97,.07);
+  color: #f2ce84;
+  font-size: 20px;
+  overflow: hidden;
+}
+.fechamento-mes-caixinha-icone img {
+  width: 27px;
+  height: 27px;
+  object-fit: contain;
+}
+.fechamento-mes-caixinha-icone-fallback {
+  display: none;
+  align-items: center;
+  justify-content: center;
+}
+.fechamento-mes-comparacao-simples.gastos-maiores > span {
+  color: #ef6b6b;
+  border-color: rgba(239,107,107,.25);
+  background: rgba(239,107,107,.08);
+}
+.fechamento-mes-comparacao-simples.gastos-maiores > strong {
+  color: #ef8a8a;
+}
+.fechamento-mes-comparacao-simples.gastos-menores > span {
+  color: #82c89b;
+  border-color: rgba(130,200,155,.22);
+  background: rgba(130,200,155,.07);
+}
+.fechamento-mes-comparacao-simples.gastos-menores > strong {
+  color: #9bd5ad;
+}
