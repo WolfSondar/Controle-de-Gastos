@@ -5424,80 +5424,75 @@ function prepararDadosFechamentoMes(mes, ano) {
 
 function mostrarFechamentoMes(dados, { aguardandoFechamento = false } = {}) {
   const cena = criarCenaFechamentoMes();
-  const titulo = document.getElementById("fechamentoMesTitulo");
-  const texto = document.getElementById("fechamentoMesTexto");
-  const etapa = document.getElementById("fechamentoMesEtapa");
-  const resumo = document.getElementById("fechamentoMesResumo");
-  const progresso = document.getElementById("fechamentoMesProgresso");
-  const kicker = document.querySelector("#fechamentoMesEtapa .fechamento-mes-kicker");
+  const titulo = cena.querySelector("#fechamentoMesTitulo");
+  const texto = cena.querySelector("#fechamentoMesTexto");
+  const etapa = cena.querySelector("#fechamentoMesEtapa");
+  const resumo = cena.querySelector("#fechamentoMesResumo");
+  const progresso = cena.querySelector("#fechamentoMesProgresso");
+  const kicker = cena.querySelector("#fechamentoMesEtapa .fechamento-mes-kicker");
   if (!titulo || !texto || !etapa || !resumo) return null;
-
-  if (fechamentoMesTimer) window.clearTimeout(fechamentoMesTimer);
-  if (cena._fechamentoCerimoniaPromise) cena._fechamentoCerimoniaCancelada = true;
 
   const mesNome = MESES_LABEL[dados.mes - 1] || "Mês";
   const proximoMes = dados.mes === 12 ? 1 : dados.mes + 1;
   const proximoAno = dados.mes === 12 ? dados.ano + 1 : dados.ano;
   const proximoNome = MESES_LABEL[proximoMes - 1];
 
+  // Cada abertura cria uma única fila de cerimônia. Não há timers globais
+  // competindo entre si e uma nova renderização não cancela a fila atual.
+  if (cena._cerimoniaAtiva) return cena;
+  cena._cerimoniaAtiva = true;
+  cena._fechamentoConfirmado = !aguardandoFechamento;
+  cena._resolverFechamento = null;
+
   cena.classList.remove("is-hidden", "fechamento-mes-finalizando");
   cena.dataset.aguardandoFechamento = aguardandoFechamento ? "1" : "0";
-  cena.dataset.fechamentoConfirmado = aguardandoFechamento ? "0" : "1";
-  cena.dataset.cerimoniaEtapa = "0";
-  cena.dataset.cerimoniaFinal = "0";
-  cena._fechamentoCerimoniaCancelada = false;
-  cena._fechamentoConfirmacaoPromise = null;
-  cena._liberarCerimonia = null;
+  cena.dataset.fechamentoConfirmado = cena._fechamentoConfirmado ? "1" : "0";
   document.body.classList.add("fechamento-mes-ativo");
   requestAnimationFrame(() => cena.classList.add("is-visible"));
 
-  etapa.classList.remove("is-trocando");
-  resumo.innerHTML = `<div class="fechamento-mes-preparando"><span>✦</span><p>${escapeHtml(mesNome)}.</p></div>`;
   if (kicker) kicker.textContent = aguardandoFechamento ? "Fechando" : "Fechamento concluído";
   if (progresso) {
-    progresso.style.width = "8%";
+    progresso.style.width = "7%";
     progresso.parentElement?.classList.toggle("is-processando", aguardandoFechamento);
   }
 
-  // A abertura é curta e nunca troca de tela por conta própria.
-  // A cerimônia só avança quando o fechamento real estiver confirmado.
+  // Abertura curta e propositalmente simples.
   titulo.textContent = "Só um instante";
   texto.textContent = "Fechando o mês.";
+  resumo.innerHTML = `<div class="fechamento-mes-preparando"><span>✦</span><p>${escapeHtml(mesNome)}.</p></div>`;
 
-  const esperar = (ms) => new Promise((resolve) => window.setTimeout(resolve, ms));
+  const esperar = (ms) => new Promise(resolve => window.setTimeout(resolve, ms));
 
-  const trocar = async (fn) => {
+  const trocarTela = async (config) => {
+    // Troca título, texto e conteúdo no mesmo passo DOM; só depois inicia a
+    // transição. Assim nunca existe conteúdo de uma tela com o título da outra.
     etapa.classList.add("is-trocando");
-    await esperar(280);
-    if (cena._fechamentoCerimoniaCancelada) return false;
-    fn();
-    // Garante que título, texto e conteúdo tenham terminado de entrar juntos.
-    await new Promise((resolve) => requestAnimationFrame(() => requestAnimationFrame(resolve)));
+    await esperar(300);
+    titulo.textContent = config.titulo;
+    texto.textContent = config.texto;
+    resumo.innerHTML = config.html;
     etapa.classList.remove("is-trocando");
-    return true;
+    await new Promise(resolve => requestAnimationFrame(() => requestAnimationFrame(resolve)));
   };
 
   const mostrarNumeros = async () => {
-    if (cena._fechamentoCerimoniaCancelada) return;
-    cena.dataset.cerimoniaEtapa = "1";
-    const ok = await trocar(() => {
-      titulo.textContent = "Olha o que você construiu";
-      texto.textContent = "Os números do mês, do jeitinho que aconteceram.";
-      resumo.innerHTML = `
+    await trocarTela({
+      titulo: "Olha o que você construiu",
+      texto: "Os números do mês, do jeitinho que aconteceram.",
+      html: `
         <div class="fechamento-mes-metricas">
           <div class="fechamento-mes-metrica"><span>Recebido</span><strong data-fechamento-num="ganhos">R$ 0,00</strong></div>
           <div class="fechamento-mes-metrica"><span>Gasto</span><strong data-fechamento-num="gastos">R$ 0,00</strong></div>
           <div class="fechamento-mes-metrica destaque"><span>Guardado</span><strong data-fechamento-num="guardado">R$ 0,00</strong></div>
         </div>
-        <div class="fechamento-mes-saldo"><span>Resultado do mês</span><strong class="${dados.saldo >= 0 ? "positivo" : "negativo"}">${formatarFechamentoValor(dados.saldo)}</strong></div>`;
-      animarFechamentoNumero(resumo.querySelector('[data-fechamento-num="ganhos"]'), dados.ganhos, 1700);
-      animarFechamentoNumero(resumo.querySelector('[data-fechamento-num="gastos"]'), dados.gastos, 1900);
-      animarFechamentoNumero(resumo.querySelector('[data-fechamento-num="guardado"]'), dados.guardado, 2100);
+        <div class="fechamento-mes-saldo"><span>Resultado do mês</span><strong class="${dados.saldo >= 0 ? "positivo" : "negativo"}">${formatarFechamentoValor(dados.saldo)}</strong></div>`
     });
-    if (!ok) return;
+
+    animarFechamentoNumero(resumo.querySelector('[data-fechamento-num="ganhos"]'), dados.ganhos, 1500);
+    animarFechamentoNumero(resumo.querySelector('[data-fechamento-num="gastos"]'), dados.gastos, 1700);
+    animarFechamentoNumero(resumo.querySelector('[data-fechamento-num="guardado"]'), dados.guardado, 1900);
     if (progresso) progresso.style.width = "38%";
-    // Deixa a tela dos números respirar antes de qualquer próxima informação.
-    await esperar(4800);
+    await esperar(3300);
   };
 
   const temConteudoCaixinhas = Number(dados.guardado) > 0 ||
@@ -5505,68 +5500,81 @@ function mostrarFechamentoMes(dados, { aguardandoFechamento = false } = {}) {
     !!dados.maiorCaixinha;
 
   const mostrarCaixinhas = async () => {
-    // Se não aconteceu nada digno de uma tela de caixinhas, simplesmente não
-    // criamos uma tela vazia. A próxima tela só entra depois da anterior.
-    if (!temConteudoCaixinhas || cena._fechamentoCerimoniaCancelada) return;
-    cena.dataset.cerimoniaEtapa = "2";
-    const ok = await trocar(() => {
-      titulo.textContent = "Suas caixinhas continuam crescendo ✨";
-      texto.textContent = "Cada valor guardado continua fazendo parte da sua história.";
-      const metas = dados.metasBatidas.length
-        ? `<div class="fechamento-mes-meta"><span>🎯</span><p>${dados.metasBatidas.map((m) => `<strong>${esc(m.nome)}</strong>`).join(" e ")} ${dados.metasBatidas.length === 1 ? "chegou" : "chegaram"} à meta.</p></div>`
-        : "";
-      const aporte = dados.maiorCaixinha
-        ? `<div class="fechamento-mes-meta"><span>↓</span><p>O maior aporte foi para <strong>${esc(dados.maiorCaixinha.nome)}</strong>: ${fmt(dados.maiorCaixinha.valor)}.</p></div>`
-        : "";
-      const total = dados.guardado > 0
-        ? `<div class="fechamento-mes-caixinha"><div class="fechamento-mes-caixinha-icone">↓</div><div><span>Guardado nas caixinhas</span><strong>${fmt(dados.guardado)}</strong></div></div>`
-        : "";
-      resumo.innerHTML = `${total}${metas}${aporte}`;
+    if (!temConteudoCaixinhas) return;
+
+    const metas = dados.metasBatidas.length
+      ? `<div class="fechamento-mes-meta"><span>🎯</span><p>${dados.metasBatidas.map(m => `<strong>${esc(m.nome)}</strong>`).join(" e ")} ${dados.metasBatidas.length === 1 ? "chegou" : "chegaram"} à meta.</p></div>`
+      : "";
+    const aporte = dados.maiorCaixinha
+      ? `<div class="fechamento-mes-meta"><span>↓</span><p>O maior aporte foi para <strong>${esc(dados.maiorCaixinha.nome)}</strong>: ${fmt(dados.maiorCaixinha.valor)}.</p></div>`
+      : "";
+    const total = dados.guardado > 0
+      ? `<div class="fechamento-mes-caixinha"><div class="fechamento-mes-caixinha-icone">↓</div><div><span>Guardado nas caixinhas</span><strong>${fmt(dados.guardado)}</strong></div></div>`
+      : "";
+
+    await trocarTela({
+      titulo: "Suas caixinhas continuam crescendo ✨",
+      texto: "Cada valor guardado continua fazendo parte da sua história.",
+      html: `${total}${metas}${aporte}`
     });
-    if (!ok) return;
     if (progresso) progresso.style.width = "68%";
-    await esperar(5000);
+    await esperar(3500);
   };
 
   const mostrarFinal = async () => {
-    if (cena._fechamentoCerimoniaCancelada || cena.dataset.fechamentoConfirmado !== "1" || cena.dataset.cerimoniaFinal === "1") return;
-    cena.dataset.cerimoniaEtapa = "3";
-    const ok = await trocar(() => {
-      cena.dataset.cerimoniaFinal = "1";
-      titulo.textContent = `${proximoNome} começou`;
-      texto.textContent = "Uma nova página está aberta. 🌱";
-      resumo.innerHTML = `<div class="fechamento-mes-proximo"><span>${String(proximoAno)}</span><strong>${proximoNome}</strong></div>`;
+    await trocarTela({
+      titulo: `${proximoNome} começou`,
+      texto: "Uma nova página está aberta. 🌱",
+      html: `<div class="fechamento-mes-proximo"><span>${String(proximoAno)}</span><strong>${proximoNome}</strong></div>`
     });
-    if (!ok) return;
     if (progresso) progresso.style.width = "100%";
     progresso?.parentElement?.classList.remove("is-processando");
-    await esperar(4300);
-    if (cena._fechamentoCerimoniaCancelada) return;
+    await esperar(3500);
     cena.classList.add("fechamento-mes-finalizando");
     document.body.classList.remove("fechamento-mes-ativo");
-    window.setTimeout(() => cena.classList.add("is-hidden"), 750);
+    window.setTimeout(() => {
+      cena.classList.add("is-hidden");
+      cena._cerimoniaAtiva = false;
+    }, 750);
   };
 
-  const executarCerimonia = async () => {
-    // Nunca usamos vários setTimeout concorrentes. Cada etapa espera a
-    // anterior terminar, evitando conteúdo de uma tela aparecer sem o título.
-    await esperar(1600);
-    if (cena._fechamentoCerimoniaCancelada) return;
+  cena._resolverFechamento = () => {
+    cena._fechamentoConfirmado = true;
+    cena.dataset.fechamentoConfirmado = "1";
+    cena._resolverFechamento = null;
+  };
 
-    // O servidor pode levar mais ou menos tempo. A cerimônia fica parada na
-    // abertura até a confirmação real, mas depois segue em uma única fila.
-    if (cena.dataset.fechamentoConfirmado !== "1") {
-      await new Promise((resolve) => { cena._liberarCerimonia = resolve; });
+  cena._cerimoniaPromise = (async () => {
+    // Abertura curta, sem transformar a tela em uma espera longa.
+    await esperar(900);
+
+    // Se o Apps Script ainda estiver trabalhando, a cerimônia aguarda aqui.
+    // Depois disso ela segue sempre na mesma ordem.
+    if (!cena._fechamentoConfirmado) {
+      await new Promise(resolve => {
+        cena._resolverFechamento = () => {
+          cena._fechamentoConfirmado = true;
+          cena.dataset.fechamentoConfirmado = "1";
+          cena._resolverFechamento = null;
+          resolve();
+        };
+      });
     }
-    if (cena._fechamentoCerimoniaCancelada || cena.dataset.fechamentoConfirmado !== "1") return;
-    await mostrarNumeros();
-    if (cena._fechamentoCerimoniaCancelada) return;
-    await mostrarCaixinhas();
-    if (cena._fechamentoCerimoniaCancelada) return;
-    await mostrarFinal();
-  };
 
-  cena._fechamentoCerimoniaPromise = executarCerimonia();
+    await mostrarNumeros();
+    await mostrarCaixinhas();
+    await mostrarFinal();
+  })().catch(err => {
+    console.error("Cerimônia de fechamento:", err);
+    // Nunca deixa uma exceção de uma etapa congelar a tela para sempre.
+    document.body.classList.remove("fechamento-mes-ativo");
+    cena.classList.add("fechamento-mes-finalizando");
+    window.setTimeout(() => {
+      cena.classList.add("is-hidden");
+      cena._cerimoniaAtiva = false;
+    }, 750);
+  });
+
   return cena;
 }
 
@@ -5576,15 +5584,14 @@ function concluirFechamentoMes(dados) {
 
   cena.dataset.aguardandoFechamento = "0";
   cena.dataset.fechamentoConfirmado = "1";
-  const progresso = cena.querySelector("#fechamentoMesProgresso");
-  progresso?.parentElement?.classList.remove("is-processando");
-  // A confirmação apenas libera a cerimônia. Não muda a etapa atual nem
-  // chama a tela final diretamente.
-  if (progresso) progresso.style.width = "18%";
-  if (typeof cena._liberarCerimonia === "function") {
-    const liberar = cena._liberarCerimonia;
-    cena._liberarCerimonia = null;
-    liberar();
+  cena._fechamentoConfirmado = true;
+  cena.querySelector("#fechamentoMesProgresso")?.parentElement?.classList.remove("is-processando");
+
+  // A confirmação apenas libera a fila. Ela jamais troca a tela por conta própria.
+  if (typeof cena._resolverFechamento === "function") {
+    const resolver = cena._resolverFechamento;
+    cena._resolverFechamento = null;
+    resolver();
   }
 }
 
