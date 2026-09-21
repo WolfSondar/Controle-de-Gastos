@@ -21,6 +21,8 @@ import {
   setDoc,
   runTransaction,
   writeBatch,
+  collection,
+  getDocs,
 } from "https://www.gstatic.com/firebasejs/12.19.0/firebase-firestore.js";
 
 const cfg = window.CAIXA_FIREBASE_CONFIG || {};
@@ -370,6 +372,106 @@ if (!cfg.apiKey || cfg.apiKey.includes("COLE_")) {
     };
   }
 
+  function backupsCollectionRef(uid) {
+    return collection(db, "users", uid, "backups");
+  }
+
+  function backupIdAgora() {
+    const d = new Date();
+    const p = n => String(n).padStart(2, "0");
+    return `${d.getFullYear()}-${p(d.getMonth()+1)}-${p(d.getDate())}_${p(d.getHours())}-${p(d.getMinutes())}-${p(d.getSeconds())}`;
+  }
+
+  async function criarBackupFirebase() {
+    await window.CAIXA_FIREBASE_READY;
+    if (!currentUser) throw new Error("Faça login antes de criar um backup.");
+    const uid = currentUser.uid;
+    const [dSnap, gSnap, hSnap, cSnap] = await Promise.all([
+      getDoc(perfilRef(uid, "davi")),
+      getDoc(perfilRef(uid, "gabriel")),
+      getDoc(historicoRef(uid)),
+      getDoc(configRef(uid)),
+    ]);
+
+    const id = backupIdAgora();
+    const backup = {
+      criadoEm: new Date().toISOString(),
+      tipo: "manual",
+      versao: 1,
+      davi: dSnap.exists() ? dSnap.data() : {},
+      gabriel: gSnap.exists() ? gSnap.data() : {},
+      historico: hSnap.exists() ? hSnap.data() : { anos: [] },
+      config: cSnap.exists() ? cSnap.data() : {},
+    };
+
+    const ref = doc(db, "users", uid, "backups", id);
+    await setDoc(ref, backup, { merge: false });
+
+    return {
+      ok: true,
+      id,
+      path: `users/${uid}/backups/${id}`,
+      criadoEm: backup.criadoEm,
+      resumo: resumoFirestoreDados(backup),
+    };
+  }
+
+  async function listarBackupsFirebase() {
+    await window.CAIXA_FIREBASE_READY;
+    if (!currentUser) throw new Error("Faça login antes de listar os backups.");
+    const uid = currentUser.uid;
+    const snap = await getDocs(backupsCollectionRef(uid));
+    const backups = snap.docs.map(s => {
+      const d = s.data() || {};
+      return {
+        id: s.id,
+        criadoEm: d.criadoEm || null,
+        tipo: d.tipo || "manual",
+        versao: d.versao || 1,
+        path: `users/${uid}/backups/${s.id}`,
+        resumo: resumoFirestoreDados(d),
+      };
+    });
+    backups.sort((a, b) => String(b.criadoEm || b.id).localeCompare(String(a.criadoEm || a.id)));
+    return { ok: true, backups, total: backups.length };
+  }
+
+  async function restaurarBackupFirebase(id) {
+    await window.CAIXA_FIREBASE_READY;
+    if (!currentUser) throw new Error("Faça login antes de restaurar um backup.");
+    const uid = currentUser.uid;
+    const backupId = String(id || "").trim();
+    if (!backupId) throw new Error("Informe o ID do backup que deseja restaurar.");
+
+    const backupRef = doc(db, "users", uid, "backups", backupId);
+    const backupSnap = await getDoc(backupRef);
+    if (!backupSnap.exists()) throw new Error(`Backup não encontrado: ${backupId}`);
+    const backup = backupSnap.data() || {};
+
+    const davi = backup.davi || {};
+    const gabriel = backup.gabriel || {};
+    const historico = backup.historico || { anos: [] };
+    const config = backup.config || {};
+
+    // A restauração substitui os quatro documentos principais pelo estado salvo
+    // no backup, sem apagar o próprio backup. Assim ele pode ser reutilizado.
+    const batch = writeBatch(db);
+    batch.set(perfilRef(uid, "davi"), davi, { merge: false });
+    batch.set(perfilRef(uid, "gabriel"), gabriel, { merge: false });
+    batch.set(historicoRef(uid), historico, { merge: false });
+    batch.set(configRef(uid), config, { merge: false });
+    await batch.commit();
+
+    return {
+      ok: true,
+      id: backupId,
+      path: `users/${uid}/backups/${backupId}`,
+      criadoEm: backup.criadoEm || null,
+      resumo: resumoFirestoreDados(backup),
+      restauradoEm: new Date().toISOString(),
+    };
+  }
+
   async function importarDados({fonte,historico,iaConfig,resumoMigracao}) {
     await window.CAIXA_FIREBASE_READY;
     if(!currentUser) throw new Error("Faça login antes de importar os dados.");
@@ -436,7 +538,7 @@ if (!cfg.apiKey || cfg.apiKey.includes("COLE_")) {
     await setDoc(estadoRef, estadoFinal, { merge:false });
     return {ok:true, jaMigrado:false, backupPath:estadoFinal.backupPath, resumo:verificado.resumo};
   }
-  window.CAIXA_FIREBASE={app,auth,db,request,get,getIAConfig,loginGoogle,signOut,importarDados,verificarMigracaoFirebase,testarFirestore,apagarTesteFirestore};
+  window.CAIXA_FIREBASE={app,auth,db,request,get,getIAConfig,loginGoogle,signOut,importarDados,verificarMigracaoFirebase,testarFirestore,apagarTesteFirestore,criarBackupFirebase,listarBackupsFirebase,restaurarBackupFirebase};
   window.CAIXA_FIREBASE_CONFIG_STATUS = { ok: true, projectId: cfg.projectId };
   function montarLogin() {
     if (document.getElementById("caixaFirebaseLogin")) return;
