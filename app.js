@@ -5451,9 +5451,20 @@ function prepararDadosFechamentoMes(mes, ano) {
     return maior;
   }, null);
 
+  // Pendências da cerimônia pertencem ao mês que está sendo fechado.
+  // Lançamentos futuros (mês seguinte ou além) já estão preparados para o
+  // próximo período e não devem aparecer como pendência deste fechamento.
+  const ehFuturoDoMesFechamento = (item) => {
+    const m = /^(\d{4})-(\d{2})/.exec(String(item?.data || ""));
+    if (!m) return false;
+    const anoItem = Number(m[1]);
+    const mesItem = Number(m[2]);
+    return anoItem > Number(ano) || (anoItem === Number(ano) && mesItem > Number(mes));
+  };
+
   const pendencias = [
-    ...fixosLista.filter(g => g && g.pago !== true),
-    ...variaveisLista.filter(g => g && g.pago !== true && !ehLancamentoDeCaixinha(g.nome))
+    ...fixosLista.filter(g => g && g.pago !== true && !ehFuturoDoMesFechamento(g)),
+    ...variaveisLista.filter(g => g && g.pago !== true && !ehLancamentoDeCaixinha(g.nome) && !ehFuturoDoMesFechamento(g))
   ];
 
   const categorias = {};
@@ -5647,14 +5658,14 @@ function mostrarFechamentoMes(dados, { resultadoPromessa = null } = {}) {
       const d = dados.comparacao.diferenca;
       const abs = Math.abs(d);
       const frase = d < 0 ? `Você gastou ${fmt(abs)} a menos.` : d > 0 ? `Seus gastos foram ${fmt(abs)} maiores.` : "Seus gastos ficaram no mesmo nível.";
-      await trocarTela({ titulo: `Em relação a ${escapeHtml(dados.comparacao.nome)}…`, texto: frase, html: `<div class="fechamento-mes-comparacao"><strong>${fmt(abs)}</strong><span>${d < 0 ? "a menos" : d > 0 ? "a mais" : "de diferença"}</span></div>` });
+      await trocarTela({ titulo: `Em relação a ${escapeHtml(dados.comparacao.nome)}…`, texto: frase, html: `<div class="fechamento-mes-comparacao fechamento-mes-comparacao-simples"><span>${d < 0 ? "↓" : d > 0 ? "↑" : "="}</span><strong>${d < 0 ? "Você gastou menos" : d > 0 ? "Você gastou mais" : "Seus gastos ficaram iguais"}</strong></div>` });
       await esperar(6000);
     });
   }
 
   if (dados.maiorCaixinha && dados.maiorCaixinha.valor > 0) {
     etapas.push(async () => {
-      await trocarTela({ titulo: "Seu maior movimento de construção foi…", texto: "", html: `<div class="fechamento-mes-meta"><span>↓</span><p>✦ <strong>${escapeHtml(dados.maiorCaixinha.nome)}</strong></p><strong class="fechamento-mes-destaque-valor">${fmt(dados.maiorCaixinha.valor)} guardados</strong></div>` });
+      await trocarTela({ titulo: "Qual caixinha recebeu mais este mês?", texto: "Seu maior aporte foi para esta caixinha.", html: `<div class="fechamento-mes-meta"><span>↓</span><p>✦ <strong>${escapeHtml(dados.maiorCaixinha.nome)}</strong></p><strong class="fechamento-mes-destaque-valor">${fmt(dados.maiorCaixinha.valor)} guardados</strong></div>` });
       await esperar(4500);
     });
   }
@@ -5712,7 +5723,7 @@ function mostrarFechamentoMes(dados, { resultadoPromessa = null } = {}) {
     });
   } else {
     etapas.push(async () => {
-      await trocarTela({ titulo: "Antes de fechar o livro…", texto: "", html: `<div class="fechamento-mes-meta"><span>!</span><p>Ainda ficaram <strong>${dados.pendencias}</strong> compromissos pendentes.</p></div>` });
+      await trocarTela({ titulo: "Antes de fechar o livro…", texto: "Ainda há compromissos deste mês em aberto.", html: `<div class="fechamento-mes-meta"><span>!</span><p><strong>${dados.pendencias}</strong> compromisso${dados.pendencias === 1 ? "" : "s"} deste mês ainda está${dados.pendencias === 1 ? "" : "ão"} pendente${dados.pendencias === 1 ? "" : "s"}.</p></div>` });
       await esperar(5200);
     });
   }

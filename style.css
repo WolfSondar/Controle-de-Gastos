@@ -8347,3 +8347,26 @@ body.fechamento-mes-ativo { overflow: hidden !important; }
   .fechamento-mes-suspense-linha { font-size: 7px; }
   .fechamento-mes-categoria-revelacao { min-height: 205px; }
 }
+
+/* v26 — ajustes de narrativa dos cards da cerimônia */
+.fechamento-mes-comparacao-simples {
+  display: grid;
+  grid-template-columns: auto 1fr;
+  align-items: center;
+  gap: 14px;
+  text-align: left;
+}
+.fechamento-mes-comparacao-simples > span {
+  width: 46px;
+  height: 46px;
+  display: grid;
+  place-items: center;
+  border-radius: 14px;
+  border: 1px solid color-mix(in srgb, currentColor 18%, transparent);
+  font-size: 1.35rem;
+  font-weight: 800;
+}
+.fechamento-mes-comparacao-simples > strong {
+  font-size: clamp(1.15rem, 2vw, 1.45rem);
+  line-height: 1.15;
+}
