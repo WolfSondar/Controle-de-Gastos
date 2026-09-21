@@ -5672,7 +5672,7 @@ function mostrarFechamentoMes(dados, { resultadoPromessa = null } = {}) {
 
   if (dados.guardado > 0) {
     etapas.push(async () => {
-      await trocarTela({ titulo: "E quanto você construiu este mês?", texto: "Guardar também é avançar.", html: `<div class="fechamento-mes-proximo"><span>${fmt(dados.guardado)}</span><strong>destinados às suas caixinhas</strong></div>` });
+      await trocarTela({ titulo: "E quanto você guardou este mês?", texto: "Esse valor foi separado para suas caixinhas.", html: `<div class="fechamento-mes-proximo"><span>${fmt(dados.guardado)}</span><strong>destinados às suas caixinhas</strong></div>` });
       await esperar(6000);
     });
   }
@@ -5775,7 +5775,15 @@ function mostrarFechamentoMes(dados, { resultadoPromessa = null } = {}) {
       let resultado = null;
       try {
         const promessa = resultadoPromessa || cena._resultadoPromessa;
-        resultado = promessa ? await promessa : null;
+        if (promessa) {
+          // O Apps Script pode demorar ou perder a resposta mesmo depois de
+          // concluir a gravação. A cerimônia nunca deve ficar presa na última
+          // etapa esperando indefinidamente.
+          resultado = await Promise.race([
+            promessa,
+            new Promise(resolve => window.setTimeout(() => resolve(null), 8000))
+          ]);
+        }
       } catch (_) {
         resultado = null;
       }
