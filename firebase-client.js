@@ -219,7 +219,7 @@ if (!cfg.apiKey || cfg.apiKey.includes("COLE_")) {
     await deleteDoc(ref);
     return { ok: true };
   }
-  async function importarDados({fonte,historico,iaConfig}) {
+  async function importarDados({fonte,historico,iaConfig,resumoMigracao}) {
     await window.CAIXA_FIREBASE_READY;
     if(!currentUser) throw new Error("Faça login antes de importar os dados.");
     const uid=currentUser.uid;
@@ -233,13 +233,26 @@ if (!cfg.apiKey || cfg.apiKey.includes("COLE_")) {
       anoGabriel:Number(g.anoAtual)||Number(historico?.configGabriel?.anoAtual)||new Date().getFullYear(),
       iaConfig:iaConfig||null,
     };
+    const backupRef = doc(db, "users", uid, "migracoes", "planilha-antes-da-migracao");
+    const backup = {
+      criadoEm: new Date().toISOString(),
+      origem: "Google Sheets via Apps Script",
+      resumo: resumoMigracao || null,
+      davi: d,
+      gabriel: g,
+      historico: { anos: Array.isArray(historico?.anos) ? historico.anos : [] },
+      config: config,
+    };
+    await setDoc(backupRef, backup, { merge: false });
     await Promise.all([
-      setDoc(perfilRef(uid,"davi"),{...d,ok:undefined},{merge:false}),
-      setDoc(perfilRef(uid,"gabriel"),{...g,ok:undefined},{merge:false}),
+      setDoc(perfilRef(uid,"davi"),{...d},{merge:false}),
+      setDoc(perfilRef(uid,"gabriel"),{...g},{merge:false}),
       setDoc(configRef(uid),config,{merge:true}),
       setDoc(historicoRef(uid),{anos:Array.isArray(historico?.anos)?historico.anos:[]},{merge:true}),
     ]);
-    return {ok:true};
+    const [dCheck,gCheck,hCheck] = await Promise.all([getDoc(perfilRef(uid,"davi")),getDoc(perfilRef(uid,"gabriel")),getDoc(historicoRef(uid))]);
+    if (!dCheck.exists() || !gCheck.exists() || !hCheck.exists()) throw new Error("A migração terminou sem confirmar todos os documentos no Firestore.");
+    return {ok:true, backupPath:`users/${uid}/migracoes/planilha-antes-da-migracao`, resumo:resumoMigracao||null};
   }
   window.CAIXA_FIREBASE={app,auth,db,request,get,loginGoogle,signOut,importarDados,testarFirestore,apagarTesteFirestore};
   window.CAIXA_FIREBASE_CONFIG_STATUS = { ok: true, projectId: cfg.projectId };

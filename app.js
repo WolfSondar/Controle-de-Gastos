@@ -6,7 +6,7 @@
 // Compatibilidade temporária com as rotinas antigas do Apps Script.
 // O banco principal do Caixa agora é o Firebase; API_URL só será usada
 // pelas partes legadas que ainda não foram migradas (principalmente IA).
-const API_URL = window.CAIXA_API_URL || window.API_URL || "";
+const API_URL = window.CAIXA_API_URL || window.API_URL || localStorage.getItem("caixaLegacyApiUrl") || "";
 
 const PESSOA_LABEL = { davi: "Davi", gabriel: "Gabriel", ambos: "Juntos" };
 const COLAPSO_STORAGE_KEY = "caixaFormsColapsados";
@@ -758,23 +758,62 @@ async function fetchApiGet(params = {}) {
 }
 
 
-async function migrarPlanilhaParaFirebase() {
-  if (!window.CAIXA_FIREBASE || typeof window.CAIXA_FIREBASE.importarDados !== "function") {
-    throw new Error("Firebase não está configurado.");
+function configurarApiLegado(url) {
+  const valor = String(url || "").trim();
+  if (!valor) { localStorage.removeItem("caixaLegacyApiUrl"); return { ok: true, url: "" }; }
+  if (!/^https:\/\/script\.google\.com\/macros\/s\/[^\s]+\/exec(?:\?.*)?$/i.test(valor)) {
+    throw new Error("Use a URL /exec do Web App do Apps Script (https://script.google.com/macros/s/.../exec).");
   }
+  localStorage.setItem("caixaLegacyApiUrl", valor);
+  return { ok: true, url: valor };
+}
+window.CAIXA_CONFIGURAR_API_LEGADO = configurarApiLegado;
+
+async function lerFonteLegadaParaMigracao() {
+  if (!API_URL) throw new Error('API legada não configurada. Primeiro execute CAIXA_CONFIGURAR_API_LEGADO("URL_DO_SEU_WEB_APP").');
   const fonte = {};
   for (const pessoa of ["davi", "gabriel"]) {
     const r = await fetchApiGetLegacy({ pessoa });
+    if (!r.ok) throw new Error(`A API legada respondeu HTTP ${r.status} ao ler ${pessoa}.`);
     const d = await r.json();
     if (!d || d.ok === false) throw new Error(d?.error || `Não consegui ler ${pessoa}.`);
     fonte[pessoa] = d;
   }
   const histRes = await fetchApiGetLegacy({ pessoa: "historico" });
+  if (!histRes.ok) throw new Error(`A API legada respondeu HTTP ${histRes.status} ao ler o histórico.`);
   const historico = await histRes.json();
   if (!historico || historico.ok === false) throw new Error(historico?.error || "Não consegui ler o histórico.");
   const iaRes = await fetchApiGetLegacy({ pessoa: "iaConfig" }).catch(() => null);
-  const iaConfig = iaRes ? await iaRes.json().catch(() => null) : null;
-  return window.CAIXA_FIREBASE.importarDados({ fonte, historico, iaConfig });
+  const iaConfig = iaRes?.ok ? await iaRes.json().catch(() => null) : null;
+  return { fonte, historico, iaConfig };
+}
+
+function resumoMigracaoFonte(fonte, historico) {
+  const pessoa = (d = {}) => ({
+    ganhos: Array.isArray(d.ganhos) ? d.ganhos.length : 0,
+    gastosFixos: Array.isArray(d.gastosFixos) ? d.gastosFixos.length : 0,
+    gastosVariaveis: Array.isArray(d.gastosVariaveis) ? d.gastosVariaveis.length : 0,
+    caixinhas: Array.isArray(d.caixinhas) ? d.caixinhas.length : 0,
+    mesAtual: d.mesAtual,
+    anoAtual: d.anoAtual,
+  });
+  return { davi: pessoa(fonte?.davi), gabriel: pessoa(fonte?.gabriel), anosHistorico: Array.isArray(historico?.anos) ? historico.anos.length : 0 };
+}
+
+async function verificarFontePlanilhaFirebase() {
+  const { fonte, historico } = await lerFonteLegadaParaMigracao();
+  return { ok: true, origem: "Google Sheets via Apps Script", resumo: resumoMigracaoFonte(fonte, historico) };
+}
+window.CAIXA_VERIFICAR_FONTE_MIGRACAO = verificarFontePlanilhaFirebase;
+
+async function migrarPlanilhaParaFirebase() {
+  if (!window.CAIXA_FIREBASE || typeof window.CAIXA_FIREBASE.importarDados !== "function") {
+    throw new Error("Firebase não está configurado.");
+  }
+  const { fonte, historico, iaConfig } = await lerFonteLegadaParaMigracao();
+  const resumo = resumoMigracaoFonte(fonte, historico);
+  const resultado = await window.CAIXA_FIREBASE.importarDados({ fonte, historico, iaConfig, resumoMigracao: resumo });
+  return { ...resultado, resumo };
 }
 window.CAIXA_MIGRAR_PLANILHA_FIREBASE = migrarPlanilhaParaFirebase;
 
