@@ -27,9 +27,16 @@ Esta versão prepara o Caixa para trocar o Google Sheets como banco principal po
 
 ## Migração da planilha atual
 
+A URL legada do Web App do Apps Script já está configurada nesta versão para a fonte de migração.
+
+
 NÃO apague a planilha antiga antes de conferir a migração.
 
-Depois de configurar o Firebase e entrar no Caixa, abra o DevTools do navegador (F12 → Console) e execute:
+Depois de configurar o Firebase e entrar no Caixa, abra o DevTools do navegador (F12 → Console) e execute primeiro:
+
+    await window.CAIXA_VERIFICAR_FONTE_MIGRACAO()
+
+Confira o resumo retornado. Se os números estiverem corretos, execute:
 
     await window.CAIXA_MIGRAR_PLANILHA_FIREBASE()
 
@@ -51,3 +58,12 @@ Na segunda etapa podemos migrar essas chamadas para Cloud Functions/Cloud Run e 
     users/{UID}/historico/principal
 
 Cada perfil mantém os mesmos arrays que o Caixa já usa (`ganhos`, `gastosFixos`, `gastosVariaveis`, `caixinhas`), reduzindo a quantidade de alterações necessárias no restante do aplicativo.
+
+
+## Migração v34
+
+A URL do Web App legado do Apps Script foi configurada como fallback padrão para a etapa de migração. Não é necessário executar `CAIXA_CONFIGURAR_API_LEGADO()` antes de verificar a fonte.
+
+Verificação: `await CAIXA_VERIFICAR_FONTE_MIGRACAO()`
+
+A função agora também registra o resultado ou o erro no console. **Não execute a migração até conferir o resumo retornado.**

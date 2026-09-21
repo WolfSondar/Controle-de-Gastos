@@ -6,7 +6,9 @@
 // Compatibilidade temporária com as rotinas antigas do Apps Script.
 // O banco principal do Caixa agora é o Firebase; API_URL só será usada
 // pelas partes legadas que ainda não foram migradas (principalmente IA).
-const API_URL = window.CAIXA_API_URL || window.API_URL || localStorage.getItem("caixaLegacyApiUrl") || "";
+const CAIXA_LEGACY_API_DEFAULT = "https://script.google.com/macros/s/AKfycbxgbGSwFX0DnM7GUf7uF4n2MxLsVXtH2obphoMn3YhYkQtoYEmZ0JkzV2bzT7-VSrConQ/exec";
+const API_URL = window.CAIXA_API_URL || window.API_URL || localStorage.getItem("caixaLegacyApiUrl") || CAIXA_LEGACY_API_DEFAULT;
+try { if (!localStorage.getItem("caixaLegacyApiUrl")) localStorage.setItem("caixaLegacyApiUrl", CAIXA_LEGACY_API_DEFAULT); } catch (_err) {}
 
 const PESSOA_LABEL = { davi: "Davi", gabriel: "Gabriel", ambos: "Juntos" };
 const COLAPSO_STORAGE_KEY = "caixaFormsColapsados";
@@ -760,7 +762,7 @@ async function fetchApiGet(params = {}) {
 
 function configurarApiLegado(url) {
   const valor = String(url || "").trim();
-  if (!valor) { localStorage.removeItem("caixaLegacyApiUrl"); return { ok: true, url: "" }; }
+  if (!valor) { localStorage.setItem("caixaLegacyApiUrl", CAIXA_LEGACY_API_DEFAULT); return { ok: true, url: CAIXA_LEGACY_API_DEFAULT }; }
   if (!/^https:\/\/script\.google\.com\/macros\/s\/[^\s]+\/exec(?:\?.*)?$/i.test(valor)) {
     throw new Error("Use a URL /exec do Web App do Apps Script (https://script.google.com/macros/s/.../exec).");
   }
@@ -801,8 +803,16 @@ function resumoMigracaoFonte(fonte, historico) {
 }
 
 async function verificarFontePlanilhaFirebase() {
-  const { fonte, historico } = await lerFonteLegadaParaMigracao();
-  return { ok: true, origem: "Google Sheets via Apps Script", resumo: resumoMigracaoFonte(fonte, historico) };
+  try {
+    const { fonte, historico } = await lerFonteLegadaParaMigracao();
+    const resultado = { ok: true, origem: "Google Sheets via Apps Script", url: API_URL, resumo: resumoMigracaoFonte(fonte, historico) };
+    console.info("CAIXA — fonte legada verificada:", resultado);
+    return resultado;
+  } catch (err) {
+    const mensagem = err?.message || String(err);
+    console.error("CAIXA — não foi possível verificar a fonte legada:", err);
+    return { ok: false, origem: "Google Sheets via Apps Script", url: API_URL, error: mensagem };
+  }
 }
 window.CAIXA_VERIFICAR_FONTE_MIGRACAO = verificarFontePlanilhaFirebase;
 
