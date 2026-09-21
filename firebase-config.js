@@ -1,10 +1,8 @@
-// Cole aqui o objeto firebaseConfig fornecido pelo Firebase Console.
-// Firebase Console > Configurações do projeto > Seus apps > Aplicativo da Web.
 window.CAIXA_FIREBASE_CONFIG = {
-  apiKey: "COLE_AQUI_API_KEY",
-  authDomain: "COLE_AQUI_AUTH_DOMAIN",
-  projectId: "COLE_AQUI_PROJECT_ID",
-  storageBucket: "COLE_AQUI_STORAGE_BUCKET",
-  messagingSenderId: "COLE_AQUI_MESSAGING_SENDER_ID",
-  appId: "COLE_AQUI_APP_ID"
+  apiKey: "AIzaSyAPHew-LapRaCOta8m1-FNqV5ZSTmbAlww",
+  authDomain: "caixa-controle-financeir-6c7bd.firebaseapp.com",
+  projectId: "caixa-controle-financeir-6c7bd",
+  storageBucket: "caixa-controle-financeir-6c7bd.firebasestorage.app",
+  messagingSenderId: "1039928111098",
+  appId: "1:1039928111098:web:14143543a6607e7182fe43"
 };
