@@ -1,27 +1,19 @@
-CAIXA — FECHAMENTO INDIVIDUAL v22
+CAIXA — FECHAMENTO INDIVIDUAL v24
 
-Cerimônia de fechamento reconstruída como uma sequência de acontecimentos reais do mês.
+Correção e diagnóstico do erro 404 do Apps Script.
 
-- Davi e Gabriel fecham separadamente; Juntos não fecha.
-- Mês/ano atual permanecem separados na configuração (P/Q).
-- A cerimônia não depende de cookie/localStorage para aparecer.
-- A confirmação do servidor apenas libera a sequência; não pula etapas.
-- Abertura curta: “Só um instante”.
-- “Olha o que você construiu” mostra os números e aguarda a animação.
-- Em seguida são exibidos, quando existirem: última parcela paga, mês mais leve,
-  meta atingida, categoria com suspense, comparação com mês anterior, maior aporte,
-  dinheiro construído, rendimento, caixinha que mais cresceu, conquista silenciosa,
-  maior movimento, quantidade de lançamentos, pendências e virada do ano.
-- Eventos inexistentes são pulados, sem telas vazias.
-- A cerimônia termina com uma frase sem números e uma transição suave para o próximo mês.
+ANÁLISE:
+- A v23 não alterou Code.gs nem a URL da API em relação à v22.
+- Portanto, o 404 em script.googleusercontent.com/macros/echo não foi causado pela mudança visual da cerimônia.
+- Esse 404 é gerado pelo Web App do Google Apps Script quando o endpoint/implantação usado pela API_URL não consegue atender a requisição.
 
+ALTERAÇÕES v24:
+- GETs da API agora validam HTTP status antes de tentar ler JSON.
+- Erros 404 recebem diagnóstico específico no app: verificar implantação do Web App e API_URL.
+- A configuração opcional da IA não interfere na inicialização do app se o endpoint estiver indisponível.
+- Nenhuma chamada nova ao Apps Script foi criada pela cerimônia.
+- Code.gs foi mantido igual à v23 para não mascarar o problema de implantação.
+- A cerimônia da v23 e o fechamento individual Davi/Gabriel foram preservados.
 
-Correção v22 — arquitetura do fechamento:
-- Salvamento no Apps Script e cerimônia visual agora rodam em paralelo.
-- A cerimônia não fica esperando o retorno do servidor para sair de “Só um instante”.
-- O resultado do salvamento é consultado somente na última tela.
-- Sucesso: a última tela usa a frase final variável do mês.
-- Falha: a última tela informa que não foi possível fechar o mês agora e que nada foi alterado.
-- As etapas narrativas continuam sendo selecionadas conforme os acontecimentos do mês.
-
-V23 - refinamento visual da cerimônia e remoção do "maior movimento" genérico. A cerimônia agora destaca o maior gasto pago, excluindo ganhos/salários e lançamentos de caixinha.
+IMPORTANTE:
+Se a mensagem 404 continuar, o próximo ponto a conferir é a implantação do Web App no Apps Script. A API_URL deve apontar para a URL /exec da implantação ativa. O endereço script.googleusercontent.com/macros/echo é um redirecionamento interno do Google e não deve ser usado como API_URL.

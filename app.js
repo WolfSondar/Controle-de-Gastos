@@ -720,7 +720,26 @@ function urlApi(params = {}) {
 }
 
 async function fetchApiGet(params = {}) {
-  return fetch(urlApi(params), { method: "GET", cache: "no-store" });
+  const url = urlApi(params);
+  if (!url) throw new Error("API_URL não configurada");
+  try {
+    const res = await fetch(url, { method: "GET", cache: "no-store" });
+    if (!res.ok) {
+      const err = new Error(`HTTP ${res.status}`);
+      err.status = res.status;
+      err.url = url;
+      throw err;
+    }
+    return res;
+  } catch (err) {
+    // Não tenta transformar um 404 do Web App em outro request inútil.
+    // Esse status normalmente significa implantação/endereço do Apps Script,
+    // não ausência de dados na planilha.
+    if (Number(err?.status) === 404) {
+      err.apiEndpointMissing = true;
+    }
+    throw err;
+  }
 }
 
 
@@ -946,7 +965,11 @@ async function carregarDados() {
     // (sem ícone de erro em vermelho, que é pra falha de verdade).
     setSyncState(ehErroDeRede(err) || !navigator.onLine ? "offline" : "error");
     if (!cache) {
-      showToast("Não consegui carregar a planilha. Confira a API_URL.");
+      if (err?.apiEndpointMissing || Number(err?.status) === 404) {
+        showToast("A API do Apps Script respondeu 404. Verifique a implantação do Web App e a API_URL.");
+      } else {
+        showToast("Não consegui carregar a planilha. Confira a API_URL.");
+      }
       renderAll();
     } else {
       showToast("Não consegui atualizar agora. Mostrando o último dado salvo.");
@@ -5886,7 +5909,7 @@ posicionarIndicadorAba();
 // feitas pelo usuário continuam sendo enviadas normalmente via POST.
 carregarDados();
 carregarHistorico();
-carregarConfigIA();
+void carregarConfigIA().catch(() => null);
 setTimeout(mostrarDicaAcoesConjuntoSeNecessario, 1200);
 
 // Listener do novo Seletor de Ano no Histórico
