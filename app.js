@@ -5441,11 +5441,14 @@ function prepararDadosFechamentoMes(mes, ano) {
     });
   const categoriaPrincipal = Object.entries(categorias).sort((a,b) => b[1] - a[1])[0];
 
-  const maiorMovimento = [
-    ...ganhosLista.filter(g => g && g.recebido === true).map(g => ({ nome: String(g.nome || "Ganho"), valor: Number(g.valor)||0, tipo: "ganho" })),
-    ...fixosLista.filter(g => g && g.pago === true).map(g => ({ nome: String(g.nome || "Gasto"), valor: Number(g.valor)||0, tipo: "gasto" })),
-    ...variaveisLista.filter(g => g && g.pago === true && !ehLancamentoDeCaixinha(g.nome)).map(g => ({ nome: String(g.nome || "Gasto"), valor: Number(g.valor)||0, tipo: "gasto" }))
-  ].sort((a,b) => b.valor-a.valor)[0] || null;
+  // Não usamos mais o "maior movimento" geral: salário/benefício quase sempre
+  // venceria a disputa e isso não conta uma história interessante do mês.
+  // A cerimônia destaca o maior gasto efetivamente pago, excluindo lançamentos
+  // de caixinha, para revelar um movimento que o usuário realmente pode analisar.
+  const maiorGasto = [
+    ...fixosLista.filter(g => g && g.pago === true).map(g => ({ nome: String(g.nome || "Gasto"), valor: Number(g.valor)||0, tipo: "fixo" })),
+    ...variaveisLista.filter(g => g && g.pago === true && !ehLancamentoDeCaixinha(g.nome)).map(g => ({ nome: String(g.nome || "Gasto"), valor: Number(g.valor)||0, tipo: "variavel" }))
+  ].filter(g => g.valor > 0).sort((a,b) => b.valor-a.valor)[0] || null;
 
   const comparacao = (() => {
     const anos = Array.isArray(state.historico?.anos) ? state.historico.anos : [];
@@ -5481,7 +5484,7 @@ function prepararDadosFechamentoMes(mes, ano) {
     maiorCaixinha,
     categoriaPrincipal: categoriaPrincipal ? { nome: categoriaPrincipal[0], valor: categoriaPrincipal[1] } : null,
     comparacao,
-    maiorMovimento,
+    maiorGasto,
     crescimentoCaixinha,
     rendimento,
     caixinhas,
@@ -5647,10 +5650,14 @@ function mostrarFechamentoMes(dados, { resultadoPromessa = null } = {}) {
     });
   }
 
-  if (dados.maiorMovimento && dados.maiorMovimento.valor > 0) {
+  if (dados.maiorGasto && dados.maiorGasto.valor > 0) {
     etapas.push(async () => {
-      await trocarTela({ titulo: "O maior movimento do mês foi…", texto: "", html: `<div class="fechamento-mes-categoria"><span>${dados.maiorMovimento.tipo === "ganho" ? "+" : "−"}</span><strong>${escapeHtml(dados.maiorMovimento.nome)}</strong><b>${fmt(dados.maiorMovimento.valor)}</b></div>` });
-      await esperar(3000);
+      await trocarTela({
+        titulo: "E qual foi o maior gasto do mês?",
+        texto: "Entre os gastos pagos, este foi o movimento que mais pesou no mês.",
+        html: `<div class="fechamento-mes-categoria fechamento-mes-gasto-destaque"><span>−</span><strong>${escapeHtml(dados.maiorGasto.nome)}</strong><b>${fmt(dados.maiorGasto.valor)}</b><small>${dados.maiorGasto.tipo === "fixo" ? "Gasto fixo" : "Gasto variável"}</small></div>`
+      });
+      await esperar(3300);
     });
   }
 

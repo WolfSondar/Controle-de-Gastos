@@ -23,3 +23,5 @@ Correção v22 — arquitetura do fechamento:
 - Sucesso: a última tela usa a frase final variável do mês.
 - Falha: a última tela informa que não foi possível fechar o mês agora e que nada foi alterado.
 - As etapas narrativas continuam sendo selecionadas conforme os acontecimentos do mês.
+
+V23 - refinamento visual da cerimônia e remoção do "maior movimento" genérico. A cerimônia agora destaca o maior gasto pago, excluindo ganhos/salários e lançamentos de caixinha.

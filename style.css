@@ -7965,3 +7965,253 @@ body.fechamento-mes-ativo { overflow: hidden !important; }
   .fechamento-mes-etapa,
   .fechamento-mes-progresso span { transition: none !important; }
 }
+
+/* ==========================================================
+   V22 — REFINO VISUAL DA CERIMÔNIA
+   Mais editorial, menos "dashboard": o fechamento deve parecer
+   uma página especial do livro-caixa.
+   ========================================================== */
+.fechamento-mes-cena {
+  background:
+    radial-gradient(ellipse at 50% 18%, rgba(217,174,97,.14), transparent 34%),
+    radial-gradient(circle at 15% 85%, rgba(83,132,107,.10), transparent 30%),
+    linear-gradient(180deg, #071711 0%, #0d241c 52%, #091a14 100%);
+}
+.fechamento-mes-cena::after {
+  content: "";
+  position: absolute;
+  inset: 18px;
+  border: 1px solid rgba(217,174,97,.09);
+  border-radius: 28px;
+  pointer-events: none;
+}
+.fechamento-mes-card {
+  width: min(100%, 520px);
+  min-height: 410px;
+  padding: 48px 38px 34px;
+  border-radius: 28px;
+  border-color: rgba(217,174,97,.18);
+  background:
+    linear-gradient(160deg, rgba(255,250,237,.095), rgba(255,255,255,.025) 42%, rgba(217,174,97,.045)),
+    rgba(10,29,22,.82);
+  box-shadow:
+    0 38px 100px rgba(0,0,0,.52),
+    0 12px 40px rgba(4,16,11,.45),
+    inset 0 1px 0 rgba(255,255,255,.09),
+    inset 0 -1px 0 rgba(217,174,97,.07);
+}
+.fechamento-mes-orb {
+  width: 74px;
+  height: 74px;
+  top: -37px;
+  box-shadow: 0 0 0 9px rgba(217,174,97,.07), 0 15px 42px rgba(217,174,97,.32);
+}
+.fechamento-mes-kicker {
+  margin-bottom: 12px;
+  font-size: 9px;
+  letter-spacing: .24em;
+  color: rgba(244,210,139,.78);
+}
+.fechamento-mes-etapa h2 {
+  max-width: 430px;
+  font-size: clamp(29px, 5vw, 38px);
+  line-height: 1.02;
+  text-wrap: balance;
+  text-shadow: 0 2px 24px rgba(0,0,0,.22);
+}
+.fechamento-mes-etapa p {
+  max-width: 390px;
+  margin-top: 14px;
+  font-size: 12.5px;
+  line-height: 1.65;
+  color: rgba(248,242,229,.60);
+}
+.fechamento-mes-resumo {
+  min-height: 150px;
+  margin-top: 9px;
+}
+.fechamento-mes-metricas {
+  gap: 10px;
+}
+.fechamento-mes-metrica {
+  padding: 16px 10px 14px;
+  border-radius: 15px;
+  border-color: rgba(255,255,255,.075);
+  background: linear-gradient(180deg, rgba(255,255,255,.045), rgba(255,255,255,.018));
+  box-shadow: inset 0 1px 0 rgba(255,255,255,.035);
+}
+.fechamento-mes-metrica.destaque {
+  border-color: rgba(217,174,97,.28);
+  background: linear-gradient(180deg, rgba(217,174,97,.105), rgba(217,174,97,.035));
+}
+.fechamento-mes-metrica span,
+.fechamento-mes-saldo span {
+  font-size: 9px;
+  letter-spacing: .11em;
+}
+.fechamento-mes-metrica strong {
+  margin-top: 3px;
+  font-size: clamp(13px, 3.3vw, 17px);
+}
+.fechamento-mes-saldo {
+  margin-top: 11px;
+  padding: 13px 15px;
+  border: 1px solid rgba(255,255,255,.06);
+  border-radius: 14px;
+  background: rgba(255,255,255,.025);
+}
+.fechamento-mes-meta,
+.fechamento-mes-categoria,
+.fechamento-mes-proximo,
+.fechamento-mes-comparacao,
+.fechamento-mes-final {
+  animation: fechamentoConteudoEntrar .6s cubic-bezier(.16,1,.3,1) both;
+}
+@keyframes fechamentoConteudoEntrar {
+  from { opacity: 0; transform: translateY(10px) scale(.985); }
+  to { opacity: 1; transform: translateY(0) scale(1); }
+}
+.fechamento-mes-meta {
+  width: min(100%, 390px);
+  margin: 12px auto 0;
+  padding: 15px 16px;
+  border: 1px solid rgba(217,174,97,.12);
+  border-radius: 16px;
+  background: linear-gradient(135deg, rgba(217,174,97,.075), rgba(255,255,255,.025));
+}
+.fechamento-mes-meta > span {
+  color: #f2ce84;
+}
+.fechamento-mes-meta p {
+  font-size: 12px;
+  line-height: 1.55;
+}
+.fechamento-mes-destaque-valor {
+  display: block;
+  margin-top: 5px;
+  font: 700 clamp(21px, 5vw, 28px)/1.05 var(--font-mono, monospace) !important;
+  color: #f5d58e !important;
+}
+.fechamento-mes-categoria {
+  position: relative;
+  width: min(100%, 390px);
+  display: grid;
+  grid-template-columns: 38px 1fr;
+  grid-template-rows: auto auto auto;
+  align-items: center;
+  column-gap: 13px;
+  margin: 14px auto 0;
+  padding: 18px 18px 16px;
+  text-align: left;
+  border: 1px solid rgba(217,174,97,.16);
+  border-radius: 18px;
+  background: linear-gradient(145deg, rgba(217,174,97,.085), rgba(255,255,255,.025));
+  box-shadow: inset 0 1px 0 rgba(255,255,255,.04);
+}
+.fechamento-mes-categoria > span {
+  grid-row: 1 / 4;
+  display: grid;
+  place-items: center;
+  width: 38px;
+  height: 38px;
+  border-radius: 12px;
+  background: rgba(217,174,97,.11);
+  color: #f1cf8b;
+  font: 700 18px/1 var(--font-mono, monospace);
+}
+.fechamento-mes-categoria strong {
+  font: 600 20px/1.15 var(--font-display, Fraunces), serif;
+  color: #fff5df;
+}
+.fechamento-mes-categoria b {
+  margin-top: 4px;
+  font: 700 17px/1 var(--font-mono, monospace);
+  color: #f2cf8a;
+}
+.fechamento-mes-categoria small {
+  margin-top: 5px;
+  color: rgba(248,242,229,.48);
+  font: 500 9.5px/1.3 Inter, sans-serif;
+}
+.fechamento-mes-gasto-destaque > span {
+  color: #e8a18d;
+  background: rgba(232,161,141,.09);
+}
+.fechamento-mes-gasto-destaque b {
+  color: #f0b29f;
+}
+.fechamento-mes-proximo {
+  flex-direction: column;
+  align-items: center;
+  gap: 5px;
+  width: min(100%, 390px);
+  margin: 14px auto 0;
+  padding: 20px 22px;
+  border-radius: 18px;
+  border-color: rgba(157,213,173,.16);
+  background: linear-gradient(145deg, rgba(157,213,173,.075), rgba(255,255,255,.022));
+}
+.fechamento-mes-proximo span {
+  font: 700 clamp(23px, 6vw, 31px)/1 var(--font-mono, monospace);
+  color: #d0ecd5;
+}
+.fechamento-mes-proximo strong {
+  font-size: 12px;
+  line-height: 1.35;
+  text-align: center;
+  color: rgba(224,241,226,.68);
+}
+.fechamento-mes-comparacao {
+  width: min(100%, 300px);
+  margin: 14px auto 0;
+  padding: 18px;
+  border: 1px solid rgba(157,213,173,.13);
+  border-radius: 18px;
+  background: rgba(157,213,173,.045);
+}
+.fechamento-mes-comparacao strong {
+  display: block;
+  font: 700 28px/1 var(--font-mono, monospace);
+  color: #cde7d1;
+}
+.fechamento-mes-comparacao span {
+  display: block;
+  margin-top: 7px;
+  font: 600 10px/1 Inter, sans-serif;
+  text-transform: uppercase;
+  letter-spacing: .12em;
+  color: rgba(224,241,226,.48);
+}
+.fechamento-mes-final {
+  width: min(100%, 400px);
+  margin: 10px auto 0;
+  padding: 21px 22px;
+  border-top: 1px solid rgba(217,174,97,.18);
+  border-bottom: 1px solid rgba(217,174,97,.10);
+}
+.fechamento-mes-final p {
+  margin: 0;
+  color: rgba(248,242,229,.76);
+  font: 400 14px/1.8 var(--font-display, Fraunces), serif;
+  letter-spacing: .005em;
+}
+.fechamento-mes-progresso {
+  left: 38px;
+  right: 38px;
+  bottom: 20px;
+  height: 2px;
+  background: rgba(255,255,255,.055);
+}
+
+@media (max-width: 560px) {
+  .fechamento-mes-cena { padding: 15px; }
+  .fechamento-mes-cena::after { inset: 10px; border-radius: 23px; }
+  .fechamento-mes-card { min-height: 380px; padding: 43px 18px 31px; border-radius: 23px; }
+  .fechamento-mes-etapa h2 { font-size: 29px; }
+  .fechamento-mes-etapa p { font-size: 12px; }
+  .fechamento-mes-categoria { grid-template-columns: 34px 1fr; column-gap: 10px; padding: 15px; }
+  .fechamento-mes-categoria > span { width: 34px; height: 34px; border-radius: 10px; }
+  .fechamento-mes-categoria strong { font-size: 18px; }
+  .fechamento-mes-categoria b { font-size: 15px; }
+  .fechamento-mes-progresso { left: 23px; right: 23px; }
+}
