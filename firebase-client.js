@@ -96,11 +96,33 @@ if (!cfg.apiKey || cfg.apiKey.includes("COLE_")) {
       return a;
     },{beneficios:0,ganhos:0});
   }
-  function separarSaldo(orig, fixosPagos, variaveis) {
-    let variaveisSaldo=0;
-    (variaveis||[]).forEach(i=>{ if(i?.pago===true && i?.lembrete!==true && !ehCaixinhaLancamento(i?.nome) && String(i?.origem||"saldo").toLowerCase()!=="beneficio") variaveisSaldo+=Number(i.valor)||0; });
-    const totalPagos = (Number(fixosPagos)||0) + variaveisSaldo;
-    return { ganhos: Math.max(0,(Number(orig.ganhos)||0)-totalPagos), beneficios: Math.max(0,Number(orig.beneficios)||0) };
+  function separarSaldo(orig, fixosPagos, variaveis, listaGanhos) {
+    // Os lançamentos "Saldo ..." e "Saldo Beneficios ..." são saldos
+    // carregados de um mês anterior. Eles entram no saldo do fechamento,
+    // mas nunca devem voltar como ganho recorrente.
+    let saldoInicial=0, beneficioInicial=0;
+    (listaGanhos||[]).forEach(i=>{
+      if(i?.recebido!==true || !ehGanhoComMes(i?.nome)) return;
+      const v=Number(i?.valor)||0;
+      ganhoEhBeneficio(i) ? beneficioInicial+=v : saldoInicial+=v;
+    });
+
+    let variaveisSaldo=0, variaveisBeneficio=0;
+    (variaveis||[]).forEach(i=>{
+      if(i?.pago!==true || i?.lembrete===true || ehCaixinhaLancamento(i?.nome)) return;
+      const v=Number(i?.valor)||0;
+      String(i?.origem||"saldo").toLowerCase()==="beneficio" ? (variaveisBeneficio+=v) : (variaveisSaldo+=v);
+    });
+
+    const totalPagosConta = (Number(fixosPagos)||0) + variaveisSaldo;
+    return {
+      ganhos: Math.max(0, saldoInicial + (Number(orig.ganhos)||0) - totalPagosConta),
+      beneficios: Math.max(0, beneficioInicial + (Number(orig.beneficios)||0) - variaveisBeneficio),
+      saldoInicial,
+      beneficioInicial,
+      variaveisSaldo,
+      variaveisBeneficio,
+    };
   }
   function proximaDataMesmoDia(dataStr) {
     const m = /^(\d{4})-(\d{2})-(\d{2})$/.exec(String(dataStr||""));
@@ -166,7 +188,10 @@ if (!cfg.apiKey || cfg.apiKey.includes("COLE_")) {
       const hv=hs.exists()?hs.data():{};const anos=Array.isArray(hv.anos)?structuredClone(hv.anos):[];let bloco=anos.find(x=>Number(x.ano)===ano);if(!bloco){bloco={ano,meses:[]};anos.push(bloco);}
       let m=bloco.meses.find(x=>Number(x.mes)===mes);if(!m){m={mes,nome:tituloMes(mes)};bloco.meses.push(m);}const suf=pessoa==="davi"?"Davi":"Gabriel";
       m[`ganhos${suf}`]=ganhos;m[`debitos${suf}`]=-debitos;m[`saldo${suf}`]=saldo;m[`guardado${suf}`]=guardado;m[`guardado${suf}Mes`]=guardadoMes;m[`categorias${suf}`]=categorias;m[`rendimento${suf}`]=rendimento;
-      const orig=separarGanhos(dados.ganhos),saldos=separarSaldo(orig,somaPagos(dados.gastosFixos),dados.gastosVariaveis);
+      const orig=separarGanhos(dados.ganhos),saldos=separarSaldo(orig,somaPagos(dados.gastosFixos),dados.gastosVariaveis,dados.ganhos);
+      // O dinheiro colocado em caixinhas também saiu do saldo em conta.
+      // O benefício permanece separado e nunca financia uma caixinha.
+      saldos.ganhos=Math.max(0,saldos.ganhos-guardadoMes);
       const ganhosProx=[];(dados.ganhos||[]).forEach(g=>{
         if(g.recebido===false||ehGanhoRecorrente(g.nome)){
           const ganhoProx={nome:g.nome,valor:g.valor,data:proximaDataMesmoDia(g.data),recebido:false};
@@ -554,7 +579,18 @@ if (!cfg.apiKey || cfg.apiKey.includes("COLE_")) {
     await setDoc(estadoRef, estadoFinal, { merge:false });
     return {ok:true, jaMigrado:false, backupPath:estadoFinal.backupPath, resumo:verificado.resumo};
   }
-  window.CAIXA_FIREBASE={app,auth,db,request,get,getIAConfig,loginGoogle,signOut,importarDados,verificarMigracaoFirebase,testarFirestore,apagarTesteFirestore,criarBackupFirebase,listarBackupsFirebase,restaurarBackupFirebase};
+  async function fecharMesAutomatico(pessoa, mes, ano) {
+    await window.CAIXA_FIREBASE_READY;
+    if(!currentUser) throw new Error("Faça login antes de fechar o mês.");
+    const pessoaNormalizada=escPessoa(pessoa);
+    const perfil=await lerPerfil(currentUser.uid,pessoaNormalizada);
+    const mesFechamento=Number(mes)||Number(perfil.mesAtual);
+    const anoFechamento=Number(ano)||Number(perfil.anoAtual);
+    const resultado=await fecharMes(currentUser.uid,{pessoa:pessoaNormalizada,mes:mesFechamento,ano:anoFechamento});
+    return resultado;
+  }
+  window.CAIXA_FIREBASE={app,auth,db,request,get,getIAConfig,loginGoogle,signOut,importarDados,verificarMigracaoFirebase,testarFirestore,apagarTesteFirestore,criarBackupFirebase,listarBackupsFirebase,restaurarBackupFirebase,fecharMesAutomatico};
+  window.fecharMesAutomatico = fecharMesAutomatico;
   window.criarBackupFirebase = criarBackupFirebase;
   window.listarBackupsFirebase = listarBackupsFirebase;
   window.restaurarBackupFirebase = restaurarBackupFirebase;

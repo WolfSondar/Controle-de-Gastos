@@ -5963,6 +5963,23 @@ async function fecharMesRequisicao(mes, ano, pessoa) {
   return await verificarFechamentoMes(mes, ano, pessoa, 10);
 }
 
+window.fecharMesAutomatico = async function(pessoa, mes, ano) {
+  const p = pessoa || state.pessoaAtual;
+  if (p !== "davi" && p !== "gabriel") throw new Error("Informe a pessoa: davi ou gabriel.");
+  const m = Number(mes) || Number(state.mesAtual);
+  const a = Number(ano) || Number(state.anoAtual);
+  const resultado = await fecharMesRequisicao(m, a, p);
+  if (!resultado) throw new Error("O fechamento não foi confirmado no Firebase.");
+
+  state.mesAtual = resultado.mesAtual;
+  state.anoAtual = resultado.anoAtual;
+  await removerCache(p);
+  await removerCache("ambos");
+  await removerCache("historico");
+  await carregarDados();
+  return resultado;
+};
+
 on("formFecharMes", "submit", async (e) => {
   e.preventDefault();
   const mes = Number(document.getElementById("fecharMesSelect").value);
