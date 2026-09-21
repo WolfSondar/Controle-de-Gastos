@@ -69,8 +69,17 @@ if (!cfg.apiKey || cfg.apiKey.includes("COLE_")) {
     if (String(item?.origem || "").toLowerCase() === "saldo") return false;
     return normalizarTexto(item?.nome).includes("beneficio");
   }
+  function ehGanhoComMes(nome) {
+    const n = normalizarTexto(nome);
+    const meses = [
+      "janeiro", "fevereiro", "marco", "abril", "maio", "junho",
+      "julho", "agosto", "setembro", "outubro", "novembro", "dezembro"
+    ];
+    return meses.some(m => new RegExp(`(^|\\s)${m}(\\s|$)`, "i").test(n));
+  }
   function ehGanhoRecorrente(nome) {
     const n = normalizarTexto(nome);
+    if (ehGanhoComMes(nome)) return false;
     return ["salario", "refeicao", "beneficio"].some(t => n.includes(t));
   }
   function somaRecebidos(lista) { return (lista || []).reduce((a,i) => a + (i?.recebido === true ? Number(i.valor)||0 : 0), 0); }
@@ -81,7 +90,7 @@ if (!cfg.apiKey || cfg.apiKey.includes("COLE_")) {
   function somaCampo(lista,campo) { return (lista||[]).reduce((a,i)=>a+(Number(i?.[campo])||0),0); }
   function separarGanhos(lista) {
     return (lista||[]).reduce((a,i)=>{
-      if(i?.recebido!==true)return a;
+      if(i?.recebido!==true || ehGanhoComMes(i?.nome))return a;
       const v=Number(i.valor)||0;
       ganhoEhBeneficio(i)?a.beneficios+=v:a.ganhos+=v;
       return a;
