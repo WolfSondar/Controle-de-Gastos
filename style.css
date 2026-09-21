@@ -8413,3 +8413,55 @@ body.fechamento-mes-ativo { overflow: hidden !important; }
 .fechamento-mes-comparacao-simples.gastos-menores > strong {
   color: #9bd5ad;
 }
+
+/* Firebase login */
+#caixaFirebaseLogin {
+  position: fixed;
+  inset: 0;
+  z-index: 99999;
+  display: grid;
+  place-items: center;
+  padding: 24px;
+  background: rgba(22, 30, 25, .78);
+  backdrop-filter: blur(10px);
+}
+.caixa-firebase-login-card {
+  width: min(440px, 100%);
+  padding: 34px 30px;
+  border: 1px solid color-mix(in srgb, #b9862f 28%, transparent);
+  border-radius: 24px;
+  background: var(--paper, #faf5e9);
+  box-shadow: 0 24px 80px rgba(0,0,0,.28);
+  text-align: center;
+}
+.caixa-firebase-login-mark {
+  font-size: 2rem;
+  margin-bottom: 8px;
+}
+.caixa-firebase-login-card h2 {
+  margin: 0 0 8px;
+  font-family: Fraunces, Georgia, serif;
+}
+.caixa-firebase-login-card p {
+  margin: 0 auto 22px;
+  max-width: 36ch;
+  line-height: 1.55;
+  opacity: .78;
+}
+.caixa-firebase-login-card button {
+  width: 100%;
+  min-height: 48px;
+}
+.caixa-firebase-login-card small {
+  display: block;
+  margin-top: 14px;
+  line-height: 1.45;
+  opacity: .62;
+}
+.caixa-firebase-login-erro {
+  display: block;
+  min-height: 1.3em;
+  margin-top: 10px;
+  color: #9f3b35;
+  font-size: .86rem;
+}

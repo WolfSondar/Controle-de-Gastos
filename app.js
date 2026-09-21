@@ -695,6 +695,10 @@ function isAmbos() {
   return state.pessoaAtual === "ambos";
 }
 
+function temBackendDados() {
+  return !!(window.CAIXA_FIREBASE && typeof window.CAIXA_FIREBASE.get === "function") || !!(API_URL && !API_URL.includes("COLE_AQUI"));
+}
+
 // ---------------------------------------------------------------------
 // URL DA API
 // ---------------------------------------------------------------------
@@ -719,29 +723,49 @@ function urlApi(params = {}) {
   }
 }
 
-async function fetchApiGet(params = {}) {
-  const url = urlApi(params);
-  if (!url) throw new Error("API_URL não configurada");
-  try {
-    const res = await fetch(url, { method: "GET", cache: "no-store" });
-    if (!res.ok) {
-      const err = new Error(`HTTP ${res.status}`);
-      err.status = res.status;
-      err.url = url;
-      throw err;
-    }
-    return res;
-  } catch (err) {
-    // Não tenta transformar um 404 do Web App em outro request inútil.
-    // Esse status normalmente significa implantação/endereço do Apps Script,
-    // não ausência de dados na planilha.
-    if (Number(err?.status) === 404) {
-      err.apiEndpointMissing = true;
-    }
-    throw err;
+async function caixaApiRequest(options = {}) {
+  const bodyText = options?.body;
+  let body = null;
+  try { body = typeof bodyText === "string" ? JSON.parse(bodyText) : bodyText; } catch (_err) {}
+  const action = body?.action || "";
+  const usaFirebase = window.CAIXA_FIREBASE && typeof window.CAIXA_FIREBASE.request === "function";
+  const acoesFirebase = new Set(["saveGanhos","saveGastosFixos","saveGastosVariaveis","saveCaixinhas","transferir","fecharMes"]);
+  if (usaFirebase && acoesFirebase.has(action)) {
+    return window.CAIXA_FIREBASE.request({ method: options.method || "POST", body });
   }
+  return fetch(urlApi(), options);
 }
 
+async function fetchApiGet(params = {}) {
+  if (window.CAIXA_FIREBASE && typeof window.CAIXA_FIREBASE.get === "function") {
+    const pessoa = String(params?.pessoa || "davi").toLowerCase();
+    if (["davi","gabriel","ambos","historico"].includes(pessoa)) {
+      return window.CAIXA_FIREBASE.get({ pessoa });
+    }
+  }
+  return fetchApiGetLegacy(params);
+}
+
+
+async function migrarPlanilhaParaFirebase() {
+  if (!window.CAIXA_FIREBASE || typeof window.CAIXA_FIREBASE.importarDados !== "function") {
+    throw new Error("Firebase não está configurado.");
+  }
+  const fonte = {};
+  for (const pessoa of ["davi", "gabriel"]) {
+    const r = await fetchApiGetLegacy({ pessoa });
+    const d = await r.json();
+    if (!d || d.ok === false) throw new Error(d?.error || `Não consegui ler ${pessoa}.`);
+    fonte[pessoa] = d;
+  }
+  const histRes = await fetchApiGetLegacy({ pessoa: "historico" });
+  const historico = await histRes.json();
+  if (!historico || historico.ok === false) throw new Error(historico?.error || "Não consegui ler o histórico.");
+  const iaRes = await fetchApiGetLegacy({ pessoa: "iaConfig" }).catch(() => null);
+  const iaConfig = iaRes ? await iaRes.json().catch(() => null) : null;
+  return window.CAIXA_FIREBASE.importarDados({ fonte, historico, iaConfig });
+}
+window.CAIXA_MIGRAR_PLANILHA_FIREBASE = migrarPlanilhaParaFirebase;
 
 async function carregarConfigIA() {
   if (!API_URL || API_URL.includes("COLE_AQUI")) return null;
@@ -883,9 +907,10 @@ window.addEventListener("popstate", () => {
 const FECHADORES_MODAL = {};
 
 async function carregarDados() {
-  if (!API_URL || API_URL.includes("COLE_AQUI")) {
+  if (window.CAIXA_FIREBASE_READY) await window.CAIXA_FIREBASE_READY.catch(() => null);
+  if (!temBackendDados()) {
     setSyncState("error");
-    showToast("Configure a URL do Apps Script em config.js");
+    showToast("Configure o Firebase antes de carregar os dados.");
     renderAll();
     return;
   }
@@ -1027,7 +1052,7 @@ async function salvarBloco(action, payload) {
     while (entrada.pendente !== null) {
       ultimoPayload = entrada.pendente;
       entrada.pendente = null;
-      const res = await fetch(urlApi(), {
+      const res = await caixaApiRequest({
         method: "POST",
         body: JSON.stringify({ action, payload: ultimoPayload, pessoa: pessoaDoEnvio }),
       });
@@ -1086,7 +1111,7 @@ async function atualizarIndicadorOffline() {
 
 async function flushFilaOffline() {
   if (flushEmAndamento) return;
-  if (!API_URL || API_URL.includes("COLE_AQUI")) return;
+  if (!temBackendDados()) return;
   // Sem internet: nem tenta — evita ficar piscando a animação de "enviando"
   // só pra falhar em seguida. Fica parado no ícone de sem internet até o
   // navegador avisar que voltou (evento "online", ver abaixo).
@@ -1108,7 +1133,7 @@ async function flushFilaOffline() {
     atualizarBadgeOffline(restantes);
     for (const { chaveIdb, valor } of itens) {
       try {
-        const res = await fetch(urlApi(), {
+        const res = await caixaApiRequest({
           method: "POST",
           body: JSON.stringify({ action: valor.action, payload: valor.payload, pessoa: valor.pessoa }),
         });
@@ -1502,12 +1527,12 @@ function encontrarGanhoDivisao(listaGanhos, devedor, nomeOriginal, valor, data) 
   return candidatos.length ? candidatos[candidatos.length - 1] : null;
 }
 async function criarGanhoAReceberDivisao(credor, devedor, nomeOriginal, valor, tipo, data, recebido) {
-  if (!API_URL || API_URL.includes("COLE_AQUI")) return false;
+  if (!temBackendDados()) return false;
   try {
     const lista = await obterListaLocal(credor, "ganhos");
     lista.push({ nome: nomeGanhoDivisao(devedor, nomeOriginal), valor, data: data || dataHojeISO(), recebido: !!recebido, tipo: tipo || "" });
     if (state.pessoaAtual === credor) marcarAlteracaoLocal();
-    const res = await fetch(urlApi(), { method: "POST", body: JSON.stringify({ action: "saveGanhos", payload: lista, pessoa: credor }) });
+    const res = await caixaApiRequest({ method: "POST", body: JSON.stringify({ action: "saveGanhos", payload: lista, pessoa: credor }) });
     const dataRes = await res.json().catch(() => null);
     if (!dataRes || dataRes.ok === false) throw new Error("Erro ao criar ganho a receber");
     const cache = await getCache(credor);
@@ -1518,14 +1543,14 @@ async function criarGanhoAReceberDivisao(credor, devedor, nomeOriginal, valor, t
   } catch { return false; }
 }
 async function atualizarGanhoDivisao(credor, devedor, nomeOriginal, valor, data, recebido) {
-  if (!API_URL || API_URL.includes("COLE_AQUI")) return false;
+  if (!temBackendDados()) return false;
   try {
     const lista = await obterListaLocal(credor, "ganhos");
     const achado = encontrarGanhoDivisao(lista, devedor, nomeOriginal, valor, data);
     if (!achado) return false;
     achado.item.recebido = !!recebido;
     if (state.pessoaAtual === credor) marcarAlteracaoLocal();
-    const res = await fetch(urlApi(), { method: "POST", body: JSON.stringify({ action: "saveGanhos", payload: lista, pessoa: credor }) });
+    const res = await caixaApiRequest({ method: "POST", body: JSON.stringify({ action: "saveGanhos", payload: lista, pessoa: credor }) });
     const dataRes = await res.json().catch(() => null);
     if (!dataRes || dataRes.ok === false) throw new Error("Erro ao atualizar ganho da divisão");
     const cache = await getCache(credor);
@@ -1545,8 +1570,8 @@ async function atualizarGanhoDivisao(credor, devedor, nomeOriginal, valor, data,
 //     metade já é creditada de cara; se não, fica pendente e só é creditada
 //     quando a pessoa marcar essa metade como paga depois (ver os toggles).
 async function dividirCompra(nome, valorTotal, categoria, opts) {
-  if (!API_URL || API_URL.includes("COLE_AQUI")) {
-    showToast("Configure a URL do Apps Script em config.js");
+  if (!temBackendDados()) {
+    showToast("Configure o Firebase antes de continuar.");
     return false;
   }
   opts = opts || {};
@@ -1587,8 +1612,8 @@ async function dividirCompra(nome, valorTotal, categoria, opts) {
     if (state.pessoaAtual === "davi" || state.pessoaAtual === "gabriel") marcarAlteracaoLocal();
 
     const [resDavi, resGabriel] = await Promise.all([
-      fetch(urlApi(), { method: "POST", body: JSON.stringify({ action, payload: listaDavi, pessoa: "davi" }) }),
-      fetch(urlApi(), { method: "POST", body: JSON.stringify({ action, payload: listaGabriel, pessoa: "gabriel" }) }),
+      caixaApiRequest({ method: "POST", body: JSON.stringify({ action, payload: listaDavi, pessoa: "davi" }) }),
+      caixaApiRequest({ method: "POST", body: JSON.stringify({ action, payload: listaGabriel, pessoa: "gabriel" }) }),
     ]);
     const [dataDavi, dataGabriel] = await Promise.all([
       resDavi.json().catch(() => null),
@@ -1636,14 +1661,14 @@ async function creditarPagamentoDeDivisao(pagador, devedor, nomeOriginal, valor,
 // buscar tudo de novo na planilha com carregarDados()), a tela responde na
 // hora — igual já era feito em dividirCompra.
 async function transferirEntrePessoas(de, para, nome, valor, tipo) {
-  if (!API_URL || API_URL.includes("COLE_AQUI")) {
-    showToast("Configure a URL do Apps Script em config.js");
+  if (!temBackendDados()) {
+    showToast("Configure o Firebase antes de continuar.");
     return false;
   }
   const descricao = (nome || "").trim() || "Transferência";
   const hoje = dataHojeISO();
   try {
-    const res = await fetch(urlApi(), {
+    const res = await caixaApiRequest({
       method: "POST",
       body: JSON.stringify({ action: "transferir", de, para, nome, valor, tipo }),
     });
@@ -1786,7 +1811,7 @@ function encontrarGanhoCorrespondenteFixo(lista, nome, valor, data, recebidoAlvo
 }
 
 async function sincronizarGanhoCorrespondenteFixo(devedor, item, recebido) {
-  if (!item || !devedor || !API_URL || API_URL.includes("COLE_AQUI")) return false;
+  if (!item || !devedor || !temBackendDados()) return false;
   const credor = devedor === "davi" ? "gabriel" : "davi";
   try {
     const lista = await obterListaLocal(credor, "ganhos");
@@ -1794,7 +1819,7 @@ async function sincronizarGanhoCorrespondenteFixo(devedor, item, recebido) {
     if (!achado) return false;
     achado.item.recebido = !!recebido;
 
-    const res = await fetch(urlApi(), {
+    const res = await caixaApiRequest({
       method: "POST",
       body: JSON.stringify({ action: "saveGanhos", payload: lista, pessoa: credor })
     });
@@ -4069,6 +4094,7 @@ async function getCacheHistorico() { return idbGet(IDB_LOJA_CACHE, CACHE_PREFIX 
 async function setCacheHistorico(data) { return idbSet(IDB_LOJA_CACHE, CACHE_PREFIX + "historico", { anos: data.anos || [] }); }
 
 async function carregarHistorico() {
+  if (window.CAIXA_FIREBASE_READY) await window.CAIXA_FIREBASE_READY.catch(() => null);
   const cache = await getCacheHistorico();
   if (cache) {
     state.historico = cache;
@@ -4076,7 +4102,7 @@ async function carregarHistorico() {
   } else {
     renderHistoricoSkeleton();
   }
-  if (!API_URL || API_URL.includes("COLE_AQUI")) return;
+  if (!temBackendDados()) return;
   try {
     const res = await fetchApiGet({ pessoa: "historico" });
     const data = await res.json();
@@ -5846,8 +5872,8 @@ async function verificarFechamentoMes(mes, ano, pessoa, tentativas = 8) {
 }
 
 async function fecharMesRequisicao(mes, ano, pessoa) {
-  if (!API_URL || API_URL.includes("COLE_AQUI")) {
-    showToast("Configure a URL do Apps Script em config.js");
+  if (!temBackendDados()) {
+    showToast("Configure o Firebase antes de fechar o mês.");
     return null;
   }
 
@@ -5859,7 +5885,7 @@ async function fecharMesRequisicao(mes, ano, pessoa) {
     const timeout = window.setTimeout(() => controller.abort(), 45000);
     let res;
     try {
-      res = await fetch(urlApi(), {
+      res = await caixaApiRequest({
         method: "POST",
         body: corpo,
         redirect: "follow",
@@ -6548,7 +6574,7 @@ if (document.readyState === "loading") {
     let timer = null;
     try {
       controller = typeof AbortController !== "undefined" ? new AbortController() : null;
-      const requisicao = fetch(urlApi(), {
+      const requisicao = caixaApiRequest({
         method: "POST",
         body: JSON.stringify({
           action: "gerarRespostaGastarIA",
@@ -6597,7 +6623,7 @@ if (document.readyState === "loading") {
     let timer = null;
     try {
       controller = typeof AbortController !== "undefined" ? new AbortController() : null;
-      const requisicao = fetch(urlApi(), {
+      const requisicao = caixaApiRequest({
         method: "POST",
         body: JSON.stringify({ action: "gerarInsightIA", pessoa: state.pessoaAtual || "davi", periodo: { mes: state.mesAtual, ano: state.anoAtual }, resumo: resumoParaIAChat(t), modo: opcoes.modo || "" }),
         signal: controller ? controller.signal : undefined
