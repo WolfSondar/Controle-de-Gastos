@@ -191,6 +191,31 @@ if (!cfg.apiKey || cfg.apiKey.includes("COLE_")) {
     const d=await lerPerfil(uid,pessoa);return respostaJson({ok:true,...d});
   }
   async function loginGoogle(){return signInWithPopup(auth,provider);}
+  async function testarFirestore() {
+    await window.CAIXA_FIREBASE_READY;
+    if (!currentUser) throw new Error("Faça login antes de testar o Firestore.");
+    const uid = currentUser.uid;
+    const ref = doc(db, "users", uid, "_testes", "conexao");
+    const payload = {
+      ok: true,
+      mensagem: "Conexão Firestore funcionando",
+      atualizadoEm: new Date().toISOString()
+    };
+    await setDoc(ref, payload, { merge: true });
+    const snap = await getDoc(ref);
+    if (!snap.exists()) throw new Error("O Firestore aceitou a gravação, mas não retornou o documento.");
+    const dados = snap.data() || {};
+    if (dados.ok !== true) throw new Error("O documento de teste retornou dados inesperados.");
+    return { ok: true, path: `users/${uid}/_testes/conexao`, dados };
+  }
+  async function apagarTesteFirestore() {
+    await window.CAIXA_FIREBASE_READY;
+    if (!currentUser) throw new Error("Faça login antes de limpar o teste.");
+    const ref = doc(db, "users", currentUser.uid, "_testes", "conexao");
+    const { deleteDoc } = await import("https://www.gstatic.com/firebasejs/12.19.0/firebase-firestore.js");
+    await deleteDoc(ref);
+    return { ok: true };
+  }
   async function importarDados({fonte,historico,iaConfig}) {
     await window.CAIXA_FIREBASE_READY;
     if(!currentUser) throw new Error("Faça login antes de importar os dados.");
@@ -213,7 +238,7 @@ if (!cfg.apiKey || cfg.apiKey.includes("COLE_")) {
     ]);
     return {ok:true};
   }
-  window.CAIXA_FIREBASE={app,auth,db,request,get,loginGoogle,signOut,importarDados};
+  window.CAIXA_FIREBASE={app,auth,db,request,get,loginGoogle,signOut,importarDados,testarFirestore,apagarTesteFirestore};
   window.CAIXA_FIREBASE_CONFIG_STATUS = { ok: true, projectId: cfg.projectId };
   function montarLogin() {
     if (document.getElementById("caixaFirebaseLogin")) return;
