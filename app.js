@@ -13,30 +13,16 @@ const MESES_LABEL = [
   "Julho", "Agosto", "Setembro", "Outubro", "Novembro", "Dezembro",
 ];
 
-// Lista/cores padrão — usada só como fallback enquanto a planilha não
-// responde ainda, ou se a aba CONFIGS não existir/estiver vazia. Assim que
-// os dados chegam da planilha (ver carregarDados), state.categoriasConfig
-// passa a mandar de verdade: ver categoriasAtuais()/corDaCategoria() abaixo.
-const CATEGORIAS_PADRAO = [
-  "Alimentação", "Assinaturas & Serviços", "Beleza & Cuidados", "Bem-estar",
-  "Carro", "Casa & Manutenção", "Celular & Internet", "Combustível", "Contas", "Delivery & Restaurantes",
-  "Educação", "Estacionamento", "Financiamento", "Jogos", "Lazer",
-  "Mercado", "Metas", "Outro", "Pessoal", "Pets", "Presente",
-  "Reparação Histórica", "Saídas & Confraternizações", "Saúde & Farmácia",
-  "Taxas & Tarifas", "Tech & Equipamentos", "Transporte",
-  "Vestuário & Acessórios", "Viagens"
-];
-
-// Nomes de categoria em ordem (o que os <select> mostram) — vem da aba
-// CONFIGS quando ela existe e tem linhas, senão cai na lista padrão acima.
+// Nomes de categoria em ordem (o que os <select> mostram). A aba CONFIGS é
+// a única fonte de verdade: coluna A = nome; coluna B = cor.
 function categoriasAtuais() {
-  return (state.categoriasConfig && state.categoriasConfig.length)
+  return Array.isArray(state.categoriasConfig)
     ? state.categoriasConfig.map((c) => c.nome)
-    : CATEGORIAS_PADRAO;
+    : [];
 }
 
-// Cor de uma categoria: usa a cor cadastrada na aba CONFIGS se existir;
-// senão cai na paleta fixa por posição (idxFallback), como sempre foi.
+// Cor de uma categoria: vem da aba CONFIGS. A paleta fixa permanece apenas
+// para categorias antigas já gravadas que não existam mais na configuração.
 function corDaCategoria(nome, idxFallback) {
   if (state.categoriasConfig) {
     const achado = state.categoriasConfig.find((c) => c.nome === nome);
@@ -472,7 +458,14 @@ function dataHoraAgoraISO() {
   const hora = String(d.getHours()).padStart(2, "0");
   const minuto = String(d.getMinutes()).padStart(2, "0");
   const segundo = String(d.getSeconds()).padStart(2, "0");
-  return `${ano}-${mes}-${dia}T${hora}:${minuto}:${segundo}`;
+  // O offset identifica o fuso do navegador no instante do lançamento.
+  // Assim o Apps Script não precisa adivinhar o horário local do usuário.
+  const offsetEmMinutos = -d.getTimezoneOffset();
+  const sinal = offsetEmMinutos >= 0 ? "+" : "-";
+  const offsetAbsoluto = Math.abs(offsetEmMinutos);
+  const offsetHora = String(Math.floor(offsetAbsoluto / 60)).padStart(2, "0");
+  const offsetMinuto = String(offsetAbsoluto % 60).padStart(2, "0");
+  return `${ano}-${mes}-${dia}T${hora}:${minuto}:${segundo}${sinal}${offsetHora}:${offsetMinuto}`;
 }
 
 function dataDoLancamento(data) {
@@ -482,8 +475,11 @@ function dataDoLancamento(data) {
   const isoData = dataLimpa.match(/^(\d{4})-(\d{2})-(\d{2})$/);
   if (isoData) return `${isoData[1]}-${isoData[2]}-${isoData[3]}T${dataHoraAgoraISO().slice(11)}`;
 
-  const isoDataHora = dataLimpa.match(/^(\d{4}-\d{2}-\d{2})[T ](\d{2}:\d{2}(?::\d{2})?)$/);
-  if (isoDataHora) return `${isoDataHora[1]}T${isoDataHora[2].length === 5 ? isoDataHora[2] + ":00" : isoDataHora[2]}`;
+  const isoDataHora = dataLimpa.match(/^(\d{4}-\d{2}-\d{2})[T ](\d{2}:\d{2}(?::\d{2})?)(Z|[+-]\d{2}:?\d{2})?$/);
+  if (isoDataHora) {
+    const hora = isoDataHora[2].length === 5 ? isoDataHora[2] + ":00" : isoDataHora[2];
+    return `${isoDataHora[1]}T${hora}${isoDataHora[3] || ""}`;
+  }
 
   const br = dataLimpa.match(/^(\d{2})[\/.-](\d{2})[\/.-](\d{4})(?:[ T](\d{2}:\d{2}(?::\d{2})?))?$/);
   if (br) {
@@ -661,7 +657,7 @@ const state = {
   anoAtual: mesAtualCache ? mesAtualCache.ano : null,
   historico: null, 
   historicoAnoSelecionado: new Date().getFullYear(),
-  categoriasConfig: null, // [{nome, cor}] vindo da aba CONFIGS, ou null pra usar a lista padrão
+  categoriasConfig: null, // [{nome, cor}] vindo exclusivamente da aba CONFIGS
   iconCategorias: [], // regras [{categoria, padroes}] vindas da aba CONFIGS
   iaConfig: null, // imersão/tom compartilhados com o assistente local
 };
@@ -6926,7 +6922,7 @@ if (document.readyState === "loading") {
   }
 
   function categoriasEscolhiveis(callback) {
-    const cats = typeof categoriasAtuais === "function" ? categoriasAtuais() : CATEGORIAS_PADRAO;
+    const cats = typeof categoriasAtuais === "function" ? categoriasAtuais() : [];
     const op = cats.map(c => [c, c]);
     op.push(["__sem_categoria", "Sem categoria"]);
     selectChat("E em qual categoria ele entra?", op, (valor, titulo) => {
