@@ -214,6 +214,7 @@ if (!cfg.apiKey || cfg.apiKey.includes("COLE_")) {
     return {ok:true};
   }
   window.CAIXA_FIREBASE={app,auth,db,request,get,loginGoogle,signOut,importarDados};
+  window.CAIXA_FIREBASE_CONFIG_STATUS = { ok: true, projectId: cfg.projectId };
   function montarLogin() {
     if (document.getElementById("caixaFirebaseLogin")) return;
     const el = document.createElement("div");

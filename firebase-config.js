@@ -1,3 +1,5 @@
+// Configuração pública do aplicativo Web do Firebase.
+// A segurança dos dados é feita pelo Firebase Authentication + Firestore Rules.
 window.CAIXA_FIREBASE_CONFIG = {
   apiKey: "AIzaSyAPHew-LapRaCOta8m1-FNqV5ZSTmbAlww",
   authDomain: "caixa-controle-financeir-6c7bd.firebaseapp.com",
