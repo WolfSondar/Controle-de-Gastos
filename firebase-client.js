@@ -113,6 +113,13 @@ if (!cfg.apiKey || cfg.apiKey.includes("COLE_")) {
       return acc;
     }, { beneficios: 0, ganhos: 0 });
 
+    // Depois de um fechamento, o dinheiro que sobrou do mês anterior passa a
+    // ser um saldo inicial, não um novo ganho. Isso evita que o fechamento
+    // dependa de um lançamento artificial como "Saldo Setembro" e garante
+    // que o valor continue disponível no mês seguinte.
+    const saldoInicialConta = Number(dados?.saldoInicialConta) || 0;
+    const saldoInicialBeneficio = Number(dados?.saldoInicialBeneficio) || 0;
+
     const fixosPagos = fixos.reduce((acc, item) =>
       acc + (item?.pago === true ? Number(item?.valor) || 0 : 0), 0);
 
@@ -129,8 +136,8 @@ if (!cfg.apiKey || cfg.apiKey.includes("COLE_")) {
     const guardadoNoMes = caixinhas.reduce((acc, item) =>
       acc + (Number(item?.valorGuardadoMes) || 0), 0);
 
-    const beneficio = ganhosPorOrigem.beneficios - gastosVariaveisBeneficio;
-    const saldoConta = ganhosPorOrigem.ganhos - fixosPagos - gastosVariaveisSaldo - guardadoNoMes;
+    const beneficio = saldoInicialBeneficio + ganhosPorOrigem.beneficios - gastosVariaveisBeneficio;
+    const saldoConta = saldoInicialConta + ganhosPorOrigem.ganhos - fixosPagos - gastosVariaveisSaldo - guardadoNoMes;
     return {
       ganhosPorOrigem,
       fixosPagos,
@@ -222,12 +229,13 @@ if (!cfg.apiKey || cfg.apiKey.includes("COLE_")) {
           ganhosProx.push(ganhoProx);
         }
       });
-      if(saldos.ganhos>0)ganhosProx.push({nome:"Saldo "+tituloMes(mes),valor:saldos.ganhos,data:"",recebido:true,origem:"saldo"});
-      if(saldos.beneficios>0)ganhosProx.push({nome:"Saldo Beneficios "+tituloMes(mes),valor:saldos.beneficios,data:"",recebido:true,origem:"beneficio"});
       const fixos=(dados.gastosFixos||[]).map(proximoFixo).filter(Boolean);
       const variaveis=(dados.gastosVariaveis||[]).filter(g=>g?.pago===false);
       const caixinhas=(dados.caixinhas||[]).map(c=>({nome:c.nome,valorObjetivo:c.valorObjetivo,valorGuardado:totalCaixinha(c),rendimentoTotal:0,valorGuardadoMes:0,data:c.data||"",icone:c.icone||""}));
-      tx.set(pref,{...dados,ganhos:ganhosProx,gastosFixos:fixos,gastosVariaveis:variaveis,caixinhas,mesAtual:next.mes,anoAtual:next.ano},{merge:false});
+      tx.set(pref,{...dados,ganhos:ganhosProx,gastosFixos:fixos,gastosVariaveis:variaveis,caixinhas,
+        saldoInicialConta:Math.max(0,saldos.saldoConta),
+        saldoInicialBeneficio:Math.max(0,saldos.beneficio),
+        mesAtual:next.mes,anoAtual:next.ano},{merge:false});
       tx.set(href,{anos},{merge:true});
       return {ok:true,fechado:{mes,ano,pessoa,ganhos,debitos,saldo,saldoGanhos:saldos.ganhos,saldoBeneficios:saldos.beneficios,guardado,guardadoMes,rendimento},pessoa,mesAtual:next.mes,anoAtual:next.ano,configDavi:pessoa==="davi"?{mesAtual:next.mes,anoAtual:next.ano}:undefined,configGabriel:pessoa==="gabriel"?{mesAtual:next.mes,anoAtual:next.ano}:undefined};
     });
@@ -601,26 +609,6 @@ if (!cfg.apiKey || cfg.apiKey.includes("COLE_")) {
     await setDoc(estadoRef, estadoFinal, { merge:false });
     return {ok:true, jaMigrado:false, backupPath:estadoFinal.backupPath, resumo:verificado.resumo};
   }
-  window.fecharMesAutomatico = async function(pessoa, mes, ano) {
-    const p = escPessoa(pessoa);
-    if (!p) throw new Error("Pessoa inválida. Use davi ou gabriel.");
-    const uid = currentUser?.uid;
-    if (!uid) throw new Error("Faça login no Firebase antes de fechar o mês.");
-
-    if (mes == null || ano == null) {
-      const dados = await lerPerfil(uid, p);
-      mes = Number(dados.mesAtual);
-      ano = Number(dados.anoAtual);
-    } else {
-      mes = Number(mes);
-      ano = Number(ano);
-    }
-    if (!(mes >= 1 && mes <= 12) || !ano) throw new Error("Mês ou ano inválido.");
-    const resultado = await fecharMes(uid, { pessoa: p, mes, ano });
-    console.log(`Caixa: ${p} — ${tituloMes(mes)}/${ano} fechado sem cerimônia.`, resultado);
-    return resultado;
-  };
-
   window.CAIXA_FIREBASE={app,auth,db,request,get,getIAConfig,loginGoogle,signOut,importarDados,verificarMigracaoFirebase,testarFirestore,apagarTesteFirestore,criarBackupFirebase,listarBackupsFirebase,restaurarBackupFirebase,calcularSaldosDisponiveis};
   window.criarBackupFirebase = criarBackupFirebase;
   window.listarBackupsFirebase = listarBackupsFirebase;
