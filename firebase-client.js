@@ -193,6 +193,14 @@ if (!cfg.apiKey || cfg.apiKey.includes("COLE_")) {
     if(pessoa==="ambos"){const [a,b]=await Promise.all([lerPerfil(uid,"davi"),lerPerfil(uid,"gabriel")]);return respostaJson(mergeAmbos(a,b));}
     const d=await lerPerfil(uid,pessoa);return respostaJson({ok:true,...d});
   }
+  async function getIAConfig(){
+    await window.CAIXA_FIREBASE_READY;
+    if(!currentUser) return null;
+    const snap=await getDoc(configRef(currentUser.uid));
+    if(!snap.exists()) return null;
+    const data=snap.data()||{};
+    return data.iaConfig || null;
+  }
   async function loginGoogle(){return signInWithPopup(auth,provider);}
   async function testarFirestore() {
     await window.CAIXA_FIREBASE_READY;
@@ -254,7 +262,7 @@ if (!cfg.apiKey || cfg.apiKey.includes("COLE_")) {
     if (!dCheck.exists() || !gCheck.exists() || !hCheck.exists()) throw new Error("A migração terminou sem confirmar todos os documentos no Firestore.");
     return {ok:true, backupPath:`users/${uid}/migracoes/planilha-antes-da-migracao`, resumo:resumoMigracao||null};
   }
-  window.CAIXA_FIREBASE={app,auth,db,request,get,loginGoogle,signOut,importarDados,testarFirestore,apagarTesteFirestore};
+  window.CAIXA_FIREBASE={app,auth,db,request,get,getIAConfig,loginGoogle,signOut,importarDados,testarFirestore,apagarTesteFirestore};
   window.CAIXA_FIREBASE_CONFIG_STATUS = { ok: true, projectId: cfg.projectId };
   function montarLogin() {
     if (document.getElementById("caixaFirebaseLogin")) return;

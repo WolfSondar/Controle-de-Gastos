@@ -771,23 +771,22 @@ function configurarApiLegado(url) {
 }
 window.CAIXA_CONFIGURAR_API_LEGADO = configurarApiLegado;
 
+async function carregarSnapshotMigracaoFirebase() {
+  // A migração não consulta mais o Web App do Apps Script. O snapshot é
+  // carregado localmente e foi gerado a partir da planilha fornecida para a
+  // migração. Isso evita o redirect script.googleusercontent.com/echo.
+  const modulo = await import("./firebase-migration-data.js?v=35");
+  if (!modulo?.CAIXA_MIGRATION_SNAPSHOT) throw new Error("Snapshot de migração não encontrado.");
+  return modulo.CAIXA_MIGRATION_SNAPSHOT;
+}
+
 async function lerFonteLegadaParaMigracao() {
-  if (!API_URL) throw new Error('API legada não configurada. Primeiro execute CAIXA_CONFIGURAR_API_LEGADO("URL_DO_SEU_WEB_APP").');
-  const fonte = {};
-  for (const pessoa of ["davi", "gabriel"]) {
-    const r = await fetchApiGetLegacy({ pessoa });
-    if (!r.ok) throw new Error(`A API legada respondeu HTTP ${r.status} ao ler ${pessoa}.`);
-    const d = await r.json();
-    if (!d || d.ok === false) throw new Error(d?.error || `Não consegui ler ${pessoa}.`);
-    fonte[pessoa] = d;
-  }
-  const histRes = await fetchApiGetLegacy({ pessoa: "historico" });
-  if (!histRes.ok) throw new Error(`A API legada respondeu HTTP ${histRes.status} ao ler o histórico.`);
-  const historico = await histRes.json();
-  if (!historico || historico.ok === false) throw new Error(historico?.error || "Não consegui ler o histórico.");
-  const iaRes = await fetchApiGetLegacy({ pessoa: "iaConfig" }).catch(() => null);
-  const iaConfig = iaRes?.ok ? await iaRes.json().catch(() => null) : null;
-  return { fonte, historico, iaConfig };
+  const snapshot = await carregarSnapshotMigracaoFirebase();
+  return {
+    fonte: snapshot.fonte || {},
+    historico: snapshot.historico || { anos: [] },
+    iaConfig: snapshot.iaConfig || null,
+  };
 }
 
 function resumoMigracaoFonte(fonte, historico) {
@@ -805,13 +804,13 @@ function resumoMigracaoFonte(fonte, historico) {
 async function verificarFontePlanilhaFirebase() {
   try {
     const { fonte, historico } = await lerFonteLegadaParaMigracao();
-    const resultado = { ok: true, origem: "Google Sheets via Apps Script", url: API_URL, resumo: resumoMigracaoFonte(fonte, historico) };
-    console.info("CAIXA — fonte legada verificada:", resultado);
+    const resultado = { ok: true, origem: "Snapshot da planilha para migração", resumo: resumoMigracaoFonte(fonte, historico) };
+    console.info("CAIXA — fonte de migração verificada sem consultar o Apps Script:", resultado);
     return resultado;
   } catch (err) {
     const mensagem = err?.message || String(err);
-    console.error("CAIXA — não foi possível verificar a fonte legada:", err);
-    return { ok: false, origem: "Google Sheets via Apps Script", url: API_URL, error: mensagem };
+    console.error("CAIXA — não foi possível carregar a fonte de migração:", err);
+    return { ok: false, origem: "Snapshot da planilha para migração", error: mensagem };
   }
 }
 window.CAIXA_VERIFICAR_FONTE_MIGRACAO = verificarFontePlanilhaFirebase;
@@ -822,26 +821,29 @@ async function migrarPlanilhaParaFirebase() {
   }
   const { fonte, historico, iaConfig } = await lerFonteLegadaParaMigracao();
   const resumo = resumoMigracaoFonte(fonte, historico);
+  console.info("CAIXA — iniciando migração para o Firestore:", resumo);
   const resultado = await window.CAIXA_FIREBASE.importarDados({ fonte, historico, iaConfig, resumoMigracao: resumo });
   return { ...resultado, resumo };
 }
 window.CAIXA_MIGRAR_PLANILHA_FIREBASE = migrarPlanilhaParaFirebase;
 
 async function carregarConfigIA() {
-  if (!API_URL || API_URL.includes("COLE_AQUI")) return null;
   try {
     const salvo = JSON.parse(localStorage.getItem("caixa-ia-config-v1") || "null");
     if (salvo && salvo.expira > Date.now() && salvo.data) { state.iaConfig = salvo.data; return salvo.data; }
   } catch (err) {}
   try {
-    const res = await fetchApiGet({ pessoa: "iaConfig" });
-    const data = await res.json();
-    if (!data || data.ok === false) throw new Error(data?.error || "Erro ao carregar configuração da IA");
-    state.iaConfig = data;
-    try { localStorage.setItem("caixa-ia-config-v1", JSON.stringify({ data, expira: Date.now() + 3000 })); } catch (err) {}
-    document.dispatchEvent(new CustomEvent("caixa:ia-config-atualizada"));
-    return data;
-  } catch (err) { return state.iaConfig || null; }
+    if (window.CAIXA_FIREBASE && typeof window.CAIXA_FIREBASE.getIAConfig === "function") {
+      const data = await window.CAIXA_FIREBASE.getIAConfig();
+      if (data) {
+        state.iaConfig = data;
+        try { localStorage.setItem("caixa-ia-config-v1", JSON.stringify({ data, expira: Date.now() + 3000 })); } catch (err) {}
+        document.dispatchEvent(new CustomEvent("caixa:ia-config-atualizada"));
+        return data;
+      }
+    }
+  } catch (err) {}
+  return state.iaConfig || null;
 }
 
 async function getCache(pessoa) { return idbGet(IDB_LOJA_CACHE, CACHE_PREFIX + pessoa); }
