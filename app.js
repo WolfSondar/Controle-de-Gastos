@@ -5567,7 +5567,7 @@ function mostrarFechamentoMes(dados, { resultadoPromessa = null } = {}) {
 
   // Abertura curta. Não espera o Apps Script.
   etapas.push(async () => {
-    await esperar(850);
+    await esperar(1100);
     await trocarTela({
       titulo: "Olha o que você construiu",
       texto: "Os números do mês, do jeitinho que aconteceram.",
@@ -5581,7 +5581,7 @@ function mostrarFechamentoMes(dados, { resultadoPromessa = null } = {}) {
     animarFechamentoNumero(resumo.querySelector('[data-fechamento-num="gastos"]'), dados.gastos, 2100);
     animarFechamentoNumero(resumo.querySelector('[data-fechamento-num="guardado"]'), dados.guardado, 2300);
     if (progresso) progresso.style.width = "22%";
-    await esperar(3900);
+    await esperar(5600);
   });
 
   dados.parcelasEncerradas.forEach(parcela => {
@@ -5591,7 +5591,7 @@ function mostrarFechamentoMes(dados, { resultadoPromessa = null } = {}) {
         texto: `Parcela ${escapeHtml(parcela.parcela)} concluída.`,
         html: `<div class="fechamento-mes-meta"><span>✓</span><p>Mais um compromisso encerrado.</p>${parcela.valor > 0 ? `<strong class="fechamento-mes-destaque-valor">${fmt(parcela.valor)}/mês</strong><small>deixam de ocupar seu orçamento.</small>` : ""}</div>`
       });
-      await esperar(3100);
+      await esperar(4500);
     });
   });
 
@@ -5603,7 +5603,7 @@ function mostrarFechamentoMes(dados, { resultadoPromessa = null } = {}) {
         texto: qtd === 1 ? "Um compromisso terminou." : `${qtd} parcelas chegaram ao fim.`,
         html: `<div class="fechamento-mes-proximo"><span>− ${fmt(dados.valorMensalEncerrado)}/mês</span><strong>de compromisso mensal</strong></div>`
       });
-      await esperar(3100);
+      await esperar(4500);
     });
   }
 
@@ -5615,16 +5615,30 @@ function mostrarFechamentoMes(dados, { resultadoPromessa = null } = {}) {
         texto: `${meta.icone ? meta.icone + " " : ""}${meta.nome} atingiu sua meta de ${fmt(meta.objetivo)}.`,
         html: `<div class="fechamento-mes-meta"><span>🎯</span><p><strong>${escapeHtml(meta.nome)}</strong></p><strong class="fechamento-mes-destaque-valor">${fmt(meta.valor)} guardados</strong>${passou ? `<small>Meta: ${fmt(meta.objetivo)}</small>` : ""}</div>`
       });
-      await esperar(3300);
+      await esperar(4800);
     });
   });
 
   if (dados.categoriaPrincipal) {
     etapas.push(async () => {
-      await trocarTela({ titulo: "E agora…", texto: "Onde foi parar boa parte do seu dinheiro?", html: `<div class="fechamento-mes-suspense">✦</div>` });
-      await esperar(1800);
-      await trocarTela({ titulo: "A categoria que mais recebeu seus gastos foi…", texto: "", html: `<div class="fechamento-mes-categoria"><span>▣</span><strong>${escapeHtml(dados.categoriaPrincipal.nome)}</strong><b>${fmt(dados.categoriaPrincipal.valor)}</b><small>Foi onde você mais gastou neste mês.</small></div>` });
-      await esperar(3500);
+      await trocarTela({
+        titulo: "E agora…",
+        texto: "Onde foi parar boa parte do seu dinheiro?",
+        html: `<div class="fechamento-mes-suspense-card">
+          <div class="fechamento-mes-suspense-orbita" aria-hidden="true"><span>?</span></div>
+          <div class="fechamento-mes-suspense-linha"><i></i><span>uma pequena descoberta do mês</span><i></i></div>
+          <strong>Vamos descobrir.</strong>
+        </div>`
+      });
+      await esperar(2400);
+      await trocarTela({ titulo: "A categoria que mais recebeu seus gastos foi…", texto: "", html: `<div class="fechamento-mes-categoria fechamento-mes-categoria-revelacao">
+          <div class="fechamento-mes-categoria-icone"><span>▣</span></div>
+          <small class="fechamento-mes-categoria-label">MAIOR CATEGORIA DE GASTOS</small>
+          <strong>${escapeHtml(dados.categoriaPrincipal.nome)}</strong>
+          <b>${fmt(dados.categoriaPrincipal.valor)}</b>
+          <em>Foi onde você mais gastou neste mês.</em>
+        </div>` });
+      await esperar(5200);
     });
   }
 
@@ -5634,42 +5648,42 @@ function mostrarFechamentoMes(dados, { resultadoPromessa = null } = {}) {
       const abs = Math.abs(d);
       const frase = d < 0 ? `Você gastou ${fmt(abs)} a menos.` : d > 0 ? `Seus gastos foram ${fmt(abs)} maiores.` : "Seus gastos ficaram no mesmo nível.";
       await trocarTela({ titulo: `Em relação a ${escapeHtml(dados.comparacao.nome)}…`, texto: frase, html: `<div class="fechamento-mes-comparacao"><strong>${fmt(abs)}</strong><span>${d < 0 ? "a menos" : d > 0 ? "a mais" : "de diferença"}</span></div>` });
-      await esperar(3000);
+      await esperar(6000);
     });
   }
 
   if (dados.maiorCaixinha && dados.maiorCaixinha.valor > 0) {
     etapas.push(async () => {
       await trocarTela({ titulo: "Seu maior movimento de construção foi…", texto: "", html: `<div class="fechamento-mes-meta"><span>↓</span><p>✦ <strong>${escapeHtml(dados.maiorCaixinha.nome)}</strong></p><strong class="fechamento-mes-destaque-valor">${fmt(dados.maiorCaixinha.valor)} guardados</strong></div>` });
-      await esperar(3100);
+      await esperar(4500);
     });
   }
 
   if (dados.guardado > 0) {
     etapas.push(async () => {
       await trocarTela({ titulo: "E quanto você construiu este mês?", texto: "Guardar também é avançar.", html: `<div class="fechamento-mes-proximo"><span>${fmt(dados.guardado)}</span><strong>destinados às suas caixinhas</strong></div>` });
-      await esperar(3000);
+      await esperar(6000);
     });
   }
 
   if (dados.rendimento > 0) {
     etapas.push(async () => {
       await trocarTela({ titulo: "Seu dinheiro também trabalhou.", texto: "As caixinhas renderam neste mês.", html: `<div class="fechamento-mes-proximo"><span>+ ${fmt(dados.rendimento)}</span><strong>de rendimento</strong></div>` });
-      await esperar(3000);
+      await esperar(6000);
     });
   }
 
   if (dados.crescimentoCaixinha) {
     etapas.push(async () => {
       await trocarTela({ titulo: "Uma caixinha ganhou espaço.", texto: "", html: `<div class="fechamento-mes-meta"><span>🌱</span><p><strong>${escapeHtml(dados.crescimentoCaixinha.nome)}</strong></p><strong class="fechamento-mes-destaque-valor">${dados.crescimentoCaixinha.crescimento.toFixed(0)}%</strong><small>de crescimento neste mês</small></div>` });
-      await esperar(3000);
+      await esperar(6000);
     });
   }
 
   if (dados.primeiraConstrucao) {
     etapas.push(async () => {
       await trocarTela({ titulo: "Uma pequena conquista.", texto: "", html: `<div class="fechamento-mes-meta"><span>✦</span><p>Este foi um mês em que você começou a construir dinheiro nas suas caixinhas.</p></div>` });
-      await esperar(3000);
+      await esperar(6000);
     });
   }
 
@@ -5680,26 +5694,26 @@ function mostrarFechamentoMes(dados, { resultadoPromessa = null } = {}) {
         texto: "Entre os gastos pagos, este foi o movimento que mais pesou no mês.",
         html: `<div class="fechamento-mes-categoria fechamento-mes-gasto-destaque"><span>−</span><strong>${escapeHtml(dados.maiorGasto.nome)}</strong><b>${fmt(dados.maiorGasto.valor)}</b><small>${dados.maiorGasto.tipo === "fixo" ? "Gasto fixo" : "Gasto variável"}</small></div>`
       });
-      await esperar(3300);
+      await esperar(4800);
     });
   }
 
   if (dados.quantidadeLancamentos > 0) {
     etapas.push(async () => {
       await trocarTela({ titulo: `${mesNome} está oficialmente fechado.`, texto: "", html: `<div class="fechamento-mes-proximo"><span>${dados.quantidadeLancamentos}</span><strong>lançamentos registrados ao longo do mês</strong></div>` });
-      await esperar(2800);
+      await esperar(4000);
     });
   }
 
   if (dados.pendencias === 0) {
     etapas.push(async () => {
       await trocarTela({ titulo: "Tudo em ordem.", texto: "", html: `<div class="fechamento-mes-meta"><span>✓</span><p>Nenhuma conta ficou pendente para o próximo mês.</p></div>` });
-      await esperar(2900);
+      await esperar(5200);
     });
   } else {
     etapas.push(async () => {
       await trocarTela({ titulo: "Antes de fechar o livro…", texto: "", html: `<div class="fechamento-mes-meta"><span>!</span><p>Ainda ficaram <strong>${dados.pendencias}</strong> compromissos pendentes.</p></div>` });
-      await esperar(2900);
+      await esperar(5200);
     });
   }
 
@@ -5711,7 +5725,7 @@ function mostrarFechamentoMes(dados, { resultadoPromessa = null } = {}) {
       const campoGuardadoAno = state.pessoaAtual === "gabriel" ? "guardadoMesGabriel" : "guardadoMesDavi";
       const totalGuardadoAno = meses.reduce((a,m) => a + Math.max(0, Number(m[campoGuardadoAno]) || 0), 0) + Math.max(0, dados.guardado);
       await trocarTela({ titulo: `O livro de ${dados.ano} foi encerrado.`, texto: `Agora começa ${proximoAno}.`, html: `<div class="fechamento-mes-ano"><strong>${fmt(totalGuardadoAno)}</strong><span>guardados ao longo do ano</span><em>Uma nova página está aberta.</em></div>` });
-      await esperar(4300);
+      await esperar(6000);
     });
   }
 
@@ -5727,13 +5741,13 @@ function mostrarFechamentoMes(dados, { resultadoPromessa = null } = {}) {
     if (!resultado) {
       await trocarTela({ titulo: "Não foi possível fechar o mês agora.", texto: "Nada foi alterado. Você pode tentar novamente quando quiser.", html: `<div class="fechamento-mes-meta"><span>↻</span><p>Seu mês continua aberto e seguro.</p></div>` });
       if (progresso) progresso.style.width = "100%";
-      await esperar(4200);
+      await esperar(5200);
       return;
     }
     const fraseFinal = finais[(Number(dados.mes) - 1) % finais.length].replace("{mes}", mesNome);
     await trocarTela({ titulo: `Até aqui, ${mesNome}.`, texto: "", html: `<div class="fechamento-mes-final"><p>${escapeHtml(fraseFinal)}</p></div>` });
     if (progresso) progresso.style.width = "100%";
-    await esperar(3900);
+    await esperar(5600);
   };
 
   cena._cerimoniaPromise = (async () => {
@@ -5758,7 +5772,7 @@ function mostrarFechamentoMes(dados, { resultadoPromessa = null } = {}) {
 
       cena.classList.add("fechamento-mes-finalizando");
       document.body.classList.remove("fechamento-mes-ativo");
-      await esperar(750);
+      await esperar(900);
       cena.classList.add("is-hidden");
       cena._cerimoniaAtiva = false;
     } catch (err) {
@@ -5767,7 +5781,7 @@ function mostrarFechamentoMes(dados, { resultadoPromessa = null } = {}) {
       document.body.classList.remove("fechamento-mes-ativo");
       await esperar(2500);
       cena.classList.add("fechamento-mes-finalizando");
-      await esperar(650);
+      await esperar(800);
       cena.classList.add("is-hidden");
       cena._cerimoniaAtiva = false;
     }
@@ -5776,20 +5790,78 @@ function mostrarFechamentoMes(dados, { resultadoPromessa = null } = {}) {
   return cena;
 }
 
+async function verificarFechamentoMes(mes, ano, pessoa, tentativas = 8) {
+  const proximoMes = Number(mes) === 12 ? 1 : Number(mes) + 1;
+  const proximoAno = Number(mes) === 12 ? Number(ano) + 1 : Number(ano);
+  const espera = (ms) => new Promise(resolve => window.setTimeout(resolve, ms));
+
+  for (let tentativa = 0; tentativa < tentativas; tentativa++) {
+    try {
+      const res = await fetchApiGet({ pessoa });
+      const data = await res.json().catch(() => null);
+      if (data && data.ok !== false) {
+        const atualMes = Number(data.mesAtual);
+        const atualAno = Number(data.anoAtual);
+        if (atualMes === proximoMes && atualAno === proximoAno) {
+          return {
+            ok: true,
+            confirmadoPorVerificacao: true,
+            fechado: { mes: Number(mes), ano: Number(ano), pessoa },
+            mesAtual: atualMes,
+            anoAtual: atualAno,
+            configDavi: data.configDavi,
+            configGabriel: data.configGabriel,
+          };
+        }
+      }
+    } catch (err) {
+      // 404/redirect temporário do Apps Script não significa que o fechamento
+      // falhou. O Apps Script pode ainda estar concluindo a gravação.
+    }
+    await espera(1800 + tentativa * 500);
+  }
+  return null;
+}
+
 async function fecharMesRequisicao(mes, ano, pessoa) {
   if (!API_URL || API_URL.includes("COLE_AQUI")) {
     showToast("Configure a URL do Apps Script em config.js");
     return null;
   }
+
+  const corpo = JSON.stringify({ action: "fecharMes", mes, ano, pessoa });
+  const espera = (ms) => new Promise(resolve => window.setTimeout(resolve, ms));
+
   try {
-    const res = await fetch(urlApi(), {
-      method: "POST",
-      body: JSON.stringify({ action: "fecharMes", mes, ano, pessoa }),
-    });
-    const data = await res.json().catch(() => null);
-    if (!data || data.ok === false) throw new Error((data && data.error) || "Erro desconhecido");
-    return data;
-  } catch (err) { return null; }
+    const controller = new AbortController();
+    const timeout = window.setTimeout(() => controller.abort(), 45000);
+    let res;
+    try {
+      res = await fetch(urlApi(), {
+        method: "POST",
+        body: corpo,
+        redirect: "follow",
+        cache: "no-store",
+        signal: controller.signal,
+      });
+    } finally {
+      window.clearTimeout(timeout);
+    }
+
+    if (res.ok) {
+      const data = await res.json().catch(() => null);
+      if (data && data.ok !== false) return data;
+    }
+  } catch (err) {
+    // Não declaramos falha imediatamente. Em Apps Script, o navegador pode
+    // perder a resposta/redirect enquanto a execução continua no servidor.
+  }
+
+  // Confirma pelo estado persistido. Se o servidor concluiu o fechamento,
+  // P/Q já apontarão para o mês seguinte mesmo que a resposta do POST tenha
+  // sido perdida pelo navegador.
+  await espera(1200);
+  return await verificarFechamentoMes(mes, ano, pessoa, 10);
 }
 
 on("formFecharMes", "submit", async (e) => {
