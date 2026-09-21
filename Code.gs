@@ -1,7427 +1,1893 @@
-// =====================================================================
-// CAIXA — app.js
-// Estado local em memória + sincronização com a planilha via Apps Script
-// =====================================================================
-
-const PESSOA_LABEL = { davi: "Davi", gabriel: "Gabriel", ambos: "Juntos" };
-const COLAPSO_STORAGE_KEY = "caixaFormsColapsados";
-const PESSOA_STORAGE_KEY = "caixaPessoaAtual";
-const CACHE_PREFIX = "caixaCache:";
-const MES_ATUAL_STORAGE_KEY = "caixaMesAtual";
-const MESES_LABEL = [
-  "Janeiro", "Fevereiro", "Março", "Abril", "Maio", "Junho",
-  "Julho", "Agosto", "Setembro", "Outubro", "Novembro", "Dezembro",
-];
-
-// Nomes de categoria em ordem (o que os <select> mostram). A aba CONFIGS é
-// a única fonte de verdade: coluna A = nome; coluna B = cor.
-function categoriasAtuais() {
-  return Array.isArray(state.categoriasConfig)
-    ? state.categoriasConfig.map((c) => c.nome)
-    : [];
-}
-
-// Cor de uma categoria: vem da aba CONFIGS. A paleta fixa permanece apenas
-// para categorias antigas já gravadas que não existam mais na configuração.
-function corDaCategoria(nome, idxFallback) {
-  if (state.categoriasConfig) {
-    const achado = state.categoriasConfig.find((c) => c.nome === nome);
-    if (achado && achado.cor) return achado.cor;
-  }
-  return PALETA_CATEGORIAS[idxFallback % PALETA_CATEGORIAS.length];
-}
-
-// ---------------------------------------------------------------------
-// ÍCONES PERSONALIZADOS DAS CAIXINHAS
-// Lê automaticamente IMG/ do próprio repositório GitHub e usa apenas
-// arquivos PNG/WEBP/JPG/JPEG cujo nome começa com "caixa" (ex.: caixa_zelda.png).
-// ---------------------------------------------------------------------
-const CAIXINHA_ICON_STORAGE_KEY = "caixaIconesPersonalizados";
-const CAIXINHA_ICON_USAGE_KEY = "caixaIconesUso";
-const CAIXINHA_ICON_CACHE_NAME = "caixinha-icones-v2";
-const CAIXINHA_ICON_DIR = "IMG/";
-const CAIXINHA_ICON_GITHUB_FALLBACK = "WolfSondar/Controle-de-Gastos"; // Repositório oficial dos ícones.
-
-function normalizarNomeIcone(nome) {
-  return String(nome || "").split("/").pop().trim();
-}
-
-function urlIconeCaixinha(nome) {
-  const arquivo = normalizarNomeIcone(nome);
-  if (!arquivo) return "";
-  if (/^https?:\/\//i.test(String(nome || ""))) return String(nome);
-  const repo = obterRepositorioGitHub();
-  if (repo) return `https://raw.githubusercontent.com/${repo}/main/IMG/${encodeURIComponent(arquivo)}`;
-  return `${CAIXINHA_ICON_DIR}${encodeURIComponent(arquivo)}`;
-}
-
-function isArquivoIconeCaixinha(nome) {
-  const arquivo = normalizarNomeIcone(nome);
-  return /^caixa/i.test(arquivo) && /\.(png|webp|jpe?g)$/i.test(arquivo);
-}
-
-function obterRepositorioGitHub() {
-  if (CAIXINHA_ICON_GITHUB_FALLBACK) return CAIXINHA_ICON_GITHUB_FALLBACK;
-  const host = window.location.hostname;
-  if (!/\.github\.io$/i.test(host)) return "";
-  const owner = host.split(".")[0];
-  const partes = window.location.pathname.split("/").filter(Boolean);
-  const repo = partes[0] || "";
-  return owner && repo ? `${owner}/${repo}` : "";
-}
-
-let iconesCaixinhas = [];
-let iconesCaixinhasCarregando = false;
-
-function salvarIconesCaixinhasCache() {
-  try { localStorage.setItem(CAIXINHA_ICON_STORAGE_KEY, JSON.stringify(iconesCaixinhas)); } catch (_err) {}
-}
-
-function carregarIconesCaixinhasCache() {
-  try {
-    const raw = localStorage.getItem(CAIXINHA_ICON_STORAGE_KEY);
-    const lista = raw ? JSON.parse(raw) : [];
-    return Array.isArray(lista) ? lista.filter(isArquivoIconeCaixinha) : [];
-  } catch (_err) { return []; }
-}
-
-function carregarUsoIconesCaixinhas() {
-  try {
-    const raw = localStorage.getItem(CAIXINHA_ICON_USAGE_KEY);
-    const uso = raw ? JSON.parse(raw) : {};
-    return uso && typeof uso === "object" ? uso : {};
-  } catch (_err) { return {}; }
-}
-
-function registrarUsoIconeCaixinha(nome) {
-  const arquivo = normalizarNomeIcone(nome);
-  if (!arquivo || !isArquivoIconeCaixinha(arquivo)) return;
-  try {
-    const uso = carregarUsoIconesCaixinhas();
-    uso[arquivo] = { count: Number(uso[arquivo]?.count || 0) + 1, last: Date.now() };
-    localStorage.setItem(CAIXINHA_ICON_USAGE_KEY, JSON.stringify(uso));
-  } catch (_err) {}
-  // Mantém os mais usados disponíveis no cache do navegador.
-  cachearImagemIcone(arquivo);
-}
-
-function ordenarIconesPorUso(lista) {
-  const uso = carregarUsoIconesCaixinhas();
-  return [...lista].sort((a, b) => {
-    const ua = uso[a]?.count || 0;
-    const ub = uso[b]?.count || 0;
-    if (ua !== ub) return ub - ua;
-    const la = uso[a]?.last || 0;
-    const lb = uso[b]?.last || 0;
-    if (la !== lb) return lb - la;
-    return a.localeCompare(b, "pt-BR", { sensitivity: "base", numeric: true });
-  });
-}
-
-async function cachearImagemIcone(nome) {
-  if (!window.caches) return;
-  try {
-    const url = urlIconeCaixinha(nome);
-    if (!url) return;
-    const cache = await caches.open(CAIXINHA_ICON_CACHE_NAME);
-    const req = new Request(url, { cache: "no-cache" });
-    if (!(await cache.match(req))) await cache.add(req);
-  } catch (_err) {}
-}
-
-function preCachearIconesMaisUsados(lista) {
-  const uso = carregarUsoIconesCaixinhas();
-  [...lista]
-    .sort((a, b) => (uso[b]?.count || 0) - (uso[a]?.count || 0))
-    .filter((nome) => (uso[nome]?.count || 0) > 0)
-    .slice(0, 16)
-    .forEach(cachearImagemIcone);
-}
-
-function obterCategoriaIcone(nome) {
-  const arquivo = normalizarNomeIcone(nome);
-  const base = arquivo.replace(/\.(png|webp|jpe?g)$/i, "").toLowerCase();
-  const regras = Array.isArray(state.iconCategorias) ? state.iconCategorias : [];
-  for (const regra of regras) {
-    for (const padraoBruto of (regra.padroes || [])) {
-      const padrao = normalizarTextoBuscaIcone(padraoBruto).replace(/\.(png|webp|jpe?g)$/i, "");
-      if (!padrao) continue;
-      const prefixo = padrao.endsWith("*") ? padrao.slice(0, -1) : padrao;
-      if (prefixo && base === prefixo || (prefixo && base.startsWith(prefixo))) return regra.categoria;
-    }
-  }
-  return "Outros";
-}
-
-function categoriasDeIconesDisponiveis() {
-  const lista = iconesCaixinhas.map(obterCategoriaIcone);
-  return [...new Set(lista)].sort((a, b) => a.localeCompare(b, "pt-BR", { sensitivity: "base" }));
-}
-
-function nomeIconeBonito(nome) {
-  return normalizarNomeIcone(nome).replace(/\.(png|webp|jpe?g)$/i, "");
-}
-
-function aplicarPreviewIcone(picker, nome) {
-  if (!picker) return;
-  const previewAtual = picker.querySelector(".caixinha-icon-picker-preview");
-  if (previewAtual) {
-    previewAtual.classList.remove("is-changing");
-    void previewAtual.offsetWidth;
-    previewAtual.classList.add("is-changing");
-    window.setTimeout(() => previewAtual.classList.remove("is-changing"), 360);
-  }
-  const preview = picker.querySelector(".caixinha-icon-picker-preview");
-  const hidden = picker.querySelector('input[type="hidden"]');
-  if (!preview) return;
-  if (hidden) hidden.value = nome || "";
-  preview.innerHTML = "";
-  preview.classList.toggle("is-default", !nome);
-  if (nome) {
-    const img = document.createElement("img");
-    img.src = urlIconeCaixinha(nome);
-    img.alt = "";
-    img.loading = "lazy";
-    img.onerror = () => {
-      preview.innerHTML = "Ícone indisponível";
-      preview.classList.add("is-default");
-      if (hidden) hidden.value = "";
-    };
-    preview.appendChild(img);
-  } else {
-    preview.textContent = "Sem ícone";
-  }
-}
-
-function posicionarMenuIcone(picker) {
-  if (!picker) return;
-  const trigger = picker.querySelector(".caixinha-icon-picker-trigger");
-  const menu = picker.querySelector(".caixinha-icon-picker-menu");
-  if (!trigger || !menu) return;
-
-  const rect = trigger.getBoundingClientRect();
-  const margem = 12;
-  const gap = 7;
-  const viewportW = document.documentElement.clientWidth || window.innerWidth;
-  const viewportH = window.innerHeight;
-  const tabbar = document.getElementById("tabbar");
-
-  // A navegação inferior é fixa. O seletor nunca pode ocupar a área dela.
-  // Usamos o topo real da tabbar como limite inferior útil, inclusive no
-  // mobile, onde a altura muda por causa do safe-area-inset.
-  const tabbarTop = tabbar ? tabbar.getBoundingClientRect().top : viewportH;
-  const limiteInferior = Math.min(viewportH, tabbarTop) - margem;
-  const espacoAbaixo = limiteInferior - rect.bottom;
-  const espacoAcima = rect.top - margem;
-
-  // Em vez de deixar o menu enorme sobre outros campos quando não cabe
-  // abaixo, damos prioridade ao espaço abaixo da tabbar e abrimos acima
-  // somente quando realmente houver mais espaço nessa direção.
-  const alturaNatural = Math.min(menu.scrollHeight || 270, 300);
-  const abrirAcima = espacoAbaixo < Math.min(alturaNatural, 220) && espacoAcima > espacoAbaixo;
-
-  menu.style.position = "fixed";
-  menu.style.right = "auto";
-  menu.style.bottom = "auto";
-
-  const largura = Math.min(560, Math.max(0, viewportW - margem * 2));
-  menu.style.width = `${largura}px`;
-
-  let alturaDisponivel;
-  let top;
-
-  if (abrirAcima) {
-    alturaDisponivel = Math.max(150, Math.min(300, espacoAcima - gap));
-    const altura = Math.min(alturaNatural, alturaDisponivel);
-    top = Math.max(margem, rect.top - altura - gap);
-    menu.classList.add("is-above");
-  } else {
-    alturaDisponivel = Math.max(150, Math.min(300, espacoAbaixo - gap));
-    const altura = Math.min(alturaNatural, alturaDisponivel);
-    top = Math.min(limiteInferior - altura, rect.bottom + gap);
-    top = Math.max(margem, top);
-    menu.classList.remove("is-above");
-  }
-
-  menu.style.left = `${Math.max(margem, Math.min(rect.left, viewportW - largura - margem))}px`;
-  menu.style.top = `${top}px`;
-  menu.style.maxHeight = `${Math.max(150, Math.min(300, alturaDisponivel))}px`;
-}
-
-function atualizarMenusIconesAbertos() {
-  document.querySelectorAll(".caixinha-icon-picker.is-open").forEach(posicionarMenuIcone);
-}
-
-function fecharPickersIcones(excepto) {
-  document.querySelectorAll(".caixinha-icon-picker.is-open").forEach((picker) => {
-    if (picker !== excepto) {
-      picker.classList.remove("is-open");
-      const trigger = picker.querySelector(".caixinha-icon-picker-trigger");
-      const menu = picker.querySelector(".caixinha-icon-picker-menu");
-      if (trigger) trigger.setAttribute("aria-expanded", "false");
-      if (menu) menu.classList.remove("is-above");
-    }
-  });
-}
-
-function normalizarTextoBuscaIcone(texto) {
-  return String(texto || "")
-    .normalize("NFD")
-    .replace(/[\u0300-\u036f]/g, "")
-    .toLowerCase()
-    .trim();
-}
-
-function renderOpcoesIconesCaixinhas(picker) {
-  if (!picker) return;
-  const menu = picker.querySelector(".caixinha-icon-picker-menu");
-  if (!menu) return;
-
-  menu.innerHTML = `
-    <div class="caixinha-icon-picker-search-wrap">
-      <span class="caixinha-icon-picker-search-icon" aria-hidden="true">
-        <svg viewBox="0 0 24 24" fill="none"><circle cx="11" cy="11" r="6.5" stroke="currentColor" stroke-width="1.8"></circle><path d="m16 16 4 4" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"></path></svg>
-      </span>
-      <input type="search" class="caixinha-icon-picker-search" placeholder="Pesquisar ícone..." autocomplete="off" spellcheck="false" aria-label="Pesquisar ícone">
-      <button type="button" class="caixinha-icon-picker-search-clear is-hidden" aria-label="Limpar pesquisa">×</button>
-    </div>
-    <div class="caixinha-icon-picker-category-wrap">
-      <button type="button" class="caixinha-icon-category is-active" data-category="__todos">Todos</button>
-      ${categoriasDeIconesDisponiveis().map(cat => `<button type="button" class="caixinha-icon-category" data-category="${escapeHtml(cat)}">${escapeHtml(cat)}</button>`).join("")}
-    </div>
-    <div class="caixinha-icon-picker-options" role="listbox" aria-label="Ícones disponíveis"></div>
-    <div class="caixinha-icon-picker-empty is-hidden">Nenhum ícone encontrado.</div>
-  `;
-
-  const search = menu.querySelector(".caixinha-icon-picker-search");
-  const clear = menu.querySelector(".caixinha-icon-picker-search-clear");
-  const optionsWrap = menu.querySelector(".caixinha-icon-picker-options");
-  const empty = menu.querySelector(".caixinha-icon-picker-empty");
-  const iconeAtual = normalizarNomeIcone(picker.querySelector('input[type="hidden"]')?.value || "");
-  let categoriaAtual = "__todos";
-  const opcoes = [{ nome: "", label: "Sem ícone", categoria: "__todos" }, ...ordenarIconesPorUso(iconesCaixinhas).map((nome) => ({ nome, label: nomeIconeBonito(nome), categoria: obterCategoriaIcone(nome) }))];
-
-  const desenhar = (termo = "") => {
-    const busca = normalizarTextoBuscaIcone(termo);
-    optionsWrap.innerHTML = "";
-    const filtradas = opcoes.filter(({ nome, label, categoria }) => {
-      const passaCategoria = categoriaAtual === "__todos" || categoria === categoriaAtual || (!nome && categoriaAtual === "__todos");
-      if (!passaCategoria) return false;
-      if (!busca) return true;
-      if (!nome) return "sem icone sem ícone".includes(busca);
-      return normalizarTextoBuscaIcone(`${nome} ${label} ${categoria}`).includes(busca);
-    });
-
-    filtradas.forEach(({ nome, label, categoria }) => {
-      const btn = document.createElement("button");
-      btn.type = "button";
-      btn.className = "caixinha-icon-option";
-      btn.setAttribute("role", "option");
-      btn.dataset.icone = nome;
-      btn.dataset.categoria = categoria;
-      btn.setAttribute("aria-label", label);
-      btn.title = label;
-      btn.setAttribute("aria-selected", nome === iconeAtual ? "true" : "false");
-      if (nome === iconeAtual) btn.classList.add("is-selected");
-
-      if (!nome) {
-        btn.innerHTML = '<span class="caixinha-icon-option-none">×</span>';
-      } else {
-        const img = document.createElement("img");
-        img.src = urlIconeCaixinha(nome);
-        img.alt = "";
-        img.loading = "lazy";
-        img.decoding = "async";
-        img.onerror = () => btn.remove();
-        btn.appendChild(img);
-      }
-
-      btn.addEventListener("click", () => {
-        aplicarPreviewIcone(picker, nome);
-        if (nome) registrarUsoIconeCaixinha(nome);
-        menu.querySelectorAll(".caixinha-icon-option").forEach((el) => {
-          el.classList.remove("is-selected");
-          el.setAttribute("aria-selected", "false");
-        });
-        btn.classList.add("is-selected");
-        btn.setAttribute("aria-selected", "true");
-        fecharPickersIcones();
-      });
-      optionsWrap.appendChild(btn);
-    });
-
-    empty.classList.toggle("is-hidden", filtradas.length > 0);
-    clear.classList.toggle("is-hidden", !busca);
-  };
-
-  menu.querySelectorAll(".caixinha-icon-category").forEach((btn) => {
-    btn.addEventListener("click", () => {
-      categoriaAtual = btn.dataset.category || "__todos";
-      menu.querySelectorAll(".caixinha-icon-category").forEach((el) => el.classList.toggle("is-active", el === btn));
-      desenhar(search.value);
-    });
-  });
-
-  search.addEventListener("input", () => desenhar(search.value));
-  clear.addEventListener("click", () => {
-    search.value = "";
-    desenhar("");
-    search.focus();
-  });
-  search.addEventListener("click", (e) => e.stopPropagation());
-  desenhar("");
-}
-
-function inicializarPickersIcones() {
-  document.querySelectorAll(".caixinha-icon-picker").forEach((picker) => {
-    const trigger = picker.querySelector(".caixinha-icon-picker-trigger");
-    if (!trigger || trigger.dataset.iconPickerBound) return;
-    trigger.dataset.iconPickerBound = "1";
-    trigger.addEventListener("click", (e) => {
-      e.stopPropagation();
-      const abrir = !picker.classList.contains("is-open");
-      fecharPickersIcones(picker);
-      picker.classList.toggle("is-open", abrir);
-      trigger.setAttribute("aria-expanded", abrir ? "true" : "false");
-      if (abrir) {
-        renderOpcoesIconesCaixinhas(picker);
-        requestAnimationFrame(() => posicionarMenuIcone(picker));
-      }
-    });
-  });
-}
-
-async function carregarIconesCaixinhas() {
-  if (iconesCaixinhasCarregando) return;
-  iconesCaixinhasCarregando = true;
-
-  const cache = carregarIconesCaixinhasCache();
-  if (cache.length) {
-    iconesCaixinhas = cache;
-    document.querySelectorAll(".caixinha-icon-picker").forEach(renderOpcoesIconesCaixinhas);
-  }
-
-  const repo = obterRepositorioGitHub();
-  if (!repo) {
-    iconesCaixinhasCarregando = false;
-    inicializarPickersIcones();
-    return;
-  }
-
-  try {
-    const res = await fetch(`https://api.github.com/repos/${repo}/contents/IMG`, {
-      headers: { Accept: "application/vnd.github+json" }
-    });
-    if (!res.ok) throw new Error(`GitHub respondeu ${res.status}`);
-    const arquivos = await res.json();
-    if (!Array.isArray(arquivos)) throw new Error("Pasta IMG inválida");
-
-    iconesCaixinhas = arquivos
-      .filter((arquivo) => arquivo && arquivo.type === "file" && isArquivoIconeCaixinha(arquivo.name))
-      .map((arquivo) => arquivo.name);
-    iconesCaixinhas = ordenarIconesPorUso(iconesCaixinhas);
-
-    salvarIconesCaixinhasCache();
-    preCachearIconesMaisUsados(iconesCaixinhas);
-    document.querySelectorAll(".caixinha-icon-picker").forEach(renderOpcoesIconesCaixinhas);
-  } catch (_err) {
-    // Mantém o último cache se o GitHub estiver indisponível.
-  } finally {
-    iconesCaixinhasCarregando = false;
-    inicializarPickersIcones();
-  }
-}
-
-document.addEventListener("click", (e) => {
-  if (!e.target.closest(".caixinha-icon-picker")) fecharPickersIcones();
-});
-
-window.addEventListener("resize", atualizarMenusIconesAbertos);
-window.addEventListener("scroll", atualizarMenusIconesAbertos, true);
-
-function dataHojeISO() {
-  const d = new Date();
-  const ano = d.getFullYear();
-  const mes = String(d.getMonth() + 1).padStart(2, "0");
-  const dia = String(d.getDate()).padStart(2, "0");
-  return `${ano}-${mes}-${dia}`;
-}
-
-// Data de lançamento: mantém o dia escolhido e, quando o usuário escolhe
-// apenas uma data, acrescenta o horário LOCAL do navegador.
-// Não usamos toISOString()/UTC aqui, pois isso deslocaria o horário em 3h.
-function dataHoraAgoraISO() {
-  const d = new Date();
-  const ano = d.getFullYear();
-  const mes = String(d.getMonth() + 1).padStart(2, "0");
-  const dia = String(d.getDate()).padStart(2, "0");
-  const hora = String(d.getHours()).padStart(2, "0");
-  const minuto = String(d.getMinutes()).padStart(2, "0");
-  const segundo = String(d.getSeconds()).padStart(2, "0");
-  // O offset identifica o fuso do navegador no instante do lançamento.
-  // Assim o Apps Script não precisa adivinhar o horário local do usuário.
-  const offsetEmMinutos = -d.getTimezoneOffset();
-  const sinal = offsetEmMinutos >= 0 ? "+" : "-";
-  const offsetAbsoluto = Math.abs(offsetEmMinutos);
-  const offsetHora = String(Math.floor(offsetAbsoluto / 60)).padStart(2, "0");
-  const offsetMinuto = String(offsetAbsoluto % 60).padStart(2, "0");
-  return `${ano}-${mes}-${dia}T${hora}:${minuto}:${segundo}${sinal}${offsetHora}:${offsetMinuto}`;
-}
-
-function dataDoLancamento(data) {
-  const dataLimpa = String(data || "").trim();
-  if (!dataLimpa) return "";
-
-  const isoData = dataLimpa.match(/^(\d{4})-(\d{2})-(\d{2})$/);
-  if (isoData) return `${isoData[1]}-${isoData[2]}-${isoData[3]}T${dataHoraAgoraISO().slice(11)}`;
-
-  const isoDataHora = dataLimpa.match(/^(\d{4}-\d{2}-\d{2})[T ](\d{2}:\d{2}(?::\d{2})?)(Z|[+-]\d{2}:?\d{2})?$/);
-  if (isoDataHora) {
-    const hora = isoDataHora[2].length === 5 ? isoDataHora[2] + ":00" : isoDataHora[2];
-    return `${isoDataHora[1]}T${hora}${isoDataHora[3] || ""}`;
-  }
-
-  const br = dataLimpa.match(/^(\d{2})[\/.-](\d{2})[\/.-](\d{4})(?:[ T](\d{2}:\d{2}(?::\d{2})?))?$/);
-  if (br) {
-    const hora = br[4] ? (br[4].length === 5 ? br[4] + ":00" : br[4]) : dataHoraAgoraISO().slice(11);
-    return `${br[3]}-${br[2]}-${br[1]}T${hora}`;
-  }
-
-  return dataLimpa;
-}
-
-function dataBrasileira(data) {
-  const valor = String(data || "").trim();
-  const iso = valor.match(/^(\d{4})-(\d{2})-(\d{2})/);
-  if (iso) return `${iso[3]}/${iso[2]}/${iso[1]}`;
-  const br = valor.match(/^(\d{2})[\/.-](\d{2})[\/.-](\d{4})/);
-  if (br) return `${br[1]}/${br[2]}/${br[3]}`;
-  return valor;
-}
-
-function preencherDatasComHoje() {
-  document.querySelectorAll('.add-form input[type="date"].input-data').forEach((el) => {
-    if (!el.value) el.value = dataHojeISO();
-  });
-}
-
-function popularSelectsDeCategoria() {
-  document.querySelectorAll("select.input-categoria").forEach((select) => {
-    const opcaoVazia = select.querySelector('option[value=""]');
-    select.innerHTML = "";
-    select.appendChild(opcaoVazia || new Option("Categoria (opcional)", ""));
-    categoriasAtuais().forEach((cat) => select.appendChild(new Option(cat, cat)));
-  });
-}
-
-// ---------------------------------------------------------------------
-// INDEXEDDB
-// ---------------------------------------------------------------------
-const IDB_NOME = "caixaDB";
-const IDB_VERSAO = 1;
-const IDB_LOJA_CACHE = "cache";
-const IDB_LOJA_FILA = "filaOffline";
-
-let idbPromise = null;
-function abrirIdb() {
-  if (idbPromise) return idbPromise;
-  idbPromise = new Promise((resolve, reject) => {
-    if (!("indexedDB" in window)) {
-      reject(new Error("IndexedDB indisponível neste navegador"));
-      return;
-    }
-    const req = indexedDB.open(IDB_NOME, IDB_VERSAO);
-    req.onupgradeneeded = () => {
-      const db = req.result;
-      if (!db.objectStoreNames.contains(IDB_LOJA_CACHE)) db.createObjectStore(IDB_LOJA_CACHE);
-      if (!db.objectStoreNames.contains(IDB_LOJA_FILA)) db.createObjectStore(IDB_LOJA_FILA, { autoIncrement: true });
-    };
-    req.onsuccess = () => resolve(req.result);
-    req.onerror = () => reject(req.error);
-  });
-  return idbPromise;
-}
-
-async function idbGet(loja, chave) {
-  try {
-    const db = await abrirIdb();
-    return await new Promise((resolve, reject) => {
-      const tx = db.transaction(loja, "readonly");
-      const req = tx.objectStore(loja).get(chave);
-      req.onsuccess = () => resolve(req.result === undefined ? null : req.result);
-      req.onerror = () => reject(req.error);
-    });
-  } catch (err) {
-    return null;
-  }
-}
-
-async function idbSet(loja, chave, valor) {
-  try {
-    const db = await abrirIdb();
-    await new Promise((resolve, reject) => {
-      const tx = db.transaction(loja, "readwrite");
-      tx.objectStore(loja).put(valor, chave);
-      tx.oncomplete = () => resolve();
-      tx.onerror = () => reject(tx.error);
-    });
-  } catch (err) {}
-}
-
-async function idbDelete(loja, chave) {
-  try {
-    const db = await abrirIdb();
-    await new Promise((resolve, reject) => {
-      const tx = db.transaction(loja, "readwrite");
-      tx.objectStore(loja).delete(chave);
-      tx.oncomplete = () => resolve();
-      tx.onerror = () => reject(tx.error);
-    });
-  } catch (err) {}
-}
-
-async function idbListarFila() {
-  try {
-    const db = await abrirIdb();
-    return await new Promise((resolve, reject) => {
-      const tx = db.transaction(IDB_LOJA_FILA, "readonly");
-      const store = tx.objectStore(IDB_LOJA_FILA);
-      const itens = [];
-      const req = store.openCursor();
-      req.onsuccess = () => {
-        const cursor = req.result;
-        if (cursor) {
-          itens.push({ chaveIdb: cursor.key, valor: cursor.value });
-          cursor.continue();
-        } else {
-          resolve(itens);
-        }
-      };
-      req.onerror = () => reject(req.error);
-    });
-  } catch (err) {
-    return [];
-  }
-}
-
-function getMesAtualCache() {
-  try {
-    const raw = localStorage.getItem(MES_ATUAL_STORAGE_KEY);
-    return raw ? JSON.parse(raw) : null;
-  } catch (err) {
-    return null;
-  }
-}
-
-const mesAtualCache = getMesAtualCache();
-
-const RESUMO_GRAFICO_CACHE_KEY = "caixa:resumo:grafico:v2";
-function lerPaginaGraficoResumo() {
-  try {
-    const raw = JSON.parse(localStorage.getItem(RESUMO_GRAFICO_CACHE_KEY) || "{}");
-    const chave = localStorage.getItem(PESSOA_STORAGE_KEY) || "davi";
-    return typeof raw?.[chave] === "string" ? raw[chave] : "";
-  } catch (err) {
-    return "";
-  }
-}
-function salvarPaginaGraficoResumo(indiceOuId) {
-  try {
-    const valor = String(indiceOuId || "");
-    if (!valor) return;
-    const raw = JSON.parse(localStorage.getItem(RESUMO_GRAFICO_CACHE_KEY) || "{}");
-    const chave = localStorage.getItem(PESSOA_STORAGE_KEY) || "davi";
-    raw[chave] = valor;
-    localStorage.setItem(RESUMO_GRAFICO_CACHE_KEY, JSON.stringify(raw));
-  } catch (err) {}
-}
-
-const PESSOAS_VALIDAS = new Set(["davi", "gabriel", "ambos"]);
-const pessoaSalvaInicial = (() => { try { const p = localStorage.getItem(PESSOA_STORAGE_KEY); return PESSOAS_VALIDAS.has(p) ? p : "davi"; } catch (e) { return "davi"; } })();
-
-const state = {
-  ganhos: [],
-  gastosFixos: [],
-  gastosVariaveis: [],
-  caixinhas: [],
-  loaded: false,
-  // Incrementa a cada alteração feita pelo usuário. Uma busca iniciada antes
-  // dessa alteração nunca pode sobrescrever o estado local mais novo.
-  versaoAlteracaoLocal: 0,
-  // Ações que ainda estão sendo persistidas. Enquanto um salvamento está
-  // em andamento, uma leitura GET não pode substituir o estado local com
-  // uma versão antiga que ainda está na planilha.
-  salvamentosEmAndamento: new Set(),
-  pessoaAtual: pessoaSalvaInicial,
-  mesAtual: mesAtualCache ? mesAtualCache.mes : null,
-  anoAtual: mesAtualCache ? mesAtualCache.ano : null,
-  historico: null, 
-  historicoAnoSelecionado: new Date().getFullYear(),
-  categoriasConfig: null, // [{nome, cor}] vindo exclusivamente da aba CONFIGS
-  iconCategorias: [], // regras [{categoria, padroes}] vindas da aba CONFIGS
-  iaConfig: null, // imersão/tom compartilhados com o assistente local
+/**
+ * CAIXA — backend em Google Apps Script
+ * Conecta a planilha "Sistema de Controle Financeiro e Objetivos" ao site.
+ * Suporte a duas pessoas, cada uma na sua própria aba:
+ *   - Aba "Davi"
+ *   - Aba "Gabriel"
+ * E um modo "Ambos", que combina os dados das duas abas, somente leitura.
+ *
+ * LAYOUT DE COLUNAS (abas Davi/Gabriel):
+ *   A = GANHOS              B = VALOR GANHO         C = DATA        D = RECEBIDO (VERDADEIRO/FALSO)
+ *   E = GASTOS FIXOS        F = VALOR FIXO          G = TIPO        H = DATA        I = PARCELA     J = PAGO (VERDADEIRO/FALSO)
+ *   K = GASTOS VARIÁVEIS    L = VALOR VARIÁVEL      M = TIPO        N = DATA        O = PAGO (VERDADEIRO/FALSO)
+ *   P = ORIGEM DO GASTO VARIÁVEL ("saldo" ou "beneficio") — fica ao lado do PAGO dos variáveis
+ *   Q = GUARDADO (nome da caixinha/investimento/meta)
+ *   R = META (objetivo opcional da caixinha; 0 ou vazio = sem meta)
+ *   S = VALOR GUARDADO (quanto está guardado agora nessa caixinha, total acumulado)
+ *   T = RENDIMENTO TOTAL (rendimento que a caixinha teve no mês atual)
+ *   U = VALOR GUARDADO NO MES (quanto foi depositado nessa caixinha no mês atual)
+ *   V = DATA (prazo opcional da caixinha, formato yyyy-MM-dd)
+ *   W = ICON (nome do arquivo do ícone personalizado, ex: caixa_zelda.png)
+ *
+ * LAYOUT DA ABA "HISTORICO" (um bloco de 17 linhas por ano, a partir da linha 1):
+ *   Linha do ano:               B = ano (ex: 2026)
+ *   Linha dos meses:            B..M = JANEIRO..DEZEMBRO
+ *   Linha GANHOS DAVI:          B..M = total RECEBIDO no mês
+ *   Linha DEBITOS DAVI:         B..M = total PAGO no mês em NEGATIVO
+ *   Linha SALDO DAVI:           B..M = saldo do Davi naquele mês
+ *   Linha GUARDADO DAVI:        B..M = soma do valor guardado (total acumulado) em todas as caixinhas
+ *   Linha GUARDADO DAVI MES:    B..M = soma do que foi depositado nas caixinhas naquele mês
+ *   Linha GASTOS POR CATEGORIA: B..M = texto "Categoria:Valor,Categoria:Valor,..."
+ *   Linha RENDIMENTO DAVI:      B..M = rendimento das caixinhas naquele mês
+ *   Linha GANHOS GABRIEL:       B..M 
+ *   Linha DEBITOS GABRIEL:      B..M
+ *   Linha SALDO GABRIEL:        B..M
+ *   Linha GUARDADO GABRIEL:     B..M
+ *   Linha GUARDADO GABRIEL MES: B..M
+ *   Linha GASTOS POR CATEGORIA: B..M 
+ *   Linha RENDIMENTO GABRIEL:   B..M 
+ *   (linha em branco antes do próximo bloco de ano)
+ */
+
+// Nome das abas na planilha — uma por pessoa.
+const SHEETS = {
+  davi: "Davi",
+  gabriel: "Gabriel",
 };
 
-function renderMesAtual() {
-  const el = document.getElementById("mesAtualBadge");
-  if (!el) return;
-  if (!state.mesAtual || !state.anoAtual) {
-    el.textContent = "";
-    return;
-  }
-  el.textContent = MESES_LABEL[state.mesAtual - 1] + "/" + state.anoAtual;
-  try {
-    localStorage.setItem(MES_ATUAL_STORAGE_KEY, JSON.stringify({ mes: state.mesAtual, ano: state.anoAtual }));
-  } catch (err) {}
+// Nome de exibição de cada pessoa (usado nas descrições de transferência e no insight de IA).
+const PESSOA_NOME = {
+  davi: "Davi",
+  gabriel: "Gabriel",
+  ambos: "o casal (Davi e Gabriel)",
+};
+
+// Aba com as configurações gerais do app, incluindo a "imersão" de contexto
+// pessoal e o "tom" usados pra deixar os insights de IA mais personalizados.
+//   Coluna D = IMERSÃO IA DAVI     (uma frase/traço por linha, com tag opcional tipo "[COMIDA] ...")
+//   Coluna E = IMERSÃO IA GABRIEL
+//   Coluna F = IMERSÃO IA AMBOS    (traços que valem pros dois, usados também no modo Juntos)
+//   Coluna G = TOM IA DAVI         (descrição de como a IA deve "falar" com o Davi — persona/estilo)
+//   Coluna H = TOM IA GABRIEL      (idem, pro Gabriel — no modo Juntos o tom fica sempre neutro/padrão)
+const CONFIGS_SHEET_NAME = "CONFIGS";
+const COL_CATEGORIA_NOME = 1; // A — nome da categoria exibido no app
+const COL_CATEGORIA_COR = 2; // B — cor da categoria (#RRGGBB)
+const COL_IMERSAO_DAVI = 4;
+const COL_IMERSAO_GABRIEL = 5;
+const COL_IMERSAO_AMBOS = 6;
+const COL_TOM_DAVI = 7;
+const COL_TOM_GABRIEL = 8;
+const COL_ICON_CATEGORIA = 10; // J — categoria dos ícones
+const COL_ICON_NOMES = 11; // K — nomes dos arquivos (separados por vírgula, ponto e vírgula ou linha)
+
+// Margem extra de linhas ao limpar um bloco, pra garantir que nenhum resto de
+// dado antigo fique pra trás mesmo se a lista encolher bastante.
+const MARGEM_LIMPEZA = 15;
+
+// Ganhos com esses termos no nome (sem acento, sem caixa) são considerados
+// "recorrentes" — ao fechar o mês, só eles continuam pro mês seguinte
+const TERMOS_GANHO_RECORRENTE = ["salario", "refeicao", "beneficio"];
+
+// ---------------------------------------------------------------------
+// LAYOUT DE COLUNAS — abas Davi/Gabriel
+// ---------------------------------------------------------------------
+
+const COL_GANHOS = 1; // A
+const COL_VALOR_GANHO = 2; // B
+const COL_DATA_GANHO = 3; // C
+const COL_RECEBIDO = 4; // D
+
+const COL_GASTOS_FIXOS = 5; // E
+const COL_VALOR_FIXO = 6; // F
+const COL_TIPO_FIXO = 7; // G
+const COL_DATA_FIXO = 8; // H
+const COL_PARCELA_FIXO = 9; // I
+const COL_PAGO_FIXO = 10; // J
+
+const COL_GASTOS_VARIAVEIS = 11; // K
+const COL_VALOR_VARIAVEL = 12; // L
+const COL_TIPO_VARIAVEL = 13; // M
+const COL_DATA_VARIAVEL = 14; // N
+const COL_PAGO_VARIAVEL = 15; // O
+
+const COL_ORIGEM_VARIAVEL = 16; // P — origem do dinheiro do gasto variável
+const COL_GUARDADO = 17; // Q
+const COL_META = 18; // R
+const COL_VALOR_GUARDADO = 19; // S
+const COL_RENDIMENTO = 20; // T
+const COL_VALOR_GUARDADO_MES = 21; // U
+const COL_DATA_CAIXINHA = 22; // V — prazo opcional da caixinha
+const COL_ICONE = 23; // W — ícone personalizado da caixinha
+
+// ---------------------------------------------------------------------
+// HISTÓRICO — constantes de layout
+// ---------------------------------------------------------------------
+
+const HISTORICO_SHEET_NAME = "HISTORICO";
+const HISTORICO_ANO_BASE = 2026; // ano do primeiro bloco (linha 1)
+const HISTORICO_LINHAS_POR_BLOCO = 17; // 16 linhas de dados + 1 em branco separando os anos
+const HISTORICO_NOME_MESES = [
+  "JANEIRO", "FEVEREIRO", "MARÇO", "ABRIL", "MAIO", "JUNHO",
+  "JULHO", "AGOSTO", "SETEMBRO", "OUTUBRO", "NOVEMBRO", "DEZEMBRO",
+];
+const HISTORICO_FORMATO_MOEDA =
+  '_([$R$ -416]* #,##0.00_);_([$R$ -416]* \\(#,##0.00\\);_([$R$ -416]* "-"??_);_(@_)';
+const HISTORICO_LABEL_CATEGORIAS = "GASTOS POR CATEGORIA";
+
+// deslocamento de cada linha de dado em relação à linha do ano (yearRow).
+const OFFSET_MESES = 1;
+const OFFSET_GANHOS_DAVI = 2;
+const OFFSET_DEBITOS_DAVI = 3;
+const OFFSET_SALDO_DAVI = 4;
+const OFFSET_GUARDADO_DAVI = 5;
+const OFFSET_GUARDADO_DAVI_MES = 6;
+const OFFSET_CATEGORIAS_DAVI = 7;
+const OFFSET_RENDIMENTO_DAVI = 8;
+const OFFSET_GANHOS_GABRIEL = 9;
+const OFFSET_DEBITOS_GABRIEL = 10;
+const OFFSET_SALDO_GABRIEL = 11;
+const OFFSET_GUARDADO_GABRIEL = 12;
+const OFFSET_GUARDADO_GABRIEL_MES = 13;
+const OFFSET_CATEGORIAS_GABRIEL = 14;
+const OFFSET_RENDIMENTO_GABRIEL = 15;
+
+// células de configuração (fora da tabela visual, à direita dela)
+const CONFIG_CEL_LABEL = "P1";
+const CONFIG_CEL_ANO_LABEL = "P2";
+const CONFIG_CEL_MES_LABEL = "P3";
+const CONFIG_CEL_ANO = "Q2";
+const CONFIG_CEL_MES = "Q3";
+
+function getSheetByPessoa(pessoa) {
+  const nomeAba = SHEETS[pessoa];
+  if (!nomeAba) throw new Error("Pessoa inválida: " + pessoa);
+  const ss = SpreadsheetApp.getActiveSpreadsheet();
+  const sheet = ss.getSheetByName(nomeAba);
+  if (!sheet) throw new Error("Aba não encontrada: " + nomeAba);
+  return sheet;
 }
 
-const prevTotals = { ganhos: null, fixos: null, variaveis: null, saldo: null, guardado: null };
-let primeiraRenderCaixinhas = true;
-
-const fmt = (n) => (Number(n) || 0).toLocaleString("pt-BR", { style: "currency", currency: "BRL" });
-const fmtCampo = (n) => (Number(n) || 0).toLocaleString("pt-BR", { minimumFractionDigits: 2, maximumFractionDigits: 2 });
-
-function vibrar(ms = 10) {
-  if (navigator.vibrate) navigator.vibrate(ms);
-}
-
-function isAmbos() {
-  return state.pessoaAtual === "ambos";
+function getHistoricoSheet() {
+  const ss = SpreadsheetApp.getActiveSpreadsheet();
+  const sheet = ss.getSheetByName(HISTORICO_SHEET_NAME);
+  if (!sheet) throw new Error("Aba não encontrada: " + HISTORICO_SHEET_NAME);
+  return sheet;
 }
 
 // ---------------------------------------------------------------------
-// URL DA API
+// GET — carregar dados (davi | gabriel | ambos | historico)
 // ---------------------------------------------------------------------
-// Mantemos a URL do Apps Script exatamente como configurada em config.js.
-// Os parâmetros opcionais são adicionados somente quando necessários; não
-// alteramos o endpoint nem adicionamos cache-busters, pois isso pode quebrar
-// redirects do Web App do Apps Script.
-function urlApi(params = {}) {
-  if (!API_URL || API_URL.includes("COLE_AQUI")) return "";
-  if (!params || !Object.keys(params).length) return API_URL;
 
+function doGet(e) {
   try {
-    const url = new URL(API_URL, window.location.href);
-    Object.entries(params).forEach(([chave, valor]) => {
-      if (valor !== undefined && valor !== null) url.searchParams.set(chave, String(valor));
-    });
-    return url.toString();
-  } catch (_err) {
-    const extras = new URLSearchParams(params).toString();
-    if (!extras) return API_URL;
-    return `${API_URL}${API_URL.includes("?") ? "&" : "?"}${extras}`;
-  }
-}
+    const pessoa = ((e.parameter && e.parameter.pessoa) || "davi").toLowerCase();
+    const historicoSheet = getHistoricoSheet();
+    const config = lerConfigMesAtual(historicoSheet);
 
-async function fetchApiGet(params = {}) {
-  return fetch(urlApi(params), { method: "GET", cache: "no-store" });
-}
-
-
-async function carregarConfigIA() {
-  if (!API_URL || API_URL.includes("COLE_AQUI")) return null;
-  try {
-    const salvo = JSON.parse(localStorage.getItem("caixa-ia-config-v1") || "null");
-    if (salvo && salvo.expira > Date.now() && salvo.data) { state.iaConfig = salvo.data; return salvo.data; }
-  } catch (err) {}
-  try {
-    const res = await fetchApiGet({ pessoa: "iaConfig" });
-    const data = await res.json();
-    if (!data || data.ok === false) throw new Error(data?.error || "Erro ao carregar configuração da IA");
-    state.iaConfig = data;
-    try { localStorage.setItem("caixa-ia-config-v1", JSON.stringify({ data, expira: Date.now() + 3000 })); } catch (err) {}
-    document.dispatchEvent(new CustomEvent("caixa:ia-config-atualizada"));
-    return data;
-  } catch (err) { return state.iaConfig || null; }
-}
-
-async function getCache(pessoa) { return idbGet(IDB_LOJA_CACHE, CACHE_PREFIX + pessoa); }
-async function setCache(pessoa, data) {
-  return idbSet(IDB_LOJA_CACHE, CACHE_PREFIX + pessoa, {
-    ganhos: data.ganhos || [],
-    gastosFixos: data.gastosFixos || [],
-    gastosVariaveis: data.gastosVariaveis || [],
-    caixinhas: data.caixinhas || [],
-    categorias: data.categorias || null,
-    iconCategorias: data.iconCategorias || [],
-  });
-}
-async function removerCache(pessoa) { return idbDelete(IDB_LOJA_CACHE, CACHE_PREFIX + pessoa); }
-
-// Marca uma mutação feita localmente. Isso impede que uma resposta GET
-// iniciada antes da ação do usuário volte depois e "desfaça" a alteração.
-function marcarAlteracaoLocal() {
-  state.versaoAlteracaoLocal = (state.versaoAlteracaoLocal || 0) + 1;
-}
-
-const syncEl = document.getElementById("syncStatus");
-let syncModeAnterior = null;
-
-function setSyncState(mode) {
-  if (!syncEl) return;
-  // Voltou de "sem internet" pra qualquer outro estado: dá o solavanco
-  // suave no ícone de wifi (ver .is-reconectando no style.css) em vez de
-  // só trocar o ícone seco.
-  if (syncModeAnterior === "offline" && mode !== "offline" && mode !== "error") {
-    syncEl.classList.add("is-reconectando");
-    setTimeout(() => syncEl.classList.remove("is-reconectando"), 700);
-  }
-  // Acabou de salvar com sucesso (saving -> idle, ou seja, uma alteração
-  // enviada pra planilha, não só uma busca): pisca o check (ver
-  // .sync-icone-check no style.css) por um instante antes de assentar no
-  // wifi parado — um "confirmado" rápido, em vez de pular direto pro idle
-  // sem feedback. Uma simples busca de dados (syncing -> idle) não passa
-  // por aqui, então não mostra o check.
-  if (syncModeAnterior === "saving" && mode === "idle") {
-    syncModeAnterior = "saved";
-    syncEl.dataset.state = "saved";
-    setTimeout(() => {
-      if (syncEl.dataset.state === "saved") {
-        syncModeAnterior = "idle";
-        syncEl.dataset.state = "idle";
-      }
-    }, 900);
-    return;
-  }
-  syncModeAnterior = mode;
-  syncEl.dataset.state = mode;
-}
-
-// Atualiza só o numerozinho de alterações pendentes (badge ao lado do ícone
-// de wifi), sem mexer no estado geral do indicador — usado durante o envio
-// da fila offline pra ir encolhendo o número item por item.
-function atualizarBadgeOffline(n) {
-  const badge = document.getElementById("syncBadge");
-  if (badge) badge.textContent = n > 0 ? String(n) : "";
-  if (syncEl) {
-    if (n > 0) syncEl.setAttribute("aria-label", n === 1 ? "1 alteração pendente" : `${n} alterações pendentes`);
-    else syncEl.removeAttribute("aria-label");
-  }
-}
-
-function showToast(msg) { toastComAcao(msg, null, null); }
-function toastComAcao(msg, textoAcao, onAcao) {
-  const t = document.getElementById("toast");
-  if (!t) return;
-  t.innerHTML = "";
-  const span = document.createElement("span");
-  span.className = "toast-msg";
-  span.textContent = msg;
-  t.appendChild(span);
-  if (textoAcao && onAcao) {
-    const btn = document.createElement("button");
-    btn.type = "button";
-    btn.className = "toast-acao";
-    btn.textContent = textoAcao;
-    btn.addEventListener("click", () => {
-      clearTimeout(showToast._t);
-      t.classList.remove("is-visible");
-      onAcao();
-    });
-    t.appendChild(btn);
-  }
-  t.classList.add("is-visible");
-  clearTimeout(showToast._t);
-  showToast._t = setTimeout(() => t.classList.remove("is-visible"), textoAcao ? 5200 : 2600);
-}
-
-const pilhaModais = []; 
-let suprimirProximoPopstate = false; 
-
-function registrarAberturaModal(id) {
-  pilhaModais.push(id);
-  history.pushState({ caixaModal: id }, "");
-}
-
-function fecharComHistorico(id, logicaDeFechar) {
-  const idx = pilhaModais.lastIndexOf(id);
-  logicaDeFechar();
-  if (idx === -1) return;
-  pilhaModais.splice(idx, 1);
-  suprimirProximoPopstate = true;
-  history.back();
-}
-
-window.addEventListener("popstate", () => {
-  if (suprimirProximoPopstate) {
-    suprimirProximoPopstate = false;
-    return;
-  }
-  const id = pilhaModais.pop();
-  if (!id) return;
-  const fechar = FECHADORES_MODAL[id];
-  if (fechar) fechar();
-});
-
-const FECHADORES_MODAL = {};
-
-async function carregarDados() {
-  if (!API_URL || API_URL.includes("COLE_AQUI")) {
-    setSyncState("error");
-    showToast("Configure a URL do Apps Script em config.js");
-    renderAll();
-    return;
-  }
-
-  const pessoaRequisitada = state.pessoaAtual;
-  const versaoNoInicio = state.versaoAlteracaoLocal;
-  const cache = await getCache(pessoaRequisitada);
-  if (state.pessoaAtual !== pessoaRequisitada) return;
-  // Se o usuário alterou qualquer coisa enquanto o cache era lido, o cache
-  // antigo não pode entrar por cima do que ele acabou de fazer.
-  if (state.versaoAlteracaoLocal !== versaoNoInicio) return;
-  if (cache) {
-    state.ganhos = cache.ganhos;
-    state.gastosFixos = cache.gastosFixos;
-    state.gastosVariaveis = cache.gastosVariaveis;
-    state.caixinhas = cache.caixinhas || [];
-    state.categoriasConfig = cache.categorias || null;
-    state.iconCategorias = cache.iconCategorias || [];
-    state.loaded = true;
-    popularSelectsDeCategoria();
-    renderAll();
-  } else {
-    renderSkeletons();
-  }
-
-  // Sem internet: nem tenta buscar — fica só no ícone de sem internet
-  // (sem nenhuma animação de "tentando"), mostrando o que já tem em cache.
-  if (!navigator.onLine) {
-    setSyncState("offline");
-    if (!cache) showToast("Sem internet. Assim que conectar eu atualizo sozinho.");
-    return;
-  }
-
-  setSyncState("syncing");
-  try {
-    const res = await fetchApiGet({ pessoa: pessoaRequisitada });
-    if (!res.ok) throw new Error(`HTTP ${res.status}`);
-    const data = await res.json();
-    if (data && data.ok === false) throw new Error(data.error || "Erro desconhecido");
-    if (state.pessoaAtual !== pessoaRequisitada) return;
-    // Uma gravação pode ter começado depois que esta busca foi iniciada (ou
-    // enquanto ela estava em trânsito). Nesse intervalo o Apps Script ainda
-    // pode devolver o estado anterior da planilha. Nunca deixamos esse GET
-    // sobrescrever o estado que o usuário acabou de alterar.
-    if (state.salvamentosEmAndamento && state.salvamentosEmAndamento.size) return;
-    // A resposta pode ter ficado alguns segundos em trânsito. Se houve uma
-    // ação local desde o início desta busca, ela é mais nova e deve vencer.
-    if (state.versaoAlteracaoLocal !== versaoNoInicio) return;
-
-    const mudancas = {
-      ganhos: colecaoMudou(state.ganhos, data.ganhos || []),
-      gastosFixos: colecaoMudou(state.gastosFixos, data.gastosFixos || []),
-      gastosVariaveis: colecaoMudou(state.gastosVariaveis, data.gastosVariaveis || []),
-      caixinhas: colecaoMudou(state.caixinhas, data.caixinhas || []),
-      categoriasConfig: colecaoMudou(state.categoriasConfig || [], data.categorias || []),
-      iconCategorias: colecaoMudou(state.iconCategorias || [], data.iconCategorias || []),
-    };
-    state.ganhos = data.ganhos || [];
-    state.gastosFixos = data.gastosFixos || [];
-    state.gastosVariaveis = data.gastosVariaveis || [];
-    state.caixinhas = data.caixinhas || [];
-    state.categoriasConfig = data.categorias || null;
-    state.iconCategorias = data.iconCategorias || [];
-    state.loaded = true;
-    if (data.mesAtual) state.mesAtual = data.mesAtual;
-    if (data.anoAtual) state.anoAtual = data.anoAtual;
-    renderMesAtual();
-    setCache(pessoaRequisitada, data);
-    setSyncState("idle");
-    if (Object.values(mudancas).some(Boolean)) {
-      renderIncremental(mudancas);
+    if (pessoa === "historico") {
+      return respond(
+        Object.assign({ ok: true }, config, { anos: lerHistoricoCompleto(historicoSheet) })
+      );
     }
-    prefetchOutrasPessoas(pessoaRequisitada);
+
+    // Configuração de imersão/tom compartilhada com o assistente local.
+    // Não chama nenhum modelo de IA; apenas expõe D:H da aba CONFIGS.
+    if (pessoa === "iaconfig") {
+      return respond(Object.assign({ ok: true }, lerImersaoIA()));
+    }
+
+    if (pessoa === "ambos") {
+      const dadosDavi = getAllData(getSheetByPessoa("davi"));
+      const dadosGabriel = getAllData(getSheetByPessoa("gabriel"));
+      return respond(Object.assign(mesclarDados(dadosDavi, dadosGabriel), config));
+    }
+
+    return respond(Object.assign(getAllData(getSheetByPessoa(pessoa)), config));
   } catch (err) {
-    if (state.pessoaAtual !== pessoaRequisitada) return;
-    // Caiu a conexão no meio da busca: mesmo tratamento calmo do offline
-    // (sem ícone de erro em vermelho, que é pra falha de verdade).
-    setSyncState(ehErroDeRede(err) || !navigator.onLine ? "offline" : "error");
-    if (!cache) {
-      showToast("Não consegui carregar a planilha. Confira a API_URL.");
-      renderAll();
-    } else {
-      showToast("Não consegui atualizar agora. Mostrando o último dado salvo.");
-    }
+    return respond({ ok: false, error: String(err) });
   }
 }
 
-function prefetchOutrasPessoas(pessoaJaCarregada) {
-  const pessoas = Object.keys(PESSOA_LABEL).filter((p) => p !== pessoaJaCarregada);
-  return Promise.all(pessoas.map((p) =>
-    getCache(p).then((cache) => {
-      if (cache) return cache;
-      return fetchApiGet({ pessoa: p })
-        .then((res) => res.json())
-        .then((data) => {
-          if (data && data.ok !== false) { setCache(p, data); return data; }
-          return null;
-        })
-        .catch(() => null);
-    })
-  ));
-}
-
-const filaSalvar = new Map(); 
-
-async function salvarBloco(action, payload) {
-  if (isAmbos()) return; 
-  const chave = `${state.pessoaAtual}:${action}`;
-  state.salvamentosEmAndamento?.add(chave);
-  let entrada = filaSalvar.get(chave);
-  if (!entrada) {
-    entrada = { emVoo: false, pendente: null };
-    filaSalvar.set(chave, entrada);
-  }
-
-  entrada.pendente = payload;
-  if (entrada.emVoo) return; 
-
-  // Sem internet: nem tenta — manda direto pra fila offline, sem passar
-  // pela animação de "salvando" (que só ia demorar e falhar mesmo).
-  if (!navigator.onLine) {
-    const pessoaOffline = state.pessoaAtual;
-    const payloadOffline = entrada.pendente;
-    entrada.pendente = null;
-    await enfileirarOffline(pessoaOffline, action, payloadOffline);
-    await atualizarIndicadorOffline();
-    return;
-  }
-
-  entrada.emVoo = true;
-  setSyncState("saving");
-  const pessoaDoEnvio = state.pessoaAtual;
-  let ultimoPayload = null;
-  try {
-    while (entrada.pendente !== null) {
-      ultimoPayload = entrada.pendente;
-      entrada.pendente = null;
-      const res = await fetch(urlApi(), {
-        method: "POST",
-        body: JSON.stringify({ action, payload: ultimoPayload, pessoa: pessoaDoEnvio }),
-      });
-      if (!res.ok) throw new Error(`HTTP ${res.status}`);
-      const data = await res.json().catch(() => null);
-      if (data && data.ok === false) throw new Error(data.error || "Erro desconhecido");
-    }
-    setSyncState("idle");
-  } catch (err) {
-    if (ehErroDeRede(err) && ultimoPayload !== null) {
-      await enfileirarOffline(pessoaDoEnvio, action, ultimoPayload);
-      await atualizarIndicadorOffline();
-    } else {
-      setSyncState("error");
-      showToast("Não consegui salvar na planilha agora.");
-    }
-  } finally {
-    entrada.emVoo = false;
-    state.salvamentosEmAndamento?.delete(chave);
-  }
-}
-
-let flushEmAndamento = false;
-
-function ehErroDeRede(err) { return err instanceof TypeError; }
-
-async function enfileirarOffline(pessoa, action, payload) {
-  const chave = `${pessoa}:${action}`;
-  await idbSet(IDB_LOJA_FILA, chave, { pessoa, action, payload, quando: Date.now() });
-  registrarSyncEmSegundoPlano();
-}
-
-async function registrarSyncEmSegundoPlano() {
-  try {
-    if (!("serviceWorker" in navigator)) return;
-    const reg = await navigator.serviceWorker.ready;
-    if (reg.sync) await reg.sync.register("caixa-flush-fila");
-  } catch (_err) {}
-}
-
-if ("serviceWorker" in navigator) {
-  navigator.serviceWorker.addEventListener("message", (e) => {
-    if (e.data === "caixa-flush-fila") flushFilaOffline();
-  });
-}
-
-async function atualizarIndicadorOffline() {
-  const itens = await idbListarFila();
-  const n = itens.length;
-  atualizarBadgeOffline(n);
-  if (n > 0) {
-    setSyncState("offline");
-  }
-  return n;
-}
-
-async function flushFilaOffline() {
-  if (flushEmAndamento) return;
-  if (!API_URL || API_URL.includes("COLE_AQUI")) return;
-  // Sem internet: nem tenta — evita ficar piscando a animação de "enviando"
-  // só pra falhar em seguida. Fica parado no ícone de sem internet até o
-  // navegador avisar que voltou (evento "online", ver abaixo).
-  if (!navigator.onLine) return;
-
-  // Confere ANTES de mexer em qualquer estado de sync: se não tem nada pra
-  // enviar, sai sem tocar no ícone — senão essa checagem (que é rápida,
-  // porque só olha o IndexedDB local) ficava sempre "ganhando a corrida" e
-  // resetando pra "idle" por cima da animação de sincronizando que
-  // carregarDados() acabara de ligar (ver tentarSincronizarAgora).
-  const itens = await idbListarFila();
-  if (itens.length === 0) return;
-
-  flushEmAndamento = true;
-  setSyncState("saving");
-  let houveAlteracaoFinanceira = false;
-  try {
-    let restantes = itens.length;
-    atualizarBadgeOffline(restantes);
-    for (const { chaveIdb, valor } of itens) {
-      try {
-        const res = await fetch(urlApi(), {
-          method: "POST",
-          body: JSON.stringify({ action: valor.action, payload: valor.payload, pessoa: valor.pessoa }),
-        });
-        const data = await res.json().catch(() => null);
-        if (data && data.ok === false) {
-          showToast(`Não consegui salvar uma alteração pendente: ${data.error || "erro desconhecido"}`);
-        } else if (["saveGanhos", "saveGastosFixos", "saveGastosVariaveis", "saveCaixinhas"].includes(valor.action)) {
-          houveAlteracaoFinanceira = true;
-        }
-        await idbDelete(IDB_LOJA_FILA, chaveIdb);
-      } catch (err) {
-        if (ehErroDeRede(err)) break; 
-        await idbDelete(IDB_LOJA_FILA, chaveIdb); 
-      }
-      restantes -= 1;
-      atualizarBadgeOffline(restantes); // encolhe o numerozinho a cada alteração sincronizada
-    }
-  } finally {
-    flushEmAndamento = false;
-    const restante = await atualizarIndicadorOffline();
-    if (restante === 0) setSyncState("idle");
-  }
-}
-
-window.addEventListener("online", () => flushFilaOffline());
-window.addEventListener("offline", () => {
-  // Reflete na hora — não espera uma tentativa falhar pra só então mostrar
-  // o ícone de sem internet.
-  setSyncState("offline");
-  atualizarIndicadorOffline();
-});
-setInterval(() => flushFilaOffline(), 20000);
-document.addEventListener("visibilitychange", () => {
-  if (document.visibilityState === "visible") flushFilaOffline();
-});
-
-// A leitura da planilha acontece somente na abertura/recarregamento da página.
-// O indicador continua mostrando o estado de salvamento, mas não existe mais
-// uma ação manual que faça um GET e reconcilie tudo no meio da navegação.
-if (syncEl) {
-  syncEl.removeAttribute("role");
-  syncEl.removeAttribute("tabindex");
-  syncEl.setAttribute("aria-label", "Os dados são sincronizados ao recarregar a página");
-}
-
-// ---------------------------------------------------------------------
-// SELETOR DE PESSOA
-// ---------------------------------------------------------------------
-async function trocarPessoa(pessoa) {
-  if (pessoa === state.pessoaAtual) return;
-
-  // Trocar de perfil não faz mais uma nova leitura na planilha. A página já
-  // carregou os perfis necessários na abertura e cada perfil fica disponível
-  // no cache local. Assim a troca é instantânea e não reconstrói a tela por
-  // causa de um GET no meio da navegação.
-  const pessoaAnterior = state.pessoaAtual;
-  state.pessoaAtual = pessoa;
-  localStorage.setItem(PESSOA_STORAGE_KEY, pessoa);
-  atualizarVisibilidadeFab();
-  document.dispatchEvent(new CustomEvent("caixa:perfil-trocado", { detail: { pessoa } }));
-  prevTotals.ganhos = null;
-  prevTotals.fixos = null;
-  prevTotals.variaveis = null;
-  prevTotals.guardado = null;
-  prevTotals.saldo = null;
-  renderPessoaSwitch();
-  atualizarVisibilidadeEdicao();
-  atualizarVisibilidadeSplitCard();
-  atualizarVisibilidadeVisaoGeral();
-  atualizarVisibilidadeJuntosView();
-
-  const cache = await getCache(pessoa);
-  // Se o usuário trocou de perfil novamente enquanto o cache era lido, não
-  // deixa a resposta assíncrona sobrescrever a tela do perfil atual.
-  if (state.pessoaAtual !== pessoa) return;
-
-  if (cache) {
-    state.ganhos = cache.ganhos || [];
-    state.gastosFixos = cache.gastosFixos || [];
-    state.gastosVariaveis = cache.gastosVariaveis || [];
-    state.caixinhas = cache.caixinhas || [];
-    state.categoriasConfig = cache.categorias || null;
-    state.iconCategorias = cache.iconCategorias || [];
-    state.loaded = true;
-    popularSelectsDeCategoria();
-    renderIncremental({
-      ganhos: true,
-      gastosFixos: true,
-      gastosVariaveis: true,
-      caixinhas: true,
-      categoriasConfig: true,
-      iconCategorias: true,
-    });
-  } else {
-    // Não busca a planilha aqui. Se esse perfil ainda não tiver sido
-    // pré-carregado no cache durante a abertura, deixa os dados locais
-    // atuais e informa de forma discreta que a atualização ocorrerá no
-    // próximo recarregamento.
-    showToast("Este perfil será atualizado quando você recarregar a página.");
-  }
-  renderHistorico();
-}
-
-function atualizarVisibilidadeSplitCard() {
-  const card = document.getElementById("splitCard");
-  if (!card) return;
-  card.classList.toggle("is-hidden", !isAmbos());
-}
-function atualizarVisibilidadeVisaoGeral() {
-  const card = document.getElementById("visaoGeralCard");
-  if (!card) return;
-  card.classList.toggle("is-hidden", isAmbos());
-}
-
-function renderPessoaSwitch() {
-  document.querySelectorAll(".person-btn").forEach((btn) => {
-    btn.classList.toggle("is-active", btn.dataset.pessoa === state.pessoaAtual);
-  });
-}
-
-function atualizarVisibilidadeEdicao() {
-  const ambos = isAmbos();
-  document.querySelectorAll(".add-form, .goal-actions .btn-aporte, .modo-edicao").forEach((el) => {
-    el.classList.toggle("is-hidden", ambos);
-  });
-  document.body.classList.toggle("modo-somente-leitura", ambos);
-
-  document.querySelectorAll(".tab-btn").forEach((btn) => {
-    const semRestricao = btn.dataset.tab === "resumo" || btn.dataset.tab === "historico";
-    btn.classList.toggle("is-hidden", ambos && !semRestricao);
-  });
-
-  if (ambos) {
-    document.querySelectorAll(".tab-btn").forEach((b) => b.classList.toggle("is-active", b.dataset.tab === "resumo"));
-    document.querySelectorAll(".tab-panel").forEach((p) => p.classList.toggle("is-hidden", p.dataset.tab !== "resumo"));
-  }
-  posicionarIndicadorAba();
-}
-
-function sincronizarCacheAtual() {
-  if (isAmbos()) return;
-  setCache(state.pessoaAtual, {
-    ganhos: state.ganhos,
-    gastosFixos: state.gastosFixos,
-    gastosVariaveis: state.gastosVariaveis,
-    caixinhas: state.caixinhas,
-  });
-}
-
-function criarOperacoesLista(key, action) {
-  const mudanca = {
-    ganhos: "ganhos",
-    gastosFixos: "gastosFixos",
-    gastosVariaveis: "gastosVariaveis",
-  }[key];
+function mesclarDados(a, b) {
   return {
-    add(nome, valor, extra = {}) {
-      if (isAmbos()) return;
-      state[key].push({ nome, valor, ...extra });
-      marcarAlteracaoLocal();
-      sincronizarCacheAtual();
-      salvarBloco(action, state[key]);
-      renderIncremental({ [mudanca]: true });
-    },
-    remove(index) {
-      if (isAmbos()) return;
-      state[key].splice(index, 1);
-      marcarAlteracaoLocal();
-      sincronizarCacheAtual();
-      salvarBloco(action, state[key]);
-      renderIncremental({ [mudanca]: true });
-    },
-    edit(index, nome, valor, extra = {}) {
-      if (isAmbos()) return;
-      const item = state[key][index];
-      if (!item) return;
-      item.nome = nome;
-      item.valor = valor;
-      Object.assign(item, extra);
-      marcarAlteracaoLocal();
-      sincronizarCacheAtual();
-      salvarBloco(action, state[key]);
-      renderIncremental({ [mudanca]: true });
-    },
+    ganhos: marcarPessoa(a.ganhos, "davi").concat(marcarPessoa(b.ganhos, "gabriel")),
+    gastosFixos: marcarPessoa(a.gastosFixos, "davi").concat(marcarPessoa(b.gastosFixos, "gabriel")),
+    gastosVariaveis: marcarPessoa(a.gastosVariaveis, "davi").concat(marcarPessoa(b.gastosVariaveis, "gabriel")),
+    caixinhas: marcarPessoa(a.caixinhas, "davi").concat(marcarPessoa(b.caixinhas, "gabriel")),
+    categorias: a.categorias || b.categorias || [],
+    iconCategorias: a.iconCategorias || b.iconCategorias || {},
   };
 }
 
-const opGanhos = criarOperacoesLista("ganhos", "saveGanhos");
-const opFixos = criarOperacoesLista("gastosFixos", "saveGastosFixos");
-const opVariaveis = criarOperacoesLista("gastosVariaveis", "saveGastosVariaveis");
-
-function marcarComemoracaoSeMetaBatida(cx, estavaCompleta) {
-  if (!cx) return;
-  const objetivo = Number(cx.valorObjetivo) || 0;
-  const completaAgora = objetivo > 0 && totalCaixinha(cx) >= objetivo;
-  if (!estavaCompleta && completaAgora) cx._comemoraAoRenderizar = true;
-}
-
-function addCaixinha(nome, valorInicial, valorObjetivo, icone = "", data = "") {
-  if (isAmbos()) return;
-  const novaCaixinha = {
-    nome,
-    valorGuardado: 0,
-    valorObjetivo: valorObjetivo || 0,
-    valorGuardadoMes: valorInicial || 0,
-    icone: normalizarNomeIcone(icone),
-    data: String(data || "").trim(),
-  };
-  state.caixinhas.push(novaCaixinha);
-  marcarAlteracaoLocal();
-  marcarComemoracaoSeMetaBatida(novaCaixinha, false);
-  salvarBloco("saveCaixinhas", state.caixinhas);
-  if (valorInicial > 0) {
-    state.gastosVariaveis.push({ nome: `Guardado: ${nome}`, valor: valorInicial, pago: true, tipo: "Metas", data: dataHojeISO(), origem: "saldo" });
-    salvarBloco("saveGastosVariaveis", state.gastosVariaveis);
-  }
-  sincronizarCacheAtual();
-  renderAll();
-}
-function removeCaixinha(index) {
-  if (isAmbos()) return;
-  const cx = state.caixinhas[index];
-  if (!cx) return;
-  const guardado = totalCaixinha(cx);
-  state.caixinhas.splice(index, 1);
-  marcarAlteracaoLocal();
-  if (guardado > 0) {
-    state.ganhos.push({ nome: `Retirado da caixinha: ${cx.nome} (removida)`, valor: guardado, recebido: true, data: dataHojeISO() });
-    salvarBloco("saveGanhos", state.ganhos);
-  }
-  sincronizarCacheAtual();
-  salvarBloco("saveCaixinhas", state.caixinhas);
-  renderAll();
-}
-function editCaixinha(index, nome, valorObjetivo, icone = "", data = "") {
-  if (isAmbos()) return;
-  const cx = state.caixinhas[index];
-  if (!cx) return;
-  const nomeAntigo = cx.nome;
-  const objetivoAntes = Number(cx.valorObjetivo) || 0;
-  const estavaCompleta = objetivoAntes > 0 && totalCaixinha(cx) >= objetivoAntes;
-  cx.nome = nome;
-  cx.valorObjetivo = valorObjetivo || 0;
-  marcarAlteracaoLocal();
-  cx.icone = normalizarNomeIcone(icone);
-  cx.data = dataDoLancamento(data);
-  marcarComemoracaoSeMetaBatida(cx, estavaCompleta);
-  if (nomeAntigo !== nome) {
-    const rotuloAntigo = `Guardado: ${nomeAntigo}`;
-    const rotuloNovo = `Guardado: ${nome}`;
-    let mudouAlgo = false;
-    state.gastosVariaveis.forEach((item) => {
-      if (item.nome === rotuloAntigo) {
-        item.nome = rotuloNovo;
-        mudouAlgo = true;
-      }
-    });
-    if (mudouAlgo) salvarBloco("saveGastosVariaveis", state.gastosVariaveis);
-  }
-  sincronizarCacheAtual();
-  salvarBloco("saveCaixinhas", state.caixinhas);
-  renderAll();
-}
-function guardarNaCaixinha(index, valor) {
-  if (isAmbos()) return;
-  const cx = state.caixinhas[index];
-  if (!cx) return;
-  const objetivoAntes = Number(cx.valorObjetivo) || 0;
-  const estavaCompleta = objetivoAntes > 0 && totalCaixinha(cx) >= objetivoAntes;
-  // O depósito entra só no "guardado no mês" — ele só é somado à base (valorGuardado)
-  // quando o mês fecha. O total exibido (totalCaixinha) já soma os dois, então o
-  // saldo mostrado pro usuário não muda, só onde o valor fica guardado até o fechamento.
-  cx.valorGuardadoMes = (Number(cx.valorGuardadoMes) || 0) + valor;
-  marcarAlteracaoLocal();
-  marcarComemoracaoSeMetaBatida(cx, estavaCompleta);
-  state.gastosVariaveis.push({ nome: `Guardado: ${cx.nome}`, valor, pago: true, tipo: "Metas", data: dataHojeISO(), origem: "saldo" });
-  sincronizarCacheAtual();
-  salvarBloco("saveCaixinhas", state.caixinhas);
-  salvarBloco("saveGastosVariaveis", state.gastosVariaveis);
-  renderAll();
-}
-function retirarDaCaixinha(index, valor) {
-  if (isAmbos()) return;
-  const cx = state.caixinhas[index];
-  if (!cx) return;
-  // Tira primeiro do que foi guardado neste mês (o mais "recente"), e só desconta
-  // da base (valorGuardado) o que sobrar — assim o total cai exatamente o valor
-  // retirado, sem zerar um campo e deixar o outro alto por engano.
-  const doMes = Math.min(valor, Number(cx.valorGuardadoMes) || 0);
-  const doResto = valor - doMes;
-  cx.valorGuardadoMes = Math.max((Number(cx.valorGuardadoMes) || 0) - doMes, 0);
-  cx.valorGuardado = Math.max((Number(cx.valorGuardado) || 0) - doResto, 0);
-  marcarAlteracaoLocal();
-  state.ganhos.push({ nome: `Retirado da caixinha: ${cx.nome}`, valor, recebido: true, data: dataHojeISO() });
-  sincronizarCacheAtual();
-  salvarBloco("saveCaixinhas", state.caixinhas);
-  salvarBloco("saveGanhos", state.ganhos);
-  renderAll();
-}
-// O usuário informa o valor TOTAL ATUALIZADO da caixinha (o que está
-// mostrando hoje no banco/investimento) — não quanto rendeu. O app calcula
-// a diferença sozinho (positiva = rendeu, negativa = essa caixinha perdeu
-// valor no período) e acumula em rendimentoTotal, que vai pra coluna S na
-// planilha (RENDIMENTO). Ver o badge em renderCaixinhas(): mostra em verde
-// quando é ganho e em vermelho quando é perda, em vez de só sumir quando
-// negativo (perda também é informação — esconder isso seria mascarar que a
-// caixinha desvalorizou).
-function informarRendimentoCaixinha(index, novoMontanteTotal) {
-  if (isAmbos()) return;
-  const cx = state.caixinhas[index];
-  if (!cx) return;
-  const objetivoAntes = Number(cx.valorObjetivo) || 0;
-  const estavaCompleta = objetivoAntes > 0 && totalCaixinha(cx) >= objetivoAntes;
-  
-  const valorBaseAtual = Number(cx.valorGuardado) || 0;
-  const rendimentoAnterior = Number(cx.rendimentoTotal) || 0;
-  const guardadoMesAtual = Number(cx.valorGuardadoMes) || 0;
-  const totalAtualNaTela = valorBaseAtual + rendimentoAnterior + guardadoMesAtual;
-  
-  // O valor novo menos o total atual da tela dá o rendimento positivo (ex: 219 - 200 = 19)
-  const diferencaRendimento = novoMontanteTotal - totalAtualNaTela;
-  
-  if (diferencaRendimento !== 0) {
-    cx.rendimentoTotal = rendimentoAnterior + diferencaRendimento;
-    marcarAlteracaoLocal();
-  }
-  marcarComemoracaoSeMetaBatida(cx, estavaCompleta);
-  
-  sincronizarCacheAtual();
-  salvarBloco("saveCaixinhas", state.caixinhas);
-  renderAll();
-}
-
-async function obterListaLocal(pessoa, chave) {
-  if (pessoa === state.pessoaAtual && !isAmbos()) return [...state[chave]];
-  const cache = await getCache(pessoa);
-  if (cache) return [...(cache[chave] || [])];
-  const data = await fetchApiGet({ pessoa }).then((r) => r.json());
-  if (data && data.ok === false) throw new Error(data.error || "Erro ao ler dados atuais");
-  return (data && data[chave]) || [];
-}
-
-// Marcador guardado dentro do PRÓPRIO nome do lançamento (não tem coluna
-// extra sobrando na planilha pra isso) pra lembrar que aquela "metade" é uma
-// dívida de uma compra dividida, e de quem é o dinheiro quando for paga.
-// Ex: "Mercado (deve pra Davi)" — assim que a pessoa marca como paga (ver
-// togglePagoVariavel/togglePagoFixo), a gente credita o Davi sozinho e tira
-// esse pedacinho do nome, que volta a ficar limpo ("Mercado").
-function sufixoDivisao(pessoaCredora) {
-  return ` (deve pra ${PESSOA_LABEL[pessoaCredora]})`;
-}
-const REGEX_SUFIXO_DIVISAO = / \(deve pra (Davi|Gabriel)\)$/;
-function extrairCredorDivisao(nome) {
-  const m = REGEX_SUFIXO_DIVISAO.exec(String(nome || ""));
-  if (!m) return null;
-  return Object.keys(PESSOA_LABEL).find((p) => PESSOA_LABEL[p] === m[1]) || null;
-}
-function removerSufixoDivisao(nome) {
-  return String(nome || "").replace(REGEX_SUFIXO_DIVISAO, "");
-}
-
-function nomeGanhoDivisao(devedor, nomeOriginal) {
-  return `A receber de ${PESSOA_LABEL[devedor]}: ${String(nomeOriginal || "").trim()}`;
-}
-function encontrarGanhoDivisao(listaGanhos, devedor, nomeOriginal, valor, data) {
-  const esperado = nomeGanhoDivisao(devedor, nomeOriginal);
-  const candidatos = (listaGanhos || []).map((item, idx) => ({ item, idx })).filter(({ item }) => {
-    if (String(item.nome || "") !== esperado) return false;
-    if (Math.abs((Number(item.valor) || 0) - (Number(valor) || 0)) > 0.009) return false;
-    return !data || !item.data || String(item.data).slice(0, 10) === String(data).slice(0, 10);
+function marcarPessoa(lista, pessoa) {
+  return lista.map(function (item) {
+    item.pessoa = pessoa;
+    return item;
   });
-  return candidatos.length ? candidatos[candidatos.length - 1] : null;
-}
-async function criarGanhoAReceberDivisao(credor, devedor, nomeOriginal, valor, tipo, data, recebido) {
-  if (!API_URL || API_URL.includes("COLE_AQUI")) return false;
-  try {
-    const lista = await obterListaLocal(credor, "ganhos");
-    lista.push({ nome: nomeGanhoDivisao(devedor, nomeOriginal), valor, data: data || dataHojeISO(), recebido: !!recebido, tipo: tipo || "" });
-    if (state.pessoaAtual === credor) marcarAlteracaoLocal();
-    const res = await fetch(urlApi(), { method: "POST", body: JSON.stringify({ action: "saveGanhos", payload: lista, pessoa: credor }) });
-    const dataRes = await res.json().catch(() => null);
-    if (!dataRes || dataRes.ok === false) throw new Error("Erro ao criar ganho a receber");
-    const cache = await getCache(credor);
-    setCache(credor, { ...(cache || {}), ganhos: lista });
-    if (state.pessoaAtual === credor) state.ganhos = lista;
-    removerCache("ambos");
-    return true;
-  } catch { return false; }
-}
-async function atualizarGanhoDivisao(credor, devedor, nomeOriginal, valor, data, recebido) {
-  if (!API_URL || API_URL.includes("COLE_AQUI")) return false;
-  try {
-    const lista = await obterListaLocal(credor, "ganhos");
-    const achado = encontrarGanhoDivisao(lista, devedor, nomeOriginal, valor, data);
-    if (!achado) return false;
-    achado.item.recebido = !!recebido;
-    if (state.pessoaAtual === credor) marcarAlteracaoLocal();
-    const res = await fetch(urlApi(), { method: "POST", body: JSON.stringify({ action: "saveGanhos", payload: lista, pessoa: credor }) });
-    const dataRes = await res.json().catch(() => null);
-    if (!dataRes || dataRes.ok === false) throw new Error("Erro ao atualizar ganho da divisão");
-    const cache = await getCache(credor);
-    setCache(credor, { ...(cache || {}), ganhos: lista });
-    if (state.pessoaAtual === credor) state.ganhos = lista;
-    removerCache("ambos");
-    return true;
-  } catch { return false; }
 }
 
-// opts: { tipo, data, pago, quemPagouTudo }
-//   - quemPagouTudo ausente/null: modo padrão, metade pro Davi e metade pro
-//     Gabriel, cada entrada com o status de "pago" escolhido no checkbox.
-//   - quemPagouTudo = "davi" | "gabriel": essa pessoa pagou o valor CHEIO na
-//     hora (entra como gasto integral e já pago pra ela); a outra entra só
-//     com a metade, que é uma dívida com ela — se "pago" já vier marcado, a
-//     metade já é creditada de cara; se não, fica pendente e só é creditada
-//     quando a pessoa marcar essa metade como paga depois (ver os toggles).
-async function dividirCompra(nome, valorTotal, categoria, opts) {
-  if (!API_URL || API_URL.includes("COLE_AQUI")) {
-    showToast("Configure a URL do Apps Script em config.js");
-    return false;
+// ---------------------------------------------------------------------
+// POST — salvar dados
+// ---------------------------------------------------------------------
+
+function doPost(e) {
+  try {
+    const body = JSON.parse(e.postData.contents);
+    const action = body.action;
+
+    if (action === "fecharMes") {
+      return respond(fecharMes(body.mes, body.ano));
+    }
+    if (action === "transferir") {
+      return respond(transferirEntrePessoas(body.de, body.para, body.nome, body.valor));
+    }
+    // Ação só de leitura (não mexe na planilha) — por isso fica antes do
+    // bloqueio de "ambos é somente leitura" logo abaixo: no modo Juntos
+    // também dá pra pedir um insight, só não dá pra editar lançamentos.
+    if (action === "gerarInsightIA") {
+      return respond(gerarInsightComIA(body.pessoa, body.periodo, body.resumo, body.modo || ""));
+    }
+    if (action === "gerarRespostaGastarIA") {
+      return respond(gerarRespostaGastarComIA(body.pessoa, body.periodo, body.resumo));
+    }
+
+    const pessoa = (body.pessoa || "davi").toLowerCase();
+    if (pessoa === "ambos") {
+      return respond({ ok: false, error: "Modo Ambos é somente leitura. Selecione Davi ou Gabriel para editar." });
+    }
+
+    const sheet = getSheetByPessoa(pessoa);
+    const payload = body.payload;
+    let result;
+
+    switch (action) {
+      case "saveGanhos":
+        saveGanhos(sheet, payload);
+        result = { ok: true };
+        break;
+      case "saveGastosFixos":
+        saveGastosFixos(sheet, payload);
+        result = { ok: true };
+        break;
+      case "saveGastosVariaveis":
+        saveGastosVariaveis(sheet, payload);
+        result = { ok: true };
+        break;
+      case "saveCaixinhas":
+        saveCaixinhasBlock(sheet, payload); 
+        result = { ok: true };
+        break;
+      default:
+        result = { ok: false, error: "Ação desconhecida: " + action };
+    }
+
+    return respond(result);
+  } catch (err) {
+    return respond({ ok: false, error: String(err) });
   }
-  opts = opts || {};
-  const tipo = opts.tipo || "";
-  const data = opts.data || "";
-  const pago = opts.pago !== false;
-  const quemPagouTudo = opts.quemPagouTudo || null;
+}
 
-  const metade = Math.round((valorTotal / 2) * 100) / 100;
-  const action = categoria === "fixos" ? "saveGastosFixos" : "saveGastosVariaveis";
-  const chave = categoria === "fixos" ? "gastosFixos" : "gastosVariaveis";
-  const base = { tipo, data, origem: "saldo" };
+// ---------------------------------------------------------------------
+// TRANSFERIR
+// ---------------------------------------------------------------------
 
-  let itemDavi, itemGabriel;
-  if (quemPagouTudo) {
-    const devedor = quemPagouTudo === "davi" ? "gabriel" : "davi";
-    const itemPagador = { ...base, nome, valor: valorTotal, pago: true };
-    const itemDevedor = pago
-      ? { ...base, nome, valor: metade, pago: true }
-      : { ...base, nome: nome + sufixoDivisao(quemPagouTudo), valor: metade, pago: false };
-    if (quemPagouTudo === "davi") { itemDavi = itemPagador; itemGabriel = itemDevedor; }
-    else { itemGabriel = itemPagador; itemDavi = itemDevedor; }
+function transferirEntrePessoas(de, para, nome, valor) {
+  de = String(de || "").toLowerCase();
+  para = String(para || "").toLowerCase();
+  valor = Number(valor);
+  const descricao = String(nome || "").trim() || "Transferência";
+
+  if (!SHEETS[de] || !SHEETS[para]) throw new Error("Pessoa inválida na transferência");
+  if (de === para) throw new Error("Escolha duas pessoas diferentes para transferir");
+  if (!valor || valor <= 0) throw new Error("Valor inválido para transferência");
+
+  const sheetDe = getSheetByPessoa(de);
+  const sheetPara = getSheetByPessoa(para);
+  const hoje = Utilities.formatDate(new Date(), Session.getScriptTimeZone(), "yyyy-MM-dd");
+
+  const variaveisDe = readGastosVariaveis(sheetDe);
+  variaveisDe.push({
+    nome: "Transferência p/ " + PESSOA_NOME[para] + ": " + descricao,
+    valor: valor,
+    tipo: "",
+    data: hoje,
+    pago: true,
+    origem: "saldo",
+  });
+  saveGastosVariaveis(sheetDe, variaveisDe);
+
+  const ganhosPara = readGanhos(sheetPara);
+  ganhosPara.push({
+    nome: "Transferência de " + PESSOA_NOME[de] + ": " + descricao,
+    valor: valor,
+    data: hoje,
+    recebido: true,
+  });
+  saveGanhos(sheetPara, ganhosPara);
+
+  return { ok: true, de: de, para: para, valor: valor };
+}
+
+// ---------------------------------------------------------------------
+// INSIGHT COM IA (Gemini)
+// ---------------------------------------------------------------------
+// Como configurar (uma vez só):
+//   1) Gere uma chave grátis em https://aistudio.google.com/apikey
+//   2) Neste editor do Apps Script: ⚙️ "Configurações do projeto" (ícone de
+//      engrenagem no menu lateral) → "Propriedades do script" → "Adicionar
+//      propriedade do script" → nome GEMINI_API_KEY, valor = a chave gerada.
+//   3) Salve e publique de novo (Implantar > Gerenciar implantações > Editar
+//      > Nova versão) pra a mudança valer no site.
+// A chave NUNCA fica no HTML/JS do site — só aqui no backend, então quem
+// abrir o app no navegador não consegue vê-la.
+//
+// FALLBACK OPENAI: opcionalmente adicione também a propriedade de script
+// OPENAI_API_KEY com uma chave da OpenAI API. O sistema usa o último provedor
+// que funcionou como preferido; se ele falhar, tenta o outro automaticamente.
+// Assim, se o Gemini estiver indisponível, a OpenAI assume; se depois a OpenAI
+// falhar, o Gemini volta a assumir. A chave da OpenAI também fica somente no
+// backend. A assinatura do ChatGPT e o uso da API são serviços separados: a
+// chave precisa ter acesso à API e faturamento/uso configurados na plataforma
+// da OpenAI.
+//
+// Nota sobre o formato da chave: a partir de 2026 o Google passou a emitir
+// chaves novas no formato "AQ.Ab..." (no lugar do antigo "AIzaSy..."). O
+// código abaixo já manda a chave pelo header x-goog-api-key (o jeito atual
+// recomendado pelo Google), que funciona com os dois formatos. Se mesmo
+// assim a Gemini API responder erro de autenticação, vale conferir em
+// aistudio.google.com/apikey se essa chave está restrita à "Generative
+// Language API" e gerar uma nova se precisar.
+//
+// Se quiser trocar o modelo (ex: por um mais esperto/mais caro), troque só
+// a constante abaixo. Nomes de modelo disponíveis aparecem em
+// https://ai.google.dev/gemini-api/docs/models — evite modelos "gemini-2.5-*",
+// que a Google está desativando em outubro/2026.
+const GEMINI_MODEL = "gemini-3.1-flash-lite";
+const GEMINI_API_KEY_PROPRIEDADE = "GEMINI_API_KEY";
+const GEMINI_API_KEY_2_PROPRIEDADE = "GEMINI_API_KEY_2";
+const GEMINI_ULTIMA_CHAVE_PROPRIEDADE = "GEMINI_ULTIMA_CHAVE";
+const OPENAI_API_KEY_PROPRIEDADE = "OPENAI_API_KEY";
+const OPENAI_MODEL = "gpt-5.6-luna";
+const IA_ULTIMO_PROVEDOR_PROPRIEDADE = "IA_ULTIMO_PROVEDOR";
+
+// Fallback entre provedores: o sistema prefere o último provedor que funcionou.
+// Se ele falhar nesta chamada, tenta imediatamente o outro. Se o outro funcionar,
+// ele passa a ser o preferido na próxima chamada. As chaves ficam somente nas
+// Propriedades do Script e nunca são enviadas ao navegador.
+function provedorIAPreferido() {
+  const salvo = PropertiesService.getScriptProperties().getProperty(IA_ULTIMO_PROVEDOR_PROPRIEDADE);
+  return salvo === "openai" ? "openai" : "gemini";
+}
+
+function registrarProvedorIASucesso(provedor) {
+  try { PropertiesService.getScriptProperties().setProperty(IA_ULTIMO_PROVEDOR_PROPRIEDADE, provedor); } catch (err) {}
+}
+
+function ehErroTransitórioIA(status) {
+  return [408, 409, 429, 500, 502, 503, 504].indexOf(Number(status)) !== -1;
+}
+
+function extrairTextosOpenAI(data) {
+  let texto = data && data.output_text;
+  if (!texto && data && Array.isArray(data.output)) {
+    const partes = [];
+    data.output.forEach(function(item) {
+      (item.content || []).forEach(function(c) {
+        if (c.type === "output_text" && c.text) partes.push(c.text);
+      });
+    });
+    texto = partes.join("\n");
+  }
+  if (!texto) return null;
+  try {
+    const parsed = JSON.parse(texto);
+    if (Array.isArray(parsed)) return parsed;
+    if (parsed && Array.isArray(parsed.textos)) return parsed.textos;
+    if (parsed && Array.isArray(parsed.insights)) return parsed.insights;
+  } catch (err) {}
+  return null;
+}
+
+function gerarInsightComOpenAI(corpoGemini, periodo) {
+  const apiKey = PropertiesService.getScriptProperties().getProperty(OPENAI_API_KEY_PROPRIEDADE);
+  if (!apiKey) return { ok: false, error: "Chave da OpenAI não configurada." };
+
+  const prompt = corpoGemini.contents[0].parts[0].text;
+  const corpo = {
+    model: OPENAI_MODEL,
+    input: [{ role: "user", content: [{ type: "input_text", text: prompt }] }],
+    temperature: 0.95,
+    max_output_tokens: 2400,
+    text: {
+      format: {
+        type: "json_schema",
+        name: "insights",
+        strict: true,
+        schema: {
+          type: "object",
+          properties: {
+            textos: {
+              type: "array", minItems: QUANTIDADE_INSIGHTS_POR_PEDIDO, maxItems: QUANTIDADE_INSIGHTS_POR_PEDIDO,
+              items: {
+                type: "object",
+                properties: {
+                  titulo: { type: "string" },
+                  texto: { type: "string" },
+                  tipo: { type: "string" }
+                },
+                required: ["titulo", "texto", "tipo"],
+                additionalProperties: false
+              }
+            }
+          },
+          required: ["textos"],
+          additionalProperties: false
+        }
+      }
+    }
+  };
+
+  const opcoes = {
+    method: "post",
+    contentType: "application/json",
+    headers: { Authorization: "Bearer " + apiKey },
+    payload: JSON.stringify(corpo),
+    muteHttpExceptions: true
+  };
+
+  const atrasos = [1200, 2800, 5200];
+  let res, status = 0, data = {};
+  for (let tentativa = 0; tentativa <= atrasos.length; tentativa++) {
+    res = UrlFetchApp.fetch("https://api.openai.com/v1/responses", opcoes);
+    status = res.getResponseCode();
+    try { data = JSON.parse(res.getContentText() || "{}"); } catch (err) { data = {}; }
+    if (status === 200 || !ehErroTransitórioIA(status) || tentativa === atrasos.length) break;
+    Utilities.sleep(atrasos[tentativa]);
+  }
+
+  if (status !== 200) {
+    const msg = (data.error && (data.error.message || data.error.code)) || ("Erro HTTP " + status + " ao chamar a OpenAI.");
+    return { ok: false, error: msg, status: status };
+  }
+
+  const brutos = extrairTextosOpenAI(data) || [];
+  const textos = brutos.map(function(item) {
+    if (item && typeof item === "object") {
+      const titulo = String(item.titulo || "DICA").trim().slice(0, 32);
+      const texto = String(item.texto || "").trim();
+      const tipo = String(item.tipo || "geral").trim().toLowerCase();
+      return texto ? { titulo: titulo || "DICA", texto: texto, tipo: tipo || "geral" } : null;
+    }
+    const texto = String(item || "").trim();
+    return texto ? { titulo: "DICA", texto: texto, tipo: "geral" } : null;
+  }).filter(Boolean);
+  if (textos.length < QUANTIDADE_INSIGHTS_POR_PEDIDO) {
+    return { ok: false, error: "A OpenAI não devolveu os 5 insights completos neste momento.", status: 200 };
+  }
+  return { ok: true, textos: textos.slice(0, QUANTIDADE_INSIGHTS_POR_PEDIDO), periodo: periodo || null, tentativas: [{ chave: (opcoesModo && opcoesModo.indiceChave) || null, status: 200, motivo: "OK" }] };
+}
+
+function obterChavesGemini() {
+  const props = PropertiesService.getScriptProperties();
+  const chave1 = String(props.getProperty(GEMINI_API_KEY_PROPRIEDADE) || "").trim();
+  const chave2 = String(props.getProperty(GEMINI_API_KEY_2_PROPRIEDADE) || "").trim();
+  return [chave1, chave2];
+}
+
+function indiceChaveGeminiPreferida() {
+  const salvo = PropertiesService.getScriptProperties().getProperty(GEMINI_ULTIMA_CHAVE_PROPRIEDADE);
+  return salvo === "2" ? 1 : 0;
+}
+
+function registrarChaveGeminiSucesso(indice) {
+  try { PropertiesService.getScriptProperties().setProperty(GEMINI_ULTIMA_CHAVE_PROPRIEDADE, String(indice + 1)); } catch (err) {}
+}
+
+function extrairTextoRespostaGastar(data) {
+  try {
+    const texto = data && data.candidates && data.candidates[0] &&
+      data.candidates[0].content && data.candidates[0].content.parts &&
+      data.candidates[0].content.parts[0] && data.candidates[0].content.parts[0].text;
+    if (!texto) return null;
+    const parsed = JSON.parse(texto);
+    return parsed && parsed.respostas ? parsed.respostas : null;
+  } catch (err) {
+    return null;
+  }
+}
+
+function gerarRespostaGastarComGemini(pessoa, periodo, resumo, opcoesModo) {
+  const apiKey = (opcoesModo && opcoesModo.apiKeyForcada) ||
+    PropertiesService.getScriptProperties().getProperty(GEMINI_API_KEY_PROPRIEDADE);
+  if (!apiKey) return { ok: false, error: "Chave do Gemini não configurada." };
+
+  const pessoaCodigo = String(pessoa || "").toLowerCase();
+  const nomePessoa = PESSOA_NOME[pessoaCodigo] || "a pessoa";
+  const tom = textoTomIA(pessoaCodigo);
+  const imersao = textoImersaoIA(pessoaCodigo);
+  const prompt = [
+    "Você é o assistente financeiro do app Caixa e está respondendo uma pergunta muito simples: quanto a pessoa ainda pode gastar.",
+    "Responda de forma MUITO curta e natural, como uma mensagem de chat, normalmente uma única frase.",
+    "Não explique a conta, não liste saldo atual, entradas futuras ou contas reservadas, e não repita o raciocínio do cálculo. A pessoa só quer saber a margem de gasto.",
+    "Use exclusivamente os números de mesAtual no resumo. Para saldo em conta, o número correto é limiteDeGastoProjetado. Para benefício, use diretamente o campo mesAtual.beneficioDisponivel.",
+    "IMPORTANTE: limiteDeGastoProjetado NÃO é dinheiro disponível agora. Ele representa quanto ficará livre DEPOIS de considerar as obrigações pendentes. Se for positivo, nunca diga \"você tem X\" ou \"você ainda tem X\"; diga que, depois de pagar tudo que falta, sobram X para gastar. Se for zero, diga que depois de pagar tudo que falta não sobra margem para novos gastos. Se for negativo, diga claramente que não pode gastar mais nada e que ainda falta dinheiro para cobrir as obrigações.",
+    "Seja humano, direto e sem tom de sermão. Não faça julgamentos sobre os gastos.",
+    "Pode usar o contexto pessoal e a persona abaixo para escolher vocabulário e pequenas expressões, mas nunca sacrifique clareza.",
+    "PERSONA/TOM: " + (tom || "natural, direto e conversado."),
+    "IMERSÃO PESSOAL: " + (imersao || "nenhuma informação adicional."),
+    "Valores monetários devem permanecer completos no padrão R$ 0,00. Para destacar o valor favorável, use {{+R$ 0,00}}. Para uma falta/valor desfavorável, use {{-R$ 0,00}}. Não use outros valores monetários.",
+    "Retorne SOMENTE um JSON válido no formato {\"respostas\":{\"saldo\":\"...\",\"beneficio\":\"...\"}}.",
+    "No campo saldo, use este cálculo: limiteDeGastoProjetado=" + String(Number(resumo && resumo.mesAtual && resumo.mesAtual.limiteDeGastoProjetado) || 0) + ".",
+    "No campo beneficio, use este cálculo: beneficioDisponivel=" + String(Number(resumo && resumo.mesAtual && resumo.mesAtual.beneficioDisponivel) || 0) + ".",
+    "Resumo completo em JSON: " + JSON.stringify(resumo || {})
+  ].join("\n");
+
+  const corpo = {
+    contents: [{ role: "user", parts: [{ text: prompt }] }],
+    generationConfig: {
+      temperature: 0.9,
+      maxOutputTokens: 500,
+      responseMimeType: "application/json",
+      responseSchema: {
+        type: "OBJECT",
+        properties: {
+          respostas: {
+            type: "OBJECT",
+            properties: { saldo: { type: "STRING" }, beneficio: { type: "STRING" } },
+            required: ["saldo", "beneficio"]
+          }
+        },
+        required: ["respostas"]
+      }
+    }
+  };
+
+  const res = UrlFetchApp.fetch(
+    "https://generativelanguage.googleapis.com/v1beta/models/" + GEMINI_MODEL + ":generateContent",
+    {
+      method: "post",
+      contentType: "application/json",
+      headers: { "x-goog-api-key": apiKey },
+      payload: JSON.stringify(corpo),
+      muteHttpExceptions: true
+    }
+  );
+  const status = res.getResponseCode();
+  if (status !== 200) {
+    let data = {};
+    try { data = JSON.parse(res.getContentText() || "{}"); } catch (err) {}
+    return { ok: false, error: (data.error && data.error.message) || ("Erro HTTP " + status + " ao chamar o Gemini."), status: status };
+  }
+  const respostas = extrairTextoRespostaGastar(JSON.parse(res.getContentText() || "{}"));
+  if (!respostas || (!respostas.saldo && !respostas.beneficio)) return { ok: false, error: "Resposta da IA vazia.", status: 200 };
+  return { ok: true, respostas: { saldo: String(respostas.saldo || "").trim(), beneficio: String(respostas.beneficio || "").trim() }, periodo: periodo || null };
+}
+
+function gerarRespostaGastarComOpenAI(pessoa, periodo, resumo) {
+  const apiKey = PropertiesService.getScriptProperties().getProperty(OPENAI_API_KEY_PROPRIEDADE);
+  if (!apiKey) return { ok: false, error: "Chave da OpenAI não configurada." };
+
+  const pessoaCodigo = String(pessoa || "").toLowerCase();
+  const tom = textoTomIA(pessoaCodigo);
+  const imersao = textoImersaoIA(pessoaCodigo);
+  const limite = Number(resumo && resumo.mesAtual && resumo.mesAtual.limiteDeGastoProjetado) || 0;
+  const beneficio = Number(resumo && resumo.mesAtual && resumo.mesAtual.beneficioDisponivel) || 0;
+  const prompt = [
+    "Você é o assistente financeiro do app Caixa. Responda somente quanto a pessoa ainda pode gastar.",
+    "Uma frase curta por resposta, sem explicação de cálculo, sem lista de saldo/entradas/contas. IMPORTANTE: limiteDeGastoProjetado NÃO é dinheiro disponível agora; é o que ficará livre DEPOIS de considerar as obrigações pendentes. Se for positivo, nunca diga \"você tem X\" ou \"você ainda tem X\"; diga que, depois de pagar tudo que falta, sobram X para gastar. Se for zero, diga que depois de pagar tudo que falta não sobra margem para novos gastos. Se for negativo, diga claramente que não pode gastar mais nada e que ainda falta dinheiro para cobrir as obrigações.",
+    "Persona/tom: " + (tom || "natural, direto e conversado."),
+    "Imersão pessoal: " + (imersao || "nenhuma."),
+    "Use apenas estes números: limiteDeGastoProjetado=" + limite + "; beneficioDisponivel=" + beneficio + ".",
+    "Valores em reais completos. Use {{+R$ 0,00}} para margem positiva e {{-R$ 0,00}} para falta. Retorne SOMENTE JSON no formato {\"respostas\":{\"saldo\":\"...\",\"beneficio\":\"...\"}}."
+  ].join("\n");
+
+  const corpo = {
+    model: OPENAI_MODEL,
+    input: [{ role: "user", content: [{ type: "input_text", text: prompt }] }],
+    temperature: 0.9,
+    max_output_tokens: 500,
+    text: {
+      format: {
+        type: "json_schema",
+        name: "respostas_gastar",
+        strict: true,
+        schema: {
+          type: "object",
+          properties: {
+            respostas: {
+              type: "object",
+              properties: { saldo: { type: "string" }, beneficio: { type: "string" } },
+              required: ["saldo", "beneficio"],
+              additionalProperties: false
+            }
+          },
+          required: ["respostas"],
+          additionalProperties: false
+        }
+      }
+    }
+  };
+
+  const res = UrlFetchApp.fetch("https://api.openai.com/v1/responses", {
+    method: "post",
+    contentType: "application/json",
+    headers: { Authorization: "Bearer " + apiKey },
+    payload: JSON.stringify(corpo),
+    muteHttpExceptions: true
+  });
+  const status = res.getResponseCode();
+  let data = {};
+  try { data = JSON.parse(res.getContentText() || "{}"); } catch (err) {}
+  if (status !== 200) return { ok: false, error: (data.error && data.error.message) || ("Erro HTTP " + status + " ao chamar a OpenAI."), status: status };
+  const texto = data.output_text || "";
+  let parsed = null;
+  try { parsed = JSON.parse(texto); } catch (err) {}
+  const respostas = parsed && parsed.respostas;
+  if (!respostas) return { ok: false, error: "Resposta da OpenAI vazia.", status: 200 };
+  return { ok: true, respostas: { saldo: String(respostas.saldo || "").trim(), beneficio: String(respostas.beneficio || "").trim() }, periodo: periodo || null };
+}
+
+function gerarRespostaGastarComIA(pessoa, periodo, resumo) {
+  const preferido = provedorIAPreferido();
+  const ordem = preferido === "openai" ? ["openai", "gemini"] : ["gemini", "openai"];
+  const erros = [];
+
+  for (let i = 0; i < ordem.length; i++) {
+    const provedor = ordem[i];
+    let resultado;
+    try {
+      resultado = provedor === "gemini"
+        ? gerarRespostaGastarComGemini(pessoa, periodo, resumo)
+        : gerarRespostaGastarComOpenAI(pessoa, periodo, resumo);
+    } catch (err) {
+      resultado = { ok: false, error: String(err) };
+    }
+    if (resultado && resultado.ok) {
+      registrarProvedorIASucesso(provedor);
+      return resultado;
+    }
+    erros.push({ provedor: provedor, erro: (resultado && resultado.error) || "Falha desconhecida" });
+  }
+
+  return { ok: false, error: "Não foi possível gerar a resposta de gasto com IA.", diagnostico: erros };
+}
+
+function gerarInsightComIA(pessoa, periodo, resumo, modo) {
+  const chaves = obterChavesGemini();
+  const preferida = indiceChaveGeminiPreferida();
+  const ordem = [preferida, preferida === 0 ? 1 : 0];
+  const diagnosticos = [];
+
+  for (let i = 0; i < ordem.length; i++) {
+    const indice = ordem[i];
+    const chave = chaves[indice];
+    if (!chave) {
+      diagnosticos.push({ chave: indice + 1, status: "sem_chave", motivo: "A chave não está configurada." });
+      continue;
+    }
+
+    const resultado = gerarInsightComGemini(pessoa, periodo, resumo, {
+      apiKeyForcada: chave,
+      indiceChave: indice + 1,
+      diagnosticoIA: true,
+      modo: modo || "",
+    });
+
+    if (resultado && resultado.ok) {
+      registrarChaveGeminiSucesso(indice);
+      resultado.chaveUsada = indice + 1;
+      resultado.tentativas = diagnosticos.concat(resultado.tentativas || []);
+      return resultado;
+    }
+
+    diagnosticos.push({
+      chave: indice + 1,
+      status: (resultado && resultado.status) || "erro",
+      motivo: (resultado && resultado.error) || "Falha desconhecida.",
+    });
+  }
+
+  return {
+    ok: false,
+    error: "As duas chaves do Gemini falharam.",
+    diagnostico: diagnosticos,
+    ocultarInsight: true,
+  };
+}
+
+
+// Glossário de categorias pra IA não "chutar" o significado só pelo nome
+// (foi assim que ela errou dizendo que "Alimentação" tinha caído, quando na
+// real Alimentação é outra coisa — ver explicação abaixo). Baseado no que
+// foi explicado + inferência por contraste com as categorias vizinhas.
+const GLOSSARIO_CATEGORIAS = {
+  "Alimentação": "Compras pequenas e avulsas de comida/bebida do dia a dia — padaria, uma coquinha na rua, um doce comprado de um colega. NÃO é a compra grande de mantimentos (isso é 'Mercado') nem pedido/refeição em restaurante (isso é 'Delivery & Restaurantes').",
+  "Mercado": "Compra de supermercado/mantimentos para casa — a compra grande, geralmente mensal ou quinzenal (diferente de 'Alimentação', que é gasto avulso pequeno).",
+  "Delivery & Restaurantes": "Pedidos por aplicativo de delivery e refeições feitas em restaurantes, bares ou lanchonetes.",
+  "Assinaturas & Serviços": "Assinaturas recorrentes de serviços — streaming, softwares, planos de aplicativo, etc.",
+  "Beleza & Cuidados": "Produtos e serviços de estética pessoal — cosméticos, salão de beleza, barbearia, manicure.",
+  "Bem-estar": "Academia, psicóloga/terapia, corte de cabelo, e atividades parecidas de cuidado pessoal e saúde mental/física.",
+  "Carro": "Despesas gerais de manutenção e posse do carro — revisão, seguro, IPVA, peças (diferente de 'Combustível', que é só abastecimento, e de 'Estacionamento').",
+  "Casa & Manutenção": "Reparos e manutenção da casa/apartamento — conserto, material de construção, mobília.",
+  "Celular & Internet": "Conta de celular e plano de internet/wi-fi.",
+  "Combustível": "Gasolina, álcool ou gás para o carro/moto.",
+  "Contas": "Contas fixas da casa — água, luz, condomínio.",
+  "Educação": "Cursos, material escolar, mensalidade de curso ou faculdade.",
+  "Estacionamento": "Vagas pagas, zona azul.",
+  "Financiamento": "Parcelas de financiamento (carro, casa, etc).",
+  "Jogos": "Jogos eletrônicos — compras, assinaturas de serviço de jogos, itens dentro de jogo.",
+  "Lazer": "Entretenimento em geral que não seja jogos eletrônicos — cinema, shows, parques, passeios.",
+  "Metas": "Categoria TÉCNICA do sistema, não é um gasto real do dia a dia: é usada só nos lançamentos automáticos 'Guardado: nome da caixinha' quando o usuário guarda dinheiro numa caixinha.",
+  "Outro": "Categoria coringa pra gastos que não se encaixam em nenhuma outra categoria.",
+  "Pessoal": "Gasto de uso/cuidado pessoal diverso que não se encaixa nas outras categorias mais específicas.",
+  "Pets": "Despesas com animais de estimação — ração, veterinário, petshop.",
+  "Presente": "Presentes dados a outras pessoas.",
+  "Reparação Histórica": "Termo interno do casal: um valor que Davi passa pra Gabriel todo mês, porque Gabriel bancou as contas de Davi durante um período em que ele ficou desempregado. NÃO é uma dívida cobrada com juros nem algo formal — é um repasse mensal combinado entre os dois. Se aparecer, pode comentar com o mesmo tom carinhoso/parceria usado pra outras coisas do casal, sem soar como cobrança ou constrangimento.",
+  "Saídas & Confraternizações": "Sair com amigos, happy hour, festas, confraternização de trabalho.",
+  "Saúde & Farmácia": "Só gasto com remédio, médico, consulta, exame — nada de bem-estar geral (isso é a categoria Bem-estar).",
+  "Taxas & Tarifas": "Taxas bancárias, tarifas de serviços, juros, multas administrativas.",
+  "Tech & Equipamentos": "Compra de eletrônicos e equipamentos — celular novo, notebook, acessórios de tecnologia.",
+  "Transporte": "Deslocamento do dia a dia que não seja no carro próprio — ônibus, aplicativo de transporte, metrô.",
+  "Vestuário & Acessórios": "Roupas, calçados, acessórios.",
+  "Viagens": "Despesas de viagens e turismo.",
+};
+
+function textoGlossarioCategorias() {
+  return Object.keys(GLOSSARIO_CATEGORIAS)
+    .map(function (nome) { return "- " + nome + ": " + GLOSSARIO_CATEGORIAS[nome]; })
+    .join("\n");
+}
+
+// Lê a "imersão" de contexto pessoal e o "tom" na aba CONFIGS (colunas
+// D:K — ver comentário de CONFIGS_SHEET_NAME acima). Cada célula não-vazia
+// de uma coluna vira uma linha na lista (tom.davi/tom.gabriel viram texto
+// único, juntando as linhas). Se a aba ou as colunas não existirem (ou
+// estiverem vazias), devolve tudo vazio — é opcional, nunca deve quebrar
+// o insight.
+function lerCategoriasIcones() {
+  const regras = [];
+  try {
+    const ss = SpreadsheetApp.getActiveSpreadsheet();
+    const sheet = ss.getSheetByName(CONFIGS_SHEET_NAME);
+    if (!sheet) return regras;
+    const ultimaLinha = sheet.getLastRow();
+    if (ultimaLinha < 2) return regras;
+
+    const valores = sheet.getRange(2, COL_ICON_CATEGORIA, ultimaLinha - 1, 2).getValues();
+    valores.forEach(function(linha) {
+      const categoria = String(linha[0] || "").trim();
+      const bruto = String(linha[1] || "").trim();
+      if (!categoria || !bruto) return;
+      const padroes = bruto.split(/[\n,;]+/).map(function(nome) { return nome.trim(); }).filter(Boolean);
+      if (padroes.length) regras.push({ categoria: categoria, padroes: padroes });
+    });
+  } catch (err) {}
+  return regras;
+}
+
+const CACHE_PROMPT_IA_SEGUNDOS = 30;
+const CACHE_PROMPT_IA_CHAVE = "caixa_ia_contexto_v1";
+
+function lerImersaoIA() {
+  const vazio = { davi: [], gabriel: [], ambos: [], tomDavi: "", tomGabriel: "" };
+
+  try {
+    const ss = SpreadsheetApp.getActiveSpreadsheet();
+    const sheet = ss.getSheetByName(CONFIGS_SHEET_NAME);
+    if (!sheet) return vazio;
+
+    const ultimaLinha = sheet.getLastRow();
+    if (ultimaLinha < 2) return vazio;
+
+    // Linha 1 = cabeçalho, dados a partir da linha 2. Pega D:H de uma vez.
+    const valores = sheet.getRange(2, COL_IMERSAO_DAVI, ultimaLinha - 1, 5).getValues();
+
+    const coluna = function (idx) {
+      return valores
+        .map(function (linha) { return String(linha[idx] || "").trim(); })
+        .filter(Boolean);
+    };
+
+    const resultado = {
+      davi: coluna(0),
+      gabriel: coluna(1),
+      ambos: coluna(2),
+      tomDavi: coluna(3).join(" "),
+      tomGabriel: coluna(4).join(" "),
+    };
+    return resultado;
+  } catch (err) {
+    return vazio;
+  }
+}
+
+// Monta a instrução de tom/persona pra quem está pedindo o insight. No
+// modo Juntos o tom fica sempre neutro (não dá pra falar como duas
+// personas diferentes ao mesmo tempo), então devolve string vazia.
+function textoTomIA(pessoaCodigo) {
+  if (pessoaCodigo === "ambos") return "";
+  const imersao = lerImersaoIA();
+  if (pessoaCodigo === "gabriel") return imersao.tomGabriel || "";
+  return imersao.tomDavi || "";
+}
+
+// Monta o bloco de texto de imersão a ser enviado no prompt, já filtrado
+// pra quem está pedindo o insight (davi | gabriel | ambos).
+function textoImersaoIA(pessoaCodigo) {
+  const imersao = lerImersaoIA();
+  let linhas = [];
+
+  if (pessoaCodigo === "ambos") {
+    linhas = imersao.ambos
+      .concat(imersao.davi.map(function (l) { return "(sobre o Davi) " + l; }))
+      .concat(imersao.gabriel.map(function (l) { return "(sobre o Gabriel) " + l; }));
+  } else if (pessoaCodigo === "gabriel") {
+    linhas = imersao.gabriel.concat(imersao.ambos);
   } else {
-    itemDavi = { ...base, nome, valor: metade, pago };
-    itemGabriel = { ...base, nome, valor: metade, pago };
+    linhas = imersao.davi.concat(imersao.ambos);
   }
 
+  if (!linhas.length) return "";
+
+  return linhas.map(function (l) { return "- " + l; }).join("\n");
+}
+
+// Quantos insights pedimos de uma vez pro Gemini. O app guarda esse "estoque"
+// no aparelho e vai consumindo um por sincronização — só pede mais quando
+// o estoque fica baixo, então a tela quase nunca fica esperando rede.
+const QUANTIDADE_INSIGHTS_POR_PEDIDO = 5;
+
+function gerarInsightComGemini(pessoa, periodo, resumo, opcoesModo) {
   try {
-    const [listaDavi, listaGabriel] = await Promise.all([
-      obterListaLocal("davi", chave),
-      obterListaLocal("gabriel", chave),
-    ]);
+    const apiKey = (opcoesModo && opcoesModo.apiKeyForcada) || PropertiesService.getScriptProperties().getProperty(GEMINI_API_KEY_PROPRIEDADE);
+    const modoSomentePrompt = opcoesModo && opcoesModo.modoSomentePrompt === true;
 
-    listaDavi.push(itemDavi);
-    listaGabriel.push(itemGabriel);
-    // A partir daqui há uma alteração local lógica para a pessoa que estiver
-    // em foco; qualquer GET antigo não pode sobrescrevê-la.
-    if (state.pessoaAtual === "davi" || state.pessoaAtual === "gabriel") marcarAlteracaoLocal();
+    const pessoaCodigo = String(pessoa || "").toLowerCase();
+    const ehCasal = pessoaCodigo === "ambos";
+    const nomePessoa = PESSOA_NOME[pessoaCodigo] || "a pessoa";
 
-    const [resDavi, resGabriel] = await Promise.all([
-      fetch(urlApi(), { method: "POST", body: JSON.stringify({ action, payload: listaDavi, pessoa: "davi" }) }),
-      fetch(urlApi(), { method: "POST", body: JSON.stringify({ action, payload: listaGabriel, pessoa: "gabriel" }) }),
-    ]);
-    const [dataDavi, dataGabriel] = await Promise.all([
-      resDavi.json().catch(() => null),
-      resGabriel.json().catch(() => null),
-    ]);
-    if ((dataDavi && dataDavi.ok === false) || (dataGabriel && dataGabriel.ok === false)) {
-      throw new Error("Erro ao salvar em um dos dois");
+    const regrasComuns = [
+      "Você é um assistente financeiro dentro de um app pessoal de controle de gastos chamado Caixa. Seja o mais específico e afiado possível — nunca dê conselho genérico de curso de finanças.",
+      "REGRA FUNDAMENTAL: lançamentos com nome começando por 'Guardado: ' são TRANSFERÊNCIAS PARA CAIXINHAS, não são gastos. Eles nunca entram em totais de gastos, categorias de gastos, gráficos de gastos, comparações de despesas, saldos de despesas ou qualquer análise de consumo. Se aparecerem no histórico antigo dentro de DEBITOS, o sistema já corrige esse valor pela categoria técnica 'Metas'. 'gastos variáveis' significam somente despesas reais do dia a dia. Contexto do app pra você entender os dados do resumo: 'gastos fixos' são despesas recorrentes do mês (aluguel, assinaturas, etc); 'gastos variáveis' são despesas do dia a dia que mudam de mês a mês; 'caixinhas' são potes de dinheiro guardado — o campo valorGuardado de cada caixinha JÁ É o total real guardado até agora (já inclui o que rendeu e o que foi guardado neste mês, então pra saber quanto falta pra meta é só valorObjetivo − valorGuardado, NUNCA some rendimentoTotal ou guardadoNesseMes de novo em cima disso). rendimentoTotal e guardadoNesseMes são só o detalhamento de parte desse total (quanto rendeu / quanto entrou nesse mês especificamente), úteis pra comentar sobre eles isoladamente, mas não são valores a somar ao valorGuardado.",
+      "MUITO IMPORTANTE — não confunda 'total acumulado de sempre' com 'total deste ano/mês': o valorGuardado de cada caixinha (e a soma dele entre as caixinhas) é um saldo ACUMULADO DESDE SEMPRE, que só muda quando alguém guarda ou retira — ele NÃO reseta a cada mês nem a cada ano. Por isso NUNCA introduza esse valor com uma frase que dê a entender que é algo do período atual, tipo 'neste ano você já guardou X' ou 'esse mês você guardou X entre as caixinhas' — isso é falso e confunde quem lê. Fale dele de forma atemporal (ex: 'você já tem X guardado na caixinha Tal' ou 'no total, X guardados entre as caixinhas'). Quem quer saber quanto foi guardado especificamente NESTE MÊS é o campo mesAtual.guardadoNoMes (ou guardadoNesseMes de cada caixinha), e quem quer saber o total do ANO é anoAtualAteAgora.guardado — só use frases como 'neste ano' ou 'esse mês' quando o valor vier de um desses dois campos, nunca do valorGuardado bruto da caixinha.",
+      "O resumo tem um campo totalGuardadoAtualDeVerdade — é o total real, ATUAL, de tudo que está guardado agora nas caixinhas, exatamente como aparece na aba Caixinhas do app. Use esse campo (ou os valorGuardado de cada caixinha) toda vez que for falar 'quanto você tem guardado hoje' ou o total guardado no momento. Já os campos guardado dentro de anoAtualAteAgora e anoAnteriorCompleto são o CRESCIMENTO LÍQUIDO das caixinhas naquele período (total final menos total inicial, já descontando qualquer saque no meio do caminho) — não são soma de depósitos mês a mês, então podem ser bem menores do que somar os valores guardados mês a mês, e isso é esperado.",
+      "GLOSSÁRIO DAS CATEGORIAS — o nome da categoria sozinho pode enganar, use SEMPRE o significado real abaixo em vez de chutar pelo nome (ex: 'Alimentação' NÃO é a feira/mercado do mês, é gasto pequeno e avulso — não confunda os dois nem fale que uma caiu quando na verdade foi a outra):\n" + textoGlossarioCategorias(),
+      "Você vai receber um resumo em JSON com os números de " + nomePessoa + ", em reais (BRL).",
+      "SEPARAÇÃO DOS GANHOS: dentro de mesAtual, 'beneficiosRecebidos' é a soma dos ganhos já recebidos cujo NOME contém a palavra 'beneficio' (com ou sem acento, inclusive nomes como 'Multibeneficio'); 'ganhosRecebidosSemBeneficio' é a soma dos demais ganhos recebidos. Esses dois valores formam juntos 'ganhosRecebidos'. Quando comparar ou comentar a composição da renda, use esses campos em vez de tentar inferir a divisão só pelos nomes individuais. No modo Juntos, a mesma separação aparece dentro de mesAtual.porPessoa para Davi e Gabriel.",
+      "O resumo traz vários recortes de tempo — use o que fizer sentido pra cada insight, sem forçar todos: mesAtual (mês em andamento) vs mesPassado (mês imediatamente anterior); mesmoMesAnoPassado (o MESMO mês, um ano antes — ex: Agosto deste ano vs Agosto do ano passado; só existe se já tiver histórico daquele mês) — é diferente de mesPassado, não confunda os dois; e a visão do ano inteiro em anoAtualAteAgora (soma de tudo que já fechou nesse ano mais o mês em andamento) vs anoAnteriorCompleto (o ano anterior fechado). NUNCA escreva um ano fixo/chutado no texto — sempre use o campo 'ano' que vier dentro de cada bloco do resumo, já que o ano de referência muda sozinho conforme o app avança.",
+      "CAIXINHAS COM PRAZO: cada objeto em caixinhas pode trazer prazo, diasAtePrazo, mesesAtePrazo, faltaParaMeta, necessarioGuardarPorMes, guardadoNesseMes e diferencaParaMediaMensalNesteMes. Use esses dados para fazer comentários de planejamento quando houver uma meta e um prazo. 'necessarioGuardarPorMes' é a média que precisa ser guardada por mês, a partir de agora, para cobrir o valor que falta até a data; 'guardadoNesseMes' é quanto já entrou nessa caixinha no mês atual. Se fizer sentido, diga de forma concreta algo como 'faltam X meses para [caixinha] e a média necessária é Y por mês'. Se guardadoNesseMes estiver abaixo da média necessária, pode comentar que ainda faltam Z para alcançar a média deste mês, mas lembre que o mês ainda está em andamento e não trate o valor parcial como se fosse o mês inteiro. Nunca invente uma média, prazo ou valor: use somente os campos calculados no resumo. Prazo passado é atraso; meta já completa não precisa de recomendação de aporte.",
+      "Dentro de mesAtual também vêm 'saldoAtualEmConta', 'saldoProjetadoComEntradas', 'contasAbertasTotal' e 'limiteDeGastoProjetado'. Use esses campos para responder sobre dinheiro REALMENTE disponível no saldo normal: saldoAtualEmConta = o que já existe hoje; saldoProjetadoComEntradas = saldo atual + entradas que ainda vão cair; contasAbertasTotal = todas as contas abertas que precisam ser reservadas, inclusive as futuras; limiteDeGastoProjetado = saldo projetado menos todas essas contas. NÃO confunda saldoAtualEmConta com limiteDeGastoProjetado: um pode ser R$ 485,64 e o outro R$ 203,05. Quando a pergunta for 'quanto ainda posso gastar?', prefira limiteDeGastoProjetado.",
+      "Dentro de mesAtual também vêm 'aindaAReceberEsseMes', 'aindaAPagarFixosEsseMes' e 'aindaAPagarVariaveisEsseMes' — são valores já lançados mas ainda pendentes (não confirmados como recebidos/pagos), não são gasto ou ganho perdido. ATENÇÃO: esses campos são EXCLUSIVAMENTE do mês em andamento; lançamentos com data posterior ficam fora deles. Quando algum desses vier maior que zero, pode ser um bom ângulo pra um dos insights (ex: lembrar quanto ainda falta entrar ou sair do mês) — mas só use se for relevante, não force em todo insight.",
+      "REGRA DE DATAS, OBRIGATÓRIA: nunca diga que uma conta/compra com status 'mes_que_vem' ou 'futuro' vence, precisa ser paga ou pesa no orçamento DESTE MÊS. Ela é uma obrigação futura já cadastrada. Se o resumo trouxer gastosFuturos, trate-os separadamente dos gastosDoMes. Para contas abertas, 'aindaAPagarFixosEsseMes' e 'aindaAPagarVariaveisEsseMes' são os valores que realmente vencem neste mês; não some gastosFuturos a esses campos e não descreva o total futuro como se fosse uma pendência atual. Se precisar falar do total de obrigações abertas, deixe explícito que ele inclui contas futuras.",
+      "REGRA DE PROJEÇÃO FUTURA: lançamentos futuros não são sinônimo de dívida líquida. Quando comentar gastosFuturos, procure também ganhosFuturos/ganhos futuros no resumo e considere os dois lados do fluxo. Ganhos fixos mensais, salários, rendas recorrentes ou outros recebimentos futuros já cadastrados devem entrar na leitura da capacidade de pagar os gastos futuros. Nunca apresente um gasto futuro isoladamente como se todo aquele valor fosse uma falta de dinheiro. Se houver gastos futuros de R$ X e ganhos futuros de R$ Y, destaque ambos e, quando fizer sentido, a diferença/projeção entre eles. Esta regra vale especialmente para dicas e planejamento; não use lançamentos futuros para reduzir a margem de gasto do mês atual.",
+      "Gere um ARRAY JSON com exatamente " + QUANTIDADE_INSIGHTS_POR_PEDIDO + " objetos de insight CURTOS (1 a 3 frases cada, no máximo uns 280 caracteres por texto), em português do Brasil.",
+      "Cada objeto deve ter exatamente estes campos: titulo, texto e tipo. O titulo deve ser CURTO, forte e contextual (1 a 3 palavras), em CAIXA ALTA, como \"GASTO\", \"RECEBIMENTO\", \"CAIXINHA\", \"RENDIMENTO\", \"COMPARAÇÃO\", \"ATENÇÃO\" ou outro título específico que combine com aquele insight. O campo tipo deve ser exatamente um destes valores: gasto, ganho, beneficio, guardado, rendimento, atencao, comparacao, planejamento ou geral. O tipo serve apenas para a interface aplicar a cor adequada ao titulo.",
+      "Cada um dos " + QUANTIDADE_INSIGHTS_POR_PEDIDO + " insights precisa focar em um ÂNGULO DIFERENTE dos dados — por exemplo: maior variação de categoria vs mês passado, variação de categoria ou do total vs o mesmo mês do ano passado (mesmoMesAnoPassado), ritmo/projeção do gasto no mês, quanto ainda está pendente de receber/pagar, progresso de uma caixinha/meta específica, rendimento de algum investimento, comparação entre o peso dos gastos fixos e dos variáveis, como o ano está indo até agora vs o ano passado, ou quanto sobrou disponível. NUNCA repita a mesma informação, a mesma conclusão ou a mesma sugestão em mais de um item.",
+      "Seja específico: cite nomes de categorias e de caixinhas de verdade que aparecerem no resumo — não fale de forma genérica ou vaga.",
+      "ORIGEM DOS GASTOS VARIÁVEIS: cada item variável em lancamentosComNomeDoMesAtual.gastosDoMes traz origem=\"saldo\" ou origem=\"beneficio\". Isso informa de qual reserva o gasto foi pago. Use essa informação quando fizer análises de composição do dinheiro, especialmente para comparar quanto do Benefício já foi utilizado e quanto do Saldo normal foi utilizado. Nunca invente a origem de um gasto; para gastos fixos, não existe esse campo e eles continuam sendo tratados como despesas do Saldo.",
+      "O resumo traz lancamentosComNomeDoMesAtual.ganhosDoMes (ganhos recebidos do mês em andamento; cada item também informa beneficio=true/false seguindo a mesma regra de nome) e .gastosDoMes (gastos do mês em andamento, fixos e variáveis juntos), com o NOME DE VERDADE de cada lançamento (ex: 'Almoço - Tia Marina', 'Pokémon Pokopia'). Também pode trazer .ganhosFuturos e .gastosFuturos: esses são lançamentos com data posterior ao mês atual e DEVEM ser tratados como futuros, nunca como contas deste mês. Cada item de gastosDoMes e gastosFuturos traz: categoria; tipoLancamento ('fixo' = mensalidade/parcela recorrente, ou 'variavel' = gasto avulso); parcela (só quando for um fixo parcelado, ex: '1/5' = primeira de cinco parcelas — cite isso quando for relevante, tipo 'ainda faltam 4 parcelas'); status (pago | pendente | atrasado | mes_que_vem | futuro | pago_adiantado — 'atrasado' significa que venceu no mês passado e ainda não foi pago; 'mes_que_vem' é uma parcela/conta já lançada mas que só vence no mês seguinte; 'futuro' é uma conta ainda mais adiante; nenhum dos dois é uma pendência de agora); e, só no modo Juntos, pessoa (de qual das duas pessoas é aquele lançamento — NUNCA ignore esse campo quando ele existir, ver as regras específicas do modo Juntos abaixo). Como um fixo parcelado e um variável avulso podem ter a MESMA categoria, cruze os dois quando fizer sentido — ex: se o total de uma categoria subiu, você pode dizer que parte veio de uma parcela fixa (citando o nome e a parcela) e parte de uma compra avulsa (citando o nome), em vez de só falar no total agregado da categoria. Preste atenção nesses nomes: se um deles deixar claro de onde veio o dinheiro ou pra onde foi (uma pessoa, um lugar, uma ocasião), pode citar isso literalmente em um dos insights pra ficar mais pessoal e específico — mas só quando o nome realmente disser isso com clareza, nunca invente uma relação ou um contexto que o nome não deixa explícito, e não force esse ângulo em todo insight.",
+      "NÃO crie um bloco ou seção de 'Recomendação'. O usuário quer DICA, não um conselho genérico separado. O texto de cada insight deve soar como uma observação útil e natural da situação financeira, em diálogo com a pessoa. Pode sugerir uma ação dentro da própria frase SOMENTE quando ela for extremamente concreta, diretamente sustentada pelos números e realmente útil; na maioria dos insights, apenas explique o que os dados mostram. Nunca escreva frases condicionais vagas como 'se o dinheiro estiver disponível', 'deixe separado para não consumir a folga', 'gaste com sabedoria' ou 'organize suas finanças'. O resumo já informa exatamente o que está disponível.",
+      "NÃO termine todos os insights com a mesma sugestão ou o mesmo tipo de conselho (por exemplo, não repita algo como 'que tal começar uma reserva' em mais de um item). Só sugira uma ação quando ela realmente fizer sentido pro dado específico daquele insight, e varie sempre a forma de dizer. Vários dos insights nem precisam ter sugestão nenhuma — às vezes só constatar o dado já basta.",
+      "Tom leve, direto, específico e motivador — pode ter humor leve quando fizer sentido, sem ironia pesada nem tom de sermão.",
+      "NUNCA presuma ou insinue julgamento sobre o MOTIVO de uma compra — não escreva coisas como 'espero que valha cada centavo', 'espero que essa aventura valha a pena', 'vale o investimento?', 'cuidado pra não desequilibrar o orçamento', 'não deixe isso pesar no bolso' ou qualquer variação que sugira que o gasto precisa se justificar, provar seu valor ou que a pessoa devia se policiar por ter gastado com algo que gosta. A pessoa não te deve explicação de por que comprou algo, e gastar com o que dá prazer (jogo, lazer, hobby, capricho) não é um problema a ser questionado, alertado ou monitorado com cautela — só o próprio dado (valor, categoria, comparação com outro período) fala por si, sem nenhum comentário de prudência grudado nele. Só é aceitável um tom de alerta real quando os PRÓPRIOS DADOS mostrarem um problema concreto e objetivo (ex: saldo disponível do mês ficou negativo, ou uma conta está 'atrasada') — nunca como reação a um valor alto sozinho ou a um gasto de lazer/hobby específico.",
+      "Sempre que citar um valor em dinheiro, formate como reais no padrão brasileiro (vírgula decimal, sempre com 2 casas — ex: R$ 5,00 ou R$ 1.234,56) e marque TODO valor com chaves duplas indicando de que tipo ele é, pra cada um aparecer com a mesma cor usada no gráfico histórico do app (Ganhos=verde, Gastos=vermelho, Guardado=amarelo, Rendimento=azul): {{ganho:R$ 5,00}} pra qualquer valor de ganho/recebimento; {{gasto:R$ 5,00}} pra qualquer valor de gasto/despesa (fixo, variável, de uma categoria, pendência a pagar); {{guardado:R$ 5,00}} pra valor ligado a caixinha — quanto já guardou, quanto falta pra bater a meta, o valor da própria meta; {{rendimento:R$ 5,00}} especificamente pro quanto uma caixinha/investimento rendeu. Só use {{+R$ 5,00}} (favorável) ou {{-R$ 5,00}} (desfavorável) pro raro caso de um valor que não seja claramente nenhum dos quatro tipos, como um saldo geral. Exemplo real de frase: \"Você guardou {{guardado:R$ 150,00}} esse mês, seu Rendimento foi de {{rendimento:R$ 12,30}}, mas o Gasto com transporte subiu {{gasto:R$ 80,00}} em relação ao mês passado.\" NUNCA escreva um valor em reais sem um desses marcadores ao redor, e NUNCA deixe de indicar o tipo quando o valor claramente for um dos quatro — isso é o que importa mais, mais do que decidir se é bom ou ruim. PROIBIDO abreviar um valor monetário de qualquer forma (nunca escreva algo como \"R$ 3k\", \"R$ 2.5k\" ou \"3 mil reais\") — o valor dentro do marcador é sempre o número completo e exato, no formato R$ 0,00. Essa regra vale SEMPRE, mesmo que o tom/persona configurado pra essa pessoa seja informal, gamer ou de internet — a persona muda só o vocabulário ao redor do número, nunca o próprio número ou o marcador dele.",
+      "NUNCA use as expressões 'no azul' ou 'no vermelho' pra falar de saldo — os marcadores acima já indicam a cor certa, não precisa de metáfora de cor no texto.",
+      "Se algum dado relevante estiver ausente, nulo ou zerado no resumo, apenas ignore-o — não invente número.",
+      "Não use markdown, no máximo 1 emoji por insight. Cada item do array deve ser um objeto válido contendo somente titulo, texto e tipo; não coloque aspas extras, numeração, prefixos como 'Insight:' ou qualquer texto fora do array JSON.",
+    ];
+
+    const blocoImersao = textoImersaoIA(pessoaCodigo);
+    const regrasImersao = blocoImersao
+      ? [
+          "CONTEXTO PESSOAL (imersão) sobre quem está falando com você, organizado em tópicos livres (a tag entre colchetes, quando existir, é só uma dica de assunto, não uma categoria financeira — não tente casar com o nome exato de uma categoria de gasto):\n" + blocoImersao,
+          "Use um traço desse contexto pessoal SOMENTE se ele se encaixar de forma natural e específica no insight que você está gerando naquele momento (ex: um gasto que claramente é sobre aquele assunto, tema, pet, hobby etc). NUNCA force uma menção pessoal só por ter o dado disponível, e NUNCA invente uma ligação que os dados não sustentam claramente. É perfeitamente normal — e esperado — que a maioria dos " + QUANTIDADE_INSIGHTS_POR_PEDIDO + " insights não use nada desse contexto. Como regra geral, no máximo 1 ou 2 dos insights devem puxar algum traço pessoal, nunca todos — EXCETO se um dos próprios traços pedir explicitamente mais profundidade ou mais frequência num assunto específico (ex: 'quando o assunto for X, pode se aprofundar mais'). Nesse caso, siga essa instrução específica em vez do limite geral, mas só quando o gasto realmente for sobre aquele assunto.",
+          "Quando usar, o tom pode ficar mais leve, caloroso e conversado (como um amigo comentando, não um extrato bancário), mas sem exagerar — ainda é sobre o dinheiro. Se estiver no modo Juntos (ambos), um traço marcado '(sobre o Davi)' ou '(sobre o Gabriel)' só pode ser usado junto de um gasto que o campo pessoa do lançamento confirma ser daquela pessoa específica — nunca atribua ao casal um traço que é de só um dos dois.",
+        ]
+      : [];
+
+    const textoTom = textoTomIA(pessoaCodigo);
+    const regrasTom = textoTom
+      ? [
+          "TOM/PERSONA obrigatório pra ESTA pessoa — siga em TODOS os " + QUANTIDADE_INSIGHTS_POR_PEDIDO + " insights, do primeiro ao último, sem exceção: " + textoTom,
+          "Esse tom é sobre o JEITO de escrever (vocabulário, expressões, personalidade) — ele NUNCA muda, ignora ou substitui nenhuma das regras de dados, valores, marcadores {{...}} ou formatação definidas acima. Adapte a persona ao redor dos números certos, nunca o contrário. Escreva como uma conversa direta no chat, não como relatório, manchete, auditoria ou texto corporativo. Não crie subtítulos de 'Recomendação' dentro do texto.",
+        ]
+      : [];
+
+    const regrasPessoa = ehCasal
+      ? [
+          "Você está olhando as finanças combinadas de um casal, Davi e Gabriel. O resumo, nesse modo Juntos, traz um recorte por pessoa em mesAtual.porPessoa e (quando existir mês fechado anterior) mesPassado.porPessoa — cada um com ganhosRecebidos/ganhos, gastoFixoPago+gastoVariavelPago/gastos, e categorias SEPARADOS por pessoa. Além disso, cada item de lancamentosComNomeDoMesAtual.ganhosDoMes e .gastosDoMes tem um campo pessoa dizendo de qual dos dois é aquele lançamento específico.",
+          "REGRA MAIS IMPORTANTE DESSE MODO: NUNCA atribua ao casal genericamente ('vocês foram à padaria', 'os dois gastaram com X') um lançamento que o campo pessoa diz ser de UM SÓ deles — isso é factualmente errado. Se duas coisas da mesma categoria forem de pessoas diferentes, trate como duas coisas separadas e diga o nome de cada um (ex: 'o Davi foi na padaria umas 3 vezes, e o Gabriel gastou com X' — não 'vocês foram na padaria' se só um dos dois foi).",
+          "O ângulo mais valioso desse modo é justamente COMPARAR os dois usando mesAtual.porPessoa (e mesPassado.porPessoa quando existir) — é isso que diferencia o modo Juntos de simplesmente ver o insight de uma pessoa só. Gere pelo menos 2 dos " + QUANTIDADE_INSIGHTS_POR_PEDIDO + " insights com esse ângulo comparativo, variando o tipo de comparação entre eles. Exemplos do tipo de coisa que funciona bem: apontar quem gastou mais numa categoria específica e por quanto (ex: 'o Davi gastou R$X a mais que o Gabriel em Jogos'); mostrar que um pesou mais numa categoria enquanto o outro pesou mais em outra (ex: 'o Davi gastou mais com Presente, enquanto o Gabriel puxou mais o Financiamento'); calcular que fração da soma dos ganhos dos dois (porPessoa.davi.ganhosRecebidos + porPessoa.gabriel.ganhosRecebidos) foi pra uma categoria específica somando os gastos dos dois nela, e citar nomes de lugares/lançamentos de verdade dessa categoria vindos de gastosDoMes quando disponíveis (ex: idas ao mercado tal, delivery tal); comparar como a distribuição de gastos entre os dois mudou desse mês pro mês passado usando mesPassado.porPessoa (ex: 'em relação a Agosto, vocês equilibraram melhor quem paga o quê').",
+          "Fale no PLURAL ('vocês', 'o gasto de vocês') só quando o insight for de fato sobre algo dos dois juntos (um total combinado, uma caixinha, uma comparação entre eles). Ao falar de algo específico de UMA pessoa (um gasto dela, uma categoria em que ela pesou mais que a outra), use o nome dela no singular — nunca generalize pro casal algo que pertence só a uma pessoa.",
+          "Em pelo menos um dos " + QUANTIDADE_INSIGHTS_POR_PEDIDO + " insights (não em todos), pode soltar um comentário carinhoso ou de parceria, já que são um casal cuidando do orçamento juntos — sem exagerar no clichê.",
+          "Se o resumo trouxer o campo transferenciasEntreOsDoisEsseMes com alguma transferência de verdade, comente sobre isso com naturalidade em pelo menos um insight (ex: quem ajudou quem naquele mês), sem julgamento. Mas se esse campo vier dizendo que NÃO houve nenhuma transferência esse mês, NUNCA comente sobre essa ausência — não é um dado relevante nem um sinal de nada (nem bom, nem ruim), então simplesmente ignore esse campo por completo e escolha outro ângulo pro insight.",
+        ]
+      : ["Fale diretamente com " + nomePessoa + ", no singular ('você')."];
+
+    if (opcoesModo && opcoesModo.modo === "economia") {
+      regrasComuns.push(
+        "MODO ESPECIAL — ME DÊ UMA DICA: aqui a pessoa não quer apenas um comentário sobre os números; ela quer uma DICA FINANCEIRA DE VERDADE. Gere 5 dicas diferentes, personalizadas e acionáveis, escolhendo as mais úteis a partir dos dados reais do resumo. Cada dica deve identificar rapidamente um dado ou oportunidade concreta e transformar isso em uma ação simples que a pessoa pode tomar agora ou no planejamento do próximo período.",
+        "Uma dica deve responder implicitamente 'o que eu posso fazer com essa informação?'. Não basta dizer que uma categoria foi a maior, que existe uma conta pendente, que ainda vai entrar dinheiro ou que uma caixinha está em X%: isso é apenas uma observação. Sempre que houver base suficiente, acrescente uma ação concreta, específica e proporcional aos números.",
+        "NÃO invente metas, limites, valores, recorrências ou hábitos que não aparecem no resumo. Quando não houver base para uma ação específica, escolha outro ângulo dos dados em vez de fabricar uma recomendação.",
+        "As 5 dicas devem ter ângulos diferentes e não podem ser cinco versões da mesma recomendação. Priorize, quando existirem, oportunidades concretas envolvendo margem de gasto deste mês, contas ainda pendentes neste mês, categorias que concentram gastos, mudanças relevantes, caixinhas com prazo, renda/recebimentos, despesas recorrentes e planejamento futuro. Lançamentos futuros devem ser avaliados junto com ganhos futuros quando disponíveis; nunca trate gasto futuro isolado como dívida líquida nem use gasto futuro para reduzir a margem de gasto deste mês.",
+        "Uma dica pode ser positiva e aproveitar uma situação boa, não precisa existir um problema. Se os números estiverem saudáveis, procure uma forma concreta de usar essa folga para fortalecer uma meta ou o planejamento. Não crie alerta só para parecer útil.",
+        "Evite conselhos genéricos como 'gaste com sabedoria', 'organize suas finanças', 'tenha disciplina', 'faça um orçamento' ou 'economize mais'. Se uma recomendação puder ser aplicada a qualquer pessoa sem olhar os números do resumo, ela não é uma boa dica para este modo.",
+        "No MODO ME DÊ UMA DICA, o primeiro insight deve ser a dica mais útil e imediatamente aplicável encontrada nos dados. Os demais também devem ser dicas de verdade, mas com ângulos diferentes. O titulo pode ser curto e natural, como 'DICA', 'OPORTUNIDADE', 'PLANO' ou 'PRÓXIMO PASSO'."
+      );
     }
 
-    const [cacheDavi, cacheGabriel] = await Promise.all([getCache("davi"), getCache("gabriel")]);
-    setCache("davi", { ...(cacheDavi || {}), [chave]: listaDavi });
-    setCache("gabriel", { ...(cacheGabriel || {}), [chave]: listaGabriel });
-    if (state.pessoaAtual === "davi") state[chave] = listaDavi;
-    if (state.pessoaAtual === "gabriel") state[chave] = listaGabriel;
-    removerCache("ambos"); // visão "Juntos" combina os dois — só invalida, recalcula quando for aberta
-
-    // Se uma pessoa pagou tudo, a metade da outra vira um ganho A RECEBER
-    // para quem pagou. O mesmo lançamento será marcado como recebido quando
-    // a outra pessoa confirmar o pagamento; a categoria original é herdada.
-    if (quemPagouTudo) {
-      const devedor = quemPagouTudo === "davi" ? "gabriel" : "davi";
-      const criouGanho = await criarGanhoAReceberDivisao(quemPagouTudo, devedor, nome, metade, tipo, data, pago);
-      if (!criouGanho) return false;
+    if (opcoesModo && opcoesModo.modo === "mudou") {
+      regrasComuns.push(
+        "MODO ESPECIAL — O QUE MAIS MUDOU ESTE MÊS: o primeiro insight DEVE responder diretamente a essa pergunta comparando o mês atual com mesPassado. Para comparar GASTOS por categoria, use somente o que já foi efetivamente PAGO/REALIZADO no mês atual e no mês anterior. Um lançamento atual com status pendente, atrasado ou futuro NÃO pode ser tratado como gasto realizado nem pode fazer uma categoria parecer ter caído. Se uma categoria tiver apenas valor pendente neste mês e nenhum valor pago, NÃO diga que ela caiu; em vez disso, se for relevante, diga que há valor pendente e deixe a comparação de gasto realizado de fora. Nunca confunda 'há R$ X pendente' com 'gastou R$ X'. O total de gastos comparado também deve considerar somente gastos realizados/pagos. Ganhos devem ser comparados usando recebimentos efetivos, não valores ainda a receber. Identifique a maior mudança relevante entre gastos realizados, ganhos recebidos ou guardado no período. Comece pelo valor do mês atual e só depois explique a diferença para o mês anterior, para ficar claro de primeira. Não use frase pronta, bordão ou personalidade inventada pelo código: construa a resposta usando o TOM/PERSONA recebido para esta pessoa. O primeiro insight deve ser o mais adequado para responder exatamente à pergunta 'O que mais mudou este mês?'."
+      );
+    }
+    if (opcoesModo && opcoesModo.modo === "statusFinanceiro") {
+      regrasComuns.push(
+        "MODO ESPECIAL — STATUS FINANCEIRO: o PRIMEIRO insight é usado diretamente no card 'Status financeiro'. Ele deve ser uma única observação curta, de 1 a 2 frases, explicando por que o status calculado pelo aplicativo faz sentido para os números atuais. O texto deve corresponder ao campo mesAtual.statusFinanceiro, sem criar um status diferente. Fale diretamente com a pessoa, siga o TOM/PERSONA e cite apenas dados realmente relevantes. Não escreva título, lista, recomendação ou seção extra. Os outros insights podem ser variados, mas o primeiro é prioritariamente a explicação do status."
+      );
     }
 
-    return true;
+    const promptSistema = regrasComuns
+      .concat(regrasPessoa)
+      .concat(regrasImersao)
+      .concat(regrasTom)
+      .concat(["Responda SOMENTE com o array JSON de " + QUANTIDADE_INSIGHTS_POR_PEDIDO + " objetos, nada além disso — sem crases, sem a palavra json antes. Cada objeto deve ter somente titulo, texto e tipo."])
+      .join(" ");
+
+    const corpo = {
+      contents: [
+        { role: "user", parts: [{ text: promptSistema + "\n\nResumo em JSON:\n" + JSON.stringify(resumo || {}) }] },
+      ],
+      generationConfig: {
+        temperature: 0.95,
+        maxOutputTokens: 2400,
+        responseMimeType: "application/json",
+        responseSchema: {
+          type: "ARRAY",
+          minItems: QUANTIDADE_INSIGHTS_POR_PEDIDO,
+          maxItems: QUANTIDADE_INSIGHTS_POR_PEDIDO,
+          items: {
+            type: "OBJECT",
+            properties: {
+              titulo: { type: "STRING" },
+              texto: { type: "STRING" },
+              tipo: { type: "STRING", enum: ["gasto", "ganho", "beneficio", "guardado", "rendimento", "atencao", "comparacao", "planejamento", "geral"] },
+            },
+            required: ["titulo", "texto", "tipo"],
+          },
+        },
+      },
+    };
+
+    if (modoSomentePrompt) return { ok: false, _corpo: corpo };
+    if (!apiKey) return { ok: false, error: "Chave do Gemini não configurada." };
+
+    const url = "https://generativelanguage.googleapis.com/v1beta/models/" + GEMINI_MODEL + ":generateContent";
+    const opcoesFetch = {
+      method: "post",
+      contentType: "application/json",
+      headers: { "x-goog-api-key": apiKey },
+      payload: JSON.stringify(corpo),
+      muteHttpExceptions: true,
+    };
+
+    // Gemini pode devolver 503/429 por indisponibilidade momentânea ou limite
+    // de taxa. Fazemos retry com espera crescente, mas só nesses erros
+    // transitórios; erros de configuração/autorização não ficam esperando.
+    const atrasosRetryMs = [1200, 2800, 5200];
+    let res = null;
+    let status = 0;
+    let data = {};
+    for (let tentativa = 0; tentativa <= atrasosRetryMs.length; tentativa++) {
+      res = UrlFetchApp.fetch(url, opcoesFetch);
+      status = res.getResponseCode();
+      try { data = JSON.parse(res.getContentText() || "{}"); } catch (errParse) { data = {}; }
+
+      const transitório = [429, 500, 502, 503, 504].indexOf(status) !== -1;
+      if (status === 200 || !transitório || tentativa === atrasosRetryMs.length) break;
+      Utilities.sleep(atrasosRetryMs[tentativa]);
+    }
+
+    if (status !== 200) {
+      const msg = (data.error && data.error.message) || ("Erro HTTP " + status + " ao chamar o Gemini.");
+      return {
+        ok: false,
+        error: msg,
+        status: status,
+        diagnostico: [{ chave: (opcoesModo && opcoesModo.indiceChave) || null, status: status, motivo: msg }],
+      };
+    }
+
+    const texto =
+      data.candidates &&
+      data.candidates[0] &&
+      data.candidates[0].content &&
+      data.candidates[0].content.parts &&
+      data.candidates[0].content.parts[0] &&
+      data.candidates[0].content.parts[0].text;
+
+    if (!texto) {
+      return { ok: false, error: "O Gemini não retornou nenhum texto (pode ter sido bloqueado por segurança)." };
+    }
+
+    let lista;
+    try {
+      const parsed = JSON.parse(texto);
+      lista = Array.isArray(parsed) ? parsed : (parsed && Array.isArray(parsed.insights) ? parsed.insights : null);
+    } catch (erroParse) {
+      lista = null;
+    }
+
+    function normalizarInsightGerado(item) {
+      if (!item || typeof item !== "object") return null;
+      const titulo = String(item.titulo || "").trim();
+      const textoInsight = String(item.texto || "").trim();
+      const tiposValidos = ["gasto", "ganho", "beneficio", "guardado", "rendimento", "atencao", "comparacao", "planejamento", "geral"];
+      const tipo = tiposValidos.indexOf(String(item.tipo || "").trim().toLowerCase()) !== -1
+        ? String(item.tipo).trim().toLowerCase()
+        : "geral";
+      if (!titulo || !textoInsight) return null;
+      return { titulo: titulo.slice(0, 32), texto: textoInsight, tipo: tipo };
+    }
+
+    let insightsValidos = Array.isArray(lista) ? lista.map(normalizarInsightGerado).filter(Boolean) : [];
+
+    // Mesmo com responseSchema, nunca confiamos cegamente na quantidade devolvida.
+    // Se vier menos que 5, fazemos uma segunda tentativa reforçando a exigência.
+    if (insightsValidos.length < QUANTIDADE_INSIGHTS_POR_PEDIDO) {
+      try {
+        const corpoRetry = JSON.parse(JSON.stringify(corpo));
+        corpoRetry.contents[0].parts[0].text += "\n\nATENÇÃO: sua resposta anterior não trouxe 5 objetos válidos. Ignore a resposta anterior e gere AGORA exatamente 5 objetos independentes, cada um com titulo, texto e tipo válidos.";
+        const resRetry = UrlFetchApp.fetch(url, Object.assign({}, opcoesFetch, { payload: JSON.stringify(corpoRetry) }));
+        const statusRetry = resRetry.getResponseCode();
+        let dataRetry = {};
+        try { dataRetry = JSON.parse(resRetry.getContentText() || "{}"); } catch (errParseRetry) { dataRetry = {}; }
+        if (statusRetry === 200) {
+          const textoRetry = dataRetry.candidates && dataRetry.candidates[0] && dataRetry.candidates[0].content && dataRetry.candidates[0].content.parts && dataRetry.candidates[0].content.parts[0] && dataRetry.candidates[0].content.parts[0].text;
+          if (textoRetry) {
+            try {
+              const parsedRetry = JSON.parse(textoRetry);
+              const listaRetry = Array.isArray(parsedRetry) ? parsedRetry : (parsedRetry && Array.isArray(parsedRetry.insights) ? parsedRetry.insights : null);
+              insightsValidos = Array.isArray(listaRetry) ? listaRetry.map(normalizarInsightGerado).filter(Boolean) : [];
+            } catch (errParseRetry2) { insightsValidos = []; }
+          }
+        }
+      } catch (errRetry) {}
+    }
+
+    if (insightsValidos.length < QUANTIDADE_INSIGHTS_POR_PEDIDO) {
+      return { ok: false, error: "O Gemini não conseguiu devolver os 5 insights completos neste momento." };
+    }
+
+    return { ok: true, textos: insightsValidos.slice(0, QUANTIDADE_INSIGHTS_POR_PEDIDO), periodo: periodo || null };
   } catch (err) {
-    return false;
+    return { ok: false, error: String(err) };
   }
 }
 
-// Credita quem pagou a conta na hora quando a metade da outra pessoa é
-// finalmente paga — só o ganho do pagador é criado aqui, porque o gasto de
-// quem devia já é o próprio lançamento que acabou de ser marcado como pago
-// (não duplica como uma transferência à parte).
-async function creditarPagamentoDeDivisao(pagador, devedor, nomeOriginal, valor, tipo, data, recebido = true) {
-  const atualizado = await atualizarGanhoDivisao(pagador, devedor, nomeOriginal, valor, data, recebido);
-  if (atualizado) return true;
-  return criarGanhoAReceberDivisao(pagador, devedor, nomeOriginal, valor, tipo, data, recebido);
+// ---------------------------------------------------------------------
+// FECHAR MÊS
+// ---------------------------------------------------------------------
+
+function fecharMes(mes, ano) {
+  mes = Number(mes);
+  ano = Number(ano);
+  if (!mes || mes < 1 || mes > 12 || !ano) {
+    throw new Error("Mês ou ano inválido para fechamento");
+  }
+
+  const sheetDavi = getSheetByPessoa("davi");
+  const sheetGabriel = getSheetByPessoa("gabriel");
+  const dadosDavi = getAllData(sheetDavi);
+  const dadosGabriel = getAllData(sheetGabriel);
+
+  const ganhosDavi = somaComStatus(dadosDavi.ganhos, "recebido");
+  const ganhosGabriel = somaComStatus(dadosGabriel.ganhos, "recebido");
+  const debitosDavi = somaFixosPagos(dadosDavi.gastosFixos) + somaVariaveisPagasReais(dadosDavi.gastosVariaveis);
+  const debitosGabriel = somaFixosPagos(dadosGabriel.gastosFixos) + somaVariaveisPagasReais(dadosGabriel.gastosVariaveis);
+
+  const saldoDavi = ganhosDavi - debitosDavi;
+  const saldoGabriel = ganhosGabriel - debitosGabriel;
+
+  // GUARDADO DAVI/GABRIEL no HISTORICO agora é o total de verdade (base + rendimento +
+  // o que foi guardado nesse mês) — é exatamente o valor que vira a nova base das
+  // caixinhas quando o mês fecha (ver seção 5 abaixo).
+  const guardadoDavi = somaTotalCaixinhas(dadosDavi.caixinhas);
+  const guardadoGabriel = somaTotalCaixinhas(dadosGabriel.caixinhas);
+  const guardadoDaviMes = somaCampo(dadosDavi.caixinhas, "valorGuardadoMes");
+  const guardadoGabrielMes = somaCampo(dadosGabriel.caixinhas, "valorGuardadoMes");
+
+  const categoriasDavi = categoriasDoMes(dadosDavi);
+  const categoriasGabriel = categoriasDoMes(dadosGabriel);
+
+  // Calcula o rendimento do mês antes de zerar
+  const rendimentoDavi = somaCampo(dadosDavi.caixinhas, "rendimentoTotal");
+  const rendimentoGabriel = somaCampo(dadosGabriel.caixinhas, "rendimentoTotal");
+
+  // 1) grava o mês fechado no HISTORICO
+  const historico = getHistoricoSheet();
+  const yearRow = garantirBlocoDoAno(historico, ano);
+  const col = 1 + mes; // mês 1 (Jan) -> coluna B (2)
+  historico.getRange(yearRow + OFFSET_GANHOS_DAVI, col).setValue(ganhosDavi);
+  historico.getRange(yearRow + OFFSET_DEBITOS_DAVI, col).setValue(-debitosDavi);
+  historico.getRange(yearRow + OFFSET_SALDO_DAVI, col).setValue(saldoDavi);
+  historico.getRange(yearRow + OFFSET_GUARDADO_DAVI, col).setValue(guardadoDavi);
+  historico.getRange(yearRow + OFFSET_GUARDADO_DAVI_MES, col).setValue(guardadoDaviMes);
+  historico.getRange(yearRow + OFFSET_CATEGORIAS_DAVI, col).setValue(serializarCategorias(categoriasDavi));
+  historico.getRange(yearRow + OFFSET_RENDIMENTO_DAVI, col).setValue(rendimentoDavi); 
+  
+  historico.getRange(yearRow + OFFSET_GANHOS_GABRIEL, col).setValue(ganhosGabriel);
+  historico.getRange(yearRow + OFFSET_DEBITOS_GABRIEL, col).setValue(-debitosGabriel);
+  historico.getRange(yearRow + OFFSET_SALDO_GABRIEL, col).setValue(saldoGabriel);
+  historico.getRange(yearRow + OFFSET_GUARDADO_GABRIEL, col).setValue(guardadoGabriel);
+  historico.getRange(yearRow + OFFSET_GUARDADO_GABRIEL_MES, col).setValue(guardadoGabrielMes);
+  historico.getRange(yearRow + OFFSET_CATEGORIAS_GABRIEL, col).setValue(serializarCategorias(categoriasGabriel));
+  historico.getRange(yearRow + OFFSET_RENDIMENTO_GABRIEL, col).setValue(rendimentoGabriel); 
+
+  // 2) GANHOS do mês seguinte
+  // O saldo que sobra no fechamento é separado pela origem dos ganhos.
+  // Agora cada gasto variável informa se saiu do Saldo ou do Benefício.
+  // Gastos fixos continuam saindo do Saldo. Assim, a origem do dinheiro
+  // é preservada exatamente, sem precisar fazer rateio proporcional.
+  const ganhosOrigemDavi = separarGanhosPorOrigem(dadosDavi.ganhos);
+  const ganhosOrigemGabriel = separarGanhosPorOrigem(dadosGabriel.ganhos);
+  const saldosProximoDavi = separarSaldoPorOrigem(ganhosOrigemDavi, somaFixosPagos(dadosDavi.gastosFixos), dadosDavi.gastosVariaveis);
+  const saldosProximoGabriel = separarSaldoPorOrigem(ganhosOrigemGabriel, somaFixosPagos(dadosGabriel.gastosFixos), dadosGabriel.gastosVariaveis);
+  const nomeSaldo = "Saldo " + tituloMes(mes);
+  const nomeSaldoBeneficios = "Saldo Beneficios " + tituloMes(mes);
+  
+  // Mantém os ganhos que NÃO foram recebidos OU os ganhos recorrentes (salário, etc)
+  const ganhosProximoDavi = [];
+  dadosDavi.ganhos.forEach(function (g) {
+    if (g.recebido === false || ehGanhoRecorrente(g.nome)) {
+      ganhosProximoDavi.push({ nome: g.nome, valor: g.valor, data: proximaDataMesmoDia(g.data), recebido: false });
+    }
+  });
+
+  const ganhosProximoGabriel = [];
+  dadosGabriel.ganhos.forEach(function (g) {
+    if (g.recebido === false || ehGanhoRecorrente(g.nome)) {
+      ganhosProximoGabriel.push({ nome: g.nome, valor: g.valor, data: proximaDataMesmoDia(g.data), recebido: false });
+    }
+  });
+
+  // Transporta o saldo positivo do mês que fechou, mantendo a origem.
+  if (saldosProximoDavi.ganhos > 0) {
+    ganhosProximoDavi.push({ nome: nomeSaldo, valor: saldosProximoDavi.ganhos, data: "", recebido: true });
+  }
+  if (saldosProximoDavi.beneficios > 0) {
+    ganhosProximoDavi.push({ nome: nomeSaldoBeneficios, valor: saldosProximoDavi.beneficios, data: "", recebido: true });
+  }
+  if (saldosProximoGabriel.ganhos > 0) {
+    ganhosProximoGabriel.push({ nome: nomeSaldo, valor: saldosProximoGabriel.ganhos, data: "", recebido: true });
+  }
+  if (saldosProximoGabriel.beneficios > 0) {
+    ganhosProximoGabriel.push({ nome: nomeSaldoBeneficios, valor: saldosProximoGabriel.beneficios, data: "", recebido: true });
+  }
+  
+  saveGanhos(sheetDavi, ganhosProximoDavi);
+  saveGanhos(sheetGabriel, ganhosProximoGabriel);
+
+  // 3) GASTOS FIXOS
+  const proximosFixosDavi = dadosDavi.gastosFixos.map(proximoFixo).filter(Boolean);
+  const proximosFixosGabriel = dadosGabriel.gastosFixos.map(proximoFixo).filter(Boolean);
+  saveGastosFixos(sheetDavi, proximosFixosDavi);
+  saveGastosFixos(sheetGabriel, proximosFixosGabriel);
+
+  // 4) GASTOS VARIÁVEIS (Transfere os não pagos para o mês seguinte)
+  const variaveisPendentesDavi = dadosDavi.gastosVariaveis.filter(function(g) { return g.pago === false; });
+  const variaveisPendentesGabriel = dadosGabriel.gastosVariaveis.filter(function(g) { return g.pago === false; });
+  
+  saveGastosVariaveis(sheetDavi, variaveisPendentesDavi);
+  saveGastosVariaveis(sheetGabriel, variaveisPendentesGabriel);
+
+  // 5) CAIXINHAS: fecham o mês consolidando tudo numa base só. O valor guardado
+  // (valorGuardado) NÃO é resetado — ele vira valorGuardado + rendimentoTotal +
+  // valorGuardadoMes, ou seja, passa a representar o total real acumulado até aqui.
+  // rendimentoTotal e valorGuardadoMes é que zeram, pra começar a contar o mês novo
+  // (o rendimento e o quanto foi guardado já foram lidos acima e gravados no HISTORICO).
+  const caixinhasProximoDavi = dadosDavi.caixinhas.map(function(c) {
+    return { nome: c.nome, valorObjetivo: c.valorObjetivo, valorGuardado: valorTotalCaixinha(c), rendimentoTotal: 0, valorGuardadoMes: 0, data: c.data || "", icone: c.icone || "" };
+  });
+  const caixinhasProximoGabriel = dadosGabriel.caixinhas.map(function(c) {
+    return { nome: c.nome, valorObjetivo: c.valorObjetivo, valorGuardado: valorTotalCaixinha(c), rendimentoTotal: 0, valorGuardadoMes: 0, data: c.data || "", icone: c.icone || "" };
+  });
+  saveCaixinhasBlock(sheetDavi, caixinhasProximoDavi);
+  saveCaixinhasBlock(sheetGabriel, caixinhasProximoGabriel);
+
+  // 6) avança o mês atual do app
+  let proximoMes = mes + 1;
+  let proximoAno = ano;
+  if (proximoMes > 12) {
+    proximoMes = 1;
+    proximoAno = ano + 1;
+  }
+  garantirBlocoDoAno(historico, proximoAno);
+  salvarConfigMesAtual(historico, proximoMes, proximoAno);
+
+  return {
+    ok: true,
+    fechado: {
+      mes: mes,
+      ano: ano,
+      ganhosDavi: ganhosDavi,
+      debitosDavi: debitosDavi,
+      saldoDavi: saldoDavi,
+      saldoDaviGanhos: saldosProximoDavi.ganhos,
+      saldoDaviBeneficios: saldosProximoDavi.beneficios,
+      guardadoDavi: guardadoDavi,
+      guardadoDaviMes: guardadoDaviMes,
+      rendimentoDavi: rendimentoDavi,
+      ganhosGabriel: ganhosGabriel,
+      debitosGabriel: debitosGabriel,
+      saldoGabriel: saldoGabriel,
+      saldoGabrielGanhos: saldosProximoGabriel.ganhos,
+      saldoGabrielBeneficios: saldosProximoGabriel.beneficios,
+      guardadoGabriel: guardadoGabriel,
+      guardadoGabrielMes: guardadoGabrielMes,
+      rendimentoGabriel: rendimentoGabriel,
+    },
+    mesAtual: proximoMes,
+    anoAtual: proximoAno,
+  };
 }
 
-// Espelha o que o backend (transferirEntrePessoas em Code.gs) faz: lança um
-// gasto variável já pago de quem transfere e um ganho já recebido de quem
-// recebe. Atualizando local/cache direto (em vez de invalidar e ter que
-// buscar tudo de novo na planilha com carregarDados()), a tela responde na
-// hora — igual já era feito em dividirCompra.
-async function transferirEntrePessoas(de, para, nome, valor, tipo) {
-  if (!API_URL || API_URL.includes("COLE_AQUI")) {
-    showToast("Configure a URL do Apps Script em config.js");
-    return false;
-  }
-  const descricao = (nome || "").trim() || "Transferência";
-  const hoje = dataHojeISO();
-  try {
-    const res = await fetch(urlApi(), {
-      method: "POST",
-      body: JSON.stringify({ action: "transferir", de, para, nome, valor, tipo }),
-    });
-    const data = await res.json().catch(() => null);
-    if (!data || data.ok === false) throw new Error((data && data.error) || "Erro desconhecido");
-
-    const [listaVariaveisDe, listaGanhosPara] = await Promise.all([
-      obterListaLocal(de, "gastosVariaveis"),
-      obterListaLocal(para, "ganhos"),
-    ]);
-    listaVariaveisDe.push({
-      nome: `Transferência p/ ${PESSOA_LABEL[para]}: ${descricao}`,
-      valor, tipo: tipo || "", data: hoje, pago: true,
-    });
-    listaGanhosPara.push({
-      nome: `Transferência de ${PESSOA_LABEL[de]}: ${descricao}`,
-      valor, data: hoje, recebido: true,
-    });
-    if (state.pessoaAtual === de || state.pessoaAtual === para) marcarAlteracaoLocal();
-
-    const [cacheDe, cachePara] = await Promise.all([getCache(de), getCache(para)]);
-    setCache(de, { ...(cacheDe || {}), gastosVariaveis: listaVariaveisDe });
-    setCache(para, { ...(cachePara || {}), ganhos: listaGanhosPara });
-    if (state.pessoaAtual === de) state.gastosVariaveis = listaVariaveisDe;
-    if (state.pessoaAtual === para) state.ganhos = listaGanhosPara;
-    removerCache("ambos");
-
-    return true;
-  } catch (err) {
-    return false;
-  }
+function normalizarTexto(str) {
+  return String(str || "")
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, "")
+    .toLowerCase();
 }
 
-function fixoEhPago(item) { return item.pago === true; }
-function variavelEhPago(item) { return item.pago === true; }
-function ganhoEhRecebido(item) { return item.recebido === true; }
-
-/* Benefício é qualquer ganho cujo nome contenha "beneficio", com ou sem
-   acento e inclusive dentro de palavras como "Multibeneficio". */
 function ganhoEhBeneficio(item) {
   const origem = String(item && item.origem || "").toLowerCase();
   if (origem === "beneficio") return true;
   if (origem === "saldo") return false;
-  const nome = String(item && item.nome || "")
-    .normalize("NFD")
-    .replace(/[\u0300-\u036f]/g, "")
-    .toLowerCase();
-  return nome.includes("beneficio");
+  return normalizarTexto(item && item.nome).indexOf("beneficio") !== -1;
 }
 
 function separarGanhosPorOrigem(lista) {
-  return (lista || []).reduce((acc, item) => {
-    if (!ganhoEhRecebido(item)) return acc;
+  return (lista || []).reduce(function (acc, item) {
+    if (item.recebido !== true) return acc;
     const valor = Number(item.valor) || 0;
     if (ganhoEhBeneficio(item)) acc.beneficios += valor;
     else acc.ganhos += valor;
     return acc;
   }, { beneficios: 0, ganhos: 0 });
 }
-// Um "lembrete" (compra do mês que vem, paga adiantada) aparece na lista
-// como pago, mas não deve contar de novo no saldo nem nos gastos por
-// categoria deste mês — já foi debitado no mês em que a compra foi paga.
-function variavelContaNoSaldo(item) { return item.pago === true && item.lembrete !== true; }
-function variavelEhBeneficio(item) { return String(item && item.origem || "saldo").toLowerCase() === "beneficio"; }
 
-function atualizarLinhaStatus(ulId, idx, ligado, rotuloOn, rotuloOff) {
-  const ul = document.getElementById(ulId);
-  if (!ul) return false;
-  const checkbox = ul.querySelector(`input[type="checkbox"][data-idx="${idx}"]`);
-  if (!checkbox) return false;
-  const li = checkbox.closest(".item-list-row");
-  const label = checkbox.closest(".pago-toggle");
-  if (li) li.classList.toggle("is-pendente", !ligado);
-  if (label) {
-    label.classList.toggle("is-pago", ligado);
-    const texto = label.querySelector(".status-label-text");
-    if (texto) texto.textContent = ligado ? rotuloOn : rotuloOff;
-  }
-  if (li && ligado) carimbarLinha(li, rotuloOn);
-  return true;
+function gastoVariavelEhBeneficio(item) {
+  return String(item && item.origem || "saldo").toLowerCase() === "beneficio";
 }
 
-function carimbarLinha(li, rotulo, concluido = true) {
-  if (!li || !rotulo) return;
-  const antigo = li.querySelector(".carimbo");
-  if (antigo) antigo.remove();
-  const selo = document.createElement("span");
-  selo.className = `carimbo ${concluido ? "carimbo-concluido" : "carimbo-pendente"}`;
-  selo.textContent = rotulo;
-  li.appendChild(selo);
-
-  requestAnimationFrame(() => selo.classList.add("is-batendo"));
-  setTimeout(() => selo.classList.add("is-sumindo"), 850);
-  setTimeout(() => selo.remove(), 1300);
+function separarSaldoPorOrigem(ganhosOrigem, gastosFixosPagos, gastosVariaveis) {
+  const beneficios = Number(ganhosOrigem && ganhosOrigem.beneficios) || 0;
+  const ganhos = Number(ganhosOrigem && ganhosOrigem.ganhos) || 0;
+  const fixos = Number(gastosFixosPagos) || 0;
+  const variaveis = (gastosVariaveis || []).filter(function (g) { return !ehLancamentoDeCaixinha(g) && g.pago === true && g.lembrete !== true; });
+  const gastosBeneficios = variaveis.reduce(function (acc, g) {
+    return acc + (gastoVariavelEhBeneficio(g) ? Number(g.valor) || 0 : 0);
+  }, 0);
+  const gastosSaldo = fixos + variaveis.reduce(function (acc, g) {
+    return acc + (!gastoVariavelEhBeneficio(g) ? Number(g.valor) || 0 : 0);
+  }, 0);
+  return {
+    beneficios: Math.max(beneficios - gastosBeneficios, 0),
+    ganhos: Math.max(ganhos - gastosSaldo, 0),
+  };
 }
 
-function renderDerivadosDeStatus() {
-  renderTotais();
-  renderVisaoGeral();
-  renderCategorias();
-  renderRecentes();
-  renderSplit();
-  renderJuntosView();
-  atualizarCarrosselGraficos();
-  if (typeof window.renderResumoStatusFinanceiro === "function") window.renderResumoStatusFinanceiro();
-  if (typeof window.renderResumoAcontecimentos === "function") window.renderResumoAcontecimentos();
-}
-
-
-// ---------------------------------------------------------------------
-// VÍNCULO AUTOMÁTICO: GASTO FIXO <-> GANHO DA OUTRA PESSOA
-// Um gasto fixo pago pode liquidar automaticamente o ganho pendente da
-// outra pessoa quando nome e valor correspondem. A data é usada para
-// escolher o par mais próximo quando existem vários lançamentos iguais.
-// ---------------------------------------------------------------------
-function normalizarNomeVinculo(nome) {
-  return String(nome || "").trim().normalize("NFD").replace(/[\u0300-\u036f]/g, "").toLowerCase();
-}
-
-function encontrarGanhoCorrespondenteFixo(lista, nome, valor, data, recebidoAlvo) {
-  const nomeN = normalizarNomeVinculo(nome);
-  const valorN = Number(valor) || 0;
-  const dataN = String(data || "").slice(0, 10);
-  const candidatos = (lista || []).map((item, idx) => ({ item, idx }))
-    .filter(({ item }) => {
-      if (normalizarNomeVinculo(item.nome) !== nomeN) return false;
-      if (Math.abs((Number(item.valor) || 0) - valorN) > 0.009) return false;
-      return ganhoEhRecebido(item) !== recebidoAlvo;
-    });
-  if (!candidatos.length) return null;
-
-  candidatos.sort((a, b) => {
-    const da = String(a.item.data || "").slice(0, 10);
-    const db = String(b.item.data || "").slice(0, 10);
-    const distA = dataN && /^\d{4}-\d{2}-\d{2}$/.test(da) ? Math.abs(new Date(`${da}T00:00:00`) - new Date(`${dataN}T00:00:00`)) : Number.MAX_SAFE_INTEGER;
-    const distB = dataN && /^\d{4}-\d{2}-\d{2}$/.test(db) ? Math.abs(new Date(`${db}T00:00:00`) - new Date(`${dataN}T00:00:00`)) : Number.MAX_SAFE_INTEGER;
-    return distA - distB || a.idx - b.idx;
+function ehGanhoRecorrente(nome) {
+  const normalizado = normalizarTexto(nome);
+  // Saldos transportados são lançamentos de continuidade, não ganhos
+  // recorrentes. Em especial, "Saldo Beneficios Agosto" contém a palavra
+  // "beneficio", mas jamais deve ser recriado novamente no fechamento seguinte.
+  if (normalizado.indexOf("saldo ") === 0) return false;
+  return TERMOS_GANHO_RECORRENTE.some(function (termo) {
+    return normalizado.indexOf(termo) !== -1;
   });
-  return candidatos[0];
 }
 
-async function sincronizarGanhoCorrespondenteFixo(devedor, item, recebido) {
-  if (!item || !devedor || !API_URL || API_URL.includes("COLE_AQUI")) return false;
-  const credor = devedor === "davi" ? "gabriel" : "davi";
-  try {
-    const lista = await obterListaLocal(credor, "ganhos");
-    const achado = encontrarGanhoCorrespondenteFixo(lista, item.nome, item.valor, item.data, recebido);
-    if (!achado) return false;
-    achado.item.recebido = !!recebido;
-
-    const res = await fetch(urlApi(), {
-      method: "POST",
-      body: JSON.stringify({ action: "saveGanhos", payload: lista, pessoa: credor })
-    });
-    const dataRes = await res.json().catch(() => null);
-    if (!dataRes || dataRes.ok === false) throw new Error("Erro ao sincronizar ganho correspondente");
-
-    const cache = await getCache(credor);
-    setCache(credor, { ...(cache || {}), ganhos: lista });
-    removerCache("ambos");
-    return true;
-  } catch {
-    return false;
+function proximoFixo(item) {
+  const bruto = String(item.parcela || "").trim();
+  const m = bruto.match(/^(\d+)\s*\/\s*(\d+)$/);
+  if (!m) {
+    // Fixo sem parcela (ex: aluguel, internet) — é recorrente mensal, então
+    // a data também avança pro mesmo dia do mês seguinte.
+    return { nome: item.nome, valor: item.valor, tipo: item.tipo || "", data: proximaDataMesmoDia(item.data), parcela: "", pago: false };
   }
+  const atual = Number(m[1]);
+  const total = Number(m[2]);
+  if (!total || total <= 1 || !atual) {
+    return { nome: item.nome, valor: item.valor, tipo: item.tipo || "", data: proximaDataMesmoDia(item.data), parcela: "", pago: false };
+  }
+  if (atual >= total) return null; 
+  return {
+    nome: item.nome,
+    valor: item.valor,
+    tipo: item.tipo || "",
+    data: proximaDataMesmoDia(item.data),
+    parcela: (atual + 1) + "/" + total,
+    pago: false,
+  };
 }
 
-function capturarPosicoesStatus(listaId, pendingId) {
-  const mapa = new Map();
-  [listaId, pendingId].forEach((containerId) => {
-    const el = document.getElementById(containerId);
-    if (!el) return;
-    el.querySelectorAll(".item-list-row[data-idx]").forEach((row) => {
-      const idx = row.dataset.idx;
-      mapa.set(`${containerId}:${idx}`, {
-        rect: row.getBoundingClientRect(),
-        row,
-      });
-    });
+function proximaDataMesmoDia(dataStr) {
+  const bruto = String(dataStr || "").trim();
+  if (!bruto) return "";
+  const partes = bruto.match(/^(\d{4})-(\d{2})-(\d{2})/);
+  if (!partes) return bruto;
+  const d = new Date(Number(partes[1]), Number(partes[2]) - 1, Number(partes[3]));
+  if (isNaN(d.getTime())) return bruto;
+  d.setMonth(d.getMonth() + 1);
+  return Utilities.formatDate(d, Session.getScriptTimeZone(), "yyyy-MM-dd");
+}
+
+function somaLista(lista) {
+  return (lista || []).reduce(function (acc, item) {
+    return acc + (Number(item.valor) || 0);
+  }, 0);
+}
+
+function somaComStatus(lista, campo) {
+  return (lista || []).reduce(function (acc, item) {
+    return acc + (item[campo] === true ? Number(item.valor) || 0 : 0);
+  }, 0);
+}
+
+function somaCampo(lista, campo) {
+  return (lista || []).reduce(function (acc, item) {
+    return acc + (Number(item[campo]) || 0);
+  }, 0);
+}
+
+// Total "de verdade" guardado numa caixinha: base + rendimento acumulado + o que foi
+// depositado neste mês (que só é somado à base no fechamento do mês).
+function valorTotalCaixinha(c) {
+  return (Number(c.valorGuardado) || 0) + (Number(c.rendimentoTotal) || 0) + (Number(c.valorGuardadoMes) || 0);
+}
+function somaTotalCaixinhas(lista) {
+  return (lista || []).reduce(function (acc, c) { return acc + valorTotalCaixinha(c); }, 0);
+}
+
+function somaFixosPagos(lista) {
+  return somaComStatus(lista, "pago");
+}
+
+function ehLancamentoDeCaixinha(g) {
+  return String(g && g.nome || "").indexOf("Guardado: ") === 0;
+}
+
+function somaVariaveisPagasReais(lista) {
+  return (lista || []).reduce(function (acc, g) {
+    return acc + (!ehLancamentoDeCaixinha(g) && g.pago === true && g.lembrete !== true ? Number(g.valor) || 0 : 0);
+  }, 0);
+}
+
+function categoriasDoMes(dados) {
+  const mapa = {};
+  const pagos = dados.gastosFixos
+    .filter(function (g) { return g.pago === true; })
+    .concat(dados.gastosVariaveis.filter(function (g) { return !ehLancamentoDeCaixinha(g) && g.pago === true; }));
+  pagos.forEach(function (g) {
+    const cat = (g.tipo && String(g.tipo).trim()) || "Outros";
+    mapa[cat] = (mapa[cat] || 0) + (Number(g.valor) || 0);
   });
   return mapa;
 }
 
-function animarReencaixeStatus(listaId, pendingId, antes, origemKey, destinoKey, origemRect, origemClone) {
-  return new Promise((resolve) => {
-  const depois = capturarPosicoesStatus(listaId, pendingId);
-
-  // FLIP: os itens que permaneceram no mesmo bloco acompanham o deslocamento
-  // natural da lista, sem redesenhar/"pular" visualmente.
-  antes.forEach((info, chave) => {
-    if (chave === origemKey) return;
-    const novo = depois.get(chave);
-    if (!novo) return;
-    const dx = info.rect.left - novo.rect.left;
-    const dy = info.rect.top - novo.rect.top;
-    if (Math.abs(dx) < 1 && Math.abs(dy) < 1) return;
-
-    novo.row.style.animation = "none";
-    novo.row.style.transition = "none";
-    novo.row.style.transform = `translate3d(${dx}px, ${dy}px, 0)`;
-    requestAnimationFrame(() => {
-      novo.row.style.transition = "transform 420ms cubic-bezier(.22,.8,.2,1)";
-      novo.row.style.transform = "translate3d(0,0,0)";
-      window.setTimeout(() => {
-        novo.row.style.transition = "";
-        // Mantém a animação CSS desativada nesta linha.
-        // Limpar animation aqui fazia a animação de entrada da lista
-        // disparar novamente no fim do FLIP, causando o "pisca".
-        novo.row.style.animation = "none";
-      }, 440);
-    });
-  });
-
-  const [destinoId, idx] = destinoKey.split(":");
-  const destino = document.getElementById(destinoId);
-  const novaLinha = destino && destino.querySelector(`.item-list-row[data-idx="${idx}"]`);
-  if (!novaLinha || !origemRect) { resolve(); return; }
-
-  // A própria linha nova faz o percurso. Não usamos clone/ghost: isso evita
-  // duplicação visual, escala estranha e o efeito de "cartão flutuando".
-  const destinoRect = novaLinha.getBoundingClientRect();
-  const dx = origemRect.left - destinoRect.left;
-  const dy = origemRect.top - destinoRect.top;
-
-  // Quanto mais distante o destino, mais tempo o cartão precisa para
-  // percorrer o caminho. Isso evita o efeito de "teleporte" quando ele
-  // vai para o final de uma lista longa.
-  const distancia = Math.hypot(dx, dy);
-  const duracaoMovimento = Math.min(1400, Math.max(800, 800 + distancia * 0.35));
-
-  novaLinha.style.animation = "none";
-  novaLinha.style.transition = "none";
-  novaLinha.style.transform = `translate3d(${dx}px, ${dy}px, 0)`;
-  novaLinha.style.opacity = "0.72";
-  novaLinha.style.pointerEvents = "none";
-
-  requestAnimationFrame(() => {
-    requestAnimationFrame(() => {
-      novaLinha.style.transition = `transform ${duracaoMovimento}ms cubic-bezier(.22,.78,.2,1), opacity 260ms ease-out`;
-      novaLinha.style.transform = "translate3d(0,0,0)";
-      novaLinha.style.opacity = "1";
-    });
-  });
-
-  window.setTimeout(() => {
-    novaLinha.style.transition = "";
-    novaLinha.style.transform = "";
-    novaLinha.style.opacity = "";
-    // Não limpar animation: isso faria a animação CSS da lista tocar
-    // novamente exatamente quando o cartão termina de se encaixar.
-    novaLinha.style.animation = "none";
-    novaLinha.style.pointerEvents = "";
-    resolve();
-  }, duracaoMovimento + 40);
-  });
+function serializarCategorias(mapa) {
+  return Object.keys(mapa)
+    .filter(function (cat) { return mapa[cat] > 0; })
+    .sort(function (a, b) { return mapa[b] - mapa[a]; })
+    .map(function (cat) {
+      const nomeSeguro = String(cat).replace(/[:,]/g, "-").trim() || "Outros";
+      return nomeSeguro + ":" + Number(mapa[cat]).toFixed(2);
+    })
+    .join(",");
 }
 
-function atualizarVisualStatusNaHora(linha, ligado, rotuloOn, rotuloOff) {
-  if (!linha) return;
-  const ativo = !!ligado;
-  linha.classList.toggle("is-pendente", !ativo);
-  const checkbox = linha.querySelector('input[type="checkbox"]');
-  const label = linha.querySelector(".pago-toggle");
-  if (checkbox) {
-    checkbox.checked = ativo;
-    checkbox.disabled = true;
-  }
-  if (label) {
-    label.classList.toggle("is-pago", ativo);
-    label.setAttribute("data-status", ativo ? rotuloOn : rotuloOff);
-    const texto = label.querySelector(".status-label-text");
-    if (texto) {
-      texto.textContent = ativo ? rotuloOn : rotuloOff;
-    } else {
-      // Fallback para qualquer markup antigo que ainda não tenha o span.
-      const novoTexto = document.createElement("span");
-      novoTexto.className = "status-label-text";
-      novoTexto.textContent = ativo ? rotuloOn : rotuloOff;
-      label.appendChild(novoTexto);
-    }
-  }
+function parseCategorias(texto) {
+  const bruto = String(texto || "").trim();
+  if (!bruto) return {};
+  const mapa = {};
+  bruto.split(",").forEach(function (par) {
+    const i = par.lastIndexOf(":");
+    if (i === -1) return;
+    const nome = par.slice(0, i).trim();
+    const valor = Number(par.slice(i + 1));
+    if (nome && !isNaN(valor)) mapa[nome] = valor;
+  });
+  return mapa;
 }
 
-const statusCliquesEmProcessamento = new Set();
-
-// Fila global das mudanças de status: uma animação só começa quando a anterior
-// terminou por completo. Assim, cliques rápidos não fazem dois cards viajarem juntos.
-let filaAnimacoesStatus = Promise.resolve();
-function enfileirarAnimacaoStatus(fn) {
-  const proxima = filaAnimacoesStatus.then(() => fn());
-  filaAnimacoesStatus = proxima.catch(() => {});
-  return proxima;
+function tituloMes(mes) {
+  const nome = HISTORICO_NOME_MESES[mes - 1] || "";
+  return nome.charAt(0) + nome.slice(1).toLowerCase();
 }
 
-function animarMudancaStatusFluida(listaId, pendingId, index, ligado, tipo, statusKey, toggleFn, ops, tipoModal, rotuloOn, rotuloOff) {
-  return new Promise((resolve) => {
-    const chaveStatus = `${listaId}:${index}`;
-    if (statusCliquesEmProcessamento.has(chaveStatus)) { resolve(); return; }
-    statusCliquesEmProcessamento.add(chaveStatus);
-  const ul = document.getElementById(listaId);
-  const pend = document.getElementById(pendingId);
-  const seletor = `.item-list-row[data-idx="${index}"]`;
-  const linhaAtual = (ul && ul.querySelector(seletor)) || (pend && pend.querySelector(seletor));
-    if (!linhaAtual) {
-      statusCliquesEmProcessamento.delete(chaveStatus);
-      resolve();
-      return;
-    }
+function linhaDoAno(ano) {
+  return 1 + HISTORICO_LINHAS_POR_BLOCO * (ano - HISTORICO_ANO_BASE);
+}
 
-  const origemContainer = linhaAtual.closest(`#${listaId}`) ? listaId : pendingId;
-  const destinoContainer = ligado ? listaId : pendingId;
-  const origemKey = `${origemContainer}:${index}`;
-  const destinoKey = `${destinoContainer}:${index}`;
-  const antes = capturarPosicoesStatus(listaId, pendingId);
-  const origemRect = linhaAtual.getBoundingClientRect();
-  const origemClone = linhaAtual.cloneNode(true);
-
-  atualizarVisualStatusNaHora(linhaAtual, ligado, rotuloOn, rotuloOff);
-  linhaAtual.classList.add("is-status-confirmando");
-  carimbarLinha(linhaAtual, ligado ? rotuloOn : rotuloOff, ligado);
-  vibrar();
-
-  const finalizar = () => {
-    const lista = statusKey === "recebido"
-      ? state.ganhos
-      : (tipo === "expense" && listaId === "listaFixos" ? state.gastosFixos : state.gastosVariaveis);
-
-    // A tela passa a refletir o estado do objeto local imediatamente.
-    // Não fazemos nenhum GET aqui: a planilha é persistida em paralelo e
-    // nunca deve ser necessária uma atualização da página para enxergar a
-    // mudança que o próprio usuário acabou de fazer.
-    renderPendentesDestaque(pendingId, lista, tipo, statusKey, toggleFn, rotuloOff, ops, tipoModal);
-    renderListaComStatus(listaId, lista, tipo, ops, tipoModal, statusKey, toggleFn, rotuloOn, rotuloOff);
-
-    // O render acima cria as posições finais. O FLIP/ghost usa as posições
-    // capturadas antes dele para fazer o lançamento atravessar a tela e os
-    // demais cards se encaixarem suavemente.
-    requestAnimationFrame(() => {
-      animarReencaixeStatus(listaId, pendingId, antes, origemKey, destinoKey, origemRect, origemClone)
-        .then(resolve);
-    });
-  };
-
-  // Pendente -> pago/recebido: confirma visualmente, aguarda só 0,2 s e
-  // então faz a travessia. Pago/recebido -> pendente: processa imediatamente.
-  if (ligado) {
-    window.setTimeout(() => {
-      try { finalizar(); } finally { statusCliquesEmProcessamento.delete(chaveStatus); resolve(); }
-    }, 200);
-  } else {
-    try { finalizar(); } finally { statusCliquesEmProcessamento.delete(chaveStatus); resolve(); }
+function garantirBlocoDoAno(sheet, ano) {
+  const yearRow = linhaDoAno(ano);
+  const anoCel = sheet.getRange(yearRow, 2).getValue();
+  if (Number(anoCel) === ano) {
+    garantirRotulosCategorias(sheet, yearRow);
+    return yearRow; 
   }
+
+  sheet.getRange(yearRow, 2).setValue(ano);
+
+  const mesesRow = yearRow + OFFSET_MESES;
+  sheet.getRange(mesesRow, 2, 1, 12).setValues([HISTORICO_NOME_MESES]);
+
+  const rotulos = [
+    [OFFSET_GANHOS_DAVI, "GANHOS DAVI"],
+    [OFFSET_DEBITOS_DAVI, "DEBITOS DAVI"],
+    [OFFSET_SALDO_DAVI, "SALDO DAVI"],
+    [OFFSET_GUARDADO_DAVI, "GUARDADO DAVI"],
+    [OFFSET_GUARDADO_DAVI_MES, "GUARDADO DAVI MES"],
+    [OFFSET_CATEGORIAS_DAVI, HISTORICO_LABEL_CATEGORIAS],
+    [OFFSET_RENDIMENTO_DAVI, "RENDIMENTO DAVI"],
+    [OFFSET_GANHOS_GABRIEL, "GANHOS GABRIEL"],
+    [OFFSET_DEBITOS_GABRIEL, "DEBITOS GABRIEL"],
+    [OFFSET_SALDO_GABRIEL, "SALDO GABRIEL"],
+    [OFFSET_GUARDADO_GABRIEL, "GUARDADO GABRIEL"],
+    [OFFSET_GUARDADO_GABRIEL_MES, "GUARDADO GABRIEL MES"],
+    [OFFSET_CATEGORIAS_GABRIEL, HISTORICO_LABEL_CATEGORIAS],
+    [OFFSET_RENDIMENTO_GABRIEL, "RENDIMENTO GABRIEL"],
+  ];
+  rotulos.forEach(function (r) {
+    sheet.getRange(yearRow + r[0], 1).setValue(r[1]);
+  });
+
+  // 5 linhas: GANHOS, DEBITOS, SALDO, GUARDADO, GUARDADO MES
+  sheet.getRange(yearRow + OFFSET_GANHOS_DAVI, 2, 5, 12).setNumberFormat(HISTORICO_FORMATO_MOEDA);
+  sheet.getRange(yearRow + OFFSET_RENDIMENTO_DAVI, 2, 1, 12).setNumberFormat(HISTORICO_FORMATO_MOEDA);
+  sheet.getRange(yearRow + OFFSET_GANHOS_GABRIEL, 2, 5, 12).setNumberFormat(HISTORICO_FORMATO_MOEDA);
+  sheet.getRange(yearRow + OFFSET_RENDIMENTO_GABRIEL, 2, 1, 12).setNumberFormat(HISTORICO_FORMATO_MOEDA);
+
+  return yearRow;
+}
+
+function garantirRotulosCategorias(sheet, yearRow) {
+  [OFFSET_CATEGORIAS_DAVI, OFFSET_CATEGORIAS_GABRIEL].forEach(function (offset) {
+    const cel = sheet.getRange(yearRow + offset, 1);
+    if (!cel.getValue()) cel.setValue(HISTORICO_LABEL_CATEGORIAS);
   });
 }
 
-function togglePagoFixo(index) {
-  return enfileirarAnimacaoStatus(() => togglePagoFixoInterno(index));
-}
-function togglePagoFixoInterno(index) {
-  if (isAmbos()) return;
-  const item = state.gastosFixos[index];
-  if (!item) return;
-  const vaiFicarPago = !fixoEhPago(item);
-  item.pago = vaiFicarPago;
-  // Atualiza imediatamente os totais para disparar o efeito visual de entrada/saída no topo.
-  renderTotais();
+function lerHistoricoCompleto(sheet) {
+  const anos = [];
+  let ano = HISTORICO_ANO_BASE;
 
-  // Essa parcela é a "metade" de uma compra dividida (ver dividirCompra) e
-  // acabou de ser marcada como paga: credita quem pagou a conta na hora e
-  // tira a marcação do nome, que volta a ficar limpo.
-  const credor = extrairCredorDivisao(item.nome);
-  const nomeOriginal = removerSufixoDivisao(item.nome);
-  if (credor) {
-    if (vaiFicarPago) item.nome = nomeOriginal;
-    atualizarGanhoDivisao(credor, state.pessoaAtual, nomeOriginal, item.valor, item.data, vaiFicarPago);
-  } else {
-    // Gasto fixo normal: o ganho correspondente da outra pessoa acompanha
-    // o status nos dois sentidos (pagar -> recebido / desfazer -> pendente).
-    sincronizarGanhoCorrespondenteFixo(state.pessoaAtual, item, vaiFicarPago);
-  }
+  while (true) {
+    const yearRow = linhaDoAno(ano);
+    const anoCel = sheet.getRange(yearRow, 2).getValue();
+    if (Number(anoCel) !== ano) break;
 
-  vibrar();
-  marcarAlteracaoLocal();
-  sincronizarCacheAtual();
-  salvarBloco("saveGastosFixos", state.gastosFixos);
-  if (!credor) {
-    return animarMudancaStatusFluida("listaFixos", "pendentesFixos", index, item.pago, "expense", "pago", togglePagoFixo, opFixos, "fixos", "Pago", "Pendente");
-  }
-  renderAll();
-}
-function togglePagoVariavel(index) {
-  return enfileirarAnimacaoStatus(() => togglePagoVariavelInterno(index));
-}
-function togglePagoVariavelInterno(index) {
-  if (isAmbos()) return;
-  const item = state.gastosVariaveis[index];
-  if (!item) return;
-  const vaiFicarPago = !variavelEhPago(item);
-  item.pago = vaiFicarPago;
-  // Atualiza imediatamente os totais para disparar o efeito visual de entrada/saída no topo.
-  renderTotais();
-  // Mexer manualmente no status tira o item do modo "lembrete" (compra
-  // adiantada) — a partir daqui ele volta a ser um lançamento comum, que
-  // entra ou sai do saldo normalmente conforme o novo status.
-  if (item.lembrete) item.lembrete = false;
-
-  // Mesma lógica do togglePagoFixo acima: se essa metade era uma dívida de
-  // compra dividida, credita quem pagou a conta na hora.
-  const credor = extrairCredorDivisao(item.nome);
-  const nomeOriginal = removerSufixoDivisao(item.nome);
-  if (credor) {
-    if (vaiFicarPago) item.nome = nomeOriginal;
-    atualizarGanhoDivisao(credor, state.pessoaAtual, nomeOriginal, item.valor, item.data, vaiFicarPago);
-  } else if (!vaiFicarPago) {
-    const outro = state.pessoaAtual === "davi" ? "gabriel" : "davi";
-    atualizarGanhoDivisao(outro, state.pessoaAtual, item.nome, item.valor, item.data, false);
-  }
-
-  vibrar();
-  marcarAlteracaoLocal();
-  sincronizarCacheAtual();
-  salvarBloco("saveGastosVariaveis", state.gastosVariaveis);
-  if (!credor) {
-    return animarMudancaStatusFluida("listaVariaveis", "pendentesVariaveis", index, item.pago, "expense", "pago", togglePagoVariavel, opVariaveis, "variaveis", "Pago", "Pendente");
-  }
-  renderAll();
-}
-function toggleRecebidoGanho(index) {
-  return enfileirarAnimacaoStatus(() => toggleRecebidoGanhoInterno(index));
-}
-function toggleRecebidoGanhoInterno(index) {
-  if (isAmbos()) return;
-  const item = state.ganhos[index];
-  if (!item) return;
-  item.recebido = !ganhoEhRecebido(item);
-  // Atualiza imediatamente os totais para disparar o efeito visual de entrada/saída no topo.
-  renderTotais();
-  vibrar();
-  marcarAlteracaoLocal();
-  sincronizarCacheAtual();
-  salvarBloco("saveGanhos", state.ganhos);
-  return animarMudancaStatusFluida("listaGanhos", "pendentesGanhos", index, item.recebido, "income", "recebido", toggleRecebidoGanho, opGanhos, "ganhos", "Recebido", "Pendente");
-}
-
-function soma(lista) { return lista.reduce((acc, i) => acc + (Number(i.valor) || 0), 0); }
-function somaComStatus(lista, campo) { return lista.reduce((acc, i) => acc + (i[campo] === true ? Number(i.valor) || 0 : 0), 0); }
-function somaFixosPagos(lista) { return somaComStatus(lista, "pago"); }
-function somaCampo(lista, campo) { return lista.reduce((acc, i) => acc + (Number(i[campo]) || 0), 0); }
-// Total "de verdade" guardado numa caixinha: base + rendimento acumulado + o que foi
-// depositado neste mês (que só é somado à base no fechamento do mês). Usar sempre essa
-// função pra exibir "quanto tem guardado", em vez de olhar só valorGuardado.
-function totalCaixinha(cx) {
-  return (Number(cx.valorGuardado) || 0) + (Number(cx.rendimentoTotal) || 0) + (Number(cx.valorGuardadoMes) || 0);
-}
-function somaTotalCaixinhas(lista) { return (lista || []).reduce((acc, cx) => acc + totalCaixinha(cx), 0); }
-// Soma dos Gastos Variáveis pagos que contam no saldo — exclui os marcados
-// como "lembrete" (compra do mês que vem, paga adiantada: já foi debitada
-// no mês em que foi paga, então não conta de novo aqui). Ver fecharMes() no
-// Code.gs e o comentário em variavelContaNoSaldo().
-function gastoVariavelEhReal(item) {
-  return !ehLancamentoDeCaixinha(item?.nome);
-}
-function somaVariaveisPagas(lista) {
-  return lista.reduce((acc, i) => acc + (gastoVariavelEhReal(i) && i.pago === true && i.lembrete !== true ? Number(i.valor) || 0 : 0), 0);
-}
-
-function ehLancamentoDeCaixinha(nome) { return typeof nome === "string" && nome.indexOf("Guardado: ") === 0; }
-
-function animarNumero(el, de, para, duracao = 650, pulsar = true) {
-  if (!el) return;
-  if (de === null || de === undefined || de === para) {
-    el.textContent = fmt(para);
-    return;
-  }
-  if (pulsar) {
-    el.classList.remove("is-pulsing");
-    void el.offsetWidth;
-    el.classList.add("is-pulsing");
-  }
-  const inicio = performance.now();
-  function passo(agora) {
-    const p = Math.min((agora - inicio) / duracao, 1);
-    const suavizado = 1 - Math.pow(1 - p, 4); 
-    el.textContent = fmt(de + (para - de) * suavizado);
-    if (p < 1) requestAnimationFrame(passo);
-    else el.textContent = fmt(para);
-  }
-  requestAnimationFrame(passo);
-}
-
-function renderTotais() {
-  const totalGanhosGeral = soma(state.ganhos);
-  const totalGanhosRecebidos = somaComStatus(state.ganhos, "recebido");
-  const ganhosPorOrigem = separarGanhosPorOrigem(state.ganhos);
-  const totalGanhosAReceber = totalGanhosGeral - totalGanhosRecebidos;
-
-  const totalFixosGeral = soma(state.gastosFixos);
-  const totalFixosPagos = somaFixosPagos(state.gastosFixos);
-  const totalFixosAPagar = totalFixosGeral - totalFixosPagos;
-
-  const gastosVariaveisReais = state.gastosVariaveis.filter(gastoVariavelEhReal);
-  const totalVariaveisGeral = soma(gastosVariaveisReais);
-  const totalVariaveisPagos = somaVariaveisPagas(gastosVariaveisReais);
-  const totalVariaveisAPagar = Math.max(0, totalVariaveisGeral - totalVariaveisPagos);
-
-  // "Guardado" aqui é o quanto entrou nas caixinhas ESSE mês — igual aos
-  // outros 3 cards do topo (Ganhos/Fixos/Variáveis), que também são do mês
-  // atual, não um acumulado. O total "de verdade" guardado em cada caixinha
-  // (base + rendimento + o que entrou esse mês) já aparece no card de cada
-  // caixinha individualmente — aqui é só a movimentação do mês.
-  const totalGuardadoAtual = somaTotalCaixinhas(state.caixinhas);
-  const totalGuardadoNoMes = somaCampo(state.caixinhas, "valorGuardadoMes");
-  // O dinheiro guardado neste mês já saiu do saldo disponível, mas continua
-  // separado dos gastos. Não descontamos o acumulado de meses anteriores.
-  // Benefício e saldo em conta são origens separadas. O dinheiro guardado
-  // nas caixinhas sai somente do saldo em conta, nunca do benefício.
-  const saldoBeneficioBase = ganhosPorOrigem.beneficios;
-  const saldoContaBase = ganhosPorOrigem.ganhos - totalFixosPagos - totalVariaveisPagos - totalGuardadoNoMes;
-  const saldo = saldoBeneficioBase + saldoContaBase;
-
-  const ganhosEl = document.getElementById("statGanhos");
-  const fixosEl = document.getElementById("statFixos");
-  const variaveisEl = document.getElementById("statVariaveis");
-  const guardadoEl = document.getElementById("statGuardado");
-  const saldoEl = document.getElementById("saldoValor");
-  const beneficiosEl = document.getElementById("saldoBeneficios");
-  const ganhosSaldoEl = document.getElementById("saldoGanhos");
-  const beneficioRestanteEl = document.getElementById("saldoBeneficioRestante");
-  const saldoRestanteEl = document.getElementById("saldoRestante");
-
-  const primeiraVez = prevTotals.saldo === null;
-
-  animarNumero(ganhosEl, prevTotals.ganhos, totalGanhosRecebidos);
-  animarNumero(fixosEl, prevTotals.fixos, totalFixosPagos);
-  animarNumero(variaveisEl, prevTotals.variaveis, totalVariaveisPagos);
-  animarNumero(guardadoEl, prevTotals.guardado, totalGuardadoAtual);
-  const guardadoMesEl = document.getElementById("statGuardadoMes");
-  if (guardadoMesEl) guardadoMesEl.textContent = totalGuardadoNoMes > 0 ? `+ ${fmt(totalGuardadoNoMes)} neste mês` : "";
-
-  // O saldo tem um pequeno indicador de variação dentro do próprio visor.
-  // Nunca usamos textContent diretamente no container do saldo, porque isso
-  // apagaria o indicador a cada frame da animação numérica.
-  let saldoNumeroEl = saldoEl ? saldoEl.querySelector(".saldo-numero") : null;
-  if (saldoEl && !saldoNumeroEl) {
-    saldoNumeroEl = document.createElement("span");
-    saldoNumeroEl.className = "saldo-numero";
-    saldoNumeroEl.textContent = saldoEl.textContent.trim();
-    saldoEl.textContent = "";
-    saldoEl.appendChild(saldoNumeroEl);
-  }
-  // O saldo muda suavemente, mas o visor nunca pulsa.
-  animarNumero(saldoNumeroEl, prevTotals.saldo, saldo, 650, false);
-
-  // O visor do saldo mantém dimensões fixas e mostra apenas a variação
-  // da última sincronização no canto direito — sem criar/remover o card.
-  if (saldoEl) {
-    let deltaEl = saldoEl.querySelector(".saldo-delta");
-    if (!deltaEl) {
-      deltaEl = document.createElement("span");
-      deltaEl.className = "saldo-delta";
-      deltaEl.setAttribute("aria-live", "polite");
-      saldoEl.appendChild(deltaEl);
-    }
-
-    const deltaSaldo = primeiraVez ? 0 : saldo - (Number(prevTotals.saldo) || 0);
-
-    // A variação aparece dentro do próprio visor do saldo por 1 segundo.
-    // Depois, tanto a cor de entrada/saída quanto o texto desaparecem e o
-    // visor volta exatamente ao estado original.
-    if (saldoEl._deltaTimer) {
-      clearTimeout(saldoEl._deltaTimer);
-      saldoEl._deltaTimer = null;
-    }
-
-    saldoEl.classList.remove("saldo-subiu", "saldo-caiu");
-    deltaEl.className = "saldo-delta";
-    deltaEl.textContent = "";
-
-    if (deltaSaldo > 0) {
-      deltaEl.textContent = `+ ${fmt(deltaSaldo)}`;
-      deltaEl.className = "saldo-delta positivo is-visible";
-      saldoEl.classList.add("saldo-subiu");
-    } else if (deltaSaldo < 0) {
-      deltaEl.textContent = `− ${fmt(Math.abs(deltaSaldo))}`;
-      deltaEl.className = "saldo-delta negativo is-visible";
-      saldoEl.classList.add("saldo-caiu");
-    }
-
-    if (deltaSaldo !== 0) {
-      saldoEl._deltaTimer = setTimeout(() => {
-        deltaEl.classList.remove("is-visible");
-        saldoEl.classList.remove("saldo-subiu", "saldo-caiu");
-        setTimeout(() => {
-          if (!deltaEl.classList.contains("is-visible")) {
-            deltaEl.textContent = "";
-            deltaEl.className = "saldo-delta";
-          }
-        }, 180);
-      }, 1000);
-    }
-  }
-
-  saldoEl.classList.toggle("negative", saldo < 0);
-
-  // Mostra o que ainda resta de cada origem. O HTML atual do saldo usa
-  // saldoBeneficioRestante e saldoRestante; os IDs saldoBeneficios/saldoGanhos
-  // continuam sendo usados no card Ganhos.
-  const gastosVariaveisBeneficio = (state.gastosVariaveis || []).reduce((acc, item) => {
-    return acc + (gastoVariavelEhReal(item) && variavelContaNoSaldo(item) && variavelEhBeneficio(item) ? (Number(item.valor) || 0) : 0);
-  }, 0);
-  const gastosVariaveisSaldo = (state.gastosVariaveis || []).reduce((acc, item) => {
-    return acc + (gastoVariavelEhReal(item) && variavelContaNoSaldo(item) && !variavelEhBeneficio(item) ? (Number(item.valor) || 0) : 0);
-  }, 0);
-  const beneficioRestante = ganhosPorOrigem.beneficios - gastosVariaveisBeneficio;
-  // Deve representar exatamente o mesmo "saldo em conta" usado pelo
-  // assistente: gastos reais + dinheiro guardado neste mês.
-  const saldoRestante = ganhosPorOrigem.ganhos - totalFixosPagos - gastosVariaveisSaldo - totalGuardadoNoMes;
-
-  if (beneficiosEl) {
-    beneficiosEl.textContent = fmt(beneficioRestante);
-    beneficiosEl.classList.toggle("negative", beneficioRestante < 0);
-  }
-  if (ganhosSaldoEl) {
-    ganhosSaldoEl.textContent = fmt(saldoRestante);
-    ganhosSaldoEl.classList.toggle("negative", saldoRestante < 0);
-  }
-  if (beneficioRestanteEl) {
-    beneficioRestanteEl.textContent = fmt(beneficioRestante);
-    beneficioRestanteEl.classList.toggle("negative", beneficioRestante < 0);
-  }
-  if (saldoRestanteEl) {
-    saldoRestanteEl.textContent = fmt(saldoRestante);
-    saldoRestanteEl.classList.toggle("negative", saldoRestante < 0);
-  }
-
-  const ganhosPendenteEl = document.getElementById("statGanhosPendente");
-  if (ganhosPendenteEl) ganhosPendenteEl.textContent = totalGanhosAReceber > 0 ? `+ ${fmt(totalGanhosAReceber)}` : "";
-  const fixosPendenteEl = document.getElementById("statFixosPendente");
-  if (fixosPendenteEl) fixosPendenteEl.textContent = totalFixosAPagar > 0 ? `− ${fmt(totalFixosAPagar)}` : "";
-  const variaveisPendenteEl = document.getElementById("statVariaveisPendente");
-  if (variaveisPendenteEl) variaveisPendenteEl.textContent = totalVariaveisAPagar > 0 ? `− ${fmt(totalVariaveisAPagar)}` : "";
-
-  prevTotals.ganhos = totalGanhosRecebidos;
-  prevTotals.fixos = totalFixosPagos;
-  prevTotals.variaveis = totalVariaveisPagos;
-  prevTotals.guardado = totalGuardadoAtual;
-  prevTotals.saldo = saldo;
-}
-
-function tagPessoa(item) {
-  if (!isAmbos() || !item.pessoa) return "";
-  return `<span class="pessoa-tag pessoa-${item.pessoa}">${PESSOA_LABEL[item.pessoa]}</span>`;
-}
-
-const ICONE_LAPIS = `<svg viewBox="0 0 24 24" fill="none"><path d="M12 20h9M16.5 3.5a2.12 2.12 0 0 1 3 3L7 19l-4 1 1-4 12.5-12.5Z" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/></svg>`;
-const ICONE_X = `<svg viewBox="0 0 24 24" fill="none"><path d="M6 6l12 12M18 6L6 18" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></svg>`;
-const ICONE_PENA = `<svg viewBox="0 0 24 24" fill="none"><path d="M20.5 3.5c-4 .3-9.4 2-12.7 5.3C4.8 11.8 4 15.6 4 19c0 .3.2.5.5.5 3.4 0 7.2-.8 10.2-3.8 3.3-3.3 5-8.7 5.3-12.7a.5.5 0 0 0-.5-.5Z" stroke="currentColor" stroke-width="1.6" stroke-linejoin="round"/><path d="M13 11 4.5 19.5" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"/></svg>`;
-const ICONE_COFRINHO = `<svg viewBox="0 0 24 24" fill="none"><path d="M4 11.5c0-3.6 3.4-6.5 8-6.5s8 2.9 8 6.5c0 1.5-.6 2.9-1.6 4v2.3a1.2 1.2 0 0 1-1.2 1.2h-1.6a1.2 1.2 0 0 1-1.2-1.2V17c-.7.13-1.5.2-2.4.2s-1.7-.07-2.4-.2v.8a1.2 1.2 0 0 1-1.2 1.2H7.2A1.2 1.2 0 0 1 6 17.8v-1.9C4.7 14.9 4 13.3 4 11.5Z" stroke="currentColor" stroke-width="1.5" stroke-linejoin="round"/><circle cx="16.3" cy="10.8" r=".9" fill="currentColor" stroke="none"/><path d="M4 11h-1.6M9 5.4 8 3.3" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/></svg>`;
-const ICONE_LIVRO = `<svg viewBox="0 0 24 24" fill="none"><path d="M4 5.5c2.5-1.3 5.2-1.3 8 0 2.8-1.3 5.5-1.3 8 0v13c-2.5-1.3-5.2-1.3-8 0-2.8-1.3-5.5-1.3-8 0v-13Z" stroke="currentColor" stroke-width="1.5" stroke-linejoin="round"/><path d="M12 5.5v13" stroke="currentColor" stroke-width="1.5"/></svg>`;
-
-function estadoVazio(texto, icone) {
-  return `<div class="empty-state-wrap"><span class="empty-state-icone">${icone}</span><p class="empty-state">${texto}</p></div>`;
-}
-
-function formatarDataCurta(iso) {
-  const m = /^(\d{4})-(\d{2})-(\d{2})/.exec(String(iso || ""));
-  if (!m) return "";
-  return `${m[3]}/${m[2]}`;
-}
-
-// Verdadeiro se a DATA do item cair no mês seguinte ao mês atual do app
-// (state.mesAtual/anoAtual) — só pra dar um destaque visual (ex: uma conta
-// fixa que já foi lançada agora mas só vence mês que vem). Não muda em nada
-// o cálculo do saldo nem o comportamento de Fechar Mês, é só um aviso.
-function ehDoProximoMes(item) {
-  if (!state.mesAtual || !state.anoAtual) return false;
-  const m = /^(\d{4})-(\d{2})/.exec(String(item.data || ""));
-  if (!m) return false;
-  const ano = Number(m[1]);
-  const mes = Number(m[2]);
-  let proxMes = state.mesAtual + 1;
-  let proxAno = state.anoAtual;
-  if (proxMes > 12) { proxMes = 1; proxAno += 1; }
-  return ano === proxAno && mes === proxMes;
-}
-
-// Verdadeiro para qualquer lançamento datado depois do mês que está aberto
-// no app. Isso é diferente de ehDoProximoMes(): a IA e os cálculos de
-// pendências precisam saber que um item de daqui a dois meses (ou mais)
-// também NÃO é uma conta que vence neste mês.
-function ehFuturoDoMesAtual(item) {
-  if (!state.mesAtual || !state.anoAtual) return false;
-  const m = /^(\d{4})-(\d{2})/.exec(String(item.data || ""));
-  if (!m) return false;
-  const ano = Number(m[1]);
-  const mes = Number(m[2]);
-  return ano > state.anoAtual || (ano === state.anoAtual && mes > state.mesAtual);
-}
-
-// Verdadeiro se a DATA do item cair antes do mês atual do app (ficou pra
-// trás — ex: um gasto variável do mês passado que não foi pago e por isso
-// repetiu/rolou pro mês atual).
-function ehDoMesAnterior(item) {
-  if (!state.mesAtual || !state.anoAtual) return false;
-  const m = /^(\d{4})-(\d{2})/.exec(String(item.data || ""));
-  if (!m) return false;
-  const ano = Number(m[1]);
-  const mes = Number(m[2]);
-  if (ano < state.anoAtual) return true;
-  return ano === state.anoAtual && mes < state.mesAtual;
-}
-
-// Verdadeiro se o item ainda estiver pendente (não pago/recebido),
-// funciona tanto pra ganhos (campo "recebido") quanto pra fixos/variáveis
-// (campo "pago").
-function estaPendente(item) {
-  if (typeof item.pago === "boolean") return !item.pago;
-  if (typeof item.recebido === "boolean") return !item.recebido;
-  return false;
-}
-
-const VENCIMENTOS_FATURA = { davi: 9, gabriel: 20 };
-
-function itemEhFatura(item) {
-  return item?.fatura === true || /^Fatura:\s*/i.test(String(item?.nome || ""));
-}
-
-function nomeExibicaoItem(itemOuNome) {
-  const nome = typeof itemOuNome === "object"
-    ? String(itemOuNome?.nome || "")
-    : String(itemOuNome || "");
-  return nome.replace(/^Fatura:\s*/i, "").trim();
-}
-
-function nomeInternoFatura(nome) {
-  const limpo = nomeExibicaoItem(nome);
-  return limpo ? `Fatura: ${limpo}` : limpo;
-}
-
-function proximaDataVencimentoFatura(pessoa, base = new Date()) {
-  const diaVencimento = VENCIMENTOS_FATURA[pessoa] || VENCIMENTOS_FATURA.davi;
-  const data = new Date(base);
-  data.setHours(12, 0, 0, 0);
-  let ano = data.getFullYear();
-  let mes = data.getMonth();
-
-  // Se o vencimento deste mês já passou, a compra entra na próxima fatura.
-  if (data.getDate() > diaVencimento) mes += 1;
-  if (mes > 11) { mes = 0; ano += 1; }
-
-  return `${ano}-${String(mes + 1).padStart(2, "0")}-${String(diaVencimento).padStart(2, "0")}`;
-}
-
-function pessoaDaFaturaAtual() {
-  return state.pessoaAtual === "gabriel" ? "gabriel" : "davi";
-}
-
-function nomePessoaFatura(pessoa) {
-  return pessoa === "gabriel" ? "Gabriel" : "Davi";
-}
-
-function dataVencimentoFaturaAtual() {
-  return proximaDataVencimentoFatura(pessoaDaFaturaAtual());
-}
-
-function metaInfoHtml(item) {
-  const partes = [];
-  if (itemEhFatura(item)) {
-    partes.push(`<span class="item-tag item-tag-fatura" title="Lançamento incluído em uma fatura">Fatura</span>`);
-  } else if (item.lembrete) {
-    partes.push(`<span class="item-tag item-tag-lembrete" title="Pago no mês anterior, adiantado — não conta no saldo deste mês">Pago adiantado</span>`);
-  } else if (ehDoProximoMes(item)) {
-    partes.push(`<span class="item-tag item-tag-proximo" title="A data desse lançamento é do mês que vem">Mês que vem</span>`);
-  } else if (estaPendente(item) && ehDoMesAnterior(item)) {
-    partes.push(`<span class="item-tag item-tag-atrasado" title="Venceu no mês passado e ainda não foi pago">Atrasado</span>`);
-  }
-  if (item.tipo) partes.push(`<span class="item-tag item-tag-cat">${escapeHtml(item.tipo)}</span>`);
-  const dataCurta = formatarDataCurta(item.data);
-  if (dataCurta) partes.push(`<span class="item-tag item-tag-data">${dataCurta}</span>`);
-  return partes.length ? `<div class="item-meta">${partes.join("")}</div>` : "";
-}
-
-function nomeComParcela(item) {
-  // O prefixo "Fatura:" é um dado interno; visualmente mostramos só o nome do gasto.
-  return escapeHtml(nomeExibicaoItem(item));
-}
-
-function parcelaInlineHtml(item, tipo) {
-  if (tipo !== "expense" || !item.parcela) return "";
-  const parcela = String(item.parcela).trim();
-  if (!/^\d+\s*\/\s*\d+$/.test(parcela)) return "";
-  // A parcela acompanha o nome, sempre depois dele: Ajuda Amor (1/2).
-  return ` <span class="item-tag item-tag-parcela item-tag-parcela-inline">(${escapeHtml(parcela)})</span>`;
-}
-
-function fecharSwipe(li) {
-  if (!li) return;
-  li.classList.remove("is-swiped");
-  const content = li.querySelector(".swipe-content");
-  if (content) content.style.transform = "";
-}
-
-const LARGURA_ACOES_SWIPE = 136;
-const LIMIAR_ABRIR_SWIPE = 56;
-
-function fecharTodosSwipes(ul, exceto) {
-  ul.querySelectorAll(".item-list-row.is-swiped").forEach((li) => {
-    if (li !== exceto) fecharSwipe(li);
-  });
-}
-
-// Lógica de "Arrastar" reformulada para suportar Touch (Celular) e Mouse (PC)
-function habilitarSwipe(ul) {
-  if (!ul || ul._swipeAtivado) return;
-  ul._swipeAtivado = true;
-  let ativo = null;
-
-  const iniciar = (e) => {
-    const li = e.target.closest(".item-list-row");
-    // Ignora se estiver clicando nos botões ou checkboxes
-    if (!li || e.target.closest(".swipe-actions") || e.target.tagName === 'INPUT' || e.target.tagName === 'BUTTON') return;
-    
-    // Captura a posição seja pelo Mouse ou Dedo
-    const clientX = e.type.includes('mouse') ? e.clientX : e.touches[0].clientX;
-    const clientY = e.type.includes('mouse') ? e.clientY : e.touches[0].clientY;
-    
-    const jaAberto = li.classList.contains("is-swiped");
-    fecharTodosSwipes(ul, li);
-    
-    ativo = { 
-      li, 
-      startX: clientX, 
-      startY: clientY, 
-      dragging: false, 
-      jaAberto, 
-      ultimoDelta: jaAberto ? -LARGURA_ACOES_SWIPE : 0, 
-      vibrou: jaAberto 
+    const linha = function (offset) {
+      return sheet.getRange(yearRow + offset, 2, 1, 12).getValues()[0];
     };
+    const ganhosDaviVals = linha(OFFSET_GANHOS_DAVI);
+    const debitosDaviVals = linha(OFFSET_DEBITOS_DAVI);
+    const saldoDaviVals = linha(OFFSET_SALDO_DAVI);
+    const guardadoDaviVals = linha(OFFSET_GUARDADO_DAVI);
+    const guardadoDaviMesVals = linha(OFFSET_GUARDADO_DAVI_MES);
+    const categoriasDaviVals = linha(OFFSET_CATEGORIAS_DAVI);
+    const rendimentoDaviVals = linha(OFFSET_RENDIMENTO_DAVI);
     
-    if (!jaAberto) {
-      ativo.longPressTimer = setTimeout(() => {
-        if (!ativo || ativo.dragging) return;
-        vibrar(16);
-        li.classList.add("is-swiped");
-        const content = li.querySelector(".swipe-content");
-        if (content) content.style.transform = `translateX(-${LARGURA_ACOES_SWIPE}px)`;
-      }, 480);
-    }
-  };
+    const ganhosGabrielVals = linha(OFFSET_GANHOS_GABRIEL);
+    const debitosGabrielVals = linha(OFFSET_DEBITOS_GABRIEL);
+    const saldoGabrielVals = linha(OFFSET_SALDO_GABRIEL);
+    const guardadoGabrielVals = linha(OFFSET_GUARDADO_GABRIEL);
+    const guardadoGabrielMesVals = linha(OFFSET_GUARDADO_GABRIEL_MES);
+    const categoriasGabrielVals = linha(OFFSET_CATEGORIAS_GABRIEL);
+    const rendimentoGabrielVals = linha(OFFSET_RENDIMENTO_GABRIEL);
 
-  const mover = (e) => {
-    if (!ativo) return;
-    const clientX = e.type.includes('mouse') ? e.clientX : e.touches[0].clientX;
-    const clientY = e.type.includes('mouse') ? e.clientY : e.touches[0].clientY;
-    
-    const dx = clientX - ativo.startX;
-    const dy = clientY - ativo.startY;
-    
-    if (!ativo.dragging) {
-      // Pequena margem pra evitar ativar o arrasto atoa
-      if (Math.abs(dx) < 8 && Math.abs(dy) < 8) return;
-      clearTimeout(ativo.longPressTimer); 
-      if (Math.abs(dy) > Math.abs(dx)) {
-        ativo = null; // Scrollando para baixo, cancela o swipe
-        return;
-      }
-      ativo.dragging = true;
-    }
-    
-    // Evita selecionar o texto da página ao arrastar com o mouse
-    if (ativo.dragging && e.cancelable) e.preventDefault(); 
-    
-    const base = ativo.jaAberto ? -LARGURA_ACOES_SWIPE : 0;
-    const novo = Math.max(-LARGURA_ACOES_SWIPE, Math.min(0, base + dx));
-    const content = ativo.li.querySelector(".swipe-content");
-    if (content) {
-      content.style.transition = "none";
-      content.style.transform = `translateX(${novo}px)`;
-    }
-    
-    const cruzouLimiar = novo <= -LIMIAR_ABRIR_SWIPE;
-    if (cruzouLimiar && !ativo.vibrou) {
-      vibrar();
-      ativo.vibrou = true;
-    } else if (!cruzouLimiar) {
-      ativo.vibrou = false;
-    }
-    ativo.ultimoDelta = novo;
-  };
-
-  const finalizar = () => {
-    if (!ativo) return;
-    clearTimeout(ativo.longPressTimer);
-    if (!ativo.dragging) {
-      ativo = null;
-      return;
-    }
-    const content = ativo.li.querySelector(".swipe-content");
-    if (content) content.style.transition = "";
-    const abrir = ativo.ultimoDelta <= -LIMIAR_ABRIR_SWIPE;
-    ativo.li.classList.toggle("is-swiped", abrir);
-    if (content) content.style.transform = abrir ? `translateX(-${LARGURA_ACOES_SWIPE}px)` : "";
-    ativo = null;
-  };
-
-  // Eventos de Touch (Celular)
-  ul.addEventListener("touchstart", iniciar, { passive: true });
-  ul.addEventListener("touchmove", mover, { passive: false });
-  ul.addEventListener("touchend", finalizar);
-  ul.addEventListener("touchcancel", finalizar);
-
-  // Eventos de Mouse (PC)
-  ul.addEventListener("mousedown", iniciar);
-  ul.addEventListener("mousemove", mover);
-  window.addEventListener("mouseup", finalizar); // No window para não bugar se soltar fora
-}
-
-document.addEventListener("touchstart", (e) => {
-  document.querySelectorAll(".item-list").forEach((ul) => {
-    // Alguns .item-list não possuem id. Nunca passe "#" vazio ao closest(),
-    // pois isso lança SyntaxError e interrompe o restante do app.
-    if (!ul.id || !e.target.closest(`#${CSS.escape(ul.id)}`)) fecharTodosSwipes(ul);
-  });
-}, { passive: true });
-
-// Adicione este bloco para fazer o mesmo com o clique no PC:
-document.addEventListener("mousedown", (e) => {
-  document.querySelectorAll(".item-list").forEach((ul) => {
-    // Alguns .item-list não possuem id. Evita o seletor inválido "#".
-    if (!ul.id || !e.target.closest(`#${CSS.escape(ul.id)}`)) fecharTodosSwipes(ul);
-  });
-});
-
-// Compara duas datas "AAAA-MM-DD" (string) da mais antiga pra mais nova.
-// Item sem data (string vazia) vai sempre pro final da lista, já que não dá
-// pra saber onde ele entraria na ordem cronológica.
-function compararDataAscendente(dataA, dataB) {
-  const a = dataA || "";
-  const b = dataB || "";
-  if (!a && !b) return 0;
-  if (!a) return 1;
-  if (!b) return -1;
-  return a < b ? -1 : a > b ? 1 : 0;
-}
-
-
-function renderPendentesDestaque(containerId, lista, tipo, statusKey, toggleFn, rotuloOff, ops, tipoModal) {
-  const el = document.getElementById(containerId);
-  if (!el) return;
-  const pendentes = (lista || []).map((item, idx) => ({ item, idx }))
-    .filter(({ item }) => item[statusKey] !== true)
-    .sort((a, b) => compararDataAscendente(a.item.data, b.item.data));
-
-  if (!pendentes.length) {
-    el.classList.add("is-hidden");
-    el.innerHTML = "";
-    return;
-  }
-
-  const ambos = isAmbos();
-  el.classList.remove("is-hidden");
-  el.innerHTML = `
-    <div class="status-list-title">Pendentes</div>
-    <ul class="item-list pendentes-item-list" aria-label="Lançamentos pendentes">
-      ${pendentes.map(({ item, idx }, posicao) => {
-        const li = `
-          <li class="item-list-row is-pendente pendente-destaque-row" data-idx="${idx}" style="animation-delay:${Math.min(posicao * 35, 250)}ms">
-            ${ambos ? "" : `<div class="swipe-actions">
-              <button class="swipe-btn swipe-edit" aria-label="Editar" data-idx="${idx}"><span class="swipe-btn-icon">${ICONE_LAPIS}</span><span>Editar</span></button>
-              <button class="swipe-btn swipe-delete" aria-label="Excluir" data-idx="${idx}"><span class="swipe-btn-icon">${ICONE_X}</span><span>Excluir</span></button>
-            </div>`}
-            <div class="swipe-content">
-              <span class="item-nome">${nomeComParcela(item)}${parcelaInlineHtml(item, tipo)} ${tagPessoa(item)}</span>
-              <span class="item-valor ${tipo}${tipo === "income" && ganhoEhBeneficio(item) ? " income-beneficio" : ""}">${fmt(item.valor)}</span>
-              ${metaInfoHtml(item) || `<div class="item-meta"></div>`}
-              ${ambos
-                ? `<span class="pago-toggle" aria-disabled="true"><span class="dot"></span>${escapeHtml(rotuloOff)}</span>`
-                : `<label class="pago-toggle">
-                    <input type="checkbox" data-idx="${idx}" />
-                    <span class="dot"></span><span class="status-label-text">${escapeHtml(rotuloOff)}</span>
-                  </label>`}
-            </div>
-          </li>`;
-        return li;
-      }).join("")}
-    </ul>
-  `;
-
-  if (!ambos) {
-    el.querySelectorAll('.pendente-destaque-row .pago-toggle').forEach((label) => {
-      label.addEventListener("click", (event) => {
-        // O status só muda pela própria tag. O card inteiro nunca altera o
-        // lançamento. Tratamos o clique da tag manualmente para que a mudança
-        // visual aconteça no MESMO instante, sem depender do evento change.
-        event.preventDefault();
-        event.stopPropagation();
-        if (label.dataset.statusBusy === "1") return;
-        const input = label.querySelector('input[type="checkbox"]');
-        if (!input) return;
-        const idx = Number(input.dataset.idx);
-        // O clique entra na fila; não antecipamos visualmente a mudança.
-        // Assim, se vários lançamentos forem marcados em sequência, cada um
-        // só recebe tag/carimbo quando chegar a sua vez, evitando que um
-        // render do item anterior apague/recrie o visual do próximo.
-        label.dataset.statusBusy = "1";
-        toggleFn(idx);
-      });
-      label.querySelector('input[type="checkbox"]')?.addEventListener("change", (event) => {
-        // Alterações por teclado/acessibilidade também entram pelo mesmo fluxo.
-        if (label.dataset.statusBusy === "1") return;
-        const input = event.currentTarget;
-        label.dataset.statusBusy = "1";
-        // A alteração por teclado também entra na mesma fila, sem aplicar
-        // carimbo/status antes da vez desse lançamento.
-        toggleFn(Number(input.dataset.idx));
-      });
-    });
-    el.querySelectorAll('.pendente-destaque-row .swipe-edit').forEach((btn) => {
-      btn.addEventListener("click", () => {
-        const idx = Number(btn.dataset.idx);
-        const item = (lista || [])[idx];
-        const li = btn.closest(".item-list-row");
-        fecharSwipe(li);
-        if (item) abrirModalEditar(tipoModal || (tipo === "income" ? "ganhos" : containerId === "pendentesFixos" ? "fixos" : "variaveis"), idx, item);
-      });
-    });
-    el.querySelectorAll('.pendente-destaque-row .swipe-delete').forEach((btn) => {
-      btn.addEventListener("click", () => {
-        const idx = Number(btn.dataset.idx);
-        const item = (lista || [])[idx];
-        const li = btn.closest(".item-list-row");
-        fecharSwipe(li);
-        if (item) abrirConfirmacao(`Remover "${item.nome}"?`, () => excluirComRisco(li, ops || (tipo === "income" ? opGanhos : containerId === "pendentesFixos" ? opFixos : opVariaveis), idx, item));
-      });
-    });
-    const listaEl = el.querySelector(".pendentes-item-list");
-    if (listaEl) habilitarSwipe(listaEl);
-  }
-}
-
-function renderListaComStatus(ulId, lista, tipo, ops, tipoModal, statusKey, toggleFn, rotuloOn, rotuloOff) {
-  const ul = document.getElementById(ulId);
-  ul.innerHTML = "";
-  const ambos = isAmbos();
-  // A lista inferior mostra somente o que já foi concluído. As pendências
-  // ficam visualmente separadas no bloco acima, sem repetir os mesmos itens.
-  const ordenados = lista
-    .map((item, idx) => ({ item, idx }))
-    .filter(({ item }) => item[statusKey] === true)
-    .sort((a, b) => compararDataAscendente(a.item.data, b.item.data));
-
-  const tituloPago = document.createElement("li");
-  tituloPago.className = "status-list-title-row";
-  // Mantém o título visualmente acima dos cards durante o FLIP, evitando
-  // que um card em movimento interfira no texto "Recebidos"/"Pagos".
-  tituloPago.style.position = "relative";
-  tituloPago.style.zIndex = "20";
-  tituloPago.innerHTML = `<span class="status-list-title">${tipo === "income" ? "Recebidos" : "Pagos"}</span>`;
-  ul.appendChild(tituloPago);
-
-  if (ordenados.length === 0) {
-    const vazio = document.createElement("li");
-    vazio.className = "status-list-empty";
-    vazio.textContent = tipo === "income" ? "Nenhum recebimento ainda." : "Nenhum pagamento ainda.";
-    ul.appendChild(vazio);
-    return;
-  }
-  ordenados.forEach(({ item, idx }, posicao) => {
-    const on = item[statusKey] === true;
-    const li = document.createElement("li");
-    li.className = "item-list-row" + (on ? "" : " is-pendente") + (tipo === "income" ? (ganhoEhBeneficio(item) ? " ganho-beneficio" : " ganho-saldo") : "");
-    // O índice também precisa existir nas linhas já concluídas.
-    // A animação de Recebidos/Pagos -> Pendentes localiza a linha pelo data-idx;
-    // sem ele a transição encontrava a tag, mas não conseguia mover a linha.
-    li.dataset.idx = idx;
-    li.dataset.tipo = tipo;
-    li.style.animationDelay = Math.min(posicao * 35, 250) + "ms";
-    li.innerHTML = `
-      ${ambos ? "" : `<div class="swipe-actions">
-              <button class="swipe-btn swipe-edit" aria-label="Editar" data-idx="${idx}"><span class="swipe-btn-icon">${ICONE_LAPIS}</span><span>Editar</span></button>
-              <button class="swipe-btn swipe-delete" aria-label="Excluir" data-idx="${idx}"><span class="swipe-btn-icon">${ICONE_X}</span><span>Excluir</span></button>
-            </div>`}
-      <div class="swipe-content">
-        <span class="item-nome">${nomeComParcela(item)}${parcelaInlineHtml(item, tipo)} ${tagPessoa(item)}</span>
-        <span class="item-valor ${tipo}${tipo === "income" && ganhoEhBeneficio(item) ? " income-beneficio" : ""}">${fmt(item.valor)}</span>
-        ${metaInfoHtml(item) || `<div class="item-meta"></div>`}
-        ${ambos ? `<span class="pago-toggle ${on ? "is-pago" : ""}" aria-disabled="true"><span class="dot"></span><span class="status-label-text">${on ? rotuloOn : rotuloOff}</span></span>`
-                : `<label class="pago-toggle ${on ? "is-pago" : ""}">
-                    <input type="checkbox" data-idx="${idx}" ${on ? "checked" : ""} />
-                    <span class="dot"></span><span class="status-label-text">${on ? rotuloOn : rotuloOff}</span>
-                  </label>`
-        }
-      </div>
-    `;
-    if (!ambos) {
-      // Apenas a tag de status alterna Pago/Recebido <-> Pendente.
-      // O restante do card não dispara a mudança de status.
-      const status = li.querySelector(".pago-toggle");
-      if (status) {
-        status.addEventListener("click", (event) => {
-          // Somente a tag alterna o status. Fazemos o toggle manualmente para
-          // que a interface reflita a decisão antes de qualquer renderização.
-          event.preventDefault();
-          event.stopPropagation();
-          if (status.dataset.statusBusy === "1") return;
-          const input = status.querySelector('input[type="checkbox"]');
-          if (!input) return;
-          // O clique entra na fila e a atualização visual acontece somente
-          // quando este lançamento começar a ser processado.
-          status.dataset.statusBusy = "1";
-          toggleFn(idx);
-        });
-        status.querySelector('input[type="checkbox"]')?.addEventListener("change", (event) => {
-          if (status.dataset.statusBusy === "1") return;
-          const input = event.currentTarget;
-          status.dataset.statusBusy = "1";
-          // Alterações por teclado também respeitam a fila visual.
-          toggleFn(idx);
-        });
-      }
-      li.querySelector(".swipe-edit").addEventListener("click", () => {
-        fecharSwipe(li);
-        abrirModalEditar(tipoModal, idx, item);
-      });
-      li.querySelector(".swipe-delete").addEventListener("click", () => {
-        fecharSwipe(li);
-        abrirConfirmacao(`Remover "${item.nome}"?`, () => excluirComRisco(li, ops, idx, item));
+    const meses = [];
+    for (let m = 0; m < 12; m++) {
+      const g = ganhosDaviVals[m];
+      if (g === "" || g === null || g === undefined) continue; 
+      meses.push({
+        mes: m + 1,
+        nome: HISTORICO_NOME_MESES[m],
+        ganhosDavi: Number(ganhosDaviVals[m]) || 0,
+        debitosDavi: (Number(debitosDaviVals[m]) || 0) + (Number((parseCategorias(categoriasDaviVals[m]) || {}).Metas) || 0),
+        saldoDavi: (Number(ganhosDaviVals[m]) || 0) + ((Number(debitosDaviVals[m]) || 0) + (Number((parseCategorias(categoriasDaviVals[m]) || {}).Metas) || 0)),
+        guardadoDavi: Number(guardadoDaviVals[m]) || 0,
+        guardadoMesDavi: Number(guardadoDaviMesVals[m]) || 0,
+        categoriasDavi: parseCategorias(categoriasDaviVals[m]),
+        rendimentoDavi: Number(rendimentoDaviVals[m]) || 0,
+        ganhosGabriel: Number(ganhosGabrielVals[m]) || 0,
+        debitosGabriel: (Number(debitosGabrielVals[m]) || 0) + (Number((parseCategorias(categoriasGabrielVals[m]) || {}).Metas) || 0),
+        saldoGabriel: (Number(ganhosGabrielVals[m]) || 0) + ((Number(debitosGabrielVals[m]) || 0) + (Number((parseCategorias(categoriasGabrielVals[m]) || {}).Metas) || 0)),
+        guardadoGabriel: Number(guardadoGabrielVals[m]) || 0,
+        guardadoMesGabriel: Number(guardadoGabrielMesVals[m]) || 0,
+        categoriasGabriel: parseCategorias(categoriasGabrielVals[m]),
+        rendimentoGabriel: Number(rendimentoGabrielVals[m]) || 0,
       });
     }
-    ul.appendChild(li);
-  });
-  habilitarSwipe(ul);
-}
+    if (meses.length > 0) anos.push({ ano: ano, meses: meses });
 
-function excluirComRisco(li, ops, idx, item) {
-  if (!li) {
-    ops.remove(idx);
-    return;
-  }
-  li.classList.add("is-riscando");
-  vibrar(14);
-  setTimeout(() => {
-    recolherERemover(li, () => {
-      suprimirEntradaNoProximoRenderAll = true;
-      ops.remove(idx);
-      showToast(`"${item.nome}" excluído`);
-    });
-  }, 620);
-}
-
-function recolherERemover(li, aoTerminar) {
-  const altura = li.getBoundingClientRect().height;
-  li.style.height = altura + "px";
-  li.style.overflow = "hidden";
-  void li.offsetHeight; 
-  li.classList.add("is-recolhendo");
-  requestAnimationFrame(() => { li.style.height = "0px"; });
-  let terminou = false;
-  const finalizar = () => {
-    if (terminou) return;
-    terminou = true;
-    li.removeEventListener("transitionend", finalizar);
-    aoTerminar();
-  };
-  li.addEventListener("transitionend", finalizar);
-  setTimeout(finalizar, 360); 
-}
-
-const CORES_CONFETE = ["#b9862f", "#3c6e4f", "#a8482e", "#93691f", "#f1e9d8", "#5b9c78"];
-
-function dispararConfete() {
-  const container = document.createElement("div");
-  container.className = "confete-container";
-  document.body.appendChild(container);
-
-  const n = 70;
-  for (let i = 0; i < n; i++) {
-    const p = document.createElement("span");
-    p.className = "confete-particula";
-    p.style.background = CORES_CONFETE[Math.floor(Math.random() * CORES_CONFETE.length)];
-    p.style.left = Math.random() * 100 + "%";
-    p.style.setProperty("--drift", Math.round(Math.random() * 180 - 90) + "px");
-    p.style.setProperty("--giro", Math.round(Math.random() * 720 - 360) + "deg");
-    p.style.animationDuration = (1.5 + Math.random() * 1.2).toFixed(2) + "s";
-    p.style.animationDelay = (Math.random() * 0.35).toFixed(2) + "s";
-    if (Math.random() > 0.5) p.style.borderRadius = "50%";
-    if (Math.random() > 0.6) {
-      p.style.width = "6px";
-      p.style.height = "6px";
-    }
-    container.appendChild(p);
+    ano++;
+    if (ano > HISTORICO_ANO_BASE + 50) break; 
   }
 
-  showToast("Meta batida! 🎉");
-  setTimeout(() => container.remove(), 3200);
+  return anos;
 }
 
-function carimbarMetaBatida(card) {
-  if (!card) return;
-  const antigo = card.querySelector(".carimbo-meta");
-  if (antigo) antigo.remove();
-  const selo = document.createElement("span");
-  selo.className = "carimbo carimbo-meta";
-  selo.textContent = "Meta batida";
-  card.appendChild(selo);
-  requestAnimationFrame(() => selo.classList.add("is-batendo"));
-  setTimeout(() => selo.classList.add("is-sumindo"), 1900);
-  setTimeout(() => selo.remove(), 2350);
+function lerConfigMesAtual(sheet) {
+  const anoCel = sheet.getRange(CONFIG_CEL_ANO).getValue();
+  const mesCel = sheet.getRange(CONFIG_CEL_MES).getValue();
+  const agora = new Date();
+  const ano = anoCel && Number(anoCel) > 2000 ? Number(anoCel) : agora.getFullYear();
+  const mes = mesCel && Number(mesCel) >= 1 && Number(mesCel) <= 12 ? Number(mesCel) : agora.getMonth() + 1;
+  if (!anoCel || !mesCel) salvarConfigMesAtual(sheet, mes, ano);
+  return { mesAtual: mes, anoAtual: ano };
 }
 
-// Ícone de alvo (usado no cabeçalho das caixinhas COM meta)
-const ICONE_ALVO = `<svg viewBox="0 0 24 24" fill="none"><circle cx="12" cy="12" r="8.5" stroke="currentColor" stroke-width="1.6"/><circle cx="12" cy="12" r="4.7" stroke="currentColor" stroke-width="1.6"/><circle cx="12" cy="12" r="1.3" fill="currentColor" stroke="none"/></svg>`;
-// Troféu — usado no selo da caixinha e no chip quando a meta é batida.
-const ICONE_TROFEU = `<svg viewBox="0 0 24 24" fill="none"><path d="M8 4h8v4a4 4 0 0 1-8 0V4Z" stroke="currentColor" stroke-width="1.6" stroke-linejoin="round"/><path d="M8 5H5.5A1.5 1.5 0 0 0 4 6.5v.5a3 3 0 0 0 3 3h1" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/><path d="M16 5h2.5A1.5 1.5 0 0 1 20 6.5v.5a3 3 0 0 1-3 3h-1" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/><path d="M12 12v3" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"/><path d="M9 19h6" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"/><path d="M10 15.2c0 1.6.9 2.6 2 2.6s2-1 2-2.6" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/></svg>`;
-
-// Texto de progresso ("Começando" → "Quase lá!") mostrado nas caixinhas
-// com meta, dando um retorno tipo jogo de quanto falta pra próxima etapa.
-function statusCaixinha(pct) {
-  if (pct >= 90) return "Quase lá!";
-  if (pct >= 50) return "Na metade";
-  if (pct >= 25) return "Em ritmo";
-  return "Começando";
-}
-
-// Cabeçalho de agrupamento da lista de caixinhas ("Com meta" / "Sem meta")
-// Ações reais de editar/excluir uma caixinha — chamadas tanto pelo botão
-// revelado no swipe quanto por um arrasto "completo" (que já executa
-// direto, sem precisar soltar em cima do botão).
-function acionarEditarCaixinha(idx) {
-  const cx = state.caixinhas[idx];
-  if (!cx) return;
-  abrirModalEditar("caixinhas", idx, { nome: cx.nome, valor: cx.valorObjetivo, icone: cx.icone || "", data: cx.data || "" });
-}
-function acionarExcluirCaixinha(idx) {
-  const cx = state.caixinhas[idx];
-  if (!cx) return;
-  const guardado = totalCaixinha(cx);
-  const aviso = guardado > 0
-      ? `Remover a caixinha "${cx.nome}"? Os ${fmt(guardado)} guardados nela voltam pro saldo disponível como um ganho. Essa ação não pode ser desfeita.`
-      : `Remover a caixinha "${cx.nome}"? Essa ação não pode ser desfeita.`;
-  abrirConfirmacao(aviso, () => removeCaixinha(idx));
-}
-
-function formatarPrazoCaixinha(iso) {
-  const m = /^(\d{4})-(\d{2})-(\d{2})/.exec(String(iso || ""));
-  if (!m) return "";
-  return `${m[3]}/${m[2]}/${m[1]}`;
-}
-
-function diasAtePrazoCaixinha(iso) {
-  const m = /^(\d{4})-(\d{2})-(\d{2})/.exec(String(iso || ""));
-  if (!m) return null;
-  const alvo = new Date(Number(m[1]), Number(m[2]) - 1, Number(m[3]));
-  const hoje = new Date();
-  const hojeLocal = new Date(hoje.getFullYear(), hoje.getMonth(), hoje.getDate());
-  return Math.round((alvo - hojeLocal) / 86400000);
-}
-
-function montarInfoPrazoCaixinha(data, completa) {
-  const prazo = formatarPrazoCaixinha(data);
-  if (!prazo) return "";
-  const dias = diasAtePrazoCaixinha(data);
-  let classe = "";
-  if (!completa && dias !== null) {
-    if (dias < 0) classe = "atrasada";
-    else if (dias === 0) classe = "hoje";
-    else if (dias <= 30) classe = "proxima";
-  }
-  const calendario = `<svg viewBox="0 0 24 24" fill="none" aria-hidden="true"><rect x="3.5" y="5" width="17" height="16" rx="2" stroke="currentColor" stroke-width="1.7"/><path d="M7 3.5v3M17 3.5v3M3.5 9h17" stroke="currentColor" stroke-width="1.7" stroke-linecap="round"/><path d="M8 13h2M14 13h2M8 17h2" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/></svg>`;
-  return `<span class="caixinha-prazo ${classe}" title="Prazo da caixinha">${calendario}<span>${prazo}</span></span>`;
-}
-
-function montarCardCaixinha(cx, idx, ambos) {
-  const valorBase = Number(cx.valorGuardado) || 0;
-  const rendimentoTotal = Number(cx.rendimentoTotal) || 0;
-  const guardadoMes = Number(cx.valorGuardadoMes) || 0;
-
-  // O valor total considerado é a soma do que está na caixinha + rendimentos + o que
-  // foi guardado neste mês (que só entra na base quando o mês fechar)
-  const guardado = valorBase + rendimentoTotal + guardadoMes;
-
-  const objetivo = Number(cx.valorObjetivo) || 0;
-  const temObjetivo = objetivo > 0;
-  const falta = Math.max(objetivo - guardado, 0);
-  const pct = temObjetivo ? Math.min((guardado / objetivo) * 100, 100) : 0;
-  const completo = temObjetivo && falta <= 0;
-  const vazia = guardado <= 0;
-  const prazoHtml = montarInfoPrazoCaixinha(cx.data || "", completo);
-
-  // IMPORTANTE: uma meta já concluída ao carregar a planilha NÃO dispara
-  // comemoração. A comemoração só é marcada pelas ações que realmente fazem
-  // uma caixinha passar de incompleta para completa (guardar, rendimento ou
-  // edição). Assim abrir/recarregar o app nunca solta confete novamente.
-
-  // Ícone de rendimento em SVG: seta pra cima (ganho) ou pra baixo (perda),
-  // decidido na hora de montar o card abaixo.
-  const iconeRendimentoUp = `<svg style="width:12px;height:12px;" viewBox="0 0 24 24" fill="none"><path d="M23 6l-9.5 9.5-5-5L1 18" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"/><path d="M17 6h6v6" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"/></svg>`;
-  const iconeRendimentoDown = `<svg style="width:12px;height:12px;" viewBox="0 0 24 24" fill="none"><path d="M23 18l-9.5-9.5-5 5L1 6" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"/><path d="M17 18h6v-6" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"/></svg>`;
-  const temRendimento = rendimentoTotal !== 0;
-  const rendimentoEhGanho = rendimentoTotal > 0;
-
-  const valoresHtml = `<span class="caixinha-guardado"><strong>${fmt(guardado)}</strong>${temObjetivo ? ` <span class="caixinha-de">/ ${fmt(objetivo)}</span>` : " guardados"}</span>
-       ${temRendimento ? `<span class="item-tag ${rendimentoEhGanho ? "item-tag-rendimento" : "item-tag-perda"}" style="display:inline-flex;align-items:center;gap:4px;" title="${rendimentoEhGanho ? "Rendimento" : "Perda"}">${rendimentoEhGanho ? iconeRendimentoUp : iconeRendimentoDown}${fmt(Math.abs(rendimentoTotal))}</span>` : ""}`;
-
-  // Ícone: caixinha com meta vira um selo circular cujo anel se preenche
-  // com o progresso (tipo anel de nível/XP); sem meta mantém o cofrinho.
-  const iconePersonalizado = normalizarNomeIcone(cx.icone || "");
-  const iconePersonalizadoHtml = iconePersonalizado
-    ? (temObjetivo
-      ? `<span class="goal-icon-ring goal-icon-ring-custom ${completo ? "completo" : ""}" style="--pct:${pct}%"><span class="goal-icon-ring-inner"><img src="${escapeHtml(urlIconeCaixinha(iconePersonalizado))}" alt="" loading="lazy" onerror="this.onerror=null;this.src='';this.parentElement.innerHTML=ICONE_COFRINHO"></span></span>`
-      : `<span class="goal-icon goal-icon-custom sem-meta"><img src="${escapeHtml(urlIconeCaixinha(iconePersonalizado))}" alt="" loading="lazy" onerror="this.onerror=null;this.src='';this.parentElement.innerHTML=ICONE_COFRINHO"></span>`)
-    : "";
-  const iconeHtml = iconePersonalizadoHtml || (temObjetivo
-    ? `<span class="goal-icon-ring ${completo ? "completo" : ""}" style="--pct:${pct}%"><span class="goal-icon-ring-inner">${completo ? ICONE_TROFEU : ICONE_ALVO}</span></span>`
-    : `<span class="goal-icon sem-meta">${ICONE_COFRINHO}</span>`);
-
-  const quase = temObjetivo && !completo && pct >= 90;
-
-  // Chip "faltam R$X" (ou "Conquistada" quando bate a meta) — sempre
-  // alinhado à direita via margin-left:auto no CSS.
-  const chipFalta = temObjetivo
-    ? `<span class="goal-falta ${completo ? "completo" : ""}">${completo ? ICONE_TROFEU + " Conquistada" : "faltam " + fmt(falta)}</span>`
-    : "";
-
-  // Caixinha com meta mas ainda sem nada guardado: nada de barra vazia
-  // nem linha solta — cabeçalho e "faltam X" numa única linha compacta.
-  const cardHtml = (temObjetivo && vazia)
-    ? `
-    <div class="goal-head goal-head-compacto">
-      ${iconeHtml}
-      <span class="goal-nome" title="${escapeHtml(cx.nome)}">${escapeHtml(cx.nome)} ${tagPessoa(cx)}</span>
-      ${chipFalta}
-    </div>
-  `
-    : `
-    <div class="goal-head">
-      ${iconeHtml}
-      <span class="goal-nome">${escapeHtml(cx.nome)} ${tagPessoa(cx)}</span>
-    </div>
-    ${temObjetivo ? `<div class="goal-meta-linha">${prazoHtml}${chipFalta}</div>` : (prazoHtml ? `<div class="goal-prazo-linha">${prazoHtml}</div>` : "")}
-    ${temObjetivo ? `<div class="goal-bar-row"><div class="goal-bar-track"><div class="goal-bar-fill ${completo ? "completo" : ""}" style="width:${pct}%"></div></div><span class="goal-bar-pct ${completo ? "completo" : ""}">${Math.round(pct)}%</span></div>` : ""}
-    ${!vazia ? `<div class="caixinha-valores">${valoresHtml}</div>` : ""}
-  `;
-
-  if (ambos) {
-    const card = document.createElement("div");
-    card.className = "goal-card caixinha-card" + (temObjetivo ? " tem-meta" : " sem-meta") + (completo ? " completo" : "") + (quase ? " quase" : "") + (temObjetivo && vazia ? " compacta" : "") + (cx._comemoraAoRenderizar ? " is-celebrando" : "");
-    card.style.animationDelay = Math.min(idx * 40, 250) + "ms";
-    card.innerHTML = cardHtml;
-    if (cx._comemoraAoRenderizar) {
-      dispararConfete();
-      carimbarMetaBatida(card);
-      cx._comemoraAoRenderizar = false;
-    }
-    return card;
-  }
-
-  // Fora do modo "Ambos": card fica dentro de um wrapper de swipe — arrastar
-  // pra esquerda revela "Editar", pra direita revela "Excluir"; tocar no
-  // card (sem arrastar) abre o menu de ações (guardar/retirar/% rendeu).
-  const wrap = document.createElement("div");
-  wrap.className = "caixinha-swipe";
-  wrap.dataset.idx = idx;
-  wrap.style.animationDelay = Math.min(idx * 40, 250) + "ms";
-  wrap.innerHTML = `
-    <div class="swipe-actions-caixinha swipe-actions-excluir">
-      <button class="swipe-btn-caixinha swipe-excluir-caixinha" aria-label="Excluir caixinha" data-idx="${idx}">${ICONE_X}<span>Excluir</span></button>
-    </div>
-    <div class="swipe-actions-caixinha swipe-actions-editar">
-      <button class="swipe-btn-caixinha swipe-editar-caixinha" aria-label="Editar caixinha" data-idx="${idx}">${ICONE_LAPIS}<span>Editar</span></button>
-    </div>
-    <div class="goal-card caixinha-card${temObjetivo ? " tem-meta" : " sem-meta"}${completo ? " completo" : ""}${quase ? " quase" : ""}${temObjetivo && vazia ? " compacta" : ""}${cx._comemoraAoRenderizar ? " is-celebrando" : ""}">${cardHtml}</div>
-  `;
-  wrap.querySelector(".swipe-editar-caixinha").addEventListener("click", () => {
-    fecharSwipeCaixinha(wrap);
-    acionarEditarCaixinha(idx);
-  });
-  wrap.querySelector(".swipe-excluir-caixinha").addEventListener("click", () => {
-    fecharSwipeCaixinha(wrap);
-    acionarExcluirCaixinha(idx);
-  });
-  const card = wrap.querySelector(".caixinha-card");
-  if (cx._comemoraAoRenderizar) {
-    dispararConfete();
-    carimbarMetaBatida(card);
-    cx._comemoraAoRenderizar = false;
-  }
-  return wrap;
+function salvarConfigMesAtual(sheet, mes, ano) {
+  sheet.getRange(CONFIG_CEL_LABEL).setValue("Configuração do app (não editar manualmente)");
+  sheet.getRange(CONFIG_CEL_ANO_LABEL).setValue("Ano atual:");
+  sheet.getRange(CONFIG_CEL_MES_LABEL).setValue("Mês atual (1-12):");
+  sheet.getRange(CONFIG_CEL_ANO).setValue(ano);
+  sheet.getRange(CONFIG_CEL_MES).setValue(mes);
 }
 
 // ---------------------------------------------------------------------
-// SWIPE BIDIRECIONAL DAS CAIXINHAS (arrastar p/ esquerda = editar,
-// p/ direita = excluir) + toque simples abre o menu de ações.
-//
-// Usa Pointer Events (em vez de touch+mouse separados) de propósito: ter
-// os dois tipos de listener ao mesmo tempo faz o navegador processar o
-// mesmo toque duas vezes (o touch "de verdade" e depois um clique
-// sintético ~300ms depois), o que deixava o menu abrindo de forma
-// inconsistente no celular. Com Pointer Events só existe um evento por
-// interação, então isso não acontece.
+// LEITURA / ESCRITA
 // ---------------------------------------------------------------------
-const LARGURA_SWIPE_CAIXINHA = 92;
-const LIMIAR_SWIPE_CAIXINHA = 44;
-const LIMIAR_SWIPE_CAIXINHA_TOTAL = 132;
 
-function fecharSwipeCaixinha(wrap) {
-  if (!wrap) return;
-  wrap.classList.remove("is-revelado-editar", "is-revelado-excluir");
-  const card = wrap.querySelector(".caixinha-card");
-  if (card) card.style.transform = "";
-}
-function fecharTodosSwipesCaixinha(lista, exceto) {
-  lista.querySelectorAll(".caixinha-swipe").forEach((el) => {
-    if (el !== exceto) fecharSwipeCaixinha(el);
-  });
-}
-
-function habilitarSwipeCaixinhas(lista) {
-  if (!lista || lista._swipeCaixinhaAtivado) return;
-  lista._swipeCaixinhaAtivado = true;
-  let ativo = null;
-
-  const iniciar = (e) => {
-    if (e.button) return; // ignora clique direito/do meio no PC
-    const wrap = e.target.closest(".caixinha-swipe");
-    if (!wrap || e.target.closest(".swipe-actions-caixinha") || e.target.tagName === "BUTTON") return;
-    const jaEditar = wrap.classList.contains("is-revelado-editar");
-    const jaExcluir = wrap.classList.contains("is-revelado-excluir");
-    fecharTodosSwipesCaixinha(lista, wrap);
-    ativo = {
-      wrap,
-      card: wrap.querySelector(".caixinha-card"),
-      pointerId: e.pointerId,
-      startX: e.clientX,
-      startY: e.clientY,
-      dragging: false,
-      capturado: false,
-      base: jaEditar ? -LARGURA_SWIPE_CAIXINHA : jaExcluir ? LARGURA_SWIPE_CAIXINHA : 0,
-      ultimoDelta: jaEditar ? -LARGURA_SWIPE_CAIXINHA : jaExcluir ? LARGURA_SWIPE_CAIXINHA : 0,
-      vibrou: jaEditar || jaExcluir,
-    };
-  };
-
-  const mover = (e) => {
-    if (!ativo || e.pointerId !== ativo.pointerId) return;
-    const dx = e.clientX - ativo.startX;
-    const dy = e.clientY - ativo.startY;
-
-    if (!ativo.dragging) {
-      if (Math.abs(dx) < 8 && Math.abs(dy) < 8) return;
-      if (Math.abs(dy) > Math.abs(dx)) { ativo = null; return; }
-      ativo.dragging = true;
-      if (ativo.card && ativo.card.setPointerCapture) {
-        try { ativo.card.setPointerCapture(ativo.pointerId); ativo.capturado = true; } catch (err) { /* ignora */ }
-      }
-    }
-    e.preventDefault();
-
-    const bruto = ativo.base + dx;
-    let novo;
-    if (Math.abs(bruto) <= LARGURA_SWIPE_CAIXINHA) {
-      novo = bruto;
-    } else {
-      // Resistência elástica depois de revelar o botão inteiro — dá pra
-      // continuar arrastando pra executar na hora, mas com esforço maior.
-      const sinal = Math.sign(bruto);
-      const extra = Math.abs(bruto) - LARGURA_SWIPE_CAIXINHA;
-      novo = sinal * (LARGURA_SWIPE_CAIXINHA + extra * 0.3);
-    }
-    novo = Math.max(-LIMIAR_SWIPE_CAIXINHA_TOTAL, Math.min(LIMIAR_SWIPE_CAIXINHA_TOTAL, novo));
-
-    if (ativo.card) {
-      ativo.card.style.transition = "none";
-      ativo.card.style.transform = `translateX(${novo}px)`;
-    }
-    const cruzouLimiar = Math.abs(novo) >= LIMIAR_SWIPE_CAIXINHA;
-    if (cruzouLimiar && !ativo.vibrou) { vibrar(); ativo.vibrou = true; }
-    else if (!cruzouLimiar) ativo.vibrou = false;
-    ativo.ultimoDelta = novo;
-  };
-
-  const finalizar = (e) => {
-    if (!ativo || (e && e.pointerId !== undefined && e.pointerId !== ativo.pointerId)) return;
-    const { wrap, card, ultimoDelta, dragging, base, capturado, pointerId } = ativo;
-    if (capturado && card && card.releasePointerCapture) {
-      try { card.releasePointerCapture(pointerId); } catch (err) { /* ignora */ }
-    }
-    const idx = Number(wrap.dataset.idx);
-
-    if (!dragging) {
-      // Toque simples: se já estava revelado, só fecha; senão abre o menu.
-      if (base !== 0) fecharSwipeCaixinha(wrap);
-      else abrirAcoesCaixinha(idx);
-      ativo = null;
-      return;
-    }
-
-    if (card) card.style.transition = "";
-    const swipeCompleto = Math.abs(ultimoDelta) >= LIMIAR_SWIPE_CAIXINHA_TOTAL - 6;
-
-    if (swipeCompleto) {
-      fecharSwipeCaixinha(wrap);
-      vibrar(18);
-      if (ultimoDelta < 0) acionarEditarCaixinha(idx);
-      else acionarExcluirCaixinha(idx);
-    } else if (ultimoDelta <= -LIMIAR_SWIPE_CAIXINHA) {
-      wrap.classList.add("is-revelado-editar");
-      wrap.classList.remove("is-revelado-excluir");
-      if (card) card.style.transform = `translateX(-${LARGURA_SWIPE_CAIXINHA}px)`;
-    } else if (ultimoDelta >= LIMIAR_SWIPE_CAIXINHA) {
-      wrap.classList.add("is-revelado-excluir");
-      wrap.classList.remove("is-revelado-editar");
-      if (card) card.style.transform = `translateX(${LARGURA_SWIPE_CAIXINHA}px)`;
-    } else {
-      fecharSwipeCaixinha(wrap);
-    }
-    ativo = null;
-  };
-
-  const cancelar = (e) => {
-    if (!ativo || (e && e.pointerId !== undefined && e.pointerId !== ativo.pointerId)) return;
-    fecharSwipeCaixinha(ativo.wrap);
-    ativo = null;
-  };
-
-  lista.addEventListener("pointerdown", iniciar);
-  lista.addEventListener("pointermove", mover, { passive: false });
-  lista.addEventListener("pointerup", finalizar);
-  lista.addEventListener("pointercancel", cancelar);
-}
-
-document.addEventListener("pointerdown", (e) => {
-  const lista = document.getElementById("listaCaixinhas");
-  if (lista && !e.target.closest("#listaCaixinhas")) fecharTodosSwipesCaixinha(lista);
-});
-
-// Menu de ações da caixinha (guardar / retirar / % rendeu) — abre ao tocar
-// no card (sem arrastar).
-let acoesCaixinhaIdx = null;
-const acoesCaixinhaBackdrop = document.getElementById("acoesCaixinhaBackdrop");
-function abrirAcoesCaixinha(idx) {
-  const cx = state.caixinhas[idx];
-  if (!cx || isAmbos()) return;
-  acoesCaixinhaIdx = idx;
-  const tituloEl = document.getElementById("acoesCaixinhaTitulo");
-  if (tituloEl) tituloEl.textContent = cx.nome;
-  if (acoesCaixinhaBackdrop) acoesCaixinhaBackdrop.classList.remove("is-hidden");
-  registrarAberturaModal("acoesCaixinhaBackdrop");
-}
-function fecharAcoesCaixinha() {
-  fecharComHistorico("acoesCaixinhaBackdrop", () => {
-    if (acoesCaixinhaBackdrop) acoesCaixinhaBackdrop.classList.add("is-hidden");
-    acoesCaixinhaIdx = null;
-  });
-}
-FECHADORES_MODAL.acoesCaixinhaBackdrop = fecharAcoesCaixinha;
-on("acoesCaixinhaFechar", "click", fecharAcoesCaixinha);
-if (acoesCaixinhaBackdrop) {
-  acoesCaixinhaBackdrop.addEventListener("click", (e) => {
-    if (e.target === acoesCaixinhaBackdrop) fecharAcoesCaixinha();
-  });
-}
-
-// Troca o menu de ações pelo modal de valor SEM passar por
-// history.back() + history.pushState() em sequência: como o back() é
-// assíncrono, empilhar um pushState logo em seguida corrompia o
-// histórico do navegador (era isso que causava o modal fechar sozinho e,
-// às vezes, abrir uma aba nova em vez de mostrar o formulário). Em vez
-// disso, substitui a entrada atual do histórico na hora, sem navegar.
-function trocarAcoesCaixinhaPorValor(acao) {
-  const idx = acoesCaixinhaIdx;
-  if (idx == null) return;
-  if (acoesCaixinhaBackdrop) acoesCaixinhaBackdrop.classList.add("is-hidden");
-  acoesCaixinhaIdx = null;
-  const posicaoPilha = pilhaModais.lastIndexOf("acoesCaixinhaBackdrop");
-  if (posicaoPilha !== -1) {
-    pilhaModais[posicaoPilha] = "modalBackdrop";
-    history.replaceState({ caixaModal: "modalBackdrop" }, "");
-  } else {
-    pilhaModais.push("modalBackdrop");
-    history.pushState({ caixaModal: "modalBackdrop" }, "");
-  }
-  abrirModalCaixinha(acao, idx, { semHistorico: true });
-}
-on("btnAcaoCaixinhaGuardar", "click", () => trocarAcoesCaixinhaPorValor("guardar"));
-on("btnAcaoCaixinhaRetirar", "click", () => trocarAcoesCaixinhaPorValor("retirar"));
-on("btnAcaoCaixinhaRendimento", "click", () => trocarAcoesCaixinhaPorValor("rendimento"));
-
-function renderCaixinhas() {
-  const ambos = isAmbos();
-  const wrap = document.getElementById("listaCaixinhas");
-  if (wrap) {
-    wrap.innerHTML = "";
-    if (state.caixinhas.length === 0) {
-      wrap.innerHTML = estadoVazio("Nenhuma caixinha ainda. Que tal criar uma?", ICONE_COFRINHO);
-    } else {
-      // Prioridade: quem está mais perto de concluir a meta aparece primeiro.
-      // Caixinhas com meta ficam antes das sem objetivo; entre as sem objetivo,
-      // preservamos a ordem original para não ficar reorganizando sem necessidade.
-      const ordenadas = state.caixinhas
-        .map((cx, idx) => ({ cx, idx }))
-        .sort((a, b) => {
-          const oa = Number(a.cx.valorObjetivo) || 0;
-          const ob = Number(b.cx.valorObjetivo) || 0;
-          if (oa <= 0 && ob <= 0) return a.idx - b.idx;
-          if (oa <= 0) return 1;
-          if (ob <= 0) return -1;
-          const pa = Math.min((totalCaixinha(a.cx) / oa) * 100, 100);
-          const pb = Math.min((totalCaixinha(b.cx) / ob) * 100, 100);
-          return pb - pa || a.idx - b.idx;
-        })
-        .map(({ idx }) => idx);
-      ordenadas.forEach((idx) => wrap.appendChild(montarCardCaixinha(state.caixinhas[idx], idx, ambos)));
-      if (!ambos) habilitarSwipeCaixinhas(wrap);
-    }
-  }
-
-  primeiraRenderCaixinhas = false;
-  
-  const mini = document.getElementById("resumoCaixinhas");
-  if (!mini) return;
-  mini.innerHTML = "";
-  if (state.caixinhas.length === 0) {
-    mini.innerHTML = estadoVazio('Crie uma caixinha na aba "Caixinhas".', ICONE_COFRINHO);
-  } else {
-    const ordenadasResumo = state.caixinhas
-      .map((cx, idx) => ({ cx, idx }))
-      .sort((a, b) => {
-        const oa = Number(a.cx.valorObjetivo) || 0;
-        const ob = Number(b.cx.valorObjetivo) || 0;
-        if (oa <= 0 && ob <= 0) return a.idx - b.idx;
-        if (oa <= 0) return 1;
-        if (ob <= 0) return -1;
-        const pa = Math.min((totalCaixinha(a.cx) / oa) * 100, 100);
-        const pb = Math.min((totalCaixinha(b.cx) / ob) * 100, 100);
-        return pb - pa || a.idx - b.idx;
+function readGanhos(sheet) {
+  const lastRow = sheet.getLastRow();
+  if (lastRow < 2) return [];
+  const valores = sheet.getRange(2, COL_GANHOS, lastRow - 1, 4).getValues(); // A,B,C,D
+  const result = [];
+  valores.forEach(function (row) {
+    const nome = row[0];
+    if (nome !== "" && nome !== null) {
+      result.push({
+        nome: String(nome),
+        valor: Number(row[1]) || 0,
+        data: formatarDataCelula(row[2], sheet),
+        recebido: row[3] === true,
       });
-    ordenadasResumo.forEach(({ cx }) => {
-      const guardado = totalCaixinha(cx);
-      const objetivo = Number(cx.valorObjetivo) || 0;
-      const temObjetivo = objetivo > 0;
-      const pct = temObjetivo ? Math.min((guardado / objetivo) * 100, 100) : 0;
-      const row = document.createElement("div");
-      row.className = "mini-goal";
-      row.innerHTML = temObjetivo
-        ? `<div class="mini-goal-info">
-          <div class="mini-goal-nome">${escapeHtml(cx.nome)} ${tagPessoa(cx)}</div>
-          <div class="goal-bar-track"><div class="goal-bar-fill ${pct >= 100 ? "completo" : ""}" style="width:${pct}%"></div></div>
-        </div><span class="mini-goal-pct">${fmt(guardado)}</span>`
-        : `<div class="mini-goal-info">
-          <div class="mini-goal-nome">${escapeHtml(cx.nome)} ${tagPessoa(cx)}</div>
-        </div><span class="mini-goal-pct">${fmt(guardado)}</span>`;
-      mini.appendChild(row);
-    });
-  }
-}
-
-const ICONE_GANHO = `<svg viewBox="0 0 24 24" fill="none"><path d="M12 19V5M5 12l7-7 7 7" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>`;
-const ICONE_GASTO = `<svg viewBox="0 0 24 24" fill="none"><path d="M12 5v14M5 12l7 7 7-7" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>`;
-const ICONE_GUARDADO = `<svg viewBox="0 0 24 24" fill="none" aria-hidden="true"><rect x="4" y="4" width="16" height="16" rx="2.5" stroke="currentColor" stroke-width="1.7"/><path d="M12 7v7" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/><path d="m8.8 11.7 3.2 3.2 3.2-3.2" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/></svg>`;
-
-function itensRecentesPorCategoria(lista, tipo, tag) {
-  return (lista || []).map((i) => ({ ...i, tipo, tag }));
-}
-
-let mostrarTodosRecentes = false;
-
-function formatarCabecalhoDataExtrato(data, hoje) {
-  const d = new Date(`${data}T00:00:00`);
-  const isoHoje = dataHojeISO();
-  const ontemDate = new Date(hoje);
-  ontemDate.setDate(ontemDate.getDate() - 1);
-  const isoOntem = `${ontemDate.getFullYear()}-${String(ontemDate.getMonth() + 1).padStart(2, "0")}-${String(ontemDate.getDate()).padStart(2, "0")}`;
-  const dia = String(d.getDate()).padStart(2, "0");
-  const diaSemana = d.toLocaleDateString("pt-BR", { weekday: "long" });
-  const mes = d.toLocaleDateString("pt-BR", { month: "long" });
-
-  let destaque = "";
-  if (data === isoHoje) destaque = "Hoje";
-  else if (data === isoOntem) destaque = "Ontem";
-
-  return `
-    <span class="ledger-date-number">${dia}</span>
-    <span class="ledger-date-copy">
-      <strong>${destaque || escapeHtml(diaSemana)}</strong>
-      <small>${destaque ? escapeHtml(`${diaSemana} · ${dia} de ${mes}`) : escapeHtml(`${dia} de ${mes}`)}</small>
-    </span>
-    <span class="ledger-date-line"></span>`;
-}
-
-function renderRecentes() {
-  const ledger = document.getElementById("ledgerRecentes");
-  if (!ledger) return;
-
-  const hoje = new Date();
-  hoje.setHours(0, 0, 0, 0);
-  const inicio7 = new Date(hoje);
-  inicio7.setDate(inicio7.getDate() - 6);
-
-  const base = [
-    ...itensRecentesPorCategoria(state.ganhos, "income", "Ganho"),
-    ...itensRecentesPorCategoria(state.gastosFixos, "expense", "Fixo"),
-    ...itensRecentesPorCategoria(state.gastosVariaveis, "expense", "Variável"),
-  ].map((item, idx) => ({ ...item, _ordem: idx }))
-   .filter((item) => {
-      // Lançamentos recentes representam dinheiro que efetivamente entrou ou saiu.
-      // Pendentes continuam disponíveis na seção "Pendentes" das respectivas abas.
-      const concluido = item.tipo === "income" ? item.recebido === true : item.pago === true;
-      if (!concluido) return false;
-      const data = String(item.data || "").slice(0, 10);
-      if (!/^\d{4}-\d{2}-\d{2}$/.test(data)) return false;
-      const d = new Date(`${data}T00:00:00`);
-      return !Number.isNaN(d.getTime()) && d >= inicio7 && d <= hoje;
-   })
-   .sort((a, b) => String(b.data || "").localeCompare(String(a.data || "")) || b._ordem - a._ordem);
-
-  let exibidos;
-  if (mostrarTodosRecentes) {
-    exibidos = base;
-  } else {
-    // "Mostrar menos" mantém os dois dias mais recentes completos.
-    const ultimasDatas = [...new Set(base.map((item) => String(item.data || "").slice(0, 10)))].slice(0, 2);
-    const datasPermitidas = new Set(ultimasDatas);
-    exibidos = base.filter((item) => datasPermitidas.has(String(item.data || "").slice(0, 10)));
-  }
-  ledger.innerHTML = "";
-
-  if (!base.length) {
-    ledger.innerHTML = estadoVazio("Nenhum lançamento registrado nos últimos 7 dias.", ICONE_PENA);
-    return;
-  }
-
-  let dataAnterior = null;
-  exibidos.forEach((item) => {
-    const data = String(item.data || "").slice(0, 10);
-    if (data !== dataAnterior) {
-      const heading = document.createElement("div");
-      heading.className = "ledger-date-heading";
-      heading.innerHTML = formatarCabecalhoDataExtrato(data, hoje);
-      ledger.appendChild(heading);
-      dataAnterior = data;
     }
-
-    const row = document.createElement("div");
-    const benefit = item.tipo === "income" && ganhoEhBeneficio(item);
-    const guardado = item.tipo === "expense" && ehLancamentoDeCaixinha(item.nome);
-    row.className = `ledger-item ${item.tipo === "income" ? (benefit ? "income-beneficio" : "income-saldo") : (guardado ? "expense-guardado" : "expense")}`;
-    row.innerHTML = `
-      <span class="ledger-icon ${item.tipo}${benefit ? " income-beneficio" : ""}${guardado ? " guardado" : ""}">${item.tipo === "income" ? ICONE_GANHO : (guardado ? ICONE_GUARDADO : ICONE_GASTO)}</span>
-      <div class="ledger-info">
-        <span class="ledger-nome">${escapeHtml(nomeExibicaoItem(item))} ${tagPessoa(item)}</span>
-        <span class="ledger-tag">${escapeHtml(item.tag)}</span>
-      </div>
-      <span class="ledger-valor ${item.tipo}${benefit ? " income-beneficio" : ""}${guardado ? " guardado" : ""}">${item.tipo === "income" ? "+" : "−"} ${fmt(item.valor)}</span>
-    `;
-    ledger.appendChild(row);
   });
+  return result;
+}
 
-  const temMais = base.length > 2;
-  if (temMais) {
-    const more = document.createElement("button");
-    more.type = "button";
-    more.className = "ledger-more-btn";
-    more.innerHTML = mostrarTodosRecentes
-      ? `<span>Mostrar menos</span><span class="ledger-more-arrow">↑</span>`
-      : `<span>Ver mais dos últimos 7 dias</span><span class="ledger-more-arrow">↓</span>`;
-    more.addEventListener("click", () => {
-      mostrarTodosRecentes = !mostrarTodosRecentes;
-      renderRecentes();
+function fusoHorarioDaPlanilha(sheet) {
+  try {
+    return sheet.getParent().getSpreadsheetTimeZone() || Session.getScriptTimeZone() || "America/Sao_Paulo";
+  } catch (e) {
+    return Session.getScriptTimeZone() || "America/Sao_Paulo";
+  }
+}
+
+function dataTextoParaDate(valor, timezone) {
+  if (!valor) return null;
+  if (Object.prototype.toString.call(valor) === "[object Date]" && !isNaN(valor.getTime())) return valor;
+  var texto = String(valor).trim();
+  var ano, mes, dia, hora, minuto, segundo, m;
+
+  m = /^(\d{4})-(\d{2})-(\d{2})(?:[T ](\d{2}):(\d{2})(?::(\d{2}))?)?(Z|[+-]\d{2}:?\d{2})?$/.exec(texto);
+  if (m) {
+    ano = Number(m[1]); mes = Number(m[2]); dia = Number(m[3]);
+    hora = Number(m[4] || 12); minuto = Number(m[5] || 0); segundo = Number(m[6] || 0);
+    if (m[7]) {
+      // Novo formato do app: horário local acompanhado do fuso do navegador.
+      // Convertemos para um instante real antes de salvar, sem depender do fuso
+      // configurado no projeto Apps Script.
+      var offset = m[7] === "Z" ? "Z" : m[7].slice(0, 3) + ":" + m[7].slice(-2);
+      var instante = new Date(
+        String(ano) + "-" + String(mes).padStart(2, "0") + "-" + String(dia).padStart(2, "0") +
+        "T" + String(hora).padStart(2, "0") + ":" + String(minuto).padStart(2, "0") + ":" + String(segundo).padStart(2, "0") + offset
+      );
+      if (!isNaN(instante.getTime())) return instante;
+    }
+  } else {
+    m = /^(\d{2})[\/.-](\d{2})[\/.-](\d{4})(?:[ T](\d{2}):(\d{2})(?::(\d{2}))?)?$/.exec(texto);
+    if (!m) return null;
+    ano = Number(m[3]); mes = Number(m[2]); dia = Number(m[1]);
+    hora = Number(m[4] || 12); minuto = Number(m[5] || 0); segundo = Number(m[6] || 0);
+  }
+
+  // O texto do app representa um horário de parede, não um instante UTC.
+  // O projeto e a planilha usam America/Sao_Paulo; por isso criamos o Date
+  // com os próprios componentes locais. Assim, 15/09 00:00 continua sendo
+  // 15/09 00:00 quando o lançamento é lido e salvo novamente.
+  //
+  // IMPORTANTE: não usar Date.UTC() aqui. Ele transforma 00:00 em meia-noite
+  // UTC e, ao ser exibido em Brasília, pode fazer o calendário voltar um dia.
+  return new Date(ano, mes - 1, dia, hora, minuto, segundo);
+}
+
+function normalizarDataParaPlanilha(valor, sheet) {
+  if (!valor) return "";
+  var timezone = fusoHorarioDaPlanilha(sheet);
+  return dataTextoParaDate(valor, timezone) || String(valor).trim();
+}
+
+// Normaliza apenas textos que representam datas. Valores Date existentes são
+// mantidos exatamente como estão para não alterar nenhum lançamento já salvo.
+function normalizarDatasExistentes(sheet) {
+  var ultima = Math.max(sheet.getLastRow(), 2);
+  var quantidade = Math.max(ultima - 1, 1);
+  [COL_DATA_GANHO, COL_DATA_FIXO, COL_DATA_VARIAVEL, COL_DATA_CAIXINHA].forEach(function (col) {
+    var range = sheet.getRange(2, col, quantidade, 1);
+    var valores = range.getValues();
+    var timezone = fusoHorarioDaPlanilha(sheet);
+    var mudou = false;
+    var convertidos = valores.map(function (row) {
+      var valor = row[0];
+      if (valor === "" || valor === null || valor === undefined) return [""];
+      if (Object.prototype.toString.call(valor) === "[object Date]" && !isNaN(valor.getTime())) return [valor];
+      var convertido = dataTextoParaDate(valor, timezone);
+      if (convertido) { mudou = true; return [convertido]; }
+      return [valor];
     });
-    ledger.appendChild(more);
-  }
-}
-
-function dataLimiteISO(base, diasAtras) {
-  const d = new Date(base);
-  d.setDate(d.getDate() - diasAtras);
-  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
-}
-
-function skeletonItemRows(n) {
-  return Array.from({ length: n }).map(() => `
-      <li>
-        <span class="skeleton" style="width:55%;height:13px;">.</span>
-        <span class="skeleton" style="width:64px;height:13px;">.</span>
-      </li>`).join("");
-}
-
-function skeletonLedgerRows(n) {
-  return Array.from({ length: n }).map(() => `
-      <div class="ledger-item">
-        <span class="skeleton" style="width:34px;height:34px;border-radius:50%;">.</span>
-        <div class="ledger-info">
-          <span class="skeleton" style="width:65%;height:12px;margin-bottom:6px;">.</span>
-          <span class="skeleton" style="width:35%;height:9px;">.</span>
-        </div>
-        <span class="skeleton" style="width:58px;height:13px;">.</span>
-      </div>`).join("");
-}
-
-function skeletonGoalCards(n) {
-  return Array.from({ length: n }).map(() => `
-      <div class="goal-card">
-        <div class="skeleton" style="width:55%;height:17px;margin-bottom:16px;">.</div>
-        <div class="skeleton" style="height:10px;border-radius:100px;margin-bottom:14px;">.</div>
-        <div class="skeleton" style="width:40%;height:12px;">.</div>
-      </div>`).join("");
-}
-
-function skeletonMiniGoals(n) {
-  return Array.from({ length: n }).map(() => `
-      <div class="mini-goal">
-        <div class="mini-goal-info">
-          <div class="skeleton" style="width:50%;height:12px;margin-bottom:8px;">.</div>
-          <div class="skeleton" style="height:6px;border-radius:100px;">.</div>
-        </div>
-        <span class="skeleton" style="width:30px;height:12px;">.</span>
-      </div>`).join("");
-}
-
-function renderSkeletons() {
-  ["listaGanhos", "listaFixos", "listaVariaveis"].forEach((id) => {
-    const el = document.getElementById(id);
-    if (el) el.innerHTML = skeletonItemRows(3);
+    if (mudou) range.setValues(convertidos);
   });
-  const ledger = document.getElementById("ledgerRecentes");
-  if (ledger) ledger.innerHTML = skeletonLedgerRows(4);
-  const resumoCx = document.getElementById("resumoCaixinhas");
-  if (resumoCx) resumoCx.innerHTML = skeletonMiniGoals(2);
-  const listaCaixinhas = document.getElementById("listaCaixinhas");
-  if (listaCaixinhas) listaCaixinhas.innerHTML = skeletonGoalCards(2);
-  renderVisaoGeralSkeleton();
-  if (isAmbos()) renderSplitSkeleton();
 }
 
-function renderVisaoGeralSkeleton() {
-  const donut = document.getElementById("visaoGeralDonut");
-  if (donut) donut.style.background = "var(--paper-deep)";
-  const centro = document.getElementById("visaoGeralDonutCenter");
-  if (centro) centro.innerHTML = `<span class="skeleton" style="width:76px;height:16px;">.</span>`;
-  const legend = document.getElementById("visaoGeralLegend");
-  if (legend) legend.innerHTML = [0, 1, 2].map(() => `<div class="split-legend-item"><span class="skeleton" style="width:100%;height:14px;">.</span></div>`).join("");
+function aplicarFormatoDatasLancamentos(sheet) {
+  var ultima = Math.max(sheet.getLastRow(), 2);
+  var quantidade = Math.max(ultima - 1, 1);
+  [COL_DATA_GANHO, COL_DATA_FIXO, COL_DATA_VARIAVEL, COL_DATA_CAIXINHA].forEach(function (col) {
+    sheet.getRange(2, col, quantidade, 1).setNumberFormat("dd/MM/yyyy HH:mm:ss");
+  });
 }
 
-function renderSplitSkeleton() {
-  const donut = document.getElementById("splitDonut");
-  if (donut) donut.style.background = "var(--paper-deep)";
-  const centro = document.getElementById("splitDonutCenter");
-  if (centro) centro.innerHTML = `<span class="skeleton" style="width:76px;height:16px;">.</span>`;
-  const legend = document.getElementById("splitLegend");
-  if (legend) legend.innerHTML = [0, 1, 2].map(() => `<div class="split-legend-item"><span class="skeleton" style="width:100%;height:14px;">.</span></div>`).join("");
+function saveGanhos(sheet, rows) {
+  const rowsToClear = linhasParaLimpar(sheet, rows);
+  sheet.getRange(2, COL_GANHOS, rowsToClear, 4).clearContent();
+  if (!rows || rows.length === 0) return;
+  const valores = rows.map(function (r) {
+    return [r.nome, r.valor, normalizarDataParaPlanilha(r.data, sheet), r.recebido === true];
+  });
+  sheet.getRange(2, COL_GANHOS, valores.length, 4).setValues(valores);
+  sheet.getRange(2, COL_DATA_GANHO, valores.length, 1).setNumberFormat("dd/MM/yyyy HH:mm:ss");
 }
 
-let suprimirEntradaNoProximoRenderAll = false;
 
-function colecaoMudou(antes, depois) {
-  try { return JSON.stringify(antes || []) !== JSON.stringify(depois || []); }
-  catch { return true; }
-}
-function renderIncremental(mudancas) {
-  const financeiroMudou = mudancas.ganhos || mudancas.gastosFixos || mudancas.gastosVariaveis || mudancas.caixinhas;
-  const semEntrada = financeiroMudou;
-  if (semEntrada) document.body.classList.add("sem-entrada-listas");
-
-  if (mudancas.ganhos) {
-    renderPendentesDestaque("pendentesGanhos", state.ganhos, "income", "recebido", toggleRecebidoGanho, "Pendente", opGanhos, "ganhos");
-    renderListaComStatus("listaGanhos", state.ganhos, "income", opGanhos, "ganhos", "recebido", toggleRecebidoGanho, "Recebido", "Pendente");
-  }
-  if (mudancas.gastosFixos) {
-    renderPendentesDestaque("pendentesFixos", state.gastosFixos, "expense", "pago", togglePagoFixo, "Pendente", opFixos, "fixos");
-    renderListaComStatus("listaFixos", state.gastosFixos, "expense", opFixos, "fixos", "pago", togglePagoFixo, "Pago", "Pendente");
-  }
-  if (mudancas.gastosVariaveis) {
-    renderPendentesDestaque("pendentesVariaveis", state.gastosVariaveis, "expense", "pago", togglePagoVariavel, "Pendente", opVariaveis, "variaveis");
-    renderListaComStatus("listaVariaveis", state.gastosVariaveis, "expense", opVariaveis, "variaveis", "pago", togglePagoVariavel, "Pago", "Pendente");
-  }
-  if (mudancas.caixinhas) renderCaixinhas();
-  if (financeiroMudou) {
-    renderTotais(); renderVisaoGeral(); renderCategorias(); renderRecentes(); renderSplit(); renderJuntosView(); atualizarCarrosselGraficos();
-    if (typeof window.renderResumoStatusFinanceiro === "function") window.renderResumoStatusFinanceiro();
-    if (typeof window.renderResumoAcontecimentos === "function") window.renderResumoAcontecimentos();
-  }
-  if (mudancas.categoriasConfig || mudancas.iconCategorias) {
-    popularSelectsDeCategoria();
-    if (!mudancas.gastosFixos) renderListaComStatus("listaFixos", state.gastosFixos, "expense", opFixos, "fixos", "pago", togglePagoFixo, "Pago", "Pendente");
-    if (!mudancas.gastosVariaveis) renderListaComStatus("listaVariaveis", state.gastosVariaveis, "expense", opVariaveis, "variaveis", "pago", togglePagoVariavel, "Pago", "Pendente");
-  }
-
-  if (semEntrada) requestAnimationFrame(() => document.body.classList.remove("sem-entrada-listas"));
-}
-
-function renderAll() {
-  const suprimirEntrada = suprimirEntradaNoProximoRenderAll;
-  suprimirEntradaNoProximoRenderAll = false;
-  if (suprimirEntrada) document.body.classList.add("sem-entrada-listas");
-
-  renderTotais();
-  renderPendentesDestaque("pendentesGanhos", state.ganhos, "income", "recebido", toggleRecebidoGanho, "Pendente", opGanhos, "ganhos");
-  renderPendentesDestaque("pendentesFixos", state.gastosFixos, "expense", "pago", togglePagoFixo, "Pendente", opFixos, "fixos");
-  renderPendentesDestaque("pendentesVariaveis", state.gastosVariaveis, "expense", "pago", togglePagoVariavel, "Pendente", opVariaveis, "variaveis");
-  renderListaComStatus("listaGanhos", state.ganhos, "income", opGanhos, "ganhos", "recebido", toggleRecebidoGanho, "Recebido", "Pendente");
-  renderListaComStatus("listaFixos", state.gastosFixos, "expense", opFixos, "fixos", "pago", togglePagoFixo, "Pago", "Pendente");
-  renderListaComStatus("listaVariaveis", state.gastosVariaveis, "expense", opVariaveis, "variaveis", "pago", togglePagoVariavel, "Pago", "Pendente");
-  renderCaixinhas();
-  renderVisaoGeral();
-  renderCategorias();
-  renderRecentes();
-  renderSplit();
-  renderJuntosView();
-  atualizarCarrosselGraficos();
-
-  if (suprimirEntrada) requestAnimationFrame(() => document.body.classList.remove("sem-entrada-listas"));
-}
-
-// Função atualizada para suportar clique e arrasto no PC. Recebe os ids do
-// wrap/dots pra poder tocar mais de um carrossel na página com o mesmo
-// código (o do Resumo e, agora, o novo de 2 páginas do Histórico).
-function atualizarCarrosselGraficos(wrapId = "graficosCarousel", dotsId = "graficosDots") {
-  const wrap = document.getElementById(wrapId);
-  const dotsEl = document.getElementById(dotsId);
-  if (!wrap || !dotsEl) return;
-
-  const cards = Array.from(wrap.children).filter((el) => !el.classList.contains("is-hidden"));
-
-  if (cards.length <= 1) {
-    dotsEl.classList.add("is-hidden");
-    dotsEl.innerHTML = "";
-    return;
-  }
-
-  dotsEl.classList.remove("is-hidden");
-  
-  // Cria os pontos e adiciona evento de clique para o PC
-  if (dotsEl.children.length !== cards.length) {
-    dotsEl.innerHTML = cards.map((_, i) => `<span class="dot-item" style="cursor:pointer;" data-index="${i}"></span>`).join("");
-    
-    dotsEl.querySelectorAll('.dot-item').forEach((dot, index) => {
-      dot.addEventListener('click', () => {
-        const targetCard = cards[index];
-        wrap.scrollTo({
-          left: targetCard.offsetLeft - wrap.offsetLeft,
-          behavior: 'smooth'
-        });
+function readGastosFixos(sheet) {
+  const lastRow = sheet.getLastRow();
+  if (lastRow < 2) return [];
+  const valores = sheet.getRange(2, COL_GASTOS_FIXOS, lastRow - 1, 6).getValues(); // E,F,G,H,I,J
+  const result = [];
+  valores.forEach(function (row) {
+    const nome = row[0];
+    if (nome !== "" && nome !== null) {
+      result.push({
+        nome: String(nome),
+        valor: Number(row[1]) || 0,
+        tipo: row[2] ? String(row[2]) : "",
+        data: formatarDataCelula(row[3], sheet),
+        parcela: row[4] ? String(row[4]) : "",
+        pago: row[5] === true,
       });
-    });
+    }
+  });
+  return result;
+}
+
+function saveGastosFixos(sheet, rows) {
+  const rowsToClear = linhasParaLimpar(sheet, rows);
+  sheet.getRange(2, COL_GASTOS_FIXOS, rowsToClear, 6).clearContent();
+  if (!rows || rows.length === 0) return;
+  const valores = rows.map(function (r) {
+    return [r.nome, r.valor, r.tipo || "", normalizarDataParaPlanilha(r.data, sheet), r.parcela || "", r.pago === true];
+  });
+  sheet.getRange(2, COL_GASTOS_FIXOS, valores.length, 6).setValues(valores);
+  sheet.getRange(2, COL_DATA_FIXO, valores.length, 1).setNumberFormat("dd/MM/yyyy HH:mm:ss");
+}
+
+
+function readGastosVariaveis(sheet) {
+  const lastRow = sheet.getLastRow();
+  if (lastRow < 2) return [];
+  const valores = sheet.getRange(2, COL_GASTOS_VARIAVEIS, lastRow - 1, 5).getValues(); // K,L,M,N,O
+  const origens = sheet.getRange(2, COL_ORIGEM_VARIAVEL, lastRow - 1, 1).getValues(); // P
+  const result = [];
+  valores.forEach(function (row, i) {
+    const nome = row[0];
+    if (nome !== "" && nome !== null) {
+      result.push({
+        nome: String(nome),
+        valor: Number(row[1]) || 0,
+        tipo: row[2] ? String(row[2]) : "",
+        data: formatarDataCelula(row[3], sheet),
+        pago: row[4] === true,
+        origem: String((origens[i] && origens[i][0]) || "saldo").toLowerCase() === "beneficio" ? "beneficio" : "saldo",
+      });
+    }
+  });
+  return result;
+}
+
+function saveGastosVariaveis(sheet, rows) {
+  const rowsToClear = linhasParaLimpar(sheet, rows);
+  sheet.getRange(2, COL_GASTOS_VARIAVEIS, rowsToClear, 5).clearContent();
+  sheet.getRange(2, COL_ORIGEM_VARIAVEL, rowsToClear, 1).clearContent();
+  if (!rows || rows.length === 0) return;
+  const valores = rows.map(function (r) {
+    return [r.nome, r.valor, r.tipo || "", normalizarDataParaPlanilha(r.data, sheet), r.pago === true];
+  });
+  const origens = rows.map(function (r) {
+    return [String(r.origem || "saldo").toLowerCase() === "beneficio" ? "beneficio" : "saldo"];
+  });
+  sheet.getRange(2, COL_GASTOS_VARIAVEIS, valores.length, 5).setValues(valores);
+  sheet.getRange(2, COL_ORIGEM_VARIAVEL, origens.length, 1).setValues(origens);
+  sheet.getRange(2, COL_DATA_VARIAVEL, valores.length, 1).setNumberFormat("dd/MM/yyyy HH:mm:ss");
+}
+
+function formatarDataCelula(valor, sheet) {
+  if (!valor) return "";
+  var timezone = sheet ? fusoHorarioDaPlanilha(sheet) : (Session.getScriptTimeZone() || "America/Sao_Paulo");
+  if (Object.prototype.toString.call(valor) === "[object Date]" && !isNaN(valor.getTime())) {
+    return Utilities.formatDate(valor, timezone, "yyyy-MM-dd'T'HH:mm:ss");
+  }
+  var convertido = dataTextoParaDate(valor, timezone);
+  if (convertido) return Utilities.formatDate(convertido, timezone, "yyyy-MM-dd'T'HH:mm:ss");
+  return String(valor).trim();
+}
+
+// ---------------------------------------------------------------------
+// CAIXINHAS
+// ---------------------------------------------------------------------
+
+function readCaixinhas(sheet) {
+  const lastRow = sheet.getLastRow();
+  if (lastRow < 2) return [];
+  // Agora lê 7 colunas: Q, R, S, T, U, V, W
+  const values = sheet.getRange(2, COL_GUARDADO, lastRow - 1, 7).getValues(); 
+  const result = [];
+  values.forEach(function (row) {
+    if (row[0] !== "" && row[0] !== null) {
+      result.push({
+        nome: String(row[0]),
+        valorObjetivo: Number(row[1]) || 0,
+        valorGuardado: Number(row[2]) || 0,
+        rendimentoTotal: Number(row[3]) || 0, // Coluna S
+        valorGuardadoMes: Number(row[4]) || 0, // Coluna T
+        data: formatarDataCelula(row[5], sheet), // Coluna U
+        icone: row[6] ? String(row[6]).trim() : "" // Coluna V
+      });
+    }
+  });
+  return result;
+}
+
+function getAllData(sheet) {
+  return {
+    ganhos: readGanhos(sheet),
+    gastosFixos: readGastosFixos(sheet),
+    gastosVariaveis: readGastosVariaveis(sheet),
+    caixinhas: readCaixinhas(sheet),
+    categorias: lerCategoriasConfig(),
+    iconCategorias: lerCategoriasIcones(),
+  };
+}
+
+// A aba CONFIGS é a fonte única das categorias: A = nome e B = cor.
+// Linhas sem nome são ignoradas, mesmo que tenham uma cor preenchida.
+function lerCategoriasConfig() {
+  try {
+    const ss = SpreadsheetApp.getActiveSpreadsheet();
+    const sheet = ss.getSheetByName(CONFIGS_SHEET_NAME);
+    if (!sheet || sheet.getLastRow() < 2) return [];
+
+    return sheet
+      .getRange(2, COL_CATEGORIA_NOME, sheet.getLastRow() - 1, 2)
+      .getValues()
+      .map(function (linha) {
+        const nome = String(linha[0] || "").trim();
+        const cor = String(linha[1] || "").trim();
+        return {
+          nome: nome,
+          cor: /^#[0-9a-f]{6}$/i.test(cor) ? cor : "",
+        };
+      })
+      .filter(function (categoria) { return Boolean(categoria.nome); });
+  } catch (err) {
+    return [];
+  }
+}
+
+function linhasParaLimpar(sheet, novasLinhas) {
+  const lastRow = Math.max(sheet.getLastRow() - 1, 0);
+  const novas = novasLinhas ? novasLinhas.length : 0;
+  return Math.max(lastRow, novas) + MARGEM_LIMPEZA;
+}
+
+function saveCaixinhasBlock(sheet, rows) {
+  const rowsToClear = linhasParaLimpar(sheet, rows);
+  sheet.getRange(2, COL_GUARDADO, rowsToClear, 7).clearContent(); // Limpa Q:W, incluindo prazo e ícone
+  if (!rows || rows.length === 0) return;
+  const values = rows.map(function (r) {
+    return [r.nome, r.valorObjetivo, r.valorGuardado, r.rendimentoTotal || 0, r.valorGuardadoMes || 0, r.data || "", r.icone || ""];
+  });
+  sheet.getRange(2, COL_GUARDADO, values.length, 7).setValues(values);
+}
+
+/**
+ * MIGRAÇÃO ÚNICA DO LAYOUT ANTIGO (P:V = caixinhas, W = origem)
+ * para o novo layout (P = origem, Q:W = caixinhas).
+ *
+ * Execute esta função UMA VEZ no editor do Apps Script, depois de atualizar
+ * o código. Ela move os valores e a formatação das colunas antigas para as
+ * novas posições e preserva a origem que estava em W.
+ */
+function migrarLayoutOrigemParaP() {
+  const props = PropertiesService.getDocumentProperties();
+  if (props.getProperty("CAIXA_LAYOUT_ORIGEM_P_MIGRADO") === "1") {
+    return { ok: true, mensagem: "O layout já foi migrado anteriormente. Nenhuma alteração foi feita." };
   }
 
-  // Observa mudanças de altura internas (por exemplo, quando a descrição da
-  // IA do Status financeiro substitui o texto inicial). Assim a altura do
-  // carrossel acompanha o card imediatamente, sem depender de um novo swipe.
-  if (typeof ResizeObserver !== "undefined" && !wrap._carrosselResizeObserver) {
-    const observer = new ResizeObserver(() => {
-      requestAnimationFrame(() => sincronizarAlturaCarrossel(wrap));
-    });
-    cards.forEach((card) => observer.observe(card));
-    wrap._carrosselResizeObserver = observer;
-  }
+  const ss = SpreadsheetApp.getActiveSpreadsheet();
+  const nomes = [SHEETS.davi, SHEETS.gabriel];
 
-  if (!wrap.dataset.carrosselPronto) {
-    wrap.dataset.carrosselPronto = "1";
-    
-    // Sincroniza a bolinha ativa ao rolar
-    let agendado = null;
-    wrap.addEventListener("scroll", () => {
-        if (agendado) return;
-        agendado = requestAnimationFrame(() => {
-          agendado = null;
-          marcarDotAtivo(wrap, dotsEl);
-        });
-      }, { passive: true }
+  nomes.forEach(function (nomeAba) {
+    const sheet = ss.getSheetByName(nomeAba);
+    if (!sheet) return;
+
+    const ultimaLinha = Math.max(sheet.getLastRow(), 1);
+
+    // Guarda os dados antigos antes de qualquer alteração.
+    const origemAntiga = sheet.getRange(1, 23, ultimaLinha, 1).getValues(); // W
+    const caixinhasAntigas = sheet.getRange(1, 16, ultimaLinha, 7).getValues(); // P:V
+
+    // Guarda larguras para que P:V mantenham o mesmo tamanho visual após a mudança.
+    const largurasAntigas = [];
+    for (let col = 16; col <= 22; col++) {
+      largurasAntigas.push(sheet.getColumnWidth(col));
+    }
+    const larguraOrigemAntiga = sheet.getColumnWidth(23); // W
+
+    // Primeiro move apenas a formatação, enquanto P:V e W ainda estão intactos.
+    sheet.getRange(1, 23, ultimaLinha, 1).copyTo(
+      sheet.getRange(1, 16, ultimaLinha, 1),
+      SpreadsheetApp.CopyPasteType.PASTE_FORMAT,
+      false
+    );
+    sheet.getRange(1, 16, ultimaLinha, 7).copyTo(
+      sheet.getRange(1, 17, ultimaLinha, 7),
+      SpreadsheetApp.CopyPasteType.PASTE_FORMAT,
+      false
     );
 
-    // Permite "Arrastar e Soltar" (Drag-to-scroll) com o mouse no PC
-    let isDown = false;
-    let startX;
-    let scrollLeft;
-    
-    wrap.addEventListener('mousedown', (e) => {
-      isDown = true;
-      startX = e.pageX - wrap.offsetLeft;
-      scrollLeft = wrap.scrollLeft;
-      wrap.style.cursor = 'grabbing'; // Muda o ponteiro do mouse
-    });
-    wrap.addEventListener('mouseleave', () => {
-      isDown = false;
-      wrap.style.cursor = 'auto';
-    });
-    wrap.addEventListener('mouseup', () => {
-      isDown = false;
-      wrap.style.cursor = 'auto';
-    });
-    wrap.addEventListener('mousemove', (e) => {
-      if (!isDown) return;
-      e.preventDefault();
-      const x = e.pageX - wrap.offsetLeft;
-      const walk = (x - startX) * 1.5; // Velocidade do arrasto
-      wrap.scrollLeft = scrollLeft - walk;
-    });
-  }
-  
-  if (wrapId === "graficosCarousel" && !wrap.dataset.resumoPaginaRestaurada) {
-    wrap.dataset.resumoPaginaRestaurada = "1";
-    const salvo = lerPaginaGraficoResumo();
-    let alvo = salvo ? cards.find((card) => card.id === salvo) : null;
-    if (!alvo && /^\d+$/.test(String(salvo))) {
-      alvo = cards[Math.min(Number(salvo), cards.length - 1)];
-    }
-    if (!alvo) alvo = cards[0];
-    if (alvo) {
-      requestAnimationFrame(() => {
-        wrap.scrollLeft = Math.max(0, alvo.offsetLeft - wrap.offsetLeft);
-        marcarDotAtivo(wrap, dotsEl);
-      });
-    }
-  }
-  marcarDotAtivo(wrap, dotsEl);
-}
+    // Novo layout: P = origem; Q:W = antigo P:V.
+    sheet.getRange(1, 17, ultimaLinha, 7).setValues(caixinhasAntigas);
+    sheet.getRange(1, 16, ultimaLinha, 1).setValues(origemAntiga);
 
-function marcarDotAtivo(wrap, dotsEl) {
-  const cards = Array.from(wrap.children).filter((el) => !el.classList.contains("is-hidden"));
-  const dots = dotsEl.querySelectorAll(".dot-item");
-  if (!cards.length) return;
-  const centro = wrap.scrollLeft + wrap.clientWidth / 2;
-  let ativo = 0;
-  let menorDist = Infinity;
-
-  cards.forEach((card, i) => {
-    const distCentro = card.offsetLeft + card.offsetWidth / 2 - centro;
-    const dist = Math.abs(distCentro);
-    if (dist < menorDist) {
-      menorDist = dist;
-      ativo = i;
-    }
-    const proporcao = Math.min(dist / wrap.clientWidth, 1);
-    card.style.opacity = String(1 - proporcao * 0.6);
-    card.style.transform = `scale(${1 - proporcao * 0.08})`;
-  });
-
-  if (dots.length) dots.forEach((d, i) => d.classList.toggle("is-active", i === ativo));
-  if (wrap.id === "graficosCarousel") salvarPaginaGraficoResumo(cards[ativo]?.id || "");
-
-  sincronizarAlturaCarrossel(wrap, cards, ativo);
-}
-
-// Recalcula a altura quando o conteúdo de um card muda depois da renderização.
-// Isso é importante para o Status financeiro: primeiro entra o texto local e,
-// alguns instantes depois, a descrição da IA pode ficar maior. Antes, o
-// carrossel mantinha a altura antiga e cortava a parte inferior até o usuário
-// trocar de página.
-function sincronizarAlturaCarrossel(wrap, cards = null, ativo = null) {
-  if (!wrap) return;
-  const lista = cards || Array.from(wrap.children).filter((el) => !el.classList.contains("is-hidden"));
-  if (!lista.length) return;
-  let indice = Number.isInteger(ativo) ? ativo : 0;
-  if (!Number.isInteger(ativo)) {
-    const centro = wrap.scrollLeft + wrap.clientWidth / 2;
-    let menorDist = Infinity;
-    lista.forEach((card, i) => {
-      const dist = Math.abs(card.offsetLeft + card.offsetWidth / 2 - centro);
-      if (dist < menorDist) { menorDist = dist; indice = i; }
-    });
-  }
-  const cardAtivo = lista[Math.max(0, Math.min(indice, lista.length - 1))];
-  if (!cardAtivo) return;
-  const alturaAlvo = cardAtivo.offsetHeight;
-  if (alturaAlvo > 0 && wrap.dataset.alturaAtual !== String(alturaAlvo)) {
-    wrap.dataset.alturaAtual = String(alturaAlvo);
-    wrap.style.height = alturaAlvo + "px";
-  }
-}
-
-// Descobre em qual página do carrossel o usuário está no momento (pelo
-// card mais próximo do centro), pra dar pra restaurar depois de um
-// re-render que reconstrói o HTML do zero (ex: renderHistorico ao
-// terminar de buscar dados novos da rede).
-function paginaCarrosselAtiva(wrapId) {
-  const wrap = document.getElementById(wrapId);
-  if (!wrap) return 0;
-  const cards = Array.from(wrap.children).filter((el) => !el.classList.contains("is-hidden"));
-  if (!cards.length) return 0;
-  const centro = wrap.scrollLeft + wrap.clientWidth / 2;
-  let ativo = 0;
-  let menorDist = Infinity;
-  cards.forEach((card, i) => {
-    const dist = Math.abs(card.offsetLeft + card.offsetWidth / 2 - centro);
-    if (dist < menorDist) { menorDist = dist; ativo = i; }
-  });
-  return ativo;
-}
-
-// Reposiciona o carrossel na página que o usuário já estava vendo (sem
-// animação — é instantâneo, o conteúdo já "nasce" na página certa) e
-// atualiza bolinha/altura na hora, sem esperar o evento de scroll (que é
-// assíncrono e deixaria um flash de um frame com a página errada).
-function restaurarPaginaCarrossel(wrapId, dotsId, indice) {
-  const wrap = document.getElementById(wrapId);
-  const dotsEl = document.getElementById(dotsId);
-  if (!wrap) return;
-  if (indice) {
-    const cards = Array.from(wrap.children).filter((el) => !el.classList.contains("is-hidden"));
-    const alvo = cards[indice];
-    if (alvo) wrap.scrollLeft = alvo.offsetLeft - wrap.offsetLeft;
-  }
-  if (dotsEl) marcarDotAtivo(wrap, dotsEl);
-}
-
-const PALETA_CATEGORIAS = [
-  "#b9862f", "#3c6e4f", "#a8482e", "#5c8aa6", "#8a6bb5",
-  "#c99a3f", "#4d9e8a", "#c46a8f", "#7a9e4d", "#a67a4d",
-  "#d96a53", "#6c8c77", "#b59b52", "#5b778c", "#9678a3", 
-  "#80705a", "#a15a4b", "#4a7866", "#c2a36b", "#6a5c78", 
-  "#8b7e66", "#588f82", "#b5725c", "#7d8c85", "#6e7580",
-  "#4f5d8a", "#9e5a3f", "#5a8a5e", "#8a4f7a", "#c9885c",
-  "#d35400", "#34495e", "#4b6584", "#eb3b5a", "#20bf6b"
-];
-
-// Formata a % de uma categoria pro legend. Sem isso, uma categoria com
-// gasto real mas fatia pequena (ex: 0,3% do total) aparecia como "0%"
-// depois do toFixed(0) — parecendo que não teve gasto nenhum, quando na
-// verdade teve (foi o que o Davi notou no filtro "Juntos": uma categoria
-// dava 1% pra ele e nada pro Gabriel, mas a soma junta virava "0%").
-// Abaixo de 1%, mostra uma casa decimal (ex: "0,3%") em vez do genérico
-// "<1%" — assim dá pra diferenciar um item que é quase 1% de um que é
-// bem menor mesmo (ex: Estacionamento a 0,3% vs. outra categoria a 0,9%).
-function formatarPctCategoria(pct) {
-  if (pct > 0 && pct < 1) return `${pct.toFixed(1).replace(".", ",")}%`;
-  return `${pct.toFixed(0)}%`;
-}
-
-function renderCategorias() {
-  const card = document.getElementById("categoriaCard");
-  const donut = document.getElementById("categoriaDonut");
-  const centro = document.getElementById("categoriaDonutCenter");
-  const legend = document.getElementById("categoriaLegend");
-  if (!card && !donut && !centro && !legend) return;
-
-  const gastos = [...state.gastosFixos.filter(fixoEhPago), ...state.gastosVariaveis.filter(variavelContaNoSaldo)];
-
-  const porCategoria = {};
-  gastos.forEach((item) => {
-    const cat = (item.tipo && String(item.tipo).trim()) || "Outros";
-    porCategoria[cat] = (porCategoria[cat] || 0) + (Number(item.valor) || 0);
-  });
-  const categorias = Object.keys(porCategoria).sort((a, b) => porCategoria[b] - porCategoria[a]);
-  const total = categorias.reduce((acc, c) => acc + porCategoria[c], 0);
-
-  if (card) card.classList.toggle("is-hidden", categorias.length === 0 || total <= 0);
-  if (categorias.length === 0 || total <= 0) return;
-
-  let acumulado = 0;
-  const partes = categorias.map((cat, idx) => {
-    const cor = corDaCategoria(cat, idx);
-    const pct = (porCategoria[cat] / total) * 100;
-    const inicio = acumulado;
-    acumulado += pct;
-    return { cat, cor, pct, inicio, fim: acumulado, valor: porCategoria[cat] };
-  });
-
-  if (donut) {
-    donut.style.background = `conic-gradient(${partes.map((p) => `${p.cor} ${p.inicio}% ${p.fim}%`).join(", ")})`;
-  }
-  if (centro) {
-    centro.innerHTML = `${spanCentro(fmt(total))}<small>gasto no total</small>`;
-  }
-  if (legend) {
-    legend.innerHTML = partes.map((p) => `
-        <div class="split-legend-item">
-          <span class="dot" style="background:${p.cor}"></span>
-          <span class="legend-label">${escapeHtml(p.cat)}</span>
-          <strong>${formatarPctCategoria(p.pct)}</strong>
-        </div>`).join("");
-  }
-}
-
-// ---------------------------------------------------------------------
-// HISTÓRICO — página 2 do carrossel: "Gastos por categoria" do ano
-// selecionado, somando o texto "Categoria:Valor,Categoria:Valor" que o GS
-// grava em cada mês fechado (ver categoriasDavi/categoriasGabriel, vindos
-// já parseados do backend). Mesmo visual do card de categoria do Resumo,
-// só que olhando pro ano inteiro em vez do mês corrente — por isso é uma
-// pizza (o que importa aqui é a fatia de cada categoria no total do ano,
-// não a variação mês a mês, que já tem sua própria linha do tempo na
-// primeira página do carrossel).
-// ---------------------------------------------------------------------
-
-function agregarCategoriasDoAno(meses, pessoa) {
-  const total = {};
-  meses.forEach((m) => {
-    const mapas =
-      pessoa === "ambos"
-        ? [m.categoriasDavi || {}, m.categoriasGabriel || {}]
-        : [pessoa === "gabriel" ? m.categoriasGabriel || {} : m.categoriasDavi || {}];
-    mapas.forEach((mapa) => {
-      Object.keys(mapa).forEach((cat) => {
-        if (String(cat).trim().toLowerCase() === "metas") return;
-        total[cat] = (total[cat] || 0) + (Number(mapa[cat]) || 0);
-      });
-    });
-  });
-  return total;
-}
-
-function construirPaginaCategoriasHistorico(meses, pessoa, ano) {
-  // "todos" é o valor especial do select de ano (ver renderHistorico) —
-  // aqui só ajusta o texto pra fazer sentido gramatical no plural.
-  const modoTodos = ano === "todos";
-  const porCategoria = agregarCategoriasDoAno(meses, pessoa);
-  const categorias = Object.keys(porCategoria).sort((a, b) => porCategoria[b] - porCategoria[a]);
-  const total = categorias.reduce((acc, c) => acc + porCategoria[c], 0);
-
-  if (categorias.length === 0 || total <= 0) {
-    return `
-      <div class="split-card historico-categoria-page">
-        <div class="ledger-line"><h2 class="section-title">Gastos por categoria</h2></div>
-        <p class="empty-state">Sem gastos com categoria fechados ${modoTodos ? "ainda" : `em ${ano} ainda`}.</p>
-      </div>`;
-  }
-
-  let acumulado = 0;
-  const partes = categorias.map((cat, idx) => {
-    const cor = corDaCategoria(cat, idx);
-    const pct = (porCategoria[cat] / total) * 100;
-    const inicio = acumulado;
-    acumulado += pct;
-    return { cat, cor, pct, valor: porCategoria[cat], inicio, fim: acumulado };
-  });
-
-  const gradiente = partes.map((p) => `${p.cor} ${p.inicio}% ${p.fim}%`).join(", ");
-  const legendaHtml = partes
-    .map(
-      (p) => `
-        <div class="split-legend-item">
-          <span class="dot" style="background:${p.cor}"></span>
-          <span class="legend-label">${escapeHtml(p.cat)}</span>
-          <strong>${formatarPctCategoria(p.pct)}</strong>
-        </div>`
-    )
-    .join("");
-
-  return `
-    <div class="split-card historico-categoria-page">
-      <div class="ledger-line"><h2 class="section-title">Gastos por categoria</h2></div>
-      <p class="section-hint">${modoTodos ? "Soma de todos os anos" : `Soma do ano de ${ano}`}, pra onde o dinheiro foi.</p>
-      <div class="split-chart-wrap split-chart-wrap-categorias">
-        <div class="split-donut" style="background: conic-gradient(${gradiente})">
-          <div class="split-donut-center">${spanCentro(fmt(total))}<small>${modoTodos ? "gasto no total" : "gasto no ano"}</small></div>
-        </div>
-        <div class="split-legend split-legend-categorias">${legendaHtml}</div>
-      </div>
-    </div>`;
-}
-
-function renderVisaoGeral() {
-  atualizarVisibilidadeVisaoGeral();
-  if (isAmbos()) return; 
-
-  const donut = document.getElementById("visaoGeralDonut");
-  const centro = document.getElementById("visaoGeralDonutCenter");
-  const legend = document.getElementById("visaoGeralLegend");
-  if (!donut && !centro && !legend) return;
-
-  const totalGanhos = somaComStatus(state.ganhos, "recebido");
-  const variaveisSemGuardado = state.gastosVariaveis.filter((i) => !ehLancamentoDeCaixinha(i.nome));
-  const totalGastos = somaFixosPagos(state.gastosFixos) + somaVariaveisPagas(variaveisSemGuardado);
-  const totalGuardado = somaCampo(state.caixinhas, "valorGuardadoMes");
-  const livre = totalGanhos - totalGastos - totalGuardado;
-  const base = Math.max(totalGanhos, totalGastos + totalGuardado, 0.01);
-
-  const pctGuardado = Math.max((totalGuardado / base) * 100, 0);
-  const pctGastos = Math.max((totalGastos / base) * 100, 0);
-  const pctLivre = Math.max(100 - pctGuardado - pctGastos, 0);
-
-  const corte1 = pctGuardado;
-  const corte2 = pctGuardado + pctGastos;
-
-  if (donut) {
-    donut.style.background = `conic-gradient(var(--gold) 0% ${corte1}%, var(--expense) ${corte1}% ${corte2}%, var(--income) ${corte2}% 100%)`;
-  }
-  if (centro) {
-    // Texto alterado para exibir apenas o valor e a palavra "GANHO"
-    centro.innerHTML = `${spanCentro(fmt(totalGanhos))}<small>GANHO</small>`;
-  }
-  if (legend) {
-    legend.innerHTML = `
-      <div class="split-legend-item">
-        <span class="dot" style="background:var(--gold)"></span>
-        Guardado <strong>${pctGuardado.toFixed(0)}%</strong>
-      </div>
-      <div class="split-legend-item">
-        <span class="dot" style="background:var(--expense)"></span>
-        Gastos <strong>${pctGastos.toFixed(0)}%</strong>
-      </div>
-      <div class="split-legend-item">
-        <span class="dot" style="background:var(--income)"></span>
-        Livre <strong>${pctLivre.toFixed(0)}%</strong>
-      </div>
-    `;
-  }
-}
-
-function renderSplit() {
-  const card = document.getElementById("splitCard");
-  if (!card) return;
-  const ambos = isAmbos();
-  card.classList.toggle("is-hidden", !ambos);
-  if (!ambos) return;
-
-  const totalGanhos = somaComStatus(state.ganhos, "recebido");
-  const gastoPorPessoa = { davi: 0, gabriel: 0 };
-  [...state.gastosFixos.filter(fixoEhPago), ...state.gastosVariaveis.filter((item) => gastoVariavelEhReal(item) && variavelContaNoSaldo(item))].forEach((item) => {
-    if (item.pessoa === "davi" || item.pessoa === "gabriel") {
-      gastoPorPessoa[item.pessoa] += Number(item.valor) || 0;
+    // Mantém as larguras das antigas caixinhas em Q:W e a largura de W antigo em P.
+    sheet.setColumnWidth(16, larguraOrigemAntiga);
+    for (let i = 0; i < 7; i++) {
+      sheet.setColumnWidth(17 + i, largurasAntigas[i]);
     }
   });
-  const gastoDavi = gastoPorPessoa.davi;
-  const gastoGabriel = gastoPorPessoa.gabriel;
-  const restante = totalGanhos - gastoDavi - gastoGabriel;
-  const base = Math.max(totalGanhos, gastoDavi + gastoGabriel, 0.01);
 
-  const pctDavi = Math.max((gastoDavi / base) * 100, 0);
-  const pctGabriel = Math.max((gastoGabriel / base) * 100, 0);
-  const pctRestante = Math.max(100 - pctDavi - pctGabriel, 0);
-
-  const corte1 = pctDavi;
-  const corte2 = pctDavi + pctGabriel;
-
-  const donut = document.getElementById("splitDonut");
-  if (donut) {
-    donut.style.background = `conic-gradient(var(--income) 0% ${corte1}%, var(--expense) ${corte1}% ${corte2}%, var(--line-soft) ${corte2}% 100%)`;
-  }
-  const centro = document.getElementById("splitDonutCenter");
-  if (centro) {
-    centro.innerHTML = `${spanCentro(fmt(restante))}<small>${restante < 0 ? "no vermelho" : "sobrando"}</small>`;
-  }
-
-  const legend = document.getElementById("splitLegend");
-  if (legend) {
-    legend.innerHTML = `
-      <div class="split-legend-item">
-        <span class="dot" style="background:var(--income)"></span> Davi gastou <strong>${pctDavi.toFixed(0)}%</strong>
-      </div>
-      <div class="split-legend-item">
-        <span class="dot" style="background:var(--expense)"></span> Gabriel gastou <strong>${pctGabriel.toFixed(0)}%</strong>
-      </div>
-      <div class="split-legend-item">
-        <span class="dot" style="background:var(--line-soft)"></span> Ainda sobrando <strong>${pctRestante.toFixed(0)}%</strong>
-      </div>
-    `;
-  }
+  SpreadsheetApp.flush();
+  props.setProperty("CAIXA_LAYOUT_ORIGEM_P_MIGRADO", "1");
+  return { ok: true, mensagem: "Layout migrado: P = origem; Q:W = caixinhas." };
 }
 
-const AVATAR_LETRA = { davi: "D", gabriel: "G" };
-
-function agruparPorPessoa(lista) {
-  const grupos = { davi: [], gabriel: [] };
-  lista.forEach((item) => {
-    if (item.pessoa === "davi" || item.pessoa === "gabriel") grupos[item.pessoa].push(item);
-  });
-  return grupos;
-}
-
-function cardJuntos(pessoa, atual, projetado, corClasse) {
-  const mostraProjetado = projetado !== null && projetado !== undefined;
-  return `
-    <div class="juntos-card">
-      <span class="juntos-avatar avatar-${pessoa}">${AVATAR_LETRA[pessoa]}</span>
-      <div class="juntos-card-info">
-        <span class="juntos-card-nome">${PESSOA_LABEL[pessoa]}</span>
-        ${mostraProjetado ? `<span class="juntos-card-projetado">Projetado: ${fmt(projetado)}</span>` : ""}
-      </div>
-      <span class="juntos-card-valor ${corClasse}">${fmt(atual)}</span>
-    </div>`;
-}
-
-function atualizarVisibilidadeJuntosView() {
-  const ambos = isAmbos();
-  const view = document.getElementById("juntosView");
-  if (view) view.classList.toggle("is-hidden", !ambos);
-  const resumoPadrao = document.getElementById("resumoPadrao");
-  if (resumoPadrao) resumoPadrao.classList.toggle("is-hidden", ambos);
-}
-
-function renderJuntosView() {
-  atualizarVisibilidadeJuntosView();
-  if (!isAmbos()) return;
-
-  const ganhosPorPessoa = agruparPorPessoa(state.ganhos);
-  const fixosPorPessoa = agruparPorPessoa(state.gastosFixos);
-  const variaveisPorPessoa = agruparPorPessoa(state.gastosVariaveis);
-  const caixinhasPorPessoa = agruparPorPessoa(state.caixinhas);
-
-  const ganhosEl = document.getElementById("juntosGanhos");
-  if (ganhosEl) ganhosEl.innerHTML = ["davi", "gabriel"].map((p) => cardJuntos(p, somaComStatus(ganhosPorPessoa[p], "recebido"), soma(ganhosPorPessoa[p]), "income")).join("");
-
-  const guardadoEl = document.getElementById("juntosGuardado");
-  if (guardadoEl) guardadoEl.innerHTML = ["davi", "gabriel"].map((p) => cardJuntos(p, somaTotalCaixinhas(caixinhasPorPessoa[p]), null, "gold")).join("");
-
-  const fixosEl = document.getElementById("juntosFixos");
-  if (fixosEl) fixosEl.innerHTML = ["davi", "gabriel"].map((p) => cardJuntos(p, somaFixosPagos(fixosPorPessoa[p]), soma(fixosPorPessoa[p]), "expense")).join("");
-
-  const variaveisEl = document.getElementById("juntosVariaveis");
-  if (variaveisEl) variaveisEl.innerHTML = ["davi", "gabriel"].map((p) => cardJuntos(p, somaVariaveisPagas(variaveisPorPessoa[p]), soma(variaveisPorPessoa[p].filter(gastoVariavelEhReal)), "expense")).join("");
-}
-
-function spanCentro(valorFormatado) {
-  let tamanho = 13.5;
-  if (valorFormatado.length > 9) tamanho = 12;
-  if (valorFormatado.length > 11) tamanho = 10.5;
-  if (valorFormatado.length > 13) tamanho = 9.5;
-  return `<span style="font-size:${tamanho}px">${valorFormatado}</span>`;
-}
-
-function escapeHtml(str) {
-  const div = document.createElement("div");
-  div.textContent = str ?? "";
-  return div.innerHTML;
-}
-
-// ---------------------------------------------------------------------
-// HISTÓRICO — Melhorias Implementadas
-// ---------------------------------------------------------------------
-
-async function getCacheHistorico() { return idbGet(IDB_LOJA_CACHE, CACHE_PREFIX + "historico"); }
-async function setCacheHistorico(data) { return idbSet(IDB_LOJA_CACHE, CACHE_PREFIX + "historico", { anos: data.anos || [] }); }
-
-async function carregarHistorico() {
-  const cache = await getCacheHistorico();
-  if (cache) {
-    state.historico = cache;
-    renderHistorico();
-  } else {
-    renderHistoricoSkeleton();
-  }
-  if (!API_URL || API_URL.includes("COLE_AQUI")) return;
-  try {
-    const res = await fetchApiGet({ pessoa: "historico" });
-    const data = await res.json();
-    if (data && data.ok === false) throw new Error(data.error || "Erro desconhecido");
-    state.historico = data;
-    if (data.mesAtual) state.mesAtual = data.mesAtual;
-    if (data.anoAtual) state.anoAtual = data.anoAtual;
-    renderMesAtual();
-    setCacheHistorico(data);
-    renderHistorico();
-  } catch (err) {
-    if (!cache) {
-      const wrap = document.getElementById("historicoLista");
-      if (wrap) wrap.innerHTML = `<p class="empty-state">Não consegui carregar o histórico agora.</p>`;
-    }
-  }
-}
-
-function renderHistoricoSkeleton() {
-  const wrap = document.getElementById("historicoLista");
-  if (!wrap) return;
-  wrap.innerHTML = Array.from({ length: 2 }).map(() => `
-      <div class="historico-mes-card">
-        <div class="skeleton" style="width:40%;height:16px;margin-bottom:12px;">.</div>
-        <div class="skeleton" style="width:100%;height:13px;margin-bottom:8px;">.</div>
-        <div class="skeleton" style="width:100%;height:13px;">.</div>
-      </div>`).join("");
-}
-
-// Novo Gráfico com Faixas Verticais (Resolve sobreposição de pontos)
-function construirGraficoHistoricoMultiSvg(mesesAsc, pessoa) {
-  const W = 320, H = 190, padL = 14, padR = 14, padT = 18, padB = 30;
-
-  const getVal = (m, campo) => {
-    if (pessoa === 'ambos') return (m[`${campo}Davi`] || 0) + (m[`${campo}Gabriel`] || 0);
-    const sufixo = pessoa.charAt(0).toUpperCase() + pessoa.slice(1);
-    return m[`${campo}${sufixo}`] || 0;
-  };
-
-  const ptsGanhos = mesesAsc.map(m => getVal(m, 'ganhos'));
-  const ptsDebitos = mesesAsc.map(m => getVal(m, 'debitos'));
-  const ptsGuardado = mesesAsc.map(m => getVal(m, 'guardadoMes'));
-  const ptsRendimento = mesesAsc.map(m => getVal(m, 'rendimento'));
-
-  const todos = [...ptsGanhos, ...ptsDebitos, ...ptsGuardado, ...ptsRendimento];
-  let min = Math.min(0, ...todos);
-  let max = Math.max(0, ...todos);
-  if (min === max) max = min + 1;
-
-  const amplitude = max - min;
-  min -= amplitude * 0.05;
-  max += amplitude * 0.15; 
-
-  const n = mesesAsc.length;
-  const passoX = n > 1 ? (W - padL - padR) / (n - 1) : 0;
-  const x = (i) => n === 1 ? W / 2 : padL + i * passoX;
-  const y = (v) => padT + (H - padT - padB) * (1 - (v - min) / (max - min));
-
-  const caminhoSuave = (pts) => {
-    if (pts.length === 0) return "";
-    let d = `M${x(0).toFixed(1)},${y(pts[0]).toFixed(1)}`;
-    for (let i = 0; i < pts.length - 1; i++) {
-      const cpX = (x(i) + x(i + 1)) / 2;
-      d += ` C${cpX.toFixed(1)},${y(pts[i]).toFixed(1)} ${cpX.toFixed(1)},${y(pts[i + 1]).toFixed(1)} ${x(i + 1).toFixed(1)},${y(pts[i + 1]).toFixed(1)}`;
-    }
-    return d;
-  };
-
-  // Largura da área de toque/hover de cada mês
-  const larguraFaixa = passoX > 0 ? passoX : W;
-
-  // Cria as faixas verticais e agrupa os 3 pontos de cada mês juntos
-  const gruposMes = mesesAsc.map((m, i) => {
-    const nomeMes = m.nome.charAt(0).toUpperCase() + m.nome.slice(1).toLowerCase();
-    const vGanhos = getVal(m, 'ganhos');
-    const vGastos = getVal(m, 'debitos');
-    const vGuardado = getVal(m, 'guardadoMes');
-    const vRendimento = getVal(m, 'rendimento');
-    const cx = x(i).toFixed(1);
-    
-    // Calcula o início do retângulo invisível para centralizar no ponto
-    const rx = (x(i) - larguraFaixa / 2).toFixed(1);
-
-    return `
-      <g class="mes-hover-group" data-mes="${nomeMes}" data-ganhos="${fmt(vGanhos)}" data-gastos="${fmt(vGastos)}" data-guardado="${fmt(vGuardado)}" data-rendimento="${fmt(vRendimento)}">
-        <!-- Área gigante e invisível para capturar o dedo/mouse -->
-        <rect x="${rx}" y="0" width="${larguraFaixa}" height="${H}" fill="transparent" class="hover-area" />
-        
-        <!-- Linha guia vertical charmosa -->
-        <line x1="${cx}" y1="${padT}" x2="${cx}" y2="${H - padB - 4}" stroke="var(--line)" stroke-dasharray="4,4" class="guia-vertical" />
-        
-        <!-- Os 4 pontos sobrepostos -->
-        <circle cx="${cx}" cy="${y(vGanhos).toFixed(1)}" r="4.2" fill="var(--income)" stroke="var(--paper-deep)" stroke-width="2" class="ponto-dot" />
-        <circle cx="${cx}" cy="${y(vGastos).toFixed(1)}" r="4.2" fill="var(--expense)" stroke="var(--paper-deep)" stroke-width="2" class="ponto-dot" />
-        <circle cx="${cx}" cy="${y(vGuardado).toFixed(1)}" r="4.2" fill="var(--gold)" stroke="var(--paper-deep)" stroke-width="2" class="ponto-dot" />
-        <circle cx="${cx}" cy="${y(vRendimento).toFixed(1)}" r="4.2" fill="var(--yield)" stroke="var(--paper-deep)" stroke-width="2" class="ponto-dot" />
-      </g>
-    `;
-  }).join("");
-
-  // No modo "Todos os anos" cada ponto é um ano (ex: "2025"), não um mês —
-  // nesse caso mostra o ano inteiro no eixo, sem truncar pros 3 primeiros
-  // caracteres como faz com o nome do mês (senão "2025" virava "202").
-  const rotulos = mesesAsc.map((m, i) => {
-    const nomeCru = m.nome || "";
-    const rotulo = /^\d{4}$/.test(nomeCru) ? nomeCru : nomeCru.slice(0, 3).toUpperCase();
-    return `<text x="${x(i).toFixed(1)}" y="${H - 8}" font-size="9" text-anchor="middle" font-family="var(--font-mono)" font-weight="600" fill="var(--muted)">${escapeHtml(rotulo)}</text>`;
-  }).join("");
-  const linhaZero = y(0).toFixed(1);
-
-  return `
-    <div class="historico-grafico-wrap">
-      <svg class="historico-grafico" viewBox="0 0 ${W} ${H}" preserveAspectRatio="none">
-        <line x1="${padL}" y1="${linhaZero}" x2="${W - padR}" y2="${linhaZero}" stroke="var(--line)" stroke-width="1.5" stroke-dasharray="4,4" />
-        
-        <path d="${caminhoSuave(ptsGanhos)}" fill="none" stroke="var(--income)" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" />
-        <path d="${caminhoSuave(ptsDebitos)}" fill="none" stroke="var(--expense)" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" />
-        <path d="${caminhoSuave(ptsGuardado)}" fill="none" stroke="var(--gold)" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" stroke-dasharray="6,4" />
-        <path d="${caminhoSuave(ptsRendimento)}" fill="none" stroke="var(--yield)" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" stroke-dasharray="2,3" />
-        
-        <!-- Renderiza as áreas de interação POR CIMA das linhas -->
-        ${gruposMes}
-        ${rotulos}
-      </svg>
-      <div class="historico-grafico-legenda">
-        <span class="legenda-item"><span class="legenda-dot" style="background:var(--income)"></span>Ganhos</span>
-        <span class="legenda-item"><span class="legenda-dot" style="background:var(--expense)"></span>Gastos</span>
-        <span class="legenda-item"><span class="legenda-dot" style="background:var(--gold)"></span>Guardado</span>
-        <span class="legenda-item"><span class="legenda-dot" style="background:var(--yield)"></span>Rendimento</span>
-      </div>
-    </div>`;
-}
-
-function renderHistorico() {
-  const wrap = document.getElementById("historicoLista");
-  const controles = document.getElementById("historicoControles");
-  const selectAno = document.getElementById("historicoAnoSelect");
-  if (!wrap) return;
-
-  const anos = (state.historico && state.historico.anos) || [];
-  if (anos.length === 0) {
-    if (controles) controles.style.display = "none";
-    wrap.innerHTML = estadoVazio('Nenhum mês fechado ainda.', ICONE_LIVRO);
-    return;
-  }
-
-  if (controles) controles.style.display = "block";
-
-  if (selectAno && selectAno.options.length !== anos.length + 1) {
-    selectAno.innerHTML = "";
-    const optTodos = document.createElement("option");
-    optTodos.value = "todos";
-    optTodos.textContent = "Todos os anos";
-    selectAno.appendChild(optTodos);
-    [...anos].sort((a, b) => b.ano - a.ano).forEach(bloco => {
-      const opt = document.createElement("option");
-      opt.value = bloco.ano;
-      opt.textContent = `Ano ${bloco.ano}`;
-      selectAno.appendChild(opt);
-    });
-  }
-
-  let anoAlvo = state.historicoAnoSelecionado;
-  if (anoAlvo !== "todos" && !anos.find(a => a.ano === anoAlvo)) {
-    anoAlvo = anos[0].ano;
-    state.historicoAnoSelecionado = anoAlvo;
-  }
-  if (selectAno) selectAno.value = anoAlvo;
-
-  const modoTodos = anoAlvo === "todos";
-  if (!modoTodos && !anos.find(a => a.ano === anoAlvo)) return;
-
-  const pessoa = state.pessoaAtual;
-  const getVal = (m, campo) => {
-    if (pessoa === 'ambos') return (m[`${campo}Davi`] || 0) + (m[`${campo}Gabriel`] || 0);
-    const sufixo = pessoa.charAt(0).toUpperCase() + pessoa.slice(1);
-    return m[`${campo}${sufixo}`] || 0;
-  };
-
-  const paginaAnterior = paginaCarrosselAtiva("historicoGraficosCarousel");
-
-  // Novo: Inclusão dos campos de rendimento para calcular "Todos os anos" perfeitamente
-  const camposSoma = ["ganhosDavi", "ganhosGabriel", "debitosDavi", "debitosGabriel", "guardadoMesDavi", "guardadoMesGabriel", "saldoDavi", "saldoGabriel", "rendimentoDavi", "rendimentoGabriel"];
-  
-  const agregarAnoComoRegistro = (bloco) => {
-    const registro = { nome: String(bloco.ano), mes: bloco.ano };
-    camposSoma.forEach((c) => { registro[c] = 0; });
-    bloco.meses.forEach((m) => camposSoma.forEach((c) => { registro[c] += (m[c] || 0); }));
-    return registro;
-  };
-
-  let mesesAscendentes, mesesOrdenados, mesesParaCategorias;
-  if (modoTodos) {
-    const registrosPorAno = [...anos].sort((a, b) => a.ano - b.ano).map(agregarAnoComoRegistro);
-    mesesAscendentes = registrosPorAno;
-    mesesOrdenados = [...registrosPorAno].sort((a, b) => b.mes - a.mes);
-    mesesParaCategorias = anos.flatMap((a) => a.meses);
-  } else {
-    const bloco = anos.find(a => a.ano === anoAlvo);
-    mesesAscendentes = [...bloco.meses].sort((a, b) => a.mes - b.mes);
-    mesesOrdenados = [...bloco.meses].sort((a, b) => b.mes - a.mes);
-    mesesParaCategorias = bloco.meses;
-  }
-
-  const grafico = construirGraficoHistoricoMultiSvg(mesesAscendentes, pessoa);
-  const paginaCategorias = construirPaginaCategoriasHistorico(mesesParaCategorias, pessoa, modoTodos ? "todos" : anoAlvo);
-
-  const cards = mesesOrdenados.map((m) => {
-    const ganhos = getVal(m, 'ganhos');
-    const debitos = getVal(m, 'debitos');
-    const guardado = getVal(m, 'guardadoMes');
-    const rendimento = getVal(m, 'rendimento'); // Busca o novo rendimento
-    const saldo = getVal(m, 'saldo');
-    const nomeMes = modoTodos ? `Ano ${m.nome}` : (m.nome.charAt(0) + m.nome.slice(1).toLowerCase());
-
-    return `
-    <div class="historico-mes-card">
-      <div class="historico-mes-head">
-        <span class="historico-mes-nome">${nomeMes}</span>
-        <span class="historico-mes-saldo ${saldo < 0 ? "negative" : ""}">${fmt(saldo)}</span>
-      </div>
-      <div class="historico-mes-linha">
-        <span>Ganhos</span><span class="income">${fmt(ganhos)}</span>
-      </div>
-      <div class="historico-mes-linha">
-        <span>Débitos</span><span class="expense">${fmt(Math.abs(debitos))}</span>
-      </div>
-      ${guardado > 0 ? `<div class="historico-mes-linha"><span>Guardado</span><span class="gold">${fmt(guardado)}</span></div>` : ""}
-      ${rendimento > 0 ? `<div class="historico-mes-linha"><span>Rendeu no mês</span><span class="income">+ ${fmt(rendimento)}</span></div>` : ""}
-      ${pessoa === 'ambos' ? `
-      <div class="historico-mes-pessoas">
-        <span class="pessoa-tag pessoa-davi">Davi ${fmt(m.saldoDavi)}</span>
-        <span class="pessoa-tag pessoa-gabriel">Gabriel ${fmt(m.saldoGabriel)}</span>
-      </div>` : ''}
-    </div>`;
-  }).join("");
-
-  let alturaFixa = "";
-  const carrosselAtual = document.getElementById("historicoGraficosCarousel");
-  if (carrosselAtual && carrosselAtual.style.height) {
-    alturaFixa = `height: ${carrosselAtual.style.height};`;
-  }
-
-  wrap.innerHTML = `
-    <div class="historico-ano-bloco">
-      <div class="graficos-carousel-wrap">
-        <div class="graficos-carousel" id="historicoGraficosCarousel" style="${alturaFixa}">
-          ${grafico}
-          ${paginaCategorias}
-        </div>
-        <div class="graficos-dots is-hidden" id="historicoGraficosDots" aria-hidden="true"></div>
-      </div>
-      ${cards}
-    </div>`;
-
-  atualizarCarrosselGraficos("historicoGraficosCarousel", "historicoGraficosDots");
-  restaurarPaginaCarrossel("historicoGraficosCarousel", "historicoGraficosDots", paginaAnterior);
-}
-
-function getColapsoState() {
-  try {
-    const raw = localStorage.getItem(COLAPSO_STORAGE_KEY);
-    return raw ? JSON.parse(raw) : {};
-  } catch (err) { return {}; }
-}
-function setColapsoState(estado) {
-  try { localStorage.setItem(COLAPSO_STORAGE_KEY, JSON.stringify(estado)); } catch (err) {}
-}
-
-function aplicarColapso(btn, alvo, colapsado) {
-  alvo.classList.toggle("is-collapsed", colapsado);
-  btn.classList.toggle("is-collapsed", colapsado);
-  btn.setAttribute("aria-expanded", String(!colapsado));
-}
-
-function initGavetas() {
-  const estado = getColapsoState();
-  document.querySelectorAll(".collapse-toggle").forEach((btn) => {
-    const chave = btn.dataset.collapse;
-    const alvo = document.getElementById("collapsible-" + chave);
-    if (!alvo) return;
-    const colapsado = estado[chave] === undefined ? true : !!estado[chave];
-    alvo.classList.add("sem-transicao-inicial");
-    btn.classList.add("sem-transicao-inicial");
-    aplicarColapso(btn, alvo, colapsado);
-    void alvo.offsetHeight; 
-    requestAnimationFrame(() => {
-      alvo.classList.remove("sem-transicao-inicial");
-      btn.classList.remove("sem-transicao-inicial");
-    });
-    btn.addEventListener("click", () => {
-      const novoColapsado = !alvo.classList.contains("is-collapsed");
-      aplicarColapso(btn, alvo, novoColapsado);
-      const estadoAtual = getColapsoState();
-      estadoAtual[chave] = novoColapsado;
-      setColapsoState(estadoAtual);
-    });
-  });
-}
-
-function posicionarIndicadorAba() {
-  const indicador = document.getElementById("tabIndicator");
-  const tabbar = document.getElementById("tabbar");
-  if (!indicador || !tabbar) return;
-  const ativa = tabbar.querySelector(".tab-btn.is-active:not(.is-hidden)");
-  if (!ativa) {
-    indicador.classList.remove("is-visible");
-    return;
-  }
-  const largura = 26;
-  indicador.style.width = largura + "px";
-  indicador.style.left = ativa.offsetLeft + (ativa.offsetWidth - largura) / 2 + "px";
-  indicador.classList.add("is-visible");
-}
-
-function atualizarVisibilidadeFab() {
-  const fab = document.getElementById("fabCriar");
-  const chatFab = document.getElementById("caixaChatFab");
-  const chatAberto = document.getElementById("caixaChat")?.classList.contains("is-open");
-  const abaHistorico = document.querySelector('.tab-btn[data-tab="historico"]')?.classList.contains("is-active");
-  const ocultarTudo = !!chatAberto || !!abaHistorico;
-
-  if (fab) {
-    const ocultar = isAmbos() || ocultarTudo;
-    fab.classList.toggle("is-hidden", ocultar);
-    fab.setAttribute("aria-hidden", String(ocultar));
-    fab.setAttribute("tabindex", ocultar ? "-1" : "0");
-  }
-  if (chatFab) {
-    const ocultar = isAmbos() || ocultarTudo;
-    chatFab.classList.toggle("is-hidden", ocultar);
-    chatFab.setAttribute("aria-hidden", String(ocultar));
-    chatFab.setAttribute("tabindex", ocultar ? "-1" : "0");
-  }
-}
-
-const tabbarEl = document.getElementById("tabbar");
-if (tabbarEl) {
-  tabbarEl.addEventListener("click", (e) => {
-    const btn = e.target.closest(".tab-btn");
-    if (!btn) return;
-    const tab = btn.dataset.tab;
-    document.querySelectorAll(".tab-btn").forEach((b) => b.classList.toggle("is-active", b === btn));
-    document.querySelectorAll(".tab-panel").forEach((p) => p.classList.toggle("is-hidden", p.dataset.tab !== tab));
-    window.scrollTo({ top: 0, behavior: "smooth" });
-    posicionarIndicadorAba();
-    atualizarVisibilidadeFab();
-    if (typeof fecharCriacaoFlutuante === "function") fecharCriacaoFlutuante();
-    if (tab === "historico") renderHistorico();
-  });
-}
-window.addEventListener("resize", posicionarIndicadorAba);
-
-const personSwitchEl = document.getElementById("personSwitch");
-if (personSwitchEl) {
-  personSwitchEl.addEventListener("click", (e) => {
-    const btn = e.target.closest(".person-btn");
-    if (!btn) return;
-    trocarPessoa(btn.dataset.pessoa);
-  });
-}
-
-function parseValor(v) {
-  if (v === null || v === undefined) return 0;
-  const texto = String(v).trim();
-  if (!texto) return 0;
-  const normalizado = texto.indexOf(",") !== -1 ? texto.replace(/\./g, "").replace(",", ".") : texto;
-  const num = parseFloat(normalizado);
-  return Number.isFinite(num) ? Math.round(num * 100) / 100 : 0;
-}
-
-function aplicarMascaraMoeda(el) {
-  if (!el) return;
-  el.addEventListener("input", () => {
-    let digitos = el.value.replace(/\D/g, "");
-    if (!digitos) { el.value = ""; return; }
-    digitos = digitos.replace(/^0+(?=\d)/, ""); 
-    while (digitos.length < 3) digitos = "0" + digitos; 
-    const centavos = digitos.slice(-2);
-    const inteiros = digitos.slice(0, -2).replace(/\B(?=(\d{3})+(?!\d))/g, ".");
-    el.value = `${inteiros},${centavos}`;
-  });
-}
-
-function aplicarMascaraMoedaEmTodos() {
-  ["#formGanhos [name=valor]", "#formFixos [name=valor]", "#formVariaveis [name=valor]"].forEach((sel) => {
-    document.querySelectorAll(sel).forEach(aplicarMascaraMoeda);
-  });
-  ["aporteValor", "editValor", "dividirValor", "transferirValor"].forEach((id) =>
-    aplicarMascaraMoeda(document.getElementById(id))
+function respond(obj) {
+  return ContentService.createTextOutput(JSON.stringify(obj)).setMimeType(
+    ContentService.MimeType.JSON
   );
-  const form = document.getElementById("formCaixinhas");
-  if (form) {
-    aplicarMascaraMoeda(form.querySelector("[name=valorInicial]"));
-    aplicarMascaraMoeda(form.querySelector("[name=valorObjetivo]"));
-  }
 }
-
-function on(id, evento, handler) {
-  const el = document.getElementById(id);
-  if (!el) return;
-  el.addEventListener(evento, handler);
-}
-
-on("formGanhos", "submit", (e) => {
-  e.preventDefault();
-  if (isAmbos()) return;
-  const f = e.target;
-  const nome = f.nome.value.trim();
-  const valor = parseValor(f.valor.value);
-  if (!nome || !(valor > 0)) return;
-  const recebido = f.recebido ? f.recebido.checked : false;
-  const data = dataDoLancamento(f.data ? f.data.value : "");
-  opGanhos.add(nome, valor, { recebido, data });
-  f.reset();
-  if (typeof fecharCriacaoFlutuante === "function") fecharCriacaoFlutuante();
-  preencherDatasComHoje();
-});
-
-function parcelaValida(texto) {
-  const v = String(texto || "").trim();
-  if (!v) return true;
-  return /^\d+\s*\/\s*\d+$/.test(v);
-}
-
-on("formFixos", "submit", (e) => {
-  e.preventDefault();
-  if (isAmbos()) return;
-  const f = e.target;
-  const nome = f.nome.value.trim();
-  const valorTotal = parseValor(f.valor.value);
-  if (!nome || !(valorTotal > 0)) return;
-  const pago = f.pago ? f.pago.checked : false;
-  const tipo = f.tipo ? f.tipo.value : "";
-  const data = dataDoLancamento(f.data ? f.data.value : "");
-
-  // "valor" no formulário agora é o valor INTEGRAL da compra — o select de
-  // parcelas decide como ele é dividido antes de salvar (cada linha guarda
-  // o valor de UMA parcela, igual sempre foi; ver proximoFixo no Code.gs
-  // pra como isso avança de mês em mês).
-  const numParcelas = f.parcelas ? Number(f.parcelas.value) : 0;
-  let valor = valorTotal;
-  let parcela = "";
-  if (numParcelas > 0) {
-    valor = Math.round((valorTotal / numParcelas) * 100) / 100;
-    // "1/1" (não vazio) pra 1x à vista: assim ela some depois de paga em vez
-    // de virar uma cobrança recorrente todo mês (que é o que "parcela
-    // vazia" significa pro fechamento de mês).
-    parcela = `1/${numParcelas}`;
-  }
-
-  const novoFixo = { nome, valor, pago, tipo, data, parcela };
-  opFixos.add(nome, valor, { pago, tipo, data, parcela });
-  if (pago) sincronizarGanhoCorrespondenteFixo(state.pessoaAtual, novoFixo, true);
-  f.reset();
-  if (typeof fecharCriacaoFlutuante === "function") fecharCriacaoFlutuante();
-  preencherDatasComHoje();
-});
-
-on("formVariaveis", "submit", (e) => {
-  e.preventDefault();
-  if (isAmbos()) return;
-  const f = e.target;
-  const nome = f.nome.value.trim();
-  const valor = parseValor(f.valor.value);
-  if (!nome || !(valor > 0)) return;
-  const pago = f.pago ? f.pago.checked : false;
-  const tipo = f.tipo ? f.tipo.value : "";
-  const data = dataDoLancamento(f.data ? f.data.value : "");
-  const origem = f.origem && f.origem.value === "beneficio" ? "beneficio" : "saldo";
-  opVariaveis.add(nome, valor, { pago, tipo, data, origem });
-  f.reset();
-  if (typeof fecharCriacaoFlutuante === "function") fecharCriacaoFlutuante();
-  preencherDatasComHoje();
-});
-
-on("formCaixinhas", "submit", (e) => {
-  e.preventDefault();
-  if (isAmbos()) return;
-  const f = e.target;
-  const nome = f.nome.value.trim();
-  const valorInicial = f.valorInicial.value ? parseValor(f.valorInicial.value) : 0;
-  const valorObjetivo = f.valorObjetivo.value ? parseValor(f.valorObjetivo.value) : 0;
-  const icone = f.icone ? normalizarNomeIcone(f.icone.value) : "";
-  const data = dataDoLancamento(f.data ? f.data.value : "");
-  if (!nome || valorInicial < 0) return;
-  addCaixinha(nome, valorInicial, valorObjetivo, icone, data);
-  f.reset();
-  if (typeof fecharCriacaoFlutuante === "function") fecharCriacaoFlutuante();
-  aplicarPreviewIcone(document.getElementById("caixinhaIconPickerCriar"), "");
-});
-
-let onConfirmarValor = null;
-// Valor mínimo aceito no modal (usado no rendimento: não pode informar um
-// total menor do que a caixinha já tem hoje). null = sem mínimo, só exige > 0.
-let valorMinimoModal = null;
-const modalBackdrop = document.getElementById("modalBackdrop");
-
-function abrirModalValor(titulo, callback, textoBotao, valorInicial, dica, minimo, opts) {
-  if (isAmbos()) return;
-  onConfirmarValor = callback;
-  valorMinimoModal = typeof minimo === "number" ? minimo : null;
-  document.getElementById("modalTitle").textContent = titulo;
-  const inputValor = document.getElementById("aporteValor");
-  inputValor.value = valorInicial ? fmtCampo(valorInicial) : "";
-  inputValor.classList.remove("input-erro");
-  const elHint = document.getElementById("modalHint");
-  if (elHint) {
-    elHint.textContent = dica || "";
-    elHint.classList.toggle("is-hidden", !dica);
-  }
-  const botaoConfirmar = document.getElementById("modalConfirmar");
-  if (botaoConfirmar) botaoConfirmar.textContent = textoBotao || "Guardar";
-  modalBackdrop.classList.remove("is-hidden");
-  // semHistorico: usado quando esse modal já está substituindo outro que
-  // acabou de fechar (ex.: vindo do menu de ações da caixinha) — nesse
-  // caso quem chamou já cuidou do histórico, então não empilha de novo.
-  if (!opts || !opts.semHistorico) registrarAberturaModal("modalBackdrop");
-  setTimeout(() => {
-    inputValor.focus();
-    inputValor.select();
-  }, 50);
-}
-function fecharModal() {
-  fecharComHistorico("modalBackdrop", () => {
-    modalBackdrop.classList.add("is-hidden");
-    onConfirmarValor = null;
-    valorMinimoModal = null;
-    document.getElementById("aporteValor").classList.remove("input-erro");
-  });
-}
-FECHADORES_MODAL.modalBackdrop = fecharModal;
-on("modalCancelar", "click", fecharModal);
-if (modalBackdrop) {
-  modalBackdrop.addEventListener("click", (e) => {
-    if (e.target === modalBackdrop) fecharModal();
-  });
-}
-
-// Enquanto digita, já avisa visualmente se o valor ficou abaixo do mínimo
-// permitido (sem travar a digitação — a trava mesmo é no submit).
-on("aporteValor", "input", (e) => {
-  if (valorMinimoModal == null) return;
-  const valor = parseValor(e.target.value);
-  e.target.classList.toggle("input-erro", e.target.value !== "" && valor < valorMinimoModal);
-});
-
-on("formAporte", "submit", (e) => {
-  e.preventDefault();
-  if (isAmbos()) return;
-  const inputValor = document.getElementById("aporteValor");
-  const valor = parseValor(inputValor.value);
-  if (!(valor > 0) || !onConfirmarValor) return;
-  if (valorMinimoModal != null && valor < valorMinimoModal) {
-    inputValor.classList.add("input-erro");
-    inputValor.classList.remove("input-tremer");
-    void inputValor.offsetWidth; // reinicia a animação se já tremeu antes
-    inputValor.classList.add("input-tremer");
-    showToast(`O valor não pode ser menor que o que já está guardado (${fmt(valorMinimoModal)})`);
-    return;
-  }
-  onConfirmarValor(valor);
-  fecharModal();
-});
-
-const TITULOS_CAIXINHA = {
-  guardar: (nome) => `Guardar em — ${nome}`,
-  retirar: (nome) => `Retirar de — ${nome}`,
-  rendimento: (nome) => `Rendimento ganho — ${nome}`, // Texto ajustado
-};
-const BOTOES_CAIXINHA = {
-  guardar: "Guardar",
-  retirar: "Retirar",
-  rendimento: "Confirmar",
-};
-function abrirModalCaixinha(acao, idx, opts) {
-  const cx = state.caixinhas[idx];
-  if (!cx) return;
-  const titulo = TITULOS_CAIXINHA[acao](cx.nome);
-  const acoes = {
-    guardar: (valor) => guardarNaCaixinha(idx, valor),
-    retirar: (valor) => retirarDaCaixinha(idx, valor),
-    rendimento: (valor) => informarRendimentoCaixinha(idx, valor),
-  };
-
-  // Rendimento pede o TOTAL atualizado da caixinha (não quanto rendeu) — por
-  // isso vem PRÉ-PREENCHIDO com o total de hoje (guardado + rendimento já
-  // acumulado): a pessoa só edita pro número novo, em vez de ter que
-  // calcular/lembrar o total de cabeça. Guardar/retirar continuam em branco,
-  // porque ali o número digitado já é o valor da própria ação.
-  const totalAtualCaixinha = totalCaixinha(cx);
-  const valorInicial = acao === "rendimento" ? totalAtualCaixinha : null;
-  const dica = acao === "rendimento"
-    ? "Digite o valor TOTAL que a caixinha tem hoje (não só o quanto rendeu) — o app calcula a diferença sozinho."
-    : null;
-  // Rendimento não pode ser um valor menor do que a caixinha já tem — isso
-  // seria uma perda, não um rendimento (pra registrar perda, dá pra editar
-  // a caixinha direto).
-  const minimo = acao === "rendimento" ? totalAtualCaixinha : null;
-  abrirModalValor(titulo, acoes[acao], BOTOES_CAIXINHA[acao], valorInicial, dica, minimo, opts);
-}
-
-let editContext = null; 
-const editBackdrop = document.getElementById("editBackdrop");
-const TITULOS_EDICAO = {
-  ganhos: "Editar ganho",
-  fixos: "Editar gasto fixo",
-  variaveis: "Editar gasto variável",
-  caixinhas: "Editar caixinha",
-};
-const EDICAO_TEM_CATEGORIA = { fixos: true, variaveis: true };
-const EDICAO_TEM_DATA = { ganhos: true, fixos: true, variaveis: true, caixinhas: true };
-const EDICAO_TEM_ORIGEM = { variaveis: true };
-const EDICAO_TEM_PARCELA = { fixos: true };
-
-function abrirModalEditar(tipo, idx, item) {
-  if (isAmbos()) return;
-  editContext = { tipo, idx };
-  const tituloEl = document.getElementById("editTitle");
-  if (tituloEl) tituloEl.textContent = TITULOS_EDICAO[tipo] || "Editar item";
-  document.getElementById("editNome").value = nomeExibicaoItem(item);
-  const valorEl = document.getElementById("editValor");
-  valorEl.value = item.valor ? fmtCampo(item.valor) : "";
-  valorEl.placeholder = tipo === "caixinhas" ? "Objetivo, R$ (0 = sem meta)" : "0,00";
-
-  const categoriaEl = document.getElementById("editCategoria");
-  const dataEl = document.getElementById("editData");
-  const parcelaEl = document.getElementById("editParcela");
-  const origemEl = document.getElementById("editOrigem");
-  const temCategoria = !!EDICAO_TEM_CATEGORIA[tipo];
-  const temData = !!EDICAO_TEM_DATA[tipo];
-  const temParcela = !!EDICAO_TEM_PARCELA[tipo];
-  const temOrigem = !!EDICAO_TEM_ORIGEM[tipo];
-  const iconPickerEl = document.getElementById("caixinhaIconPickerEditar");
-
-  if (iconPickerEl) {
-    const temIcone = tipo === "caixinhas";
-    iconPickerEl.classList.toggle("is-hidden", !temIcone);
-    if (temIcone) {
-      aplicarPreviewIcone(iconPickerEl, item.icone || "");
-      renderOpcoesIconesCaixinhas(iconPickerEl);
-    } else {
-      aplicarPreviewIcone(iconPickerEl, "");
-    }
-  }
-
-  if (categoriaEl) {
-    categoriaEl.classList.toggle("is-hidden", !temCategoria);
-    categoriaEl.value = temCategoria ? item.tipo || "" : "";
-  }
-  if (dataEl) {
-    dataEl.classList.toggle("is-hidden", !temData);
-    // input[type=date] aceita somente AAAA-MM-DD. Alguns lançamentos guardam
-    // também horário (ex.: AAAA-MM-DDTHH:mm:ss), então usamos apenas a parte
-    // da data ao abrir a edição. Se o lançamento não tiver data, permanece vazio.
-    const dataEdicao = dataDoLancamento(item.data);
-    dataEl.value = temData && /^\d{4}-\d{2}-\d{2}/.test(dataEdicao)
-      ? dataEdicao.slice(0, 10)
-      : "";
-  }
-  if (parcelaEl) {
-    parcelaEl.classList.toggle("is-hidden", !temParcela);
-    parcelaEl.value = temParcela ? item.parcela || "" : "";
-  }
-  if (origemEl) {
-    origemEl.classList.toggle("is-hidden", !temOrigem);
-    origemEl.value = temOrigem ? (item.origem === "beneficio" ? "beneficio" : "saldo") : "saldo";
-  }
-
-  if (editBackdrop) editBackdrop.classList.remove("is-hidden");
-  registrarAberturaModal("editBackdrop");
-  setTimeout(() => document.getElementById("editNome").focus(), 50);
-}
-function fecharModalEditar() {
-  fecharComHistorico("editBackdrop", () => {
-    if (editBackdrop) editBackdrop.classList.add("is-hidden");
-    editContext = null;
-  });
-}
-FECHADORES_MODAL.editBackdrop = fecharModalEditar;
-on("editCancelar", "click", fecharModalEditar);
-if (editBackdrop) {
-  editBackdrop.addEventListener("click", (e) => {
-    if (e.target === editBackdrop) fecharModalEditar();
-  });
-}
-on("formEditar", "submit", (e) => {
-  e.preventDefault();
-  if (!editContext || isAmbos()) return;
-  const nome = document.getElementById("editNome").value.trim();
-  const valorCampo = document.getElementById("editValor").value.trim();
-  // Em caixinhas, objetivo vazio significa exatamente o mesmo que 0 (sem meta).
-  const valor = valorCampo ? (parseValor(valorCampo) || 0) : 0;
-  const { tipo, idx } = editContext;
-  if (!nome || (tipo !== "caixinhas" && !(valor > 0))) return;
-
-  if (tipo === "fixos") {
-    const parcela = document.getElementById("editParcela").value.trim();
-    if (!parcelaValida(parcela)) {
-      showToast('Parcela inválida — use o formato "atual/total", ex: 2/48.');
-      return;
-    }
-  }
-
-  if (tipo === "ganhos") {
-    const data = document.getElementById("editData").value;
-    opGanhos.edit(idx, nome, valor, { data });
-  } else if (tipo === "fixos") {
-    const categoria = document.getElementById("editCategoria").value;
-    const data = document.getElementById("editData").value;
-    const parcela = document.getElementById("editParcela").value.trim();
-    const itemAtual = state.gastosFixos[idx];
-    const nomeSalvo = itemEhFatura(itemAtual) ? nomeInternoFatura(nome) : nome;
-    opFixos.edit(idx, nomeSalvo, valor, { tipo: categoria, data, parcela, fatura: itemEhFatura(itemAtual) });
-  } else if (tipo === "variaveis") {
-    const categoria = document.getElementById("editCategoria").value;
-    const data = document.getElementById("editData").value;
-    const origem = document.getElementById("editOrigem").value === "beneficio" ? "beneficio" : "saldo";
-    const itemAtual = state.gastosVariaveis[idx];
-    const nomeSalvo = itemEhFatura(itemAtual) ? nomeInternoFatura(nome) : nome;
-    // Editar manualmente tira o item do modo "lembrete" (compra adiantada) —
-    // a partir daqui ele volta a contar normalmente no saldo, com a nova
-    // data/categoria/origem que a pessoa escolheu.
-    opVariaveis.edit(idx, nomeSalvo, valor, { tipo: categoria, data, origem, lembrete: false, fatura: itemEhFatura(itemAtual) });
-  } else if (tipo === "caixinhas") {
-    const icone = normalizarNomeIcone(document.getElementById("editIcone")?.value || "");
-    const data = document.getElementById("editData").value;
-    editCaixinha(idx, nome, valor, icone, data);
-  }
-  fecharModalEditar();
-});
-
-const acoesBackdrop = document.getElementById("acoesBackdrop");
-const acoesMenuView = document.getElementById("acoesMenuView");
-const formDividir = document.getElementById("formDividir");
-const formTransferir = document.getElementById("formTransferir");
-let categoriaDividir = "variaveis";
-let direcaoTransferir = { de: "davi", para: "gabriel" };
-
-function abrirAcoesConjunto() {
-  if (acoesMenuView) acoesMenuView.classList.remove("is-hidden");
-  if (formDividir) formDividir.classList.add("is-hidden");
-  if (formTransferir) formTransferir.classList.add("is-hidden");
-  if (acoesBackdrop) acoesBackdrop.classList.remove("is-hidden");
-  registrarAberturaModal("acoesBackdrop");
-}
-function fecharAcoesConjunto() {
-  fecharComHistorico("acoesBackdrop", () => {
-    if (acoesBackdrop) acoesBackdrop.classList.add("is-hidden");
-  });
-}
-FECHADORES_MODAL.acoesBackdrop = fecharAcoesConjunto;
-on("btnAcoesConjunto", "click", () => {
-  esconderDicaAcoesConjunto();
-  abrirAcoesConjunto();
-});
-on("acoesFechar", "click", fecharAcoesConjunto);
-
-const CHAVE_DICA_ACOES = "caixa-dica-acoes-conjunto-vista";
-function jaViuDicaAcoesConjunto() {
-  try { return localStorage.getItem(CHAVE_DICA_ACOES) === "1"; } catch { return false; }
-}
-function esconderDicaAcoesConjunto() {
-  const tip = document.getElementById("acoesConjuntoTip");
-  if (tip) {
-    tip.classList.remove("is-visivel");
-    setTimeout(() => tip.classList.add("is-hidden"), 250);
-  }
-  try { localStorage.setItem(CHAVE_DICA_ACOES, "1"); } catch {}
-}
-function mostrarDicaAcoesConjuntoSeNecessario() {
-  if (jaViuDicaAcoesConjunto()) return;
-  const tip = document.getElementById("acoesConjuntoTip");
-  if (!tip) return;
-  tip.classList.remove("is-hidden");
-  requestAnimationFrame(() => requestAnimationFrame(() => tip.classList.add("is-visivel")));
-  setTimeout(esconderDicaAcoesConjunto, 6000);
-  document.addEventListener("pointerdown", (e) => {
-      if (!e.target.closest("#btnAcoesConjunto")) esconderDicaAcoesConjunto();
-    }, { once: true });
-}
-if (acoesBackdrop) {
-  acoesBackdrop.addEventListener("click", (e) => {
-    if (e.target === acoesBackdrop) fecharAcoesConjunto();
-  });
-}
-
-const dividirQuemPagouEl = document.getElementById("dividirQuemPagou");
-const dividirPagoCheckbox = document.getElementById("dividirPago");
-const dividirPagoTexto = document.getElementById("dividirPagoTexto");
-const dividirHintEl = document.getElementById("dividirHint");
-
-function atualizarTextoDividir() {
-  const valor = dividirQuemPagouEl ? dividirQuemPagouEl.value : "metade";
-  if (valor === "metade") {
-    if (dividirHintEl) dividirHintEl.textContent = "O valor total é dividido ao meio — metade entra no Davi, metade no Gabriel.";
-    if (dividirPagoTexto) dividirPagoTexto.textContent = "Já está pago (as duas partes)";
-  } else {
-    const pagador = PESSOA_LABEL[valor];
-    const devedor = PESSOA_LABEL[valor === "davi" ? "gabriel" : "davi"];
-    if (dividirHintEl) dividirHintEl.textContent = `${pagador} paga o valor cheio agora; ${devedor} fica devendo a metade.`;
-    if (dividirPagoTexto) dividirPagoTexto.textContent = `${devedor} já pagou a parte dele`;
-  }
-}
-if (dividirQuemPagouEl) dividirQuemPagouEl.addEventListener("change", atualizarTextoDividir);
-
-on("btnAbrirDividir", "click", () => {
-  if (acoesMenuView) acoesMenuView.classList.add("is-hidden");
-  if (formDividir) formDividir.classList.remove("is-hidden");
-  document.getElementById("dividirNome").value = "";
-  document.getElementById("dividirValor").value = "";
-  const dividirTipoEl = document.getElementById("dividirTipo");
-  if (dividirTipoEl) dividirTipoEl.value = "";
-  const dividirDataEl = document.getElementById("dividirData");
-  if (dividirDataEl) dividirDataEl.value = dataHojeISO();
-  if (dividirQuemPagouEl) dividirQuemPagouEl.value = "metade";
-  if (dividirPagoCheckbox) dividirPagoCheckbox.checked = true;
-  atualizarTextoDividir();
-  setTimeout(() => document.getElementById("dividirNome").focus(), 50);
-});
-on("dividirVoltar", "click", () => {
-  if (formDividir) formDividir.classList.add("is-hidden");
-  if (acoesMenuView) acoesMenuView.classList.remove("is-hidden");
-});
-
-const segmentedDividirEl = document.getElementById("dividirCategoria");
-if (segmentedDividirEl) {
-  segmentedDividirEl.addEventListener("click", (e) => {
-    const btn = e.target.closest(".segmented-btn");
-    if (!btn) return;
-    categoriaDividir = btn.dataset.categoria;
-    segmentedDividirEl.querySelectorAll(".segmented-btn").forEach((b) => b.classList.toggle("is-active", b === btn));
-  });
-}
-
-on("formDividir", "submit", async (e) => {
-  e.preventDefault();
-  const nome = document.getElementById("dividirNome").value.trim();
-  const valor = parseValor(document.getElementById("dividirValor").value);
-  if (!nome || !(valor > 0)) return;
-  const dividirTipoEl = document.getElementById("dividirTipo");
-  const dividirDataEl = document.getElementById("dividirData");
-  const tipo = dividirTipoEl ? dividirTipoEl.value : "";
-  const data = dividirDataEl ? dividirDataEl.value : "";
-  const pago = dividirPagoCheckbox ? dividirPagoCheckbox.checked : true;
-  const quemPagouTudo = dividirQuemPagouEl && dividirQuemPagouEl.value !== "metade" ? dividirQuemPagouEl.value : null;
-  const btnSubmit = document.getElementById("dividirSubmit");
-  if (btnSubmit) { btnSubmit.disabled = true; btnSubmit.textContent = "Preparando…"; }
-  const feedback = mostrarAnimacaoDivisao({ nome, valor, quemPagouTudo });
-  // A operação começa imediatamente. A animação é só feedback visual — não
-  // deve criar uma espera artificial antes de salvar a divisão.
-  const operacao = dividirCompra(nome, valor, categoriaDividir, { tipo, data, pago, quemPagouTudo });
-  setEstadoDivisaoFeedback(feedback, "dividindo");
-  if (btnSubmit) btnSubmit.textContent = "Dividindo…";
-  const duracaoVisual = new Promise((resolve) => window.setTimeout(resolve, 650));
-  const [ok] = await Promise.all([operacao, duracaoVisual]);
-  if (btnSubmit) { btnSubmit.disabled = false; btnSubmit.textContent = "Dividir"; }
-  if (ok) {
-    setEstadoDivisaoFeedback(feedback, "sucesso");
-    showToast(quemPagouTudo && !pago ? `"${nome}" lançado — ${PESSOA_LABEL[quemPagouTudo === "davi" ? "gabriel" : "davi"]} fica devendo a metade` : `"${nome}" dividido — metade pra cada um`);
-    fecharFeedbackDepois(feedback, 1550);
-    window.setTimeout(() => { fecharAcoesConjunto(); renderAll(); }, 1150);
-  } else {
-    setEstadoDivisaoFeedback(feedback, "erro");
-    fecharFeedbackDepois(feedback, 1500);
-    showToast("Não consegui dividir agora. Tenta de novo em instantes.");
-  }
-});
-
-
-on("btnAbrirTransferir", "click", () => {
-  if (acoesMenuView) acoesMenuView.classList.add("is-hidden");
-  if (formTransferir) formTransferir.classList.remove("is-hidden");
-  document.getElementById("transferirNome").value = "";
-  document.getElementById("transferirValor").value = "";
-  const categoriaEl = document.getElementById("transferirCategoria");
-  if (categoriaEl) categoriaEl.value = "";
-  direcaoTransferir = { de: "davi", para: "gabriel" };
-  renderDirecaoTransferir();
-  setTimeout(() => document.getElementById("transferirValor").focus(), 50);
-});
-on("transferirVoltar", "click", () => {
-  if (formTransferir) formTransferir.classList.add("is-hidden");
-  if (acoesMenuView) acoesMenuView.classList.remove("is-hidden");
-});
-on("transferirInverter", "click", () => {
-  direcaoTransferir = { de: direcaoTransferir.para, para: direcaoTransferir.de };
-  renderDirecaoTransferir();
-});
-
-function renderDirecaoTransferir() {
-  const deEl = document.getElementById("transferirDe");
-  const paraEl = document.getElementById("transferirPara");
-  if (deEl) deEl.textContent = PESSOA_LABEL[direcaoTransferir.de];
-  if (paraEl) paraEl.textContent = PESSOA_LABEL[direcaoTransferir.para];
-}
-
-function mostrarProcessando(id) {
-  const overlay = document.getElementById(id);
-  if (overlay) overlay.classList.remove("is-hidden");
-}
-function esconderProcessando(id) {
-  const overlay = document.getElementById(id);
-  if (overlay) overlay.classList.add("is-hidden");
-}
-
-/* ============================================================
-   FEEDBACK VISUAL — AÇÕES EM CONJUNTO
-   Divisão: duas partes se separam e "encaixam" em cada pessoa.
-   Transferência: usa o overlay da moeda, com direção explícita.
-   Tudo é apenas feedback visual; a lógica financeira continua igual.
-   ============================================================ */
-function criarAcaoFeedbackBase(id, tipo) {
-  const existente = document.getElementById(id);
-  if (existente) existente.remove();
-
-  const overlay = document.createElement("div");
-  overlay.id = id;
-  overlay.className = `acao-feedback-overlay ${tipo}-feedback-overlay`;
-  overlay.setAttribute("role", "status");
-  overlay.setAttribute("aria-live", "polite");
-  document.body.appendChild(overlay);
-
-  requestAnimationFrame(() => overlay.classList.add("is-visible"));
-  return overlay;
-}
-
-function perfilFeedback(pessoa, lado = "") {
-  const nome = PESSOA_LABEL[pessoa] || pessoa;
-  const inicial = nome.charAt(0).toUpperCase();
-  return `
-    <div class="feedback-person ${lado}">
-      <div class="feedback-avatar" aria-hidden="true">${inicial}</div>
-      <span class="feedback-person-name">${escapeHtml(nome)}</span>
-    </div>
-  `;
-}
-
-function montarDivisaoFeedback({ nome = "", valor = 0, quemPagouTudo = null } = {}) {
-  const overlay = criarAcaoFeedbackBase("divisaoFeedbackOverlay", "divisao");
-  const metade = Math.round((Number(valor) / 2) * 100) / 100;
-  const rotulo = quemPagouTudo
-    ? `${PESSOA_LABEL[quemPagouTudo]} pagou a compra`
-    : "50% para cada um";
-
-  overlay.innerHTML = `
-    <div class="acao-feedback-card v34-feedback-card v34-divisao-card">
-      <div class="cozy-badge">✦ MOMENTO DO CAIXA</div>
-      <div class="v34-divisao-scene" aria-hidden="true">
-        <div class="v34-scene-glow"></div>
-        <div class="v34-divisao-link v34-link-left"></div>
-        <div class="v34-divisao-link v34-link-right"></div>
-        <div class="v34-split-person v34-person-left">
-          <div class="feedback-avatar">${(PESSOA_LABEL.davi || "D").charAt(0).toUpperCase()}</div>
-          <span>${escapeHtml(PESSOA_LABEL.davi)}</span>
-        </div>
-        <div class="v34-split-core">
-          <div class="v34-purchase-card">
-            <div class="v34-bag" aria-hidden="true">
-              <span class="v34-bag-handle"></span>
-              <span class="v34-bag-body"></span>
-              <span class="v34-bag-line"></span>
-            </div>
-            <span class="v34-purchase-value">${fmt(Number(valor))}</span>
-            <span class="v34-success-check">✓</span>
-          </div>
-          <span class="v34-share v34-share-left">50%</span>
-          <span class="v34-share v34-share-right">50%</span>
-        </div>
-        <div class="v34-split-person v34-person-right">
-          <div class="feedback-avatar">${(PESSOA_LABEL.gabriel || "G").charAt(0).toUpperCase()}</div>
-          <span>${escapeHtml(PESSOA_LABEL.gabriel)}</span>
-        </div>
-        <div class="v34-split-sparkles" aria-hidden="true">
-          <i>✦</i><i>✧</i><i>✦</i><i>·</i><i>✦</i>
-        </div>
-      </div>
-      <span class="acao-feedback-kicker v34-feedback-kicker" data-divisao-kicker>PREPARANDO A DIVISÃO</span>
-      <span class="acao-feedback-detail v34-feedback-detail" data-divisao-detail>${escapeHtml(nome || "Compra")} · ${fmt(metade)} para cada</span>
-      <span class="acao-feedback-stamp v34-feedback-stamp" data-divisao-stamp>${escapeHtml(rotulo)}</span>
-    </div>
-  `;
-  return overlay;
-}
-
-function animarPartilhaV34(overlay) {
-  const scene = overlay?.querySelector(".v34-divisao-scene");
-  const core = overlay?.querySelector(".v34-split-core");
-  const leftPiece = overlay?.querySelector(".v34-share-left");
-  const rightPiece = overlay?.querySelector(".v34-share-right");
-  const leftPerson = overlay?.querySelector(".v34-person-left .feedback-avatar");
-  const rightPerson = overlay?.querySelector(".v34-person-right .feedback-avatar");
-  if (!scene || !core || !leftPiece || !rightPiece) return Promise.resolve();
-
-  // As partes são filhas do .v34-split-core. Portanto, as coordenadas precisam
-  // ser calculadas no sistema de coordenadas do próprio core — usar a largura
-  // da cena aqui fazia a parte nascer/terminar em posições erradas (inclusive
-  // perto do Gabriel) e dava a impressão de teleporte.
-  const coreRect = core.getBoundingClientRect();
-  const coreCenterX = coreRect.width / 2;
-  const coreCenterY = coreRect.height / 2;
-
-  const targets = [
-    { el: leftPiece, person: leftPerson },
-    { el: rightPiece, person: rightPerson }
-  ];
-
-  const animations = targets.map(({ el, person }) => {
-    const personRect = person?.getBoundingClientRect();
-    if (!personRect) return Promise.resolve();
-
-    const targetX = personRect.left + personRect.width / 2 - coreRect.left;
-    const targetY = personRect.top + personRect.height / 2 - coreRect.top;
-    const dx = targetX - coreCenterX;
-    const dy = targetY - coreCenterY;
-    const side = dx < 0 ? -1 : 1;
-
-    // Começa exatamente no centro da compra. O pequeno arco é aplicado de
-    // forma progressiva, sem saltos de posição, e a chegada desacelera antes
-    // de tocar o avatar.
-    el.style.left = `${coreCenterX}px`;
-    el.style.top = `${coreCenterY}px`;
-    el.style.opacity = "1";
-
-    const arc = Math.min(22, Math.max(10, Math.abs(dx) * 0.10));
-    const keyframes = [
-      { transform: "translate(-50%, -50%) scale(.55)", opacity: 0, offset: 0 },
-      { transform: `translate(calc(-50% + ${dx * .08}px), calc(-50% - ${arc}px)) scale(1.03)`, opacity: 1, offset: .08 },
-      { transform: `translate(calc(-50% + ${dx * .22}px), calc(-50% - ${arc * .72}px)) scale(1)`, opacity: 1, offset: .22 },
-      { transform: `translate(calc(-50% + ${dx * .42}px), calc(-50% - ${arc * .34}px)) scale(.99)`, opacity: 1, offset: .42 },
-      { transform: `translate(calc(-50% + ${dx * .66}px), calc(${dy * .66}px - 50% + ${arc * .20}px)) scale(.97)`, opacity: 1, offset: .66 },
-      { transform: `translate(calc(-50% + ${dx * .84}px), calc(${dy * .84}px - 50%)) scale(.95)`, opacity: 1, offset: .84 },
-      { transform: `translate(calc(-50% + ${dx}px), calc(${dy}px - 50%)) scale(.9)`, opacity: 1, offset: 1 }
-    ];
-
-    const animation = el.animate(keyframes, {
-      duration: 2100,
-      easing: "cubic-bezier(.22,.72,.20,1)",
-      fill: "forwards"
-    });
-
-    animation.finished.then(() => {
-      el.style.opacity = "0";
-      person.classList.add("v34-recebeu");
-      person.style.setProperty("--recebe-side", side < 0 ? "-1" : "1");
-    });
-
-    return animation.finished;
-  });
-
-  return Promise.all(animations);
-}
-
-function setEstadoDivisaoFeedback(overlay, estado) {
-  if (!overlay) return;
-  overlay.dataset.estado = estado;
-  const kicker = overlay.querySelector("[data-divisao-kicker]");
-  const stage = overlay.querySelector(".v34-divisao-scene");
-  const detail = overlay.querySelector("[data-divisao-detail]");
-  if (estado === "idle") {
-    if (kicker) kicker.textContent = "PREPARANDO A DIVISÃO";
-    stage?.classList.remove("is-dividindo", "is-sucesso", "is-erro");
-  } else if (estado === "dividindo") {
-    if (kicker) kicker.textContent = "DIVIDINDO A COMPRA";
-    stage?.classList.add("is-dividindo");
-    stage?.classList.remove("is-sucesso", "is-erro");
-    if (detail) detail.textContent = "Cada parte encontra seu destino";
-    requestAnimationFrame(() => animarPartilhaV34(overlay));
-  } else if (estado === "sucesso") {
-    if (kicker) kicker.textContent = "DIVISÃO CONCLUÍDA";
-    stage?.classList.remove("is-dividindo", "is-erro");
-    stage?.classList.add("is-sucesso");
-  } else if (estado === "erro") {
-    if (kicker) kicker.textContent = "NÃO FOI POSSÍVEL DIVIDIR";
-    stage?.classList.remove("is-dividindo", "is-sucesso");
-    stage?.classList.add("is-erro");
-  }
-}
-
-function fecharFeedbackDepois(overlay, ms = 900) {
-  window.setTimeout(() => {
-    if (!overlay) return;
-    overlay.classList.add("is-closing");
-    window.setTimeout(() => overlay.remove(), 360);
-  }, ms);
-}
-
-function mostrarAnimacaoDivisao({ nome = "", valor = 0, quemPagouTudo = null } = {}) {
-  const overlay = montarDivisaoFeedback({ nome, valor, quemPagouTudo });
-  setEstadoDivisaoFeedback(overlay, "idle");
-  return overlay;
-}
-
-function montarTransferenciaFeedback(de, para, valor) {
-  const overlay = criarAcaoFeedbackBase("transferirFeedbackOverlay", "transferencia");
-  overlay.dataset.de = de;
-  overlay.dataset.para = para;
-  const deNome = PESSOA_LABEL[de] || de;
-  const paraNome = PESSOA_LABEL[para] || para;
-  overlay.innerHTML = `
-    <div class="acao-feedback-card v34-feedback-card v34-transfer-card">
-      <div class="cozy-badge">✦ FLUXO DO CAIXA</div>
-      <div class="v34-transfer-scene" aria-hidden="true">
-        <div class="v34-transfer-aura"></div>
-        <div class="v34-transfer-person v34-transfer-left">
-          <div class="feedback-avatar">${escapeHtml((deNome || "D").charAt(0).toUpperCase())}</div>
-          <span>${escapeHtml(deNome)}</span>
-        </div>
-        <div class="v34-transfer-route">
-          <svg viewBox="0 0 600 120" preserveAspectRatio="none">
-            <path class="v34-route-shadow" d="M 28 60 C 155 25, 205 95, 300 60 S 445 25, 572 60"></path>
-            <path class="v34-route-flow" d="M 28 60 C 155 25, 205 95, 300 60 S 445 25, 572 60"></path>
-          </svg>
-          <span class="v34-transfer-coin">R$</span>
-          <span class="v34-arrival-ring"></span>
-          <span class="v34-arrival-check">✓</span>
-        </div>
-        <div class="v34-transfer-person v34-transfer-right">
-          <div class="feedback-avatar">${escapeHtml((paraNome || "G").charAt(0).toUpperCase())}</div>
-          <span>${escapeHtml(paraNome)}</span>
-        </div>
-      </div>
-      <span class="acao-feedback-kicker v34-feedback-kicker" data-transfer-kicker>PREPARANDO A TRANSFERÊNCIA</span>
-      <span class="acao-feedback-detail v34-feedback-detail" data-transfer-detail>${escapeHtml(deNome)} → ${escapeHtml(paraNome)} · ${fmt(Number(valor))}</span>
-    </div>
-  `;
-  return overlay;
-}
-
-function animarTransferenciaV34(overlay) {
-  const route = overlay?.querySelector(".v34-transfer-route");
-  const path = route?.querySelector(".v34-route-flow");
-  const coin = route?.querySelector(".v34-transfer-coin");
-  if (!route || !path || !coin) return Promise.resolve();
-  const total = path.getTotalLength();
-  const duration = 3400;
-  const start = performance.now();
-  const ease = (t) => 1 - Math.pow(1 - t, 1.75);
-  return new Promise((resolve) => {
-    const frame = (now) => {
-      const raw = Math.min(1, (now - start) / duration);
-      const t = ease(raw);
-      const point = path.getPointAtLength(total * t);
-      coin.style.left = `${(point.x / 600) * 100}%`;
-      coin.style.top = `${(point.y / 120) * 100}%`;
-      coin.style.transform = "translate(-50%, -50%)";
-      if (raw < 1) requestAnimationFrame(frame);
-      else { route.classList.add("is-arrived"); resolve(); }
-    };
-    requestAnimationFrame(frame);
-  });
-}
-
-function setEstadoTransferenciaFeedback(overlay, estado) {
-  if (!overlay) return;
-  overlay.dataset.estado = estado;
-  const kicker = overlay.querySelector("[data-transfer-kicker]");
-  const scene = overlay.querySelector(".v34-transfer-scene");
-  if (estado === "idle") {
-    if (kicker) kicker.textContent = "PREPARANDO A TRANSFERÊNCIA";
-    scene?.classList.remove("is-transferindo", "is-sucesso", "is-erro");
-  } else if (estado === "transferindo") {
-    if (kicker) kicker.textContent = "TRANSFERINDO";
-    scene?.classList.add("is-transferindo");
-    scene?.classList.remove("is-sucesso", "is-erro");
-    requestAnimationFrame(() => animarTransferenciaV34(overlay));
-  } else if (estado === "sucesso") {
-    if (kicker) kicker.textContent = "TRANSFERÊNCIA CONCLUÍDA";
-    scene?.classList.remove("is-transferindo", "is-erro");
-    scene?.classList.add("is-sucesso");
-  } else if (estado === "erro") {
-    if (kicker) kicker.textContent = "TRANSFERÊNCIA NÃO CONCLUÍDA";
-    scene?.classList.remove("is-transferindo", "is-sucesso");
-    scene?.classList.add("is-erro");
-  }
-}
-
-on("formTransferir", "submit", async (e) => {
-  e.preventDefault();
-  const nome = document.getElementById("transferirNome").value.trim() || "Transferência";
-  const valor = parseValor(document.getElementById("transferirValor").value);
-  if (!(valor > 0)) return;
-  const categoriaEl = document.getElementById("transferirCategoria");
-  const tipo = categoriaEl ? categoriaEl.value : "";
-  const btnSubmit = document.getElementById("transferirSubmit");
-  if (btnSubmit) { btnSubmit.disabled = true; btnSubmit.textContent = "Preparando…"; }
-  const { de, para } = direcaoTransferir;
-  const feedback = montarTransferenciaFeedback(de, para, valor);
-  setEstadoTransferenciaFeedback(feedback, "transferindo");
-  if (btnSubmit) btnSubmit.textContent = "Transferindo…";
-  // Começa a transferência na hora; a animação acompanha a operação em vez
-  // de bloquear o envio por vários segundos.
-  const operacao = transferirEntrePessoas(de, para, nome, valor, tipo);
-  const duracaoVisual = new Promise((resolve) => window.setTimeout(resolve, 700));
-  const [ok] = await Promise.all([operacao, duracaoVisual]);
-  if (btnSubmit) { btnSubmit.disabled = false; btnSubmit.textContent = "Transferir"; }
-  if (ok) {
-    setEstadoTransferenciaFeedback(feedback, "sucesso");
-    showToast(`${fmt(valor)} transferido de ${PESSOA_LABEL[de]} pra ${PESSOA_LABEL[para]}`);
-    fecharFeedbackDepois(feedback, 1700);
-    window.setTimeout(() => { fecharAcoesConjunto(); renderAll(); }, 1250);
-  } else {
-    setEstadoTransferenciaFeedback(feedback, "erro");
-    fecharFeedbackDepois(feedback, 1500);
-    showToast("Não consegui transferir agora. Tenta de novo em instantes.");
-  }
-});
-
-const fecharMesBackdrop = document.getElementById("fecharMesBackdrop");
-
-function abrirFecharMes() {
-  prepararFormFecharMes();
-  if (fecharMesBackdrop) fecharMesBackdrop.classList.remove("is-hidden");
-  registrarAberturaModal("fecharMesBackdrop");
-}
-function fecharModalFecharMes() {
-  fecharComHistorico("fecharMesBackdrop", () => {
-    if (fecharMesBackdrop) fecharMesBackdrop.classList.add("is-hidden");
-  });
-}
-FECHADORES_MODAL.fecharMesBackdrop = fecharModalFecharMes;
-on("mesAtualBadge", "click", abrirFecharMes);
-on("fecharMesCancelar", "click", fecharModalFecharMes);
-if (fecharMesBackdrop) {
-  fecharMesBackdrop.addEventListener("click", (e) => {
-    if (e.target === fecharMesBackdrop) fecharModalFecharMes();
-  });
-}
-
-function prepararFormFecharMes() {
-  const selectMes = document.getElementById("fecharMesSelect");
-  const inputAno = document.getElementById("fecharAnoInput");
-  if (selectMes && selectMes.options.length === 0) {
-    MESES_LABEL.forEach((nome, idx) => {
-      const opt = document.createElement("option");
-      opt.value = String(idx + 1);
-      opt.textContent = nome;
-      selectMes.appendChild(opt);
-    });
-  }
-  const agora = new Date();
-  const mes = state.mesAtual || agora.getMonth() + 1;
-  const ano = state.anoAtual || agora.getFullYear();
-  if (selectMes) selectMes.value = String(mes);
-  if (inputAno) inputAno.value = ano;
-}
-
-
-const FECHAMENTO_MES_CACHE_PREFIX = "caixa:fechamento-mes:v1:";
-let fechamentoMesTimer = null;
-
-function criarCenaFechamentoMes() {
-  let cena = document.getElementById("fechamentoMesCena");
-  if (cena) return cena;
-
-  cena = document.createElement("div");
-  cena.id = "fechamentoMesCena";
-  cena.className = "fechamento-mes-cena is-hidden";
-  cena.setAttribute("role", "dialog");
-  cena.setAttribute("aria-modal", "true");
-  cena.setAttribute("aria-label", "Fechamento do mês");
-  cena.innerHTML = `
-    <div class="fechamento-mes-linhas" aria-hidden="true"></div>
-    <div class="fechamento-mes-brilhos" aria-hidden="true"></div>
-    <div class="fechamento-mes-card">
-      <div class="fechamento-mes-orb" aria-hidden="true"><span></span></div>
-      <div class="fechamento-mes-etapa" id="fechamentoMesEtapa">
-        <div class="fechamento-mes-kicker">Fechamento concluído</div>
-        <h2 id="fechamentoMesTitulo">Setembro foi encerrado</h2>
-        <p id="fechamentoMesTexto">Um capítulo termina. O próximo começa.</p>
-      </div>
-      <div class="fechamento-mes-resumo" id="fechamentoMesResumo"></div>
-      <div class="fechamento-mes-progresso" aria-hidden="true"><span id="fechamentoMesProgresso"></span></div>
-    </div>
-  `;
-  document.body.appendChild(cena);
-
-  const linhas = cena.querySelector(".fechamento-mes-linhas");
-  for (let i = 0; i < 22; i++) {
-    const linha = document.createElement("span");
-    linha.style.setProperty("--x", `${2 + Math.random() * 96}%`);
-    linha.style.setProperty("--dur", `${3.2 + Math.random() * 3.8}s`);
-    linha.style.setProperty("--delay", `${-Math.random() * 6}s`);
-    linha.style.setProperty("--altura", `${70 + Math.random() * 35}vh`);
-    linha.style.setProperty("--op", `${0.08 + Math.random() * 0.14}`);
-    linhas.appendChild(linha);
-  }
-
-  const brilhos = cena.querySelector(".fechamento-mes-brilhos");
-  for (let i = 0; i < 16; i++) {
-    const brilho = document.createElement("i");
-    brilho.style.setProperty("--x", `${4 + Math.random() * 92}%`);
-    brilho.style.setProperty("--y", `${18 + Math.random() * 72}%`);
-    brilho.style.setProperty("--delay", `${-Math.random() * 4}s`);
-    brilho.style.setProperty("--dur", `${2.4 + Math.random() * 2.8}s`);
-    brilhos.appendChild(brilho);
-  }
-  return cena;
-}
-
-function fechamentoMesJaExibido(mes, ano, pessoa = state.pessoaAtual) {
-  try {
-    return localStorage.getItem(`${FECHAMENTO_MES_CACHE_PREFIX}${pessoa}:${ano}-${String(mes).padStart(2, "0")}`) === "1";
-  } catch (err) { return false; }
-}
-
-function marcarFechamentoMesExibido(mes, ano, pessoa = state.pessoaAtual) {
-  try {
-    localStorage.setItem(`${FECHAMENTO_MES_CACHE_PREFIX}${pessoa}:${ano}-${String(mes).padStart(2, "0")}`, "1");
-  } catch (err) {}
-}
-
-function formatarFechamentoValor(valor, sinal = "") {
-  const n = Number(valor) || 0;
-  return `${sinal}${fmt(Math.abs(n))}`;
-}
-
-function animarFechamentoNumero(el, valor, duracao = 850) {
-  if (!el) return;
-  const alvo = Number(valor) || 0;
-  const inicio = performance.now();
-  function passo(agora) {
-    const p = Math.min((agora - inicio) / duracao, 1);
-    const suavizado = 1 - Math.pow(1 - p, 4);
-    el.textContent = fmt(alvo * suavizado);
-    if (p < 1) requestAnimationFrame(passo);
-    else el.textContent = fmt(alvo);
-  }
-  requestAnimationFrame(passo);
-}
-
-function prepararDadosFechamentoMes(mes, ano) {
-  // Esta função fica fora do escopo do chat, então não pode chamar
-  // totaisChat(), que é uma função local criada mais abaixo no app.js.
-  // Calculamos aqui os mesmos dados diretamente a partir do state.
-  const ganhos = somaComStatus(state.ganhos || [], "recebido");
-  const gastosFixos = somaFixosPagos(state.gastosFixos || []);
-  const gastosVariaveis = somaVariaveisPagas(state.gastosVariaveis || []);
-  const gastos = gastosFixos + gastosVariaveis;
-  const guardado = somaCampo(state.caixinhas || [], "valorGuardadoMes");
-  const saldo = ganhos - gastos;
-  const metasBatidas = (Array.isArray(state.caixinhas) ? state.caixinhas : []).filter((cx) => {
-    const objetivo = Number(cx.valorObjetivo) || 0;
-    return objetivo > 0 && totalCaixinha(cx) >= objetivo;
-  }).slice(0, 2);
-  return {
-    mes, ano, ganhos, gastos, guardado, saldo,
-    metasBatidas: metasBatidas.map((cx) => ({ nome: String(cx.nome || "Caixinha"), valor: Number(cx.valorObjetivo) || 0 }))
-  };
-}
-
-function mostrarFechamentoMes(dados, { aguardandoFechamento = false } = {}) {
-  const cena = criarCenaFechamentoMes();
-  const titulo = document.getElementById("fechamentoMesTitulo");
-  const texto = document.getElementById("fechamentoMesTexto");
-  const etapa = document.getElementById("fechamentoMesEtapa");
-  const resumo = document.getElementById("fechamentoMesResumo");
-  const progresso = document.getElementById("fechamentoMesProgresso");
-  const kicker = document.querySelector("#fechamentoMesEtapa .fechamento-mes-kicker");
-  if (!titulo || !texto || !etapa || !resumo) return;
-
-  if (fechamentoMesTimer) window.clearTimeout(fechamentoMesTimer);
-  const mesNome = MESES_LABEL[dados.mes - 1] || "Mês";
-  const proximoMes = dados.mes === 12 ? 1 : dados.mes + 1;
-  const proximoAno = dados.mes === 12 ? dados.ano + 1 : dados.ano;
-  const proximoNome = MESES_LABEL[proximoMes - 1];
-
-  cena.classList.remove("is-hidden", "fechamento-mes-finalizando");
-  cena.dataset.cerimoniaInicio = String(Date.now());
-  document.body.classList.add("fechamento-mes-ativo");
-  requestAnimationFrame(() => cena.classList.add("is-visible"));
-
-  etapa.classList.remove("is-trocando");
-  resumo.innerHTML = "";
-  if (kicker) kicker.textContent = aguardandoFechamento ? "Preparação em andamento" : "Fechamento concluído";
-  if (progresso) {
-    progresso.style.width = aguardandoFechamento ? "8%" : "0%";
-    progresso.parentElement?.classList.toggle("is-processando", aguardandoFechamento);
-  }
-
-  // A cerimônia começa ANTES da chamada ao Apps Script. Enquanto o servidor
-  // trabalha, a barra fica em modo de processamento (sem fingir um percentual
-  // exato que o navegador não consegue conhecer).
-  titulo.textContent = aguardandoFechamento ? "Preparando o fechamento…" : `${proximoNome} começou`;
-  texto.textContent = aguardandoFechamento
-    ? "Organizando os últimos detalhes deste mês."
-    : "O fechamento foi concluído. Um novo mês começa agora. 🌱";
-  resumo.innerHTML = aguardandoFechamento
-    ? `<div class="fechamento-mes-preparando"><span>✦</span><p>${escapeHtml(mesNome)} está sendo encerrado com cuidado.</p></div>`
-    : `<div class="fechamento-mes-proximo"><span>${String(proximoAno)}</span><strong>${proximoNome}</strong></div>`;
-
-  const trocar = (fn) => {
-    etapa.classList.add("is-trocando");
-    window.setTimeout(() => { fn(); etapa.classList.remove("is-trocando"); }, 220);
-  };
-
-  // A cerimônia começa antes da resposta do Apps Script. Tudo o que é
-  // celebração do mês encerrado acontece enquanto o fechamento real trabalha.
-  // A única cena que fica bloqueada até a confirmação é "mês que vem começou".
-  if (aguardandoFechamento) {
-    cena.dataset.aguardandoFechamento = "1";
-    if (!document.getElementById("fechamentoMesProgressoStyle")) {
-      const style = document.createElement("style");
-      style.id = "fechamentoMesProgressoStyle";
-      style.textContent = `
-        .fechamento-mes-progresso.is-processando span {
-          width: 32% !important;
-          animation: fechamentoMesProgressoReal 1.55s ease-in-out infinite;
-        }
-        @keyframes fechamentoMesProgressoReal {
-          0%, 100% { transform: translateX(-105%); }
-          50% { transform: translateX(255%); }
-        }`;
-      document.head.appendChild(style);
-    }
-
-    // Em vez de ficar parado em "Preparando...", a cerimônia já mostra
-    // exatamente as etapas que normalmente aparecem depois: números e
-    // caixinhas. Cada callback confere se o fechamento ainda está pendente;
-    // assim, se a API terminar antes, ele não sobrescreve a cena final.
-    window.setTimeout(() => {
-      if (cena.dataset.aguardandoFechamento !== "1") return;
-      trocar(() => {
-        titulo.textContent = "Olha o que você construiu";
-        texto.textContent = "Os números do mês, do jeitinho que aconteceram.";
-        resumo.innerHTML = `
-          <div class="fechamento-mes-metricas">
-            <div class="fechamento-mes-metrica"><span>Recebido</span><strong data-fechamento-num="ganhos">R$ 0,00</strong></div>
-            <div class="fechamento-mes-metrica"><span>Gasto</span><strong data-fechamento-num="gastos">R$ 0,00</strong></div>
-            <div class="fechamento-mes-metrica destaque"><span>Guardado</span><strong data-fechamento-num="guardado">R$ 0,00</strong></div>
-          </div>
-          <div class="fechamento-mes-saldo"><span>Resultado do mês</span><strong class="${dados.saldo >= 0 ? "positivo" : "negativo"}">${formatarFechamentoValor(dados.saldo)}</strong></div>`;
-        animarFechamentoNumero(resumo.querySelector('[data-fechamento-num="ganhos"]'), dados.ganhos);
-        animarFechamentoNumero(resumo.querySelector('[data-fechamento-num="gastos"]'), dados.gastos, 950);
-        animarFechamentoNumero(resumo.querySelector('[data-fechamento-num="guardado"]'), dados.guardado, 1100);
-      });
-    }, 1200);
-
-    window.setTimeout(() => {
-      if (cena.dataset.aguardandoFechamento !== "1") return;
-      trocar(() => {
-        if (dados.guardado > 0) {
-          titulo.textContent = "Suas caixinhas continuam crescendo ✨";
-          texto.textContent = "Cada valor guardado continua fazendo parte da sua história.";
-          const metas = dados.metasBatidas.length
-            ? `<div class="fechamento-mes-meta"><span>🎯</span><p>${dados.metasBatidas.map((m) => `<strong>${esc(m.nome)}</strong>`).join(" e ")} ${dados.metasBatidas.length === 1 ? "chegou" : "chegaram"} à meta.</p></div>`
-            : `<div class="fechamento-mes-meta"><span>✦</span><p>Cada valor guardado agora faz parte da sua história financeira.</p></div>`;
-          resumo.innerHTML = `<div class="fechamento-mes-caixinha"><div class="fechamento-mes-caixinha-icone">↓</div><div><span>Guardado nas caixinhas</span><strong>${fmt(dados.guardado)}</strong></div></div>${metas}`;
-        } else {
-          titulo.textContent = "Tudo organizado ✨";
-          texto.textContent = "O mês está sendo preparado para virar a página.";
-          resumo.innerHTML = `<div class="fechamento-mes-meta"><span>✦</span><p>Os próximos passos já estão sendo preparados.</p></div>`;
-        }
-      });
-    }, 4500);
-
-    return cena;
-  }
-
-  cena.dataset.aguardandoFechamento = "0";
-  window.setTimeout(() => {
-    trocar(() => {
-      titulo.textContent = "Olha o que você construiu";
-      texto.textContent = "Os números do mês, do jeitinho que aconteceram.";
-      resumo.innerHTML = `
-        <div class="fechamento-mes-metricas">
-          <div class="fechamento-mes-metrica"><span>Recebido</span><strong data-fechamento-num="ganhos">R$ 0,00</strong></div>
-          <div class="fechamento-mes-metrica"><span>Gasto</span><strong data-fechamento-num="gastos">R$ 0,00</strong></div>
-          <div class="fechamento-mes-metrica destaque"><span>Guardado</span><strong data-fechamento-num="guardado">R$ 0,00</strong></div>
-        </div>
-        <div class="fechamento-mes-saldo"><span>Resultado do mês</span><strong class="${dados.saldo >= 0 ? "positivo" : "negativo"}">${formatarFechamentoValor(dados.saldo)}</strong></div>`;
-      animarFechamentoNumero(resumo.querySelector('[data-fechamento-num="ganhos"]'), dados.ganhos);
-      animarFechamentoNumero(resumo.querySelector('[data-fechamento-num="gastos"]'), dados.gastos, 950);
-      animarFechamentoNumero(resumo.querySelector('[data-fechamento-num="guardado"]'), dados.guardado, 1100);
-    });
-    if (progresso) progresso.style.width = "48%";
-  }, 950);
-
-  window.setTimeout(() => {
-    trocar(() => {
-      if (dados.guardado > 0) {
-        titulo.textContent = "Suas caixinhas continuam crescendo ✨";
-        const metas = dados.metasBatidas.length
-          ? `<div class="fechamento-mes-meta"><span>🎯</span><p>${dados.metasBatidas.map((m) => `<strong>${esc(m.nome)}</strong>`).join(" e ")} ${dados.metasBatidas.length === 1 ? "chegou" : "chegaram"} à meta.</p></div>`
-          : `<div class="fechamento-mes-meta"><span>✦</span><p>Cada valor guardado agora faz parte da sua história financeira.</p></div>`;
-        resumo.innerHTML = `<div class="fechamento-mes-caixinha"><div class="fechamento-mes-caixinha-icone">↓</div><div><span>Guardado nas caixinhas</span><strong>${fmt(dados.guardado)}</strong></div></div>${metas}`;
-      } else {
-        titulo.textContent = "Mês encerrado com calma";
-        texto.textContent = "As caixinhas seguem prontas para o próximo passo.";
-        resumo.innerHTML = `<div class="fechamento-mes-meta"><span>✦</span><p>Quando surgir o próximo valor, suas caixinhas estarão esperando por ele.</p></div>`;
-      }
-    });
-    if (progresso) progresso.style.width = "72%";
-  }, 2750);
-
-  window.setTimeout(() => {
-    trocar(() => {
-      titulo.textContent = `${proximoNome} começou`;
-      texto.textContent = "O fechamento foi concluído. Um novo mês começa agora. 🌱";
-      resumo.innerHTML = `<div class="fechamento-mes-proximo"><span>${String(proximoAno)}</span><strong>${proximoNome}</strong></div>`;
-    });
-    if (progresso) progresso.style.width = "100%";
-    progresso?.parentElement?.classList.remove("is-processando");
-  }, 4350);
-
-  fechamentoMesTimer = window.setTimeout(() => {
-    cena.classList.add("fechamento-mes-finalizando");
-    document.body.classList.remove("fechamento-mes-ativo");
-    window.setTimeout(() => cena.classList.add("is-hidden"), 650);
-  }, 5650);
-
-  return cena;
-}
-
-function concluirFechamentoMes(dados) {
-  const cena = document.getElementById("fechamentoMesCena");
-  if (!cena) return mostrarFechamentoMes(dados);
-
-  if (fechamentoMesTimer) window.clearTimeout(fechamentoMesTimer);
-  cena.dataset.aguardandoFechamento = "0";
-  const etapa = cena.querySelector("#fechamentoMesEtapa");
-  const titulo = cena.querySelector("#fechamentoMesTitulo");
-  const texto = cena.querySelector("#fechamentoMesTexto");
-  const resumo = cena.querySelector("#fechamentoMesResumo");
-  const progresso = cena.querySelector("#fechamentoMesProgresso");
-  if (!etapa || !titulo || !texto || !resumo) return;
-
-  progresso?.parentElement?.classList.remove("is-processando");
-  progresso?.closest(".fechamento-mes-progresso")?.classList.remove("is-processando");
-  if (progresso) progresso.style.width = "100%";
-
-  // Mesmo que o servidor responda rápido, deixamos a cerimônia respirar.
-  // Assim, "Olha o que você construiu" e a etapa das caixinhas não passam
-  // correndo antes da revelação do próximo mês.
-  const inicio = Number(cena.dataset.cerimoniaInicio) || Date.now();
-  const tempoMinimo = 7000;
-  const esperar = Math.max(0, tempoMinimo - (Date.now() - inicio));
-
-  window.setTimeout(() => {
-    // O mês seguinte só é revelado AGORA: o fechamento real já foi confirmado
-    // e a cerimônia teve tempo suficiente para mostrar suas etapas.
-    etapa.classList.add("is-trocando");
-    window.setTimeout(() => {
-      const proximoMes = dados.mes === 12 ? 1 : dados.mes + 1;
-      const proximoAno = dados.mes === 12 ? dados.ano + 1 : dados.ano;
-      const proximoNome = MESES_LABEL[proximoMes - 1];
-      titulo.textContent = `${proximoNome} começou`;
-      texto.textContent = "O fechamento foi concluído. Um novo mês começa agora. 🌱";
-      resumo.innerHTML = `<div class="fechamento-mes-proximo"><span>${String(proximoAno)}</span><strong>${proximoNome}</strong></div>`;
-      etapa.classList.remove("is-trocando");
-    }, 220);
-
-    fechamentoMesTimer = window.setTimeout(() => {
-      cena.classList.add("fechamento-mes-finalizando");
-      document.body.classList.remove("fechamento-mes-ativo");
-      window.setTimeout(() => cena.classList.add("is-hidden"), 650);
-    }, 2200);
-  }, esperar);
-}
-
-async function fecharMesRequisicao(mes, ano) {
-  if (!API_URL || API_URL.includes("COLE_AQUI")) {
-    showToast("Configure a URL do Apps Script em config.js");
-    return null;
-  }
-  try {
-    const res = await fetch(urlApi(), {
-      method: "POST",
-      body: JSON.stringify({ action: "fecharMes", mes, ano }),
-    });
-    const data = await res.json().catch(() => null);
-    if (!data || data.ok === false) throw new Error((data && data.error) || "Erro desconhecido");
-    return data;
-  } catch (err) { return null; }
-}
-
-on("formFecharMes", "submit", async (e) => {
-  e.preventDefault();
-  const mes = Number(document.getElementById("fecharMesSelect").value);
-  const ano = Number(document.getElementById("fecharAnoInput").value);
-  if (!mes || !ano) return;
-
-  const btnSubmit = document.getElementById("fecharMesSubmit");
-  if (btnSubmit) {
-    btnSubmit.disabled = true;
-    btnSubmit.textContent = "Preparando…";
-  }
-  // Captura os números ANTES do fechamento. A cerimônia também começa aqui,
-  // enquanto o Apps Script executa o fechamento de verdade em segundo plano.
-  const dadosFechamentoAntes = prepararDadosFechamentoMes(mes, ano);
-  const pessoaFechamento = state.pessoaAtual;
-  const podeExibirCerimonia = !fechamentoMesJaExibido(mes, ano, pessoaFechamento);
-  let cenaFechamento = null;
-  if (podeExibirCerimonia) {
-    // Abre a cerimônia ANTES de fechar o modal, e força a pintura visual
-    // imediatamente. Assim o usuário vê a cena enquanto o fetch trabalha.
-    cenaFechamento = mostrarFechamentoMes(dadosFechamentoAntes, { aguardandoFechamento: true });
-    if (cenaFechamento) {
-      cenaFechamento.style.zIndex = "99999";
-      cenaFechamento.classList.remove("is-hidden");
-      cenaFechamento.classList.add("is-visible");
-      void cenaFechamento.offsetWidth;
-    }
-  }
-
-  // Fecha SOMENTE o modal de confirmação. Não usa fecharModalFecharMes()
-  // aqui porque ele passa pelo histórico de modais e pode desmontar a cena
-  // recém-aberta antes que o navegador consiga pintá-la.
-  if (fecharMesBackdrop) fecharMesBackdrop.classList.add("is-hidden");
-  const idxModalFecharMes = pilhaModais.lastIndexOf("fecharMesBackdrop");
-  if (idxModalFecharMes !== -1) pilhaModais.splice(idxModalFecharMes, 1);
-  esconderProcessando("fecharMesOverlay");
-
-  // Dá ao navegador uma oportunidade de pintar a cerimônia antes de iniciar
-  // a requisição real. O fechamento continua acontecendo normalmente.
-  await new Promise((resolve) => requestAnimationFrame(() => requestAnimationFrame(resolve)));
-  const resultado = await fecharMesRequisicao(mes, ano);
-  if (btnSubmit) {
-    btnSubmit.disabled = false;
-    btnSubmit.textContent = "Fechar mês";
-  }
-
-  if (resultado) {
-    const f = resultado.fechado;
-    const dadosFechamento = { ...dadosFechamentoAntes, mes: f.mes, ano: f.ano };
-    state.mesAtual = resultado.mesAtual;
-    state.anoAtual = resultado.anoAtual;
-    renderMesAtual();
-
-    ["davi", "gabriel", "ambos", "historico"].forEach((p) => removerCache(p));
-
-    showToast(`${MESES_LABEL[f.mes - 1]}/${f.ano} foi fechado. Os saldos restantes foram levados para o próximo mês e os gastos variáveis foram encerrados.`);
-    // O modal já foi fechado antes da requisição para que a cerimônia fique
-    // livre na tela. Não feche novamente por histórico aqui.
-    if (podeExibirCerimonia) {
-      marcarFechamentoMesExibido(f.mes, f.ano, pessoaFechamento);
-      concluirFechamentoMes(dadosFechamento);
-    }
-    ["davi", "gabriel", "ambos"].forEach((p) => removerCache(p));
-    await removerCache("historico");
-  } else {
-    const cena = document.getElementById("fechamentoMesCena");
-    if (cena) {
-      if (fechamentoMesTimer) window.clearTimeout(fechamentoMesTimer);
-      const titulo = cena.querySelector("#fechamentoMesTitulo");
-      const texto = cena.querySelector("#fechamentoMesTexto");
-      const resumo = cena.querySelector("#fechamentoMesResumo");
-      if (titulo) titulo.textContent = "O fechamento não foi concluído";
-      if (texto) texto.textContent = "Nada foi alterado. Você pode tentar novamente quando quiser.";
-      if (resumo) resumo.innerHTML = `<div class="fechamento-mes-meta"><span>↻</span><p>Seu mês continua aberto e seguro.</p></div>`;
-      window.setTimeout(() => {
-        cena.classList.add("fechamento-mes-finalizando");
-        document.body.classList.remove("fechamento-mes-ativo");
-        window.setTimeout(() => cena.classList.add("is-hidden"), 650);
-      }, 1500);
-    }
-    showToast("Não consegui fechar o mês agora. Tenta de novo em instantes.");
-  }
-});
-
-let confirmCallback = null;
-const confirmBackdrop = document.getElementById("confirmBackdrop");
-
-function abrirConfirmacao(texto, onConfirm) {
-  confirmCallback = onConfirm;
-  const textoEl = document.getElementById("confirmText");
-  if (textoEl) textoEl.textContent = texto;
-  if (confirmBackdrop) confirmBackdrop.classList.remove("is-hidden");
-  registrarAberturaModal("confirmBackdrop");
-}
-function fecharConfirmacao() {
-  fecharComHistorico("confirmBackdrop", () => {
-    if (confirmBackdrop) confirmBackdrop.classList.add("is-hidden");
-    confirmCallback = null;
-  });
-}
-FECHADORES_MODAL.confirmBackdrop = fecharConfirmacao;
-on("confirmCancelar", "click", fecharConfirmacao);
-on("confirmOk", "click", () => {
-  const cb = confirmCallback;
-  fecharConfirmacao();
-  if (cb) cb();
-});
-if (confirmBackdrop) {
-  confirmBackdrop.addEventListener("click", (e) => {
-    if (e.target === confirmBackdrop) fecharConfirmacao();
-  });
-}
-
-// ---------------------------------------------------------------------
-// INIT E LISTENERS
-// ---------------------------------------------------------------------
-
-renderPessoaSwitch();
-renderMesAtual();
-popularSelectsDeCategoria();
-preencherDatasComHoje();
-atualizarVisibilidadeEdicao();
-atualizarVisibilidadeSplitCard();
-atualizarVisibilidadeVisaoGeral();
-atualizarVisibilidadeJuntosView();
-initGavetas();
-aplicarMascaraMoedaEmTodos();
-posicionarIndicadorAba();
-// Leituras da planilha acontecem na abertura da página. Depois disso, a
-// navegação e a troca de perfil usam os dados em memória/cache; alterações
-// feitas pelo usuário continuam sendo enviadas normalmente via POST.
-carregarDados();
-carregarHistorico();
-carregarConfigIA();
-setTimeout(mostrarDicaAcoesConjuntoSeNecessario, 1200);
-
-// Listener do novo Seletor de Ano no Histórico
-const selectAno = document.getElementById("historicoAnoSelect");
-if (selectAno) {
-  selectAno.addEventListener("change", (e) => {
-    state.historicoAnoSelecionado = e.target.value === "todos" ? "todos" : parseInt(e.target.value);
-    renderHistorico();
-  });
-}
-
-atualizarIndicadorOffline().then((n) => {
-  if (n > 0) flushFilaOffline();
-});
-
-if ("serviceWorker" in navigator) {
-  window.addEventListener("load", () => {
-    navigator.serviceWorker.register("sw.js").catch(() => {});
-  });
-}
-
-// =====================================================================
-// LÓGICA DO TOOLTIP CONSOLIDADO (BORDAS INTELIGENTES E EFEITO DESLIZAR)
-// =====================================================================
-let chartTooltip = null;
-
-function initChartTooltip() {
-  if (!chartTooltip) {
-    chartTooltip = document.createElement("div");
-    chartTooltip.className = "grafico-tooltip";
-    document.body.appendChild(chartTooltip);
-  }
-
-  const esconderTooltip = () => {
-    chartTooltip.classList.remove("is-visible");
-    document.querySelectorAll(".mes-hover-group.is-active").forEach(el => el.classList.remove("is-active"));
-  };
-
-  const mostrarTooltip = (grupo) => {
-    const mes = grupo.dataset.mes;
-    const ganhos = grupo.dataset.ganhos;
-    const gastos = grupo.dataset.gastos;
-    const guardado = grupo.dataset.guardado;
-    const rendimento = grupo.dataset.rendimento;
-
-    chartTooltip.innerHTML = `
-      <div class="tooltip-titulo">${mes}</div>
-      <div class="tooltip-linha"><span style="color: #8fd4ab">Ganhos</span> <span class="valor">${ganhos}</span></div>
-      <div class="tooltip-linha"><span style="color: #e8a58c">Gastos</span> <span class="valor">${gastos}</span></div>
-      <div class="tooltip-linha"><span style="color: #e3c581">Guardado</span> <span class="valor">${guardado}</span></div>
-      <div class="tooltip-linha"><span style="color: #8ec2dd">Rendimento</span> <span class="valor">${rendimento}</span></div>
-    `;
-
-    // Deixa visível primeiro para o navegador calcular a largura da caixinha
-    chartTooltip.classList.add("is-visible");
-
-    const rect = grupo.querySelector('.hover-area').getBoundingClientRect();
-    const svgRect = grupo.closest('svg').getBoundingClientRect();
-    
-    // Mede a largura real do tooltip na tela
-    const tooltipWidth = chartTooltip.offsetWidth;
-    
-    // Calcula o centro perfeito onde o tooltip DEVERIA ficar
-    let centerLeft = rect.left + (rect.width / 2);
-    
-    // LÓGICA ANTI-BORDA: Define limites mínimos e máximos com 14px de margem de respiro
-    const margin = 14;
-    const minCenter = (tooltipWidth / 2) + margin;
-    const maxCenter = window.innerWidth - (tooltipWidth / 2) - margin;
-    
-    // Prende o valor de centro dentro dos limites da tela
-    centerLeft = Math.max(minCenter, Math.min(centerLeft, maxCenter));
-    
-    // Aplica a posição protegida
-    chartTooltip.style.left = (centerLeft + window.scrollX) + "px";
-    chartTooltip.style.top = (svgRect.top + window.scrollY - 10) + "px";
-    
-    document.querySelectorAll(".mes-hover-group.is-active").forEach(el => el.classList.remove("is-active"));
-    grupo.classList.add("is-active");
-  };
-
-  // 1. Mouse (Computador)
-  document.body.addEventListener("mouseover", (e) => {
-    const grupo = e.target.closest(".mes-hover-group");
-    if (grupo) mostrarTooltip(grupo);
-  });
-
-  document.body.addEventListener("mouseout", (e) => {
-    if (e.target.closest(".mes-hover-group")) esconderTooltip();
-  });
-
-  // 2. Toque no Celular (Fica fixo até tocar em outro lugar)
-  document.body.addEventListener("touchstart", (e) => {
-    const grupo = e.target.closest(".mes-hover-group");
-    if (grupo) {
-      mostrarTooltip(grupo);
-    } else if (!e.target.closest(".grafico-tooltip")) {
-      // Se tocar no fundo do site (fora do gráfico), esconde
-      esconderTooltip(); 
-    }
-  }, { passive: true });
-
-  // 3. Deslizar o Dedo no Celular (Scrubbing Mágico)
-  document.body.addEventListener("touchmove", (e) => {
-    const wrap = e.target.closest(".historico-grafico-wrap");
-    if (wrap) {
-      const touch = e.touches[0];
-      // Escaneia a tela em tempo real pra ver qual mês está embaixo do dedo agora
-      const el = document.elementFromPoint(touch.clientX, touch.clientY);
-      const grupo = el ? el.closest(".mes-hover-group") : null;
-      if (grupo) {
-        mostrarTooltip(grupo);
-      }
-    }
-  }, { passive: true });
-}
-
-// ---------------------------------------------------------------------
-// BOTÃO FLUTUANTE DE CRIAÇÃO
-// O + não abre mais um formulário separado: ele abre o mesmo Assistente Caixa
-// em modo de cadastro conversacional. Isso mantém uma única experiência de
-// entrada e evita formulários duplicados espalhados pelas abas.
-const fabCriar = document.getElementById("fabCriar");
-fabCriar?.addEventListener("click", () => {
-  document.dispatchEvent(new CustomEvent("caixa:abrirCadastroChat"));
-});
-atualizarVisibilidadeFab();
-
-// Inicializa! (Limpando execuções duplicadas caso você recarregue a página)
-if (!document.body.dataset.tooltipInit) {
-  initChartTooltip();
-  document.body.dataset.tooltipInit = "1";
-}
-
-
-// Carrega os ícones personalizados depois que o HTML da aplicação estiver disponível.
-if (document.readyState === "loading") {
-  document.addEventListener("DOMContentLoaded", () => {
-    inicializarPickersIcones();
-    carregarIconesCaixinhas();
-  }, { once: true });
-} else {
-  inicializarPickersIcones();
-  carregarIconesCaixinhas();
-}
-
-
-/* ============================================================
-   CAIXA — ASSISTENTE FINANCEIRO LOCAL
-   "IA" de respostas rápidas:
-   - prompts/intenções ficam pré-carregados no navegador;
-   - os números são calculados do state atual;
-   - não chama Gemini/API para cada clique;
-   - o pequeno atraso é propositalmente visual, para parecer "pensando".
-   ============================================================ */
-
-(function inicializarAssistenteCaixa() {
-  const fab = document.getElementById("caixaChatFab");
-  const chat = document.getElementById("caixaChat");
-  const close = document.getElementById("caixaChatClose");
-  const body = document.getElementById("caixaChatBody");
-  const quick = document.getElementById("caixaChatQuick");
-  const thinking = document.getElementById("caixaChatThinking");
-  if (!fab || !chat || !close || !body || !quick || !thinking) return;
-
-  const CHAT_PROMPTS = {
-    gastar: "Você é o assistente financeiro do Caixa. Descubra de qual origem o usuário quer gastar (benefício ou saldo em conta) e, para o saldo normal, informe quanto realmente pode gastar depois de considerar as entradas que ainda vão cair e todas as contas abertas que precisam ser reservadas. O saldo atual exibido no cartão é apenas o saldo de hoje; não o confunda com o limite de gasto projetado. Use somente os números calculados pelo aplicativo.",
-    gastos: "Você é o assistente financeiro do Caixa. Mostre quanto já foi gasto no mês, separando gastos fixos, variáveis e o total.",
-    categorias: "Você é o assistente financeiro do Caixa. Identifique as categorias que mais consumiram dinheiro no mês atual e apresente as três maiores, sem inventar dados.",
-    guardado: "Você é o assistente financeiro do Caixa. Informe quanto existe atualmente nas caixinhas e destaque metas, se houver.",
-    pendencias: "Você é o assistente financeiro do Caixa. Mostre o que ainda falta pagar e o que ainda falta receber neste mês, distinguindo claramente contas deste mês de lançamentos com vencimento no mês que vem ou depois. Nunca trate uma conta futura como se vencesse agora.",
-    economia: "Você é o assistente financeiro do Caixa. Dê uma dica financeira de verdade: identifique algo concreto nos números e transforme isso em uma ação simples e útil que a pessoa pode tomar agora ou no planejamento. Não faça apenas um comentário aleatório sobre os dados. Seja específico, prático e personalizado; não invente informações. Distinga saldo de hoje, entradas futuras, contas deste mês e contas futuras. Se calcular quanto sobra, use o fluxo projetado correto."
-  };
-
-  const IC = {
-    wallet: '<svg viewBox="0 0 24 24" fill="none"><path d="M4 7.5A2.5 2.5 0 0 1 6.5 5H20v14H6.5A2.5 2.5 0 0 1 4 16.5v-9Z" stroke="currentColor" stroke-width="1.7"/><path d="M4 8h16M16 12h4" stroke="currentColor" stroke-width="1.7" stroke-linecap="round"/><circle cx="16.5" cy="12" r=".8" fill="currentColor"/></svg>',
-    receipt: '<svg viewBox="0 0 24 24" fill="none"><path d="m6 3 2 1.2L10 3l2 1.2L14 3l2 1.2L18 3v18l-2-1.2-2 1.2-2-1.2-2 1.2-2-1.2L6 21V3Z" stroke="currentColor" stroke-width="1.6" stroke-linejoin="round"/><path d="M9 8h6M9 12h6M9 16h4" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/></svg>',
-    chart: '<svg viewBox="0 0 24 24" fill="none"><path d="M4 19V5M4 19h16" stroke="currentColor" stroke-width="1.7" stroke-linecap="round"/><path d="m7 15 3-4 3 2 5-7" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/></svg>',
-    pig: '<svg viewBox="0 0 24 24" fill="none"><path d="M5 11.5c0-3.3 3-5.5 7-5.5h2c3.2 0 5.5 1.8 6 4.5l1.5 1v3l-2 .4c-.5 1.5-1.6 2.5-3 3.1V20h-2v-1.4c-.8.2-1.7.3-2.6.3s-1.8-.1-2.6-.3V20h-2v-2.2C5.8 16.9 5 14.5 5 11.5Z" stroke="currentColor" stroke-width="1.5" stroke-linejoin="round"/><circle cx="15.5" cy="10" r=".9" fill="currentColor"/><path d="M4 12H2.5M18 8.5V6.8" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/></svg>',
-    clock: '<svg viewBox="0 0 24 24" fill="none"><circle cx="12" cy="12" r="8.5" stroke="currentColor" stroke-width="1.7"/><path d="M12 7v5l3.2 2" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"/></svg>',
-    sparkle: '<svg viewBox="0 0 24 24" fill="none"><path d="m12 3 1.7 5.3L19 10l-5.3 1.7L12 17l-1.7-5.3L5 10l5.3-1.7L12 3ZM19 16l.7 2.3L22 19l-.7-2.3L16 19l2.3-.7L19 16Z" stroke="currentColor" stroke-width="1.5" stroke-linejoin="round"/></svg>',
-    calculator: '<svg viewBox="0 0 24 24" fill="none"><rect x="5" y="3.5" width="14" height="17" rx="2.2" stroke="currentColor" stroke-width="1.6"/><path d="M8 7.5h8M8 11.5h2M14 11.5h2M8 15.5h2M14 15.5h2M11 11.5h1M11 15.5h1" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/></svg>',
-    heart: '<svg viewBox="0 0 24 24" fill="none"><path d="M20.8 8.9c0 5.3-8.8 10.2-8.8 10.2S3.2 14.2 3.2 8.9C3.2 6.4 5 4.5 7.4 4.5c1.7 0 3.1.9 4.6 2.5 1.5-1.6 2.9-2.5 4.6-2.5 2.4 0 4.2 1.9 4.2 4.4Z" stroke="currentColor" stroke-width="1.5" stroke-linejoin="round"/></svg>'
-  };
-
-  const ACOES = [
-    { id: "gastar", icon: "wallet", titulo: "Quanto ainda posso gastar?", subtitulo: "Separar benefício e saldo em conta" },
-    { id: "categorias", icon: "chart", titulo: "Onde estou gastando mais?", subtitulo: "As categorias que mais pesaram" },
-    { id: "guardado", icon: "pig", titulo: "Progresso das caixinhas", subtitulo: "Metas, prazos e quanto falta guardar" },
-    { id: "mudou", icon: "chart", titulo: "O que mais mudou este mês?", subtitulo: "Compare com o mês anterior" },
-    { id: "aconteceu", icon: "sparkle", titulo: "O que aconteceu este mês?", subtitulo: "Um resumo do que mudou por aqui" },
-    { id: "pendencias", icon: "clock", titulo: "Ainda falta pagar", subtitulo: "Veja contas, parcelas e valores pendentes" },
-    { id: "economia", icon: "sparkle", titulo: "Me dê uma dica", subtitulo: "Uma orientação baseada nos seus números" }
-  ];
-
-  let pensamentoTimer = null;
-  let dicaOutraTimer = null;
-
-  function esc(s) {
-    return String(s ?? "").replace(/[&<>"']/g, c => ({ "&":"&amp;", "<":"&lt;", ">":"&gt;", '"':"&quot;", "'":"&#39;" }[c]));
-  }
-  function chatFmt(n) { return typeof fmt === "function" ? fmt(Number(n) || 0) : Number(n || 0).toLocaleString("pt-BR", { style:"currency", currency:"BRL" }); }
-  function naoNegativo(n) { return Math.max(0, Number(n) || 0); }
-  function listaFinita(lista) { return Array.isArray(lista) ? lista : []; }
-
-  function totaisChat() {
-    const ganhosRecebidos = somaComStatus(state.ganhos || [], "recebido");
-    const ganhosOrigem = separarGanhosPorOrigem(state.ganhos || []);
-    const fixosPagos = somaFixosPagos(state.gastosFixos || []);
-    const fixosTotais = listaFinita(state.gastosFixos).reduce((a, i) => a + (Number(i.valor) || 0), 0);
-    const variaveisPagos = somaVariaveisPagas(state.gastosVariaveis || []);
-    const beneficioGasto = listaFinita(state.gastosVariaveis).reduce((a, i) =>
-      a + (gastoVariavelEhReal(i) && variavelContaNoSaldo(i) && variavelEhBeneficio(i) ? Number(i.valor) || 0 : 0), 0);
-    const saldoGasto = listaFinita(state.gastosVariaveis).reduce((a, i) =>
-      a + (gastoVariavelEhReal(i) && variavelContaNoSaldo(i) && !variavelEhBeneficio(i) ? Number(i.valor) || 0 : 0), 0);
-    const beneficio = ganhosOrigem.beneficios - beneficioGasto;
-    const guardadoNoMes = somaCampo(state.caixinhas || [], "valorGuardadoMes");
-    // Para decidir "quanto ainda posso gastar" pelo saldo em conta,
-    // partimos do saldo que já existe hoje, descontamos o que foi reservado
-    // nas caixinhas neste mês, somamos o que ainda vai entrar (somente ganhos
-    // sem benefício) e reservamos os gastos fixos ainda não pagos.
-    const saldoAtualConta = ganhosOrigem.ganhos - fixosPagos - saldoGasto - guardadoNoMes;
-    // Para perguntas e indicadores DO MÊS ATUAL, considerar somente ganhos
-    // que pertencem ao mês aberto. Ganhos lançados para meses futuros ficam
-    // disponíveis separadamente para projeções de longo prazo.
-    const aReceberEsseMes = listaFinita(state.ganhos).reduce((a, i) =>
-      a + (i.recebido !== true && !ganhoEhBeneficio(i) && !ehFuturoDoMesAtual(i) ? Number(i.valor) || 0 : 0), 0);
-    const aReceberFuturos = Math.max(0, listaFinita(state.ganhos).reduce((a, i) =>
-      a + (i.recebido !== true && !ganhoEhBeneficio(i) ? Number(i.valor) || 0 : 0), 0) - aReceberEsseMes);
-    const aReceber = aReceberEsseMes;
-    const aPagarFixos = listaFinita(state.gastosFixos).reduce((a, i) =>
-      a + (i.pago !== true ? Number(i.valor) || 0 : 0), 0);
-    const aPagarVariaveis = listaFinita(state.gastosVariaveis).reduce((a, i) =>
-      a + (gastoVariavelEhReal(i) && i.pago !== true && !i.lembrete && !variavelEhBeneficio(i) ? Number(i.valor) || 0 : 0), 0);
-    // Para "quanto posso gastar ESTE MÊS", reservamos somente as contas
-    // pendentes que vencem no mês aberto. Contas de meses futuros não reduzem
-    // a margem deste mês; elas ficam separadas para a projeção futura.
-    const aPagarFixosEsseMes = listaFinita(state.gastosFixos).reduce((a, i) =>
-      a + (i.pago !== true && !ehFuturoDoMesAtual(i) ? Number(i.valor) || 0 : 0), 0);
-    const aPagarVariaveisEsseMes = listaFinita(state.gastosVariaveis).reduce((a, i) =>
-      a + (gastoVariavelEhReal(i) && i.pago !== true && !i.lembrete && !variavelEhBeneficio(i) && !ehFuturoDoMesAtual(i) ? Number(i.valor) || 0 : 0), 0);
-    const aPagarFixosFuturos = Math.max(0, aPagarFixos - aPagarFixosEsseMes);
-    const aPagarVariaveisFuturos = Math.max(0, aPagarVariaveis - aPagarVariaveisEsseMes);
-    // Margem de gasto do mês atual: saldo disponível hoje + ganhos ainda a
-    // receber neste mês - compromissos pendentes deste mês.
-    const conta = saldoAtualConta + aReceberEsseMes - aPagarFixosEsseMes - aPagarVariaveisEsseMes;
-    // Projeção de todos os lançamentos abertos, incluindo meses futuros.
-    const contaProjetadaTodosOsMeses = saldoAtualConta + (aReceberEsseMes + aReceberFuturos) - aPagarFixos - aPagarVariaveis;
-    const saldoGeral = ganhosRecebidos - fixosPagos - variaveisPagos;
-    return { ganhosRecebidos, ganhosOrigem, fixosPagos, fixosTotais, variaveisPagos, beneficio, saldoAtualConta, conta, contaProjetadaTodosOsMeses, saldoGeral, aReceber, aReceberEsseMes, aReceberFuturos, aPagarFixos, aPagarVariaveis, aPagarFixosEsseMes, aPagarVariaveisEsseMes, aPagarFixosFuturos, aPagarVariaveisFuturos };
-  }
-
-  function categoriasChat() {
-    const porCat = {};
-    listaFinita(state.gastosFixos).forEach(i => {
-      if (i.pago !== true) return;
-      const cat = String(i.tipo || "Outros").trim() || "Outros";
-      porCat[cat] = (porCat[cat] || 0) + (Number(i.valor) || 0);
-    });
-    listaFinita(state.gastosVariaveis).forEach(i => {
-      if (!gastoVariavelEhReal(i) || !variavelContaNoSaldo(i) || i.pago !== true) return;
-      const cat = String(i.tipo || "Outros").trim() || "Outros";
-      porCat[cat] = (porCat[cat] || 0) + (Number(i.valor) || 0);
-    });
-    return Object.entries(porCat).sort((a,b) => b[1] - a[1]);
-  }
-
-  function metasChat() {
-    return listaFinita(state.caixinhas)
-      .map(cx => {
-        const atual = typeof totalCaixinha === "function" ? totalCaixinha(cx) : ((Number(cx.valorGuardado)||0)+(Number(cx.rendimentoTotal)||0)+(Number(cx.valorGuardadoMes)||0));
-        const objetivo = Number(cx.valorObjetivo) || 0;
-        return { nome: cx.nome || "Caixinha", atual, objetivo, falta: Math.max(objetivo - atual, 0), prazo: cx.data || "" };
-      })
-      .filter(x => x.objetivo > 0)
-      .sort((a,b) => (b.atual / b.objetivo) - (a.atual / a.objetivo));
-  }
-
-  function appendMensagem(html, quem = "bot") {
-    const wrap = document.createElement("div");
-    wrap.className = `caixa-chat-message ${quem}`;
-    const bubble = document.createElement("div");
-    bubble.className = "caixa-chat-bubble";
-    bubble.innerHTML = html;
-    wrap.appendChild(bubble);
-    // Remove the quick actions only from the welcome area; subsequent answers
-    // get their own compact "voltar" action.
-    body.appendChild(wrap);
-    body.scrollTop = body.scrollHeight;
-    return wrap;
-  }
-
-  function mostrarAcoesRapidas() {
-    quick.innerHTML = "";
-    ACOES.forEach(acao => {
-      const btn = document.createElement("button");
-      btn.type = "button";
-      btn.className = "caixa-chat-action";
-      btn.dataset.chatAcao = acao.id;
-      btn.innerHTML = `
-        <span class="caixa-chat-action-icon">${IC[acao.icon]}</span>
-        <span class="caixa-chat-action-text"><strong>${esc(acao.titulo)}</strong><small>${esc(acao.subtitulo)}</small></span>
-        <span class="caixa-chat-action-arrow">›</span>`;
-      quick.appendChild(btn);
-    });
-  }
-
-  function mostrarMenuCompacto() {
-    const anterior = document.getElementById("caixaChatBack");
-    if (anterior) anterior.remove();
-    const btn = document.createElement("button");
-    btn.type = "button";
-    btn.id = "caixaChatBack";
-    btn.className = "caixa-chat-action";
-    btn.style.marginTop = "4px";
-    btn.innerHTML = `
-      <span class="caixa-chat-action-icon">${IC.sparkle}</span>
-      <span class="caixa-chat-action-text"><strong>Escolher outra coisa</strong><small>Voltar para as ações rápidas</small></span>
-      <span class="caixa-chat-action-arrow">↩</span>`;
-    btn.addEventListener("click", () => {
-      // Voltar ao menu encerra completamente o contexto da resposta anterior.
-      // Isso também invalida o timer de "Outra dica", para que ele nunca
-      // apareça sozinho no menu depois que o usuário já mudou de assunto.
-      window._caixaChatSessao = (Number(window._caixaChatSessao) || 0) + 1;
-      clearTimeout(pensamentoTimer);
-      clearTimeout(dicaOutraTimer);
-      pensamentoTimer = null;
-      dicaOutraTimer = null;
-      window._caixaDicasIAEstoque = [];
-      window._caixaDicaIAIndice = 0;
-      thinking.classList.add("is-hidden");
-      body.querySelectorAll(".caixa-chat-message, .caixa-chat-choices, .caixa-chat-select-wrap, .caixa-chat-simulador-form, #caixaChatBack, .caixa-chat-outra-dica").forEach(x => x.remove());
-      quick.classList.remove("is-hidden");
-      const quickTitle = quick.previousElementSibling;
-      if (quickTitle && quickTitle.classList.contains("caixa-chat-quick-title")) quickTitle.classList.remove("is-hidden");
-      const welcome = body.querySelector(".caixa-chat-welcome");
-      if (welcome) welcome.classList.remove("is-hidden");
-      body.scrollTop = 0;
-      quick.scrollIntoView({ behavior: "smooth", block: "start" });
-    });
-    body.appendChild(btn);
-  }
-
-  function tomChat() {
-    const cfg = state.iaConfig || {};
-    if (state.pessoaAtual === "ambos") return { tom: "", imersao: [...(cfg.ambos || [])] };
-    const pessoa = state.pessoaAtual === "gabriel" ? "gabriel" : "davi";
-    return { tom: pessoa === "gabriel" ? (cfg.tomGabriel || "") : (cfg.tomDavi || ""), imersao: [...(cfg[pessoa] || []), ...(cfg.ambos || [])] };
-  }
-  function aplicarTomChat(texto) {
-    // A personalidade vem exclusivamente da TOM IA da planilha e, nas
-    // respostas geradas pela IA, já é aplicada no backend. O navegador não
-    // deve inventar bordões como "Ora, ora" ou "Boa, Davi".
-    return String(texto || "").trim();
-  }
-  function compararMesAnteriorChat() {
-    const anos = listaFinita(state.historico?.anos);
-    if (!state.mesAtual || !state.anoAtual || !anos.length) return null;
-    let pm = state.mesAtual - 1, pa = state.anoAtual;
-    if (pm === 0) { pm = 12; pa--; }
-    const bloco = anos.find(a => Number(a.ano) === pa);
-    const mes = bloco?.meses?.find(m => Number(m.mes) === pm);
-    if (!mes) return null;
-    const get = (campo) => {
-      if (state.pessoaAtual === "ambos") return (Number(mes[`${campo}Davi`]) || 0) + (Number(mes[`${campo}Gabriel`]) || 0);
-      const suf = state.pessoaAtual === "gabriel" ? "Gabriel" : "Davi";
-      return Number(mes[`${campo}${suf}`]) || 0;
-    };
-    // DEBITOS no HISTORICO são gravados negativos. Para comparar com os
-    // gastos atuais (que são positivos), normalizamos aqui uma única vez.
-    return { ganhos: get("ganhos"), gastos: Math.abs(get("debitos")), guardado: Math.max(0, get("guardadoMes")), nome: mes.nome || "mês anterior" };
-  }
-
-  function resumoParaIAChat(t) {
-    const totalGastos = (Number(t.fixosPagos) || 0) + (Number(t.variaveisPagos) || 0);
-    const categorias = Object.fromEntries(categoriasChat().map(([nome, valor]) => [nome, Number(valor) || 0]));
-    const caixinhas = listaFinita(state.caixinhas).map(cx => {
-      const atual = typeof totalCaixinha === "function" ? totalCaixinha(cx) : ((Number(cx.valorGuardado)||0)+(Number(cx.rendimentoTotal)||0)+(Number(cx.valorGuardadoMes)||0));
-      const objetivo = Number(cx.valorObjetivo) || 0;
-      const prazo = String(cx.data || "");
-      let diasAtePrazo = null;
-      if (prazo) {
-        const alvo = new Date(`${prazo}T23:59:59`);
-        if (!Number.isNaN(alvo.getTime())) diasAtePrazo = Math.ceil((alvo - new Date()) / 86400000);
-      }
-      const falta = Math.max(objetivo - atual, 0);
-      const meses = diasAtePrazo === null ? null : Math.max(1, Math.ceil(Math.max(diasAtePrazo, 0) / 30.4375));
-      return { nome: cx.nome || "Caixinha", valorGuardado: atual, valorObjetivo: objetivo, prazo, diasAtePrazo, faltaParaMeta: falta, necessarioGuardarPorMes: meses && falta > 0 ? falta / meses : 0, guardadoNesseMes: Number(cx.valorGuardadoMes) || 0 };
-    });
-    const anterior = compararMesAnteriorChat();
-    const ganhosAtuais = listaFinita(state.ganhos).filter(i => ganhoEhRecebido(i));
-    const gastosAtuais = listaFinita(state.gastosFixos).filter(i => fixoEhPago(i)).concat(listaFinita(state.gastosVariaveis).filter(i => gastoVariavelEhReal(i) && variavelContaNoSaldo(i)));
-    return {
-      mesAtual: {
-        mes: state.mesAtual, ano: state.anoAtual,
-        ganhosRecebidos: Number(t.ganhosRecebidos) || 0,
-        beneficiosRecebidos: Number(t.ganhosOrigem?.beneficios) || 0,
-        beneficioDisponivel: Number(t.beneficio) || 0,
-        ganhosRecebidosSemBeneficio: Number(t.ganhosOrigem?.ganhos) || 0,
-        gastoFixoPago: Number(t.fixosPagos) || 0,
-        gastoVariavelPago: Number(t.variaveisPagos) || 0,
-        gastos: totalGastos,
-        saldoAtualEmConta: Number(t.saldoAtualConta) || 0,
-        saldoProjetadoComEntradas: (Number(t.saldoAtualConta) || 0) + (Number(t.aReceberEsseMes) || 0),
-        contasAbertasTotal: (Number(t.aPagarFixosEsseMes) || 0) + (Number(t.aPagarVariaveisEsseMes) || 0),
-        limiteDeGastoProjetado: Number(t.conta) || 0,
-        // Projeção de longo prazo, separada da margem que a pessoa pode gastar
-        // no mês atual. Aqui entram ganhos e gastos futuros.
-        saldoProjetadoTodosOsMeses: Number(t.saldoAtualConta) || 0,
-        ganhosFuturos: Number(t.aReceberFuturos) || 0,
-        gastosFuturos: (Number(t.aPagarFixosFuturos) || 0) + (Number(t.aPagarVariaveisFuturos) || 0),
-        limiteProjetadoTodosOsMeses: Number(t.contaProjetadaTodosOsMeses) || 0,
-        statusFinanceiro: statusFinanceiroAtual(t),
-        aindaAReceberEsseMes: Number(t.aReceberEsseMes) || 0,
-        aindaAReceberFuturos: Number(t.aReceberFuturos) || 0,
-        aindaAPagarFixosEsseMes: Number(t.aPagarFixosEsseMes) || 0,
-        aindaAPagarVariaveisEsseMes: Number(t.aPagarVariaveisEsseMes) || 0,
-        gastosFuturos: (Number(t.aPagarFixosFuturos) || 0) + (Number(t.aPagarVariaveisFuturos) || 0),
-        guardadoNoMes: somaCampo(state.caixinhas, "valorGuardadoMes"),
-        totalGuardadoAtualDeVerdade: somaTotalCaixinhas(state.caixinhas),
-        rendimentoNoMes: somaCampo(state.caixinhas, "rendimentoTotal"),
-        categorias,
-        caixinhas,
-        lancamentosPagos: gastosAtuais.slice(0, 80).map(i => ({ nome: i.nome || "", valor: Number(i.valor)||0, categoria: i.tipo || "", data: i.data || "" })),
-        ganhosDoMes: ganhosAtuais.slice(0, 40).map(i => ({ nome: i.nome || "", valor: Number(i.valor)||0, data: i.data || "" }))
-      },
-      mesPassado: anterior ? { ganhosRecebidos: anterior.ganhos, gastos: anterior.gastos, guardadoNoMes: anterior.guardado, nome: anterior.nome } : null
-    };
-  }
-
-  function formatarTextoIAChat(texto) {
-    const bruto = String(texto || "").trim();
-    if (!bruto) return "";
-
-    // A IA pode devolver marcação para destacar valores. Não escapamos essa
-    // marcação inteira, pois isso fazia o usuário enxergar literalmente
-    // "<span class=...>" na conversa. Em vez disso, preservamos apenas um
-    // conjunto pequeno de tags que o chat conhece e escapamos todo o restante.
-    const marcadores = [];
-    const guardar = (html) => {
-      const id = `___CAIXA_TAG_${marcadores.length}___`;
-      marcadores.push(html);
-      return id;
-    };
-
-    let base = bruto
-      .replace(/\{\{\s*(?:(ganho|gasto|guardado|rendimento)\s*:\s*)?([+-])?\s*(R\$\s*[0-9.]+,[0-9]{2})\s*\}\}/gi, (_, tipo, sinal, valor) => {
-        const chave = String(tipo || sinal || "").toLowerCase();
-        const mapa = { ganho: "chat-valor-pos", gasto: "chat-valor-neg", guardado: "chat-valor-gold", rendimento: "chat-valor-yield", "+": "chat-valor-pos", "-": "chat-valor-neg" };
-        return guardar(`<span class="chat-valor ${mapa[chave] || ""}">${esc(valor)}</span>`);
-      })
-      .replace(/<span\s+class=["']chat-valor\s+(chat-valor-pos|chat-valor-neg|chat-valor-gold|chat-valor-yield)["']\s*>([\s\S]*?)<\/span>/gi,
-        (_, classe, conteudo) => guardar(`<span class="chat-valor ${classe}">${esc(String(conteudo).replace(/<[^>]*>/g, ""))}</span>`))
-      .replace(/<strong>([\s\S]*?)<\/strong>/gi, (_, conteudo) => guardar(`<strong>${esc(String(conteudo).replace(/<[^>]*>/g, ""))}</strong>`))
-      .replace(/<br\s*\/?>/gi, () => guardar("<br>"));
-
-    base = esc(base);
-    marcadores.forEach((html, i) => {
-      base = base.replace(`___CAIXA_TAG_${i}___`, html);
-    });
-    base = base.replace(/\*\*(.*?)\*\*/g, "<strong>$1</strong>");
-    return base.replace(/\n+/g, "<br>");
-  }
-
-  function hashDicasChat(valor) {
-    const texto = String(valor || "");
-    let h = 2166136261;
-    for (let i = 0; i < texto.length; i++) {
-      h ^= texto.charCodeAt(i);
-      h = Math.imul(h, 16777619);
-    }
-    return (h >>> 0).toString(36);
-  }
-
-  function chaveCacheDicasChat(t, modo = "") {
-    const cfg = state.iaConfig || {};
-    const { tom, imersao } = tomChat();
-    return `caixa:dicas:v4:${hashDicasChat(JSON.stringify({
-      pessoa: state.pessoaAtual || "davi",
-      mes: state.mesAtual,
-      ano: state.anoAtual,
-      resumo: resumoParaIAChat(t),
-      tom,
-      imersao,
-      modo
-    }))}`;
-  }
-
-  function lerCacheDicasChat(chave) {
-    try {
-      const raw = localStorage.getItem(chave);
-      if (!raw) return null;
-      const data = JSON.parse(raw);
-      if (!Array.isArray(data?.textos) || !data.textos.length) return null;
-      return data.textos;
-    } catch (e) { return null; }
-  }
-
-  function salvarCacheDicasChat(chave, textos) {
-    try {
-      localStorage.setItem(chave, JSON.stringify({ salvoEm: Date.now(), textos }));
-    } catch (e) {}
-  }
-
-  function chaveCacheGastarIA(t) {
-    const { tom, imersao } = tomChat();
-    return `caixa:gastar-ia:v3:${hashDicasChat(JSON.stringify({
-      pessoa: state.pessoaAtual || "davi",
-      mes: state.mesAtual,
-      ano: state.anoAtual,
-      resumo: resumoParaIAChat(t),
-      tom,
-      imersao
-    }))}`;
-  }
-
-  function lerCacheGastarIA(chave) {
-    try {
-      const raw = localStorage.getItem(chave);
-      if (!raw) return null;
-      const data = JSON.parse(raw);
-      if (!data || typeof data !== "object") return null;
-      if (!data.saldo && !data.beneficio) return null;
-      return data;
-    } catch (e) { return null; }
-  }
-
-  function salvarCacheGastarIA(chave, respostas) {
-    try { localStorage.setItem(chave, JSON.stringify({ salvoEm: Date.now(), ...respostas })); } catch (e) {}
-  }
-
-  async function buscarRespostasGastarIA(t, opcoes = {}) {
-    if (!API_URL || API_URL.includes("COLE_AQUI")) return null;
-    const chave = opcoes.chave || chaveCacheGastarIA(t);
-    if (!opcoes.forcar) {
-      const cache = lerCacheGastarIA(chave);
-      if (cache) return cache;
-    }
-
-    const TEMPO_MAXIMO_IA_MS = 14000;
-    let controller = null;
-    let timer = null;
-    try {
-      controller = typeof AbortController !== "undefined" ? new AbortController() : null;
-      const requisicao = fetch(urlApi(), {
-        method: "POST",
-        body: JSON.stringify({
-          action: "gerarRespostaGastarIA",
-          pessoa: state.pessoaAtual || "davi",
-          periodo: { mes: state.mesAtual, ano: state.anoAtual },
-          resumo: resumoParaIAChat(t)
-        }),
-        signal: controller ? controller.signal : undefined
-      });
-      const limite = new Promise((_, reject) => {
-        timer = setTimeout(() => {
-          try { if (controller) controller.abort(); } catch (e) {}
-          reject(new Error("timeout_ia"));
-        }, TEMPO_MAXIMO_IA_MS);
-      });
-      const res = await Promise.race([requisicao, limite]);
-      clearTimeout(timer);
-      if (!res || !res.ok) return null;
-      const data = await res.json();
-      if (!data || data.ok === false || !data.respostas) return null;
-      const respostas = {
-        beneficio: String(data.respostas.beneficio || "").trim(),
-        saldo: String(data.respostas.saldo || "").trim()
-      };
-      if (!respostas.beneficio && !respostas.saldo) return null;
-      salvarCacheGastarIA(chave, respostas);
-      return respostas;
-    } catch (err) {
-      if (timer) clearTimeout(timer);
-      return null;
-    }
-  }
-
-  async function buscarDicasIA(t, opcoes = {}) {
-    if (!API_URL || API_URL.includes("COLE_AQUI")) return [];
-    const chave = opcoes.chave || chaveCacheDicasChat(t, opcoes.modo || "");
-    if (!opcoes.forcar) {
-      const cache = lerCacheDicasChat(chave);
-      if (cache) return cache;
-    }
-
-    // A IA é um extra: se a rede/backend ficar preso, o chat nunca pode
-    // deixar o usuário eternamente em "Analisando seus números…".
-    const TEMPO_MAXIMO_IA_MS = 14000;
-    let controller = null;
-    let timer = null;
-    try {
-      controller = typeof AbortController !== "undefined" ? new AbortController() : null;
-      const requisicao = fetch(urlApi(), {
-        method: "POST",
-        body: JSON.stringify({ action: "gerarInsightIA", pessoa: state.pessoaAtual || "davi", periodo: { mes: state.mesAtual, ano: state.anoAtual }, resumo: resumoParaIAChat(t), modo: opcoes.modo || "" }),
-        signal: controller ? controller.signal : undefined
-      });
-      const limite = new Promise((_, reject) => {
-        timer = setTimeout(() => {
-          try { if (controller) controller.abort(); } catch (e) {}
-          reject(new Error("timeout_ia"));
-        }, TEMPO_MAXIMO_IA_MS);
-      });
-      const res = await Promise.race([requisicao, limite]);
-      clearTimeout(timer);
-      if (!res || !res.ok) return [];
-      const data = await res.json();
-      if (!data || data.ok === false || !Array.isArray(data.textos)) return [];
-      const textos = data.textos.map(x => {
-        if (typeof x === "string") return { texto: x };
-        return { texto: x?.texto || "", tipo: x?.tipo || "geral", titulo: x?.titulo || "" };
-      }).filter(x => x.texto);
-      if (textos.length) salvarCacheDicasChat(chave, textos);
-      return textos;
-    } catch (err) {
-      if (timer) clearTimeout(timer);
-      return [];
-    }
-  }
-
-  function montarDicasFinanceiras(t) {
-    const dicas = [];
-    const cats = categoriasChat();
-    const maior = cats[0];
-    const totalGastos = (Number(t.fixosPagos) || 0) + (Number(t.variaveisPagos) || 0);
-    const totalEntradas = Number(t.ganhosRecebidos) || 0;
-    const totalContasAbertas = (Number(t.aPagarFixos) || 0) + (Number(t.aPagarVariaveis) || 0);
-    const contasDesteMes = (Number(t.aPagarFixosEsseMes) || 0) + (Number(t.aPagarVariaveisEsseMes) || 0);
-    const contasFuturas = (Number(t.aPagarFixosFuturos) || 0) + (Number(t.aPagarVariaveisFuturos) || 0);
-    const ganhosFuturos = Number(t.aReceberFuturos) || 0;
-    const saldoProjetado = (Number(t.saldoAtualConta) || 0) + (Number(t.aReceberEsseMes) || 0);
-    const folgaProjetada = saldoProjetado - contasDesteMes;
-    const saldoProjetadoFuturo = (Number(t.contaProjetadaTodosOsMeses) || 0);
-
-    if (t.aReceberEsseMes > 0 && contasDesteMes > 0) {
-      dicas.push({ dica: `Quando entrarem os <span class="chat-valor chat-valor-pos">${chatFmt(t.aReceberEsseMes)}</span> deste mês, a folga após os compromissos fica em <span class="chat-valor chat-valor-pos">${chatFmt(Math.max(folgaProjetada, 0))}</span>. <strong>Dica:</strong> use esse valor como referência antes de assumir um novo gasto.` });
-    }
-    if (contasFuturas > 0) {
-      if (ganhosFuturos > 0) {
-        dicas.push({ dica: `Para os próximos meses, há <span class="chat-valor chat-valor-neg">${chatFmt(contasFuturas)}</span> em gastos futuros e <span class="chat-valor chat-valor-pos">${chatFmt(ganhosFuturos)}</span> em ganhos futuros já lançados. <strong>Dica:</strong> acompanhe os dois lados juntos ao planejar os próximos meses.` });
-      } else {
-        dicas.push({ dica: `Há <span class="chat-valor chat-valor-neg">${chatFmt(contasFuturas)}</span> em gastos futuros já lançados para os próximos meses. Eles não reduzem sua margem deste mês.` });
-      }
-    }
-    if (contasDesteMes > 0) {
-      dicas.push({ dica: `Neste mês, ainda existem <span class="chat-valor chat-valor-neg">${chatFmt(contasDesteMes)}</span> em compromissos com vencimento agora. <strong>Dica:</strong> priorize confirmar essas contas antes de considerar esse dinheiro livre para novos gastos.` });
-    }
-    if (t.aPagarVariaveisEsseMes > 0) {
-      dicas.push({ dica: `Ainda estão pendentes <span class="chat-valor chat-valor-neg">${chatFmt(t.aPagarVariaveisEsseMes)}</span> em gastos variáveis deste mês. <strong>Dica:</strong> confira esses lançamentos antes de registrar novos gastos na mesma categoria.` });
-    }
-    if (maior && maior[1] > 0 && totalGastos > 0) {
-      const percentual = Math.round((maior[1] / totalGastos) * 100);
-      dicas.push({ dica: `A categoria <strong>${esc(maior[0])}</strong> lidera os gastos pagos do mês com <span class="chat-valor chat-valor-neg">${chatFmt(maior[1])}</span>, cerca de ${percentual}% do total. <strong>Dica:</strong> use essa categoria como a primeira referência para definir um limite no próximo mês.` });
-    }
-    if (cats.length >= 2 && cats[0][1] > 0 && cats[1][1] > 0) {
-      const diferenca = cats[0][1] - cats[1][1];
-      if (diferenca > 0) dicas.push({ dica: `<strong>${esc(cats[0][0])}</strong> ficou <span class="chat-valor chat-valor-neg">${chatFmt(diferenca)}</span> acima de <strong>${esc(cats[1][0])}</strong> nos gastos pagos.` });
-    }
-    if (t.beneficio > 0) dicas.push({ dica: `Ainda há <span class="chat-valor chat-valor-gold">${chatFmt(t.beneficio)}</span> disponíveis no benefício.` });
-    if (t.aReceber > 0) dicas.push({ dica: `Você ainda espera receber <span class="chat-valor chat-valor-pos">${chatFmt(t.aReceber)}</span>. Esse valor ainda não entrou no saldo de hoje.` });
-    if (totalEntradas > 0 && totalGastos > totalEntradas) dicas.push({ dica: `Os gastos pagos já somam <span class="chat-valor chat-valor-neg">${chatFmt(totalGastos)}</span>, enquanto as entradas recebidas somam <span class="chat-valor chat-valor-pos">${chatFmt(totalEntradas)}</span>.` });
-    const metas = metasChat();
-    if (metas.length) {
-      const meta = metas[0];
-      const pct = meta.objetivo > 0 ? Math.min(100, Math.round(meta.atual / meta.objetivo * 100)) : 0;
-      dicas.push({ dica: `A caixinha <strong>${esc(meta.nome)}</strong> está em ${pct}% da meta, com <span class="chat-valor chat-valor-gold">${chatFmt(meta.atual)}</span> de <span class="chat-valor chat-valor-gold">${chatFmt(meta.objetivo)}</span>.` });
-    }
-    if (t.saldoAtualConta > 0 && contasDesteMes > 0) {
-      const comprometido = Math.min(100, Math.round(contasDesteMes / Math.max(t.saldoAtualConta + t.aReceberEsseMes, 1) * 100));
-      dicas.push({ dica: `Os compromissos deste mês representam cerca de ${comprometido}% do dinheiro disponível hoje somado ao que ainda entra neste mês. <strong>Dica:</strong> use essa proporção para avaliar novas compras.` });
-    }
-    if (dicas.length === 0) {
-      dicas.push(
-        { dica: "Não apareceu um alerta forte nos dados atuais. <strong>Dica:</strong> escolha uma categoria recorrente e acompanhe sua evolução no próximo mês para encontrar uma oportunidade de melhoria." },
-        { dica: "<strong>Dica:</strong> antes de assumir um novo gasto, use a margem projetada do mês depois dos compromissos conhecidos como sua referência, em vez de olhar só o saldo de hoje." },
-        { dica: "<strong>Dica:</strong> se você já tem uma meta nas caixinhas, use o planejamento do mês para decidir quanto consegue direcionar a ela sem comprometer os compromissos atuais." }
-      );
-    }
-    return dicas.map(d => ({ ...d, dica: aplicarTomChat(d.dica) }));
-  }
-
-  function mostrarDicaNoChat(item) {
-    clearTimeout(dicaOutraTimer);
-    body.querySelectorAll("#caixaChatOutraDica").forEach((x) => x.remove());
-    const texto = formatarTextoIAChat(item?.texto || item?.dica || "");
-    appendMensagem(`<span class="chat-dica-titulo">Dica</span><div class="chat-dica-texto">${texto}</div>`);
-    const tokenAtual = window._caixaChatSessao || 0;
-    dicaOutraTimer = setTimeout(() => {
-      if (!chat.classList.contains("is-open")) return;
-      if (tokenAtual !== (window._caixaChatSessao || 0)) return;
-      if (document.getElementById("caixaChatOutraDica")) return;
-      const btn = document.createElement("button");
-      btn.type = "button";
-      btn.id = "caixaChatOutraDica";
-      btn.className = "caixa-chat-outra-dica";
-      btn.innerHTML = `${IC.sparkle}<span>Outra dica</span><span aria-hidden="true">↗</span>`;
-      btn.addEventListener("click", async () => {
-        btn.remove();
-        clearTimeout(dicaOutraTimer);
-        dicaOutraTimer = null;
-        const back = document.getElementById("caixaChatBack");
-        if (back) back.remove();
-        const meuToken = window._caixaChatSessao || 0;
-        appendMensagem("Outra dica", "user");
-
-        // Mesmo com a dica já pré-carregada, mantemos uma pequena pausa
-        // intencional para a resposta parecer uma conversa natural, sem
-        // comprometer a sensação de rapidez. Se o usuário mudar de assunto
-        // durante a pausa, a resposta é descartada.
-        const textoPensamentoAnterior = thinking.querySelector("em");
-        if (textoPensamentoAnterior) textoPensamentoAnterior.textContent = "Deixe-me pensar em outra dica para você…";
-        thinking.classList.remove("is-hidden");
-        body.scrollTop = body.scrollHeight;
-        await new Promise(resolve => setTimeout(resolve, 900));
-        if (meuToken !== (window._caixaChatSessao || 0) || !chat.classList.contains("is-open")) {
-          thinking.classList.add("is-hidden");
-          return;
-        }
-        thinking.classList.add("is-hidden");
-
-        const estoque = Array.isArray(window._caixaDicasIAEstoque) ? window._caixaDicasIAEstoque : [];
-        const idx = Number(window._caixaDicaIAIndice || 0);
-        const proxima = estoque[idx];
-        if (proxima) {
-          window._caixaDicaIAIndice = idx + 1;
-          mostrarDicaNoChat(proxima);
-          mostrarMenuCompacto();
-          return;
-        }
-        // O estoque acabou. Não faz outra chamada para a mesma chave: se os
-        // números não mudaram, a resposta em cache é a mesma. Aqui usamos a
-        // reserva local e só uma nova chave volta a pedir um novo conjunto à IA.
-        if (meuToken !== (window._caixaChatSessao || 0) || !chat.classList.contains("is-open")) return;
-        const t = totaisChat();
-        const fallback = montarDicasFinanceiras(t);
-        const fi = Number(window._caixaDicaIndice || 0) % Math.max(fallback.length, 1);
-        window._caixaDicaIndice = fi + 1;
-        mostrarDicaNoChat({ texto: fallback[fi]?.dica || "Não apareceu nenhuma informação nova relevante nos dados atuais." });
-        mostrarMenuCompacto();
-      });
-      if (tokenAtual !== (window._caixaChatSessao || 0)) return;
-      const back = document.getElementById("caixaChatBack");
-      if (back) body.insertBefore(btn, back); else body.appendChild(btn);
-      body.scrollTop = body.scrollHeight;
-    }, 5000);
-  }
-
-  function calcularRespostaGastar(origem) {
-    const t = totaisChat();
-    const valor = origem === "beneficio" ? t.beneficio : t.conta;
-    const nome = origem === "beneficio" ? "benefício" : "saldo em conta";
-    const classe = origem === "beneficio" ? "chat-valor-gold" : "chat-valor-pos";
-    let texto;
-    if (origem === "beneficio") {
-      if (valor > 0) texto = `Você ainda pode gastar <span class="${classe} chat-valor">${chatFmt(valor)}</span> usando o <strong>${nome}</strong> neste mês.`;
-      else texto = `Neste momento, o <strong>${nome}</strong> está sem margem para novos gastos.`;
-    } else if (valor > 0) {
-      texto = `Depois de pagar tudo que falta, sobram <span class="${classe} chat-valor">${chatFmt(valor)}</span> para você gastar.`;
-    } else if (valor === 0) {
-      texto = `Você não tem margem para novos gastos agora.`;
-    } else {
-      texto = `Você não pode gastar mais nada agora — ainda faltam <span class="chat-valor chat-valor-neg">${chatFmt(Math.abs(valor))}</span> para fechar as obrigações.`;
-    }
-    return aplicarTomChat(texto);
-  }
-
-  function mostrarRespostaGastarIA(texto, origem) {
-    const bruto = String(texto || "").trim();
-    if (!bruto) {
-      appendMensagem(calcularRespostaGastar(origem));
-      return;
-    }
-    appendMensagem(formatarTextoIAChat(bruto));
-  }
-
-  function respostaCaixinha(cx) {
-    const atual = typeof totalCaixinha === "function" ? totalCaixinha(cx) : ((Number(cx.valorGuardado)||0)+(Number(cx.rendimentoTotal)||0)+(Number(cx.valorGuardadoMes)||0));
-    const objetivo = Number(cx.valorObjetivo) || 0;
-    const falta = Math.max(objetivo - atual, 0);
-    const prazo = String(cx.data || "");
-    const pct = objetivo > 0 ? Math.min((atual / objetivo) * 100, 100) : 0;
-    const m = /^(\d{4})-(\d{2})-(\d{2})/.exec(prazo);
-    let meses = null;
-    let dias = null;
-    if (m) {
-      const alvo = new Date(Number(m[1]), Number(m[2]) - 1, Number(m[3]));
-      const hoje = new Date();
-      const hojeLocal = new Date(hoje.getFullYear(), hoje.getMonth(), hoje.getDate());
-      dias = Math.ceil((alvo - hojeLocal) / 86400000);
-      if (dias > 0) meses = Math.max(1, Math.ceil(dias / 30.4375));
-    }
-    let plano;
-    if (!objetivo) plano = `Essa caixinha tem data, mas ainda está sem <strong>objetivo financeiro</strong> definido.`;
-    else if (!falta) plano = `<strong>Meta concluída!</strong> Você já chegou ao objetivo de ${chatFmt(objetivo)}.`;
-    else if (dias !== null && dias <= 0) plano = `O prazo de <strong>${formatarDataCurta(prazo)}</strong> já passou e ainda faltam <strong class="chat-valor chat-valor-neg">${chatFmt(falta)}</strong> para a meta.`;
-    else {
-      const mensal = falta / meses;
-      plano = `Para chegar em <strong>${chatFmt(objetivo)}</strong> até <strong>${formatarDataCurta(prazo)}</strong>, você precisa guardar cerca de <strong class="chat-valor chat-valor-gold">${chatFmt(mensal)}</strong> por mês.`;
-    }
-    const icone = normalizarNomeIcone(cx.icone || "");
-    const iconeHtml = icone ? `<img src="${esc(urlIconeCaixinha(icone))}" alt="" class="chat-goal-icon-img" onerror="this.onerror=null;this.src='';this.parentElement.innerHTML=ICONE_COFRINHO;">` : ICONE_COFRINHO;
-    return `<div class="chat-goal-result"><div class="chat-goal-result-top"><span class="chat-goal-result-icon" style="--pct:${pct}%"><span>${iconeHtml}</span></span><div><strong>${esc(cx.nome || "Caixinha")}</strong><small>Meta em ${formatarDataCurta(prazo)}</small></div><b>${Math.round(pct)}%</b></div><div class="chat-goal-result-track"><i style="width:${pct}%"></i></div><div class="chat-goal-result-numbers"><span>Guardado <strong>${chatFmt(atual)}</strong></span><span>Falta <strong>${chatFmt(falta)}</strong></span></div><div class="chat-goal-result-plan">${plano}</div></div>`;
-  }
-
-  function executarAcao(id) {
-    window._caixaChatSessao = (Number(window._caixaChatSessao) || 0) + 1;
-    clearTimeout(dicaOutraTimer);
-    dicaOutraTimer = null;
-    window._caixaDicasIAEstoque = [];
-    window._caixaDicaIAIndice = 0;
-    body.querySelectorAll("#caixaChatOutraDica").forEach(x => x.remove());
-    quick.classList.add("is-hidden");
-    const quickTitle = quick.previousElementSibling;
-    if (quickTitle && quickTitle.classList.contains("caixa-chat-quick-title")) quickTitle.classList.add("is-hidden");
-    const welcome = body.querySelector(".caixa-chat-welcome");
-    if (welcome) welcome.classList.add("is-hidden");
-    const oldBack = document.getElementById("caixaChatBack");
-    if (oldBack) oldBack.remove();
-    if (id === "gastar") {
-      appendMensagem("Claro. <strong>De onde sairia esse próximo gasto?</strong>");
-      const escolhas = document.createElement("div");
-      escolhas.className = "caixa-chat-choices";
-      [
-        ["beneficio", "Benefício", "Usar o valor disponível do benefício", totaisChat().beneficio],
-        ["saldo", "Saldo em conta", "Usar o dinheiro do saldo normal", totaisChat().saldoAtualConta]
-      ].forEach(([valor, titulo, sub, quantia]) => {
-        const btn = document.createElement("button");
-        btn.type = "button";
-        btn.className = "caixa-chat-choice";
-        btn.innerHTML = `<span><strong>${titulo}</strong><small>${sub}</small></span><span class="choice-value">${chatFmt(quantia)}</span>`;
-        btn.addEventListener("click", () => {
-          escolhas.remove();
-          appendMensagem(titulo, "user");
-          iniciarPensamento(async () => {
-            const tAtual = totaisChat();
-            const chave = chaveCacheGastarIA(tAtual);
-            const cache = lerCacheGastarIA(chave);
-            if (cache?.[valor]) {
-              mostrarRespostaGastarIA(cache[valor], valor);
-              return;
-            }
-            const respostas = await buscarRespostasGastarIA(tAtual, { chave });
-            if (respostas?.[valor]) mostrarRespostaGastarIA(respostas[valor], valor);
-            else appendMensagem(calcularRespostaGastar(valor));
-          });
-        });
-        escolhas.appendChild(btn);
-      });
-      body.appendChild(escolhas);
-      body.scrollTop = body.scrollHeight;
-      return;
-    }
-
-    iniciarPensamento(() => {
-      const t = totaisChat();
-
-      if (id === "categorias") {
-        const cats = categoriasChat();
-        if (!cats.length) return appendMensagem("Ainda não encontrei gastos pagos suficientes para montar esse ranking.");
-        const top = cats.slice(0,3).map((x,i) => `${i+1}. <strong>${esc(x[0])}</strong> — <span class="chat-valor chat-valor-neg">${chatFmt(x[1])}</span>`).join("<br>");
-        appendMensagem(`<strong>Onde mais saiu dinheiro:</strong><br>${top}<span class="caixa-chat-note">Considerei os gastos que efetivamente contam no mês atual.</span>`);
-      }
-
-      if (id === "guardado") {
-        const comData = listaFinita(state.caixinhas).filter(cx => String(cx.data || "").trim());
-        if (!comData.length) {
-          appendMensagem(`Não encontrei nenhuma caixinha com <strong>data de objetivo</strong> cadastrada ainda.<span class="caixa-chat-note">Cadastre uma data na caixinha para eu calcular quanto você precisa guardar por mês.</span>`);
-          return;
-        }
-        appendMensagem(`<strong>Qual caixinha você quer planejar?</strong><span class="caixa-chat-note">Mostrando apenas caixinhas que têm uma data definida.</span>`);
-        const escolhas = document.createElement("div");
-        escolhas.className = "caixa-chat-choices caixa-chat-caixinhas-choices";
-        comData.forEach((cx, idx) => {
-          const atual = typeof totalCaixinha === "function" ? totalCaixinha(cx) : ((Number(cx.valorGuardado)||0)+(Number(cx.rendimentoTotal)||0)+(Number(cx.valorGuardadoMes)||0));
-          const objetivo = Number(cx.valorObjetivo) || 0;
-          const pct = objetivo > 0 ? Math.min((atual / objetivo) * 100, 100) : 0;
-          const falta = Math.max(objetivo - atual, 0);
-          const icone = normalizarNomeIcone(cx.icone || "");
-          const iconeHtml = icone
-            ? `<img src="${esc(urlIconeCaixinha(icone))}" alt="" class="chat-goal-icon-img" onerror="this.onerror=null;this.src='';this.parentElement.innerHTML=ICONE_COFRINHO;">`
-            : ICONE_COFRINHO;
-          const btn = document.createElement("button");
-          btn.type = "button";
-          btn.className = "caixa-chat-goal-choice";
-          btn.innerHTML = `<span class="chat-goal-choice-icon ${objetivo > 0 ? "has-goal" : ""}" style="--pct:${pct}%"><span>${iconeHtml}</span></span><span class="chat-goal-choice-main"><strong>${esc(cx.nome || "Caixinha")}</strong><small>${formatarDataCurta(cx.data)} · ${objetivo > 0 ? `${chatFmt(atual)} de ${chatFmt(objetivo)}` : "sem objetivo definido"}</small>${objetivo > 0 ? `<span class="chat-goal-mini-track"><i style="width:${pct}%"></i></span>` : ""}</span><span class="chat-goal-choice-arrow">›</span>`;
-          btn.addEventListener("click", () => {
-            iniciarPensamento(() => appendMensagem(respostaCaixinha(cx)));
-            escolhas.remove();
-          });
-          escolhas.appendChild(btn);
-        });
-        body.appendChild(escolhas);
-
-        body.scrollTop = body.scrollHeight;
-      }
-
-      if (id === "mudou") {
-        const ant = compararMesAnteriorChat();
-        if (!ant) {
-          appendMensagem(`<strong>Ainda não tenho dados históricos suficientes para comparar.</strong><span class="caixa-chat-note">Assim que existir um mês anterior fechado com dados comparáveis, eu mostro as mudanças sem inventar informações.</span>`);
-        } else {
-          const atual={gastos:(Number(t.fixosPagos)||0)+(Number(t.variaveisPagos)||0),ganhos:Number(t.ganhosRecebidos)||0,guardado:somaCampo(state.caixinhas,"valorGuardadoMes")},ca=Object.fromEntries(categoriasChat()),cp=categoriasHistoricoAnteriorChat(),pend=categoriasPendentesChat(),linhas=[];
-          if(cp) Array.from(new Set([...Object.keys(ca),...Object.keys(cp),...Object.keys(pend)])).map(cat=>({cat,atualPago:Number(ca[cat])||0,anteriorPago:Number(cp[cat])||0,pendente:Number(pend[cat])||0})).filter(x=>{
-            // Pendente não é gasto realizado. Se a categoria tem valor neste
-            // mês apenas porque está pendente, ela NÃO pode ser comparada
-            // como queda (ex.: mês passado R$400 pagos, este mês R$800 pendentes).
-            if (x.atualPago === 0 && x.pendente > 0) {
-              return false;
-            }
-            return Math.abs(x.atualPago - x.anteriorPago) >= .01;
-          }).map(x=>({cat:x.cat,delta:x.atualPago-x.anteriorPago})).sort((a,b)=>Math.abs(b.delta)-Math.abs(a.delta)).slice(0,5).forEach(x=>linhas.push(`<li><strong>${esc(x.cat)}</strong>: <span class="comparacao-seta ${x.delta>0?"neg":"pos"}">${x.delta>0?"↑":"↓"}</span> <span class="chat-valor ${x.delta>0?"chat-valor-neg":"chat-valor-pos"}">${chatFmt(Math.abs(x.delta))}</span></li>`));
-          const dg=atual.gastos-ant.gastos,dr=atual.ganhos-ant.ganhos,ds=atual.guardado-ant.guardado;
-          appendMensagem(`<strong>Este mês x ${esc(ant.nome||"mês anterior")}</strong><div class="chat-comparacao-bloco"><div class="chat-comparacao-titulo">Gastos</div>${linhas.length?`<ul>${linhas.join("")}</ul>`:`<p>Não houve mudança de categoria relevante.</p>`}<div class="chat-comparacao-resultado">Resultado: ${dg===0?"seus gastos ficaram iguais":`você gastou <span class="chat-valor ${dg>0?"chat-valor-neg":"chat-valor-pos"}">${chatFmt(Math.abs(dg))}</span> ${dg>0?"a mais":"a menos"}`}.</div><div class="chat-comparacao-titulo">Ganhos</div><div class="chat-comparacao-resultado">${dr===0?"seus ganhos ficaram iguais":`você recebeu <span class="chat-valor chat-valor-pos">${chatFmt(Math.abs(dr))}</span> ${dr>0?"a mais":"a menos"}`}.</div>${ant.guardado||atual.guardado?`<div class="chat-comparacao-resultado">Guardado: ${ds===0?"mesmo valor":`<span class="chat-valor chat-valor-gold">${chatFmt(Math.abs(ds))}</span> ${ds>0?"a mais":"a menos"}`}.</div>`:""}</div>`);
-        }
-      }
-
-      if (id === "aconteceu") {
-        const eventos=[],t=totaisChat(),totalGastos=(Number(t.fixosPagos)||0)+(Number(t.variaveisPagos)||0),totalGanhos=Number(t.ganhosRecebidos)||0,guardadoMes=somaCampo(state.caixinhas,"valorGuardadoMes");
-        if(totalGanhos>0)eventos.push(`Você recebeu <span class="chat-valor chat-valor-pos">${chatFmt(totalGanhos)}</span> neste mês.`);
-        if(totalGastos>0)eventos.push(`Você gastou <span class="chat-valor chat-valor-neg">${chatFmt(totalGastos)}</span> até agora neste mês.`);
-        if(guardadoMes>0)eventos.push(`Você guardou <span class="chat-valor chat-valor-gold">${chatFmt(guardadoMes)}</span> nas caixinhas neste mês.`);
-        const compromissosFixos=listaFinita(state.gastosFixos).filter(i=>!ehFuturoDoMesAtual(i)).length;const compromissosVariaveis=listaFinita(state.gastosVariaveis).filter(i=>gastoVariavelEhReal(i)&&!i.lembrete&&!ehFuturoDoMesAtual(i)).length;const totalCompromissos=compromissosFixos+compromissosVariaveis;const quitados=listaFinita(state.gastosFixos).filter(i=>i.pago===true&&!ehFuturoDoMesAtual(i)).length+listaFinita(state.gastosVariaveis).filter(i=>gastoVariavelEhReal(i)&&i.pago===true&&!i.lembrete&&!ehFuturoDoMesAtual(i)).length;if(quitados>0&&totalCompromissos>0)eventos.push(`Você já quitou <strong>${quitados} de ${totalCompromissos}</strong> compromisso${totalCompromissos===1?"":"s"} neste mês.`);
-        listaFinita(state.caixinhas).filter(cx=>{const o=Number(cx.valorObjetivo)||0,a=typeof totalCaixinha==="function"?totalCaixinha(cx):Number(cx.valorGuardado)||0;return o>0&&a>=o&&(Number(cx.valorGuardadoMes)||0)>0;}).slice(0,2).forEach(cx=>eventos.push(`A caixinha <strong>${esc(cx.nome||"Caixinha")}</strong> alcançou a meta de <span class="chat-valor chat-valor-gold">${chatFmt(cx.valorObjetivo)}</span>.`));
-        const resultado=totalGanhos-totalGastos-guardadoMes;if(Math.abs(resultado)>=.01)eventos.push(`O resultado líquido do mês até agora é <span class="chat-valor ${resultado>=0?"chat-valor-pos":"chat-valor-neg"}">${chatFmt(Math.abs(resultado))}</span> ${resultado>=0?"positivo":"negativo"}.`);
-        appendMensagem(eventos.length?`<strong>O que aconteceu este mês: (Até agora)</strong><ul class="caixa-chat-acontecimentos-lista">${eventos.slice(0,7).map(e=>`<li>${e}</li>`).join("")}</ul>`:`<strong>O que aconteceu este mês: (Até agora)</strong><span class="caixa-chat-note">Ainda não encontrei informações relevantes para destacar sem inventar contexto.</span>`);
-      }
-
-  if (id === "pendencias") {
-        const fixosPendentes = listaFinita(state.gastosFixos).filter(i => i.pago !== true && (Number(i.valor) || 0) > 0);
-        const variaveisPendentes = listaFinita(state.gastosVariaveis).filter(i => gastoVariavelEhReal(i) && i.pago !== true && !i.lembrete && (Number(i.valor) || 0) > 0);
-        const totalPend = t.aPagarFixos + t.aPagarVariaveis;
-        const linhaPendente = (i, tipo) => {
-          const parcelaRaw = tipo === "fixo" && /^\d+\s*\/\s*\d+$/.test(String(i.parcela || "").trim())
-            ? String(i.parcela).trim().replace(/\s+/g, "") : "";
-          const parcela = parcelaRaw ? `<span class="chat-pendente-parcela">(${esc(parcelaRaw)})</span>` : "";
-          const proximoMes = ehDoProximoMes(i)
-            ? `<span class="chat-pendente-proximo">Mês que vem</span>` : "";
-          const data = formatarDataCurta(i.data);
-          const nome = i.nome || (tipo === "fixo" ? "Gasto fixo" : "Gasto variável");
-          return `<li><span class="chat-pendente-arrow" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none"><path d="M5 12h12M13 7l5 5-5 5" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/></svg></span><span class="chat-pendente-main"><strong>${esc(nome)}${parcela}</strong><small>${[proximoMes, data ? `<span>${data}</span>` : ""].filter(Boolean).join(" · ")}</small></span><strong class="chat-valor chat-valor-neg">${chatFmt(i.valor)}</strong></li>`;
-        };
-        const pendenciasOrdenadas = [
-          ...fixosPendentes.map(i => ({ item: i, tipo: "fixo" })),
-          ...variaveisPendentes.map(i => ({ item: i, tipo: "variavel" }))
-        ].sort((a, b) => compararDataAscendente(a.item.data, b.item.data));
-        const linhasPendencias = pendenciasOrdenadas.map(({ item, tipo }) => linhaPendente(item, tipo)).join("");
-        const detalhes = pendenciasOrdenadas.length
-          ? `<ul class="caixa-chat-pendencias-lista lista-simples">${linhasPendencias}</ul>`
-          : "";
-        const vazio = !detalhes ? `<div class="caixa-chat-empty">Nenhum gasto pendente encontrado.</div>` : detalhes;
-        const totalDesteMes = t.aPagarFixosEsseMes + t.aPagarVariaveisEsseMes;
-        const totalFuturo = t.aPagarFixosFuturos + t.aPagarVariaveisFuturos;
-        const notaPendencias = totalFuturo > 0
-          ? `Deste total, ${chatFmt(totalDesteMes)} vencem neste mês e ${chatFmt(totalFuturo)} são contas futuras já lançadas.`
-          : `Todas as contas pendentes de ${chatFmt(totalDesteMes)} vencem neste mês.`;
-        appendMensagem(`<strong>Ainda falta pagar ${chatFmt(totalPend)} no total.</strong>${vazio}<span class="caixa-chat-note">${notaPendencias} Também há ${chatFmt(t.aReceber)} para receber.</span>`);
-      }
-
-
-      if (id === "economia") {
-        // Primeiro tenta o cache. O mesmo conjunto de números + perfil usa
-        // exatamente as mesmas dicas e não espera a IA novamente.
-        window._caixaDicasIAEstoque = [];
-        window._caixaDicaIAIndice = 0;
-        const chave = chaveCacheDicasChat(t, "economia");
-        const cache = lerCacheDicasChat(chave);
-        if (cache?.length) {
-          window._caixaDicasIAEstoque = cache;
-          window._caixaDicaIAIndice = 1;
-          mostrarDicaNoChat(cache[0]);
-          return;
-        }
-        const sessaoEconomia = window._caixaChatSessao || 0;
-        const textoPensamento = thinking.querySelector("em");
-        if (textoPensamento) textoPensamento.textContent = "Só um instante… estou organizando os números para você…";
-        return buscarDicasIA(t, { chave, modo: "economia" }).then((dicasIA) => {
-          // Se o usuário já mudou de assunto/perfil, a resposta atrasada não
-          // pode invadir a nova conversa.
-          if (sessaoEconomia !== (window._caixaChatSessao || 0) || !chat.classList.contains("is-open")) return;
-          if (dicasIA.length) {
-            window._caixaDicasIAEstoque = dicasIA;
-            window._caixaDicaIAIndice = 1;
-            mostrarDicaNoChat(dicasIA[0]);
-          } else {
-            const dicas = montarDicasFinanceiras(t);
-            const indice = Number(window._caixaDicaIndice || 0) % Math.max(dicas.length, 1);
-            window._caixaDicaIndice = indice + 1;
-            mostrarDicaNoChat({ texto: aplicarTomChat(dicas[indice]?.dica || "Não apareceu nenhuma informação nova relevante nos dados atuais.") });
-          }
-        });
-      }
-    });
-  }
-
-
-  // -------------------------------------------------------------------
-  // CADASTRO CONVERSACIONAL
-  // O botão + usa este fluxo para TODOS os tipos de lançamento. Cada
-  // pergunta aparece como uma mensagem do assistente, com cards e/ou
-  // campo de resposta. O salvamento usa as mesmas operações dos formulários
-  // antigos, portanto a planilha e as regras existentes continuam iguais.
-  // -------------------------------------------------------------------
-  let cadastroAtivo = null;
-
-  function escolhaChat(opcoes, callback, opts = {}) {
-    const wrap = document.createElement("div");
-    wrap.className = `caixa-chat-choices ${opts.className || ""}`;
-    opcoes.forEach(op => {
-      const [valor, titulo, sub = "", extraClass = ""] = op;
-      const btn = document.createElement("button");
-      btn.type = "button";
-      btn.className = `caixa-chat-choice ${extraClass}`;
-      btn.innerHTML = `<span><strong>${esc(titulo)}</strong>${sub ? `<small>${esc(sub)}</small>` : ""}</span>${opts.showArrow === false ? "" : `<span class="caixa-chat-choice-arrow">›</span>`}`;
-      btn.addEventListener("click", () => {
-        wrap.remove();
-        appendMensagem(esc(titulo), "user");
-        callback(valor, titulo);
-      });
-      wrap.appendChild(btn);
-    });
-    body.appendChild(wrap);
-    body.scrollTop = body.scrollHeight;
-    return wrap;
-  }
-
-  function selectChat(label, opcoes, callback, opts = {}) {
-    appendMensagem(`<strong>${esc(label)}</strong>`);
-    const wrap = document.createElement("div");
-    wrap.className = `caixa-chat-select-wrap ${opts.className || ""}`;
-    const select = document.createElement("select");
-    select.className = "caixa-chat-select";
-    select.setAttribute("aria-label", label);
-    const placeholder = document.createElement("option");
-    placeholder.value = "";
-    placeholder.textContent = opts.placeholder || "Selecione uma opção…";
-    placeholder.disabled = true;
-    placeholder.selected = true;
-    select.appendChild(placeholder);
-    opcoes.forEach(op => {
-      const [valor, titulo] = op;
-      const option = document.createElement("option");
-      option.value = String(valor);
-      option.textContent = titulo;
-      select.appendChild(option);
-    });
-    if (opts.defaultValue !== undefined && opts.defaultValue !== null) {
-      const valorPadrao = String(opts.defaultValue);
-      const existe = Array.from(select.options).some((option) => option.value === valorPadrao);
-      if (existe) {
-        select.value = valorPadrao;
-        placeholder.selected = false;
-      }
-    }
-    const enviar = document.createElement("button");
-    enviar.type = "button";
-    enviar.className = "caixa-chat-select-btn";
-    enviar.textContent = "Continuar";
-    const concluir = () => {
-      if (select.value === "") { select.focus(); return; }
-      const titulo = select.options[select.selectedIndex]?.textContent || select.value;
-      wrap.remove();
-      appendMensagem(titulo, "user");
-      callback(select.value, titulo);
-    };
-    select.addEventListener("change", () => { if (opts.autoSubmit) concluir(); });
-    select.addEventListener("keydown", e => { if (e.key === "Enter") concluir(); });
-    enviar.addEventListener("click", concluir);
-    wrap.append(select, enviar);
-    body.appendChild(wrap);
-    body.scrollTop = body.scrollHeight;
-    setTimeout(() => select.focus(), 40);
-    return wrap;
-  }
-
-  function formatarNomeCadastro(texto) {
-    return String(texto || "")
-      .trim()
-      .replace(/\s+/g, " ")
-      .toLocaleLowerCase("pt-BR")
-      .replace(/(^|[\s\-\u2013\u2014'])[\p{L}\p{M}]/gu, m => m.toLocaleUpperCase("pt-BR"));
-  }
-
-  function campoChat(label, placeholder, callback, opts = {}) {
-    if (!opts.skipQuestion) appendMensagem(`<strong>${esc(label)}</strong>`);
-    const wrap = document.createElement("div");
-    wrap.className = `caixa-chat-simulador-form caixa-chat-cadastro-form ${opts.className || ""}`;
-    const inputType = opts.type || "text";
-    const valorInicial = opts.value != null ? `value="${esc(opts.value)}"` : "";
-    wrap.innerHTML = `
-      <label class="caixa-chat-simulador-input">
-        <span>${esc(label)}</span>
-        <input type="${inputType}" ${opts.inputmode ? `inputmode="${opts.inputmode}"` : ""} autocomplete="${opts.autocomplete || "off"}" placeholder="${esc(placeholder || "")}" aria-label="${esc(label)}" ${valorInicial}>
-      </label>
-      <button type="button" class="caixa-chat-simulador-btn">Enviar</button>`;
-    body.appendChild(wrap);
-    const input = wrap.querySelector("input");
-    const enviar = () => {
-      let valor = String(input.value || "").trim();
-      if (opts.formatarNome && valor) {
-        valor = formatarNomeCadastro(valor);
-        input.value = valor;
-      }
-      if (!valor && !opts.allowEmpty) { input.focus(); return; }
-      wrap.remove();
-      if (!opts.skipResponse) appendMensagem(valor || "Pular", "user");
-      callback(valor);
-    };
-    input.addEventListener("keydown", e => { if (e.key === "Enter") enviar(); });
-    wrap.querySelector("button").addEventListener("click", enviar);
-    setTimeout(() => input.focus(), 40);
-    body.scrollTop = body.scrollHeight;
-    return wrap;
-  }
-
-  function campoValorCadastro(label, callback, opts = {}) {
-    if (!opts.skipQuestion) appendMensagem(`<strong>${esc(label)}</strong>`);
-    const wrap = document.createElement("div");
-    wrap.className = "caixa-chat-simulador-form caixa-chat-cadastro-form caixa-chat-valor-form";
-    wrap.innerHTML = `
-      <label class="caixa-chat-simulador-input">
-        <span>${esc(label)}</span>
-        <input type="text" inputmode="decimal" autocomplete="off" placeholder="${esc(opts.placeholder || "Ex.: 300,00")}" aria-label="${esc(label)}">
-      </label>
-      <button type="button" class="caixa-chat-simulador-btn">Enviar</button>`;
-    body.appendChild(wrap);
-
-    const input = wrap.querySelector("input");
-    const enviar = wrap.querySelector("button");
-    const permitirVazio = !!opts.allowEmpty;
-
-    const formatar = () => {
-      let digitos = String(input.value || "").replace(/\D/g, "");
-      if (!digitos) {
-        input.value = "";
-        return;
-      }
-      digitos = digitos.replace(/^0+(?=\d)/, "");
-      while (digitos.length < 3) digitos = "0" + digitos;
-      const centavos = digitos.slice(-2);
-      const inteiros = digitos.slice(0, -2).replace(/\B(?=(\d{3})+(?!\d))/g, ".");
-      input.value = `R$ ${inteiros},${centavos}`;
-    };
-
-    const atualizarBotao = () => {
-      const texto = String(input.value || "").trim();
-      const numero = parseValor(texto.replace(/^R\$\s*/i, ""));
-      enviar.disabled = !((numero > 0) || (permitirVazio && texto === ""));
-      enviar.classList.toggle("is-disabled", enviar.disabled);
-    };
-
-    input.addEventListener("input", () => {
-      formatar();
-      atualizarBotao();
-    });
-
-    const concluir = () => {
-      const texto = String(input.value || "").trim();
-      const numero = texto ? parseValor(texto.replace(/^R\$\s*/i, "")) : 0;
-      if (!texto && permitirVazio) {
-        wrap.remove();
-        appendMensagem("Pular", "user");
-        callback(0);
-        return;
-      }
-      if (!(numero > 0)) {
-        input.focus();
-        input.classList.add("input-erro");
-        setTimeout(() => input.classList.remove("input-erro"), 500);
-        return;
-      }
-      wrap.remove();
-      appendMensagem(input.value, "user");
-      callback(numero);
-    };
-
-    input.addEventListener("keydown", e => { if (e.key === "Enter") concluir(); });
-    enviar.addEventListener("click", concluir);
-    atualizarBotao();
-    setTimeout(() => input.focus(), 40);
-    body.scrollTop = body.scrollHeight;
-    return wrap;
-  }
-
-  function categoriasEscolhiveis(callback) {
-    const cats = typeof categoriasAtuais === "function" ? categoriasAtuais() : [];
-    const op = cats.map(c => [c, c]);
-    op.push(["__sem_categoria", "Sem categoria"]);
-    selectChat("E em qual categoria ele entra?", op, (valor, titulo) => {
-      callback(valor === "__sem_categoria" ? "" : valor, titulo);
-    }, { placeholder: "Selecione uma categoria…", defaultValue: "__sem_categoria" });
-  }
-
-  function escolhaIconeChat(callback) {
-    const menu = document.createElement("div");
-    menu.className = "caixa-chat-icon-picker";
-    menu.innerHTML = `
-      <div class="caixa-chat-icon-search-wrap">
-        <span class="caixa-chat-icon-search-icon" aria-hidden="true">
-          <svg viewBox="0 0 24 24" fill="none"><circle cx="11" cy="11" r="6.5" stroke="currentColor" stroke-width="1.8"></circle><path d="m16 16 4 4" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"></path></svg>
-        </span>
-        <input type="search" class="caixa-chat-icon-search" placeholder="Pesquisar ícone…" autocomplete="off" spellcheck="false" aria-label="Pesquisar ícone">
-        <button type="button" class="caixa-chat-icon-search-clear is-hidden" aria-label="Limpar pesquisa">×</button>
-      </div>
-      <div class="caixa-chat-icon-grid" role="listbox" aria-label="Escolha um ícone"></div>
-      <div class="caixa-chat-icon-empty is-hidden">Nenhum ícone encontrado.</div>
-    `;
-    body.appendChild(menu);
-
-    const search = menu.querySelector(".caixa-chat-icon-search");
-    const clear = menu.querySelector(".caixa-chat-icon-search-clear");
-    const grid = menu.querySelector(".caixa-chat-icon-grid");
-    const empty = menu.querySelector(".caixa-chat-icon-empty");
-    const opcoes = [{ nome: "", label: "Sem ícone" }, ...(Array.isArray(iconesCaixinhas) ? ordenarIconesPorUso(iconesCaixinhas) : []).map(nome => ({ nome, label: nomeIconeBonito(nome) }))];
-
-    const desenhar = (termo = "") => {
-      const busca = normalizarTextoBuscaIcone(termo);
-      grid.innerHTML = "";
-      const filtradas = opcoes.filter(x => !busca || normalizarTextoBuscaIcone(`${x.nome} ${x.label}`).includes(busca));
-      empty.classList.toggle("is-hidden", filtradas.length > 0);
-      clear.classList.toggle("is-hidden", !busca);
-
-      filtradas.forEach(({ nome, label }) => {
-        const btn = document.createElement("button");
-        btn.type = "button";
-        btn.className = "caixa-chat-icon-choice";
-        btn.setAttribute("role", "option");
-        btn.setAttribute("aria-label", label);
-        btn.title = label;
-        if (!nome) {
-          btn.innerHTML = '<span class="caixa-chat-icon-none">×</span>';
-        } else {
-          const img = document.createElement("img");
-          img.src = urlIconeCaixinha(nome);
-          img.alt = "";
-          img.loading = "lazy";
-          img.decoding = "async";
-          img.onerror = () => btn.remove();
-          btn.appendChild(img);
-        }
-        btn.addEventListener("click", () => {
-          menu.remove();
-          if (nome) registrarUsoIconeCaixinha(nome);
-          if (nome) {
-            appendMensagem(`<span class="caixa-chat-icon-selected" title="${esc(label)}"><img src="${esc(urlIconeCaixinha(nome))}" alt="${esc(label)}"></span>`, "user");
-          } else {
-            appendMensagem("Sem ícone", "user");
-          }
-          callback(nome, label);
-        });
-        grid.appendChild(btn);
-      });
-    };
-
-    search.addEventListener("input", () => desenhar(search.value));
-    clear.addEventListener("click", () => { search.value = ""; desenhar(""); search.focus(); });
-    search.addEventListener("keydown", e => { if (e.key === "Escape") { menu.remove(); body.scrollTop = body.scrollHeight; } });
-    desenhar("");
-    setTimeout(() => search.focus(), 40);
-    body.scrollTop = body.scrollHeight;
-    return menu;
-  }
-
-  function formatarDataParaChat(valor) {
-    const s = String(valor || "").trim();
-    const m = /^(\d{4})-(\d{2})-(\d{2})/.exec(s);
-    if (!m) return s;
-    return `${m[3]}/${m[2]}/${m[1]}`;
-  }
-
-  function perguntaDataCadastro(callback, label = "Qual é a data?") {
-    appendMensagem(`<strong>${esc(label)}</strong>`);
-    const hoje = dataHojeISO();
-    campoChat(label, "", valor => {
-      const data = valor || hoje;
-      appendMensagem(esc(formatarDataParaChat(data)), "user");
-      callback(data);
-    }, { type: "date", autocomplete: "off", value: hoje, skipResponse: true, skipQuestion: true });
-  }
-
-  function perguntaStatusCadastro(label, positivo, negativo, callback) {
-    appendMensagem(`<strong>${esc(label)}</strong>`);
-    escolhaChat([[true, positivo, ""], [false, negativo, ""]], callback);
-  }
-
-  function mostrarFeedbackCadastro(titulo, mensagem) {
-    // Feedback visual fora do balão: a confirmação aparece imediatamente e
-    // transforma o cadastro em uma pequena recompensa visual, sem depender
-    // apenas da última mensagem do chat.
-    const anterior = document.getElementById("caixaCadastroFeedback");
-    if (anterior) anterior.remove();
-
-    const isGanho = /ganho/i.test(titulo);
-    const isCaixinha = /caixinha/i.test(titulo);
-    const tipo = isGanho ? "ganho" : isCaixinha ? "caixinha" : "gasto";
-    const icone = isGanho ? "↑" : isCaixinha ? "◇" : "✓";
-    const etiqueta = isGanho ? "GANHO" : isCaixinha ? "CAIXINHA" : "GASTO";
-
-    const overlay = document.createElement("div");
-    overlay.id = "caixaCadastroFeedback";
-    overlay.className = `caixa-cadastro-feedback caixa-cadastro-feedback-${tipo}`;
-    overlay.setAttribute("role", "status");
-    overlay.setAttribute("aria-live", "polite");
-    overlay.innerHTML = `
-      <div class="caixa-cadastro-feedback-confetti" aria-hidden="true">
-        <i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i>
-      </div>
-      <div class="caixa-cadastro-feedback-card">
-        <div class="caixa-cadastro-feedback-orb" aria-hidden="true"><span>${icone}</span></div>
-        <div class="caixa-cadastro-feedback-kicker"><span class="caixa-cadastro-feedback-dot"></span>${etiqueta}</div>
-        <strong class="caixa-cadastro-feedback-title">${esc(titulo.replace(/^(Gasto|Ganho|Caixinha) (adicionado|criada)$/i, "$1"))}</strong>
-        <div class="caixa-cadastro-feedback-detail">${mensagem}</div>
-        <div class="caixa-cadastro-feedback-stamp"><span>✓</span> Registrado com sucesso</div>
-      </div>`;
-
-    document.body.appendChild(overlay);
-    requestAnimationFrame(() => overlay.classList.add("is-visible"));
-
-    const remover = () => {
-      overlay.classList.remove("is-visible");
-      overlay.classList.add("is-closing");
-      setTimeout(() => overlay.remove(), 260);
-    };
-    setTimeout(remover, 2100);
-    overlay.addEventListener("click", remover, { once: true });
-  }
-
-  function finalizarCadastro(titulo, mensagem) {
-    appendMensagem(`<strong>${esc(titulo)}</strong><br>${mensagem}`);
-    mostrarFeedbackCadastro(titulo, mensagem);
-    cadastroAtivo = null;
-    appendMensagem("Quer adicionar outro lançamento?");
-    escolhaChat([
-      ["sim", "Sim, adicionar outro", "Voltar para o início do cadastro"]
-    ], escolha => {
-      if (escolha === "sim") iniciarCadastroConversacional();
-    });
-  }
-
-  function iniciarCadastroConversacional() {
-    if (isAmbos()) {
-      appendMensagem("No modo <strong>Juntos</strong>, o cadastro individual fica indisponível. Escolha Davi ou Gabriel para adicionar um lançamento.");
-      return;
-    }
-    window._caixaChatSessao = (Number(window._caixaChatSessao) || 0) + 1;
-    clearTimeout(dicaOutraTimer);
-    dicaOutraTimer = null;
-    body.querySelectorAll("#caixaChatOutraDica").forEach(x => x.remove());
-    quick.classList.add("is-hidden");
-    const quickTitle = quick.previousElementSibling;
-    if (quickTitle && quickTitle.classList.contains("caixa-chat-quick-title")) quickTitle.classList.add("is-hidden");
-    const welcome = body.querySelector(".caixa-chat-welcome");
-    if (welcome) welcome.classList.add("is-hidden");
-    body.querySelectorAll("#caixaChatBack").forEach(x => x.remove());
-    cadastroAtivo = { etapa: "tipo" };
-
-    appendMensagem("Claro! Vamos registrar isso juntos. <strong>O que você quer adicionar?</strong>");
-    escolhaChat([
-      ["gasto", "Gasto", "Algo que você comprou, pagou ou parcelou"],
-      ["ganho", "Ganho", "Dinheiro que entrou ou vai entrar"],
-      ["caixinha", "Caixinha", "Reserva, meta ou dinheiro guardado"]
-    ], tipo => {
-      cadastroAtivo.tipo = tipo;
-      if (tipo === "gasto") fluxoGasto();
-      if (tipo === "ganho") fluxoGanho();
-      if (tipo === "caixinha") fluxoCaixinha();
-    });
-
-    function fluxoGasto() {
-      appendMensagem("Vamos ao <strong>gasto</strong>.");
-      campoChat("O que foi?", "Ex.: Mercado, Amazon, aluguel…", nome => {
-        cadastroAtivo.nome = nome;
-        campoValorCadastro("Qual foi o valor?", valor => {
-          cadastroAtivo.valor = valor;
-          appendMensagem("Esse gasto acontece <strong>só este mês</strong> ou vai <strong>se repetir nos próximos meses</strong>?");
-          escolhaChat([
-            ["fixo", "Vai se repetir", "Entra como gasto fixo"],
-            ["variavel", "Só este mês", "Entra como gasto variável"]
-          ], tipoGasto => {
-            cadastroAtivo.tipoGasto = tipoGasto;
-            if (tipoGasto === "fixo") fluxoGastoFixo();
-            else fluxoGastoVariavel();
-          });
-        });
-      }, { formatarNome: true });
-    }
-
-    function perguntarFaturaAntesDaData(callback) {
-      const vencimento = dataVencimentoFaturaAtual();
-      appendMensagem("Esse gasto vai entrar em uma <strong>fatura</strong>?");
-      escolhaChat([
-        ["sim", "Sim"],
-        ["nao", "Não"]
-      ], escolha => {
-        if (escolha === "sim") {
-          cadastroAtivo.fatura = true;
-          cadastroAtivo.data = vencimento;
-          appendMensagem(`Vencimento em: ${esc(formatarDataParaChat(vencimento))}`);
-          callback(vencimento, true);
-        } else {
-          cadastroAtivo.fatura = false;
-          perguntaDataCadastro(data => callback(data, false));
-        }
-      });
-    }
-
-    function fluxoGastoFixo() {
-      categoriasEscolhiveis(cat => {
-        cadastroAtivo.categoria = cat;
-        appendMensagem("Esse gasto será <strong>à vista</strong> ou <strong>parcelado</strong>?");
-        escolhaChat([
-          ["avista", "À vista"],
-          ["parcelado", "Parcelado", "Dividido em parcelas"]
-        ], modalidade => {
-          cadastroAtivo.modalidade = modalidade;
-          if (modalidade === "parcelado") {
-            selectChat("Em quantas parcelas?", Array.from({length:23}, (_,i)=>[String(i+2), `${i+2}x`]), qtd => {
-              cadastroAtivo.parcelas = Number(qtd);
-              perguntarFaturaAntesDaData(data => { cadastroAtivo.data = data; statusFixo(); });
-            }, { placeholder: "Escolha o número de parcelas…" });
-          } else {
-            // Gasto fixo à vista continua recorrente; sem número de parcelas,
-            // o backend cria o mesmo gasto no mês seguinte.
-            cadastroAtivo.parcelas = 0;
-            perguntarFaturaAntesDaData(data => { cadastroAtivo.data = data; statusFixo(); });
-          }
-        });
-      });
-    }
-
-    function statusFixo() {
-      perguntaStatusCadastro("Essa conta já foi paga?", "Sim, já paguei", "Não, está pendente", pago => {
-        const n = cadastroAtivo.parcelas || 0;
-        const valor = n > 0 ? Math.round((cadastroAtivo.valor / n) * 100) / 100 : cadastroAtivo.valor;
-        const parcela = n > 0 ? `1/${n}` : "";
-        const nomeSalvo = cadastroAtivo.fatura ? nomeInternoFatura(cadastroAtivo.nome) : cadastroAtivo.nome;
-        opFixos.add(nomeSalvo, valor, { pago, tipo: cadastroAtivo.categoria, data: dataDoLancamento(cadastroAtivo.data), parcela, fatura: cadastroAtivo.fatura === true });
-        finalizarCadastro("Gasto adicionado", `${esc(cadastroAtivo.nome)} · <span class="chat-valor chat-valor-neg">${chatFmt(valor)}</span>${n > 1 ? ` · parcela 1/${n}` : ""}.`);
-      });
-    }
-
-    function fluxoGastoVariavel() {
-      categoriasEscolhiveis(cat => {
-        cadastroAtivo.categoria = cat;
-        appendMensagem("De onde saiu esse dinheiro?");
-        escolhaChat([
-          ["saldo", "Saldo em conta", "Sai do saldo normal"],
-          ["beneficio", "Benefício", "Sai do saldo do benefício"]
-        ], origem => {
-          cadastroAtivo.origem = origem;
-          perguntarFaturaAntesDaData(data => {
-            cadastroAtivo.data = data;
-            perguntaStatusCadastro("Essa compra já foi paga?", "Sim, já paguei", "Não, está pendente", pago => {
-              const nomeSalvo = cadastroAtivo.fatura ? nomeInternoFatura(cadastroAtivo.nome) : cadastroAtivo.nome;
-              opVariaveis.add(nomeSalvo, cadastroAtivo.valor, { pago, tipo: cadastroAtivo.categoria, data: dataDoLancamento(cadastroAtivo.data), origem: cadastroAtivo.origem, fatura: cadastroAtivo.fatura === true });
-              finalizarCadastro("Gasto adicionado", `${esc(cadastroAtivo.nome)} · <span class="chat-valor chat-valor-neg">${chatFmt(cadastroAtivo.valor)}</span>.`);
-            });
-          });
-        });
-      });
-    }
-
-    function fluxoGanho() {
-      appendMensagem("Vamos registrar o <strong>ganho</strong>.");
-      campoChat("Nome do ganho", "Ex.: Salário, vale, benefício…", nome => {
-        cadastroAtivo.nome = nome;
-        campoValorCadastro("Qual é o valor?", valor => {
-          cadastroAtivo.valor = valor;
-          appendMensagem("Esse ganho pertence ao <strong>saldo em conta</strong> ou ao <strong>benefício</strong>?");
-          escolhaChat([
-            ["saldo", "Saldo em conta", "Entra no saldo normal"],
-            ["beneficio", "Benefício", "Entra no saldo do benefício"]
-          ], origem => {
-            cadastroAtivo.origem = origem;
-            perguntaDataCadastro(data => {
-              cadastroAtivo.data = data;
-              perguntaStatusCadastro("Esse dinheiro já foi recebido?", "Sim, já recebi", "Ainda vou receber", recebido => {
-                opGanhos.add(cadastroAtivo.nome, cadastroAtivo.valor, { recebido, data: dataDoLancamento(cadastroAtivo.data), origem: cadastroAtivo.origem });
-                finalizarCadastro("Ganho adicionado", `${esc(cadastroAtivo.nome)} · <span class="chat-valor chat-valor-pos">${chatFmt(cadastroAtivo.valor)}</span>.`);
-              });
-            });
-          });
-        });
-      }, { formatarNome: true });
-    }
-
-    function fluxoCaixinha() {
-      appendMensagem("Vamos criar a <strong>caixinha</strong>.");
-      campoChat("Nome da caixinha", "Ex.: Reserva de emergência, viagem…", nome => {
-        cadastroAtivo.nome = nome;
-        campoValorCadastro("Quanto já quer guardar nela?", valor => {
-          cadastroAtivo.valorInicial = valor;
-          appendMensagem("Vamos definir a meta da caixinha.");
-          campoValorCadastro("Objetivo", valorObjetivo => {
-            cadastroAtivo.valorObjetivo = valorObjetivo || 0;
-            appendMensagem("Vamos definir o prazo da meta.");
-            campoChat("Prazo", "Escolha uma data ou deixe em branco", data => {
-              cadastroAtivo.data = dataDoLancamento(data);
-              appendMensagem("Agora escolha um ícone, se quiser.");
-              escolhaIconeChat(icone => {
-                cadastroAtivo.icone = icone;
-                addCaixinha(cadastroAtivo.nome, cadastroAtivo.valorInicial, cadastroAtivo.valorObjetivo, cadastroAtivo.icone, cadastroAtivo.data);
-                finalizarCadastro("Caixinha criada", cadastroAtivo.valorInicial > 0
-                  ? `${esc(cadastroAtivo.nome)} · guardado inicial de <span class="chat-valor chat-valor-gold">${chatFmt(cadastroAtivo.valorInicial)}</span>.`
-                  : `${esc(cadastroAtivo.nome)} · sem valor inicial guardado.`);
-              });
-            }, { type: "date", allowEmpty: true });
-          }, { allowEmpty: true, placeholder: "Ex.: 5.000,00 — ou deixe em branco" });
-        }, { allowZero: true, allowEmpty: true, placeholder: "Ex.: 500,00 — ou deixe em branco" });
-      }, { formatarNome: true });
-    }
-  }
-
-  function iniciarPensamento(cb, mensagem = "Só um instante… estou organizando os números para você…") {
-    clearTimeout(pensamentoTimer);
-    const textoPensamento = thinking.querySelector("em");
-    if (textoPensamento) textoPensamento.textContent = mensagem;
-    thinking.classList.remove("is-hidden");
-    body.scrollTop = body.scrollHeight;
-    pensamentoTimer = setTimeout(async () => {
-      try {
-        const resultado = cb();
-        if (resultado && typeof resultado.then === "function") await resultado;
-      } finally {
-        thinking.classList.add("is-hidden");
-        mostrarMenuCompacto();
-      }
-    }, 620);
-  }
-
-  // STATUS FINANCEIRO — cálculo local + descrição IA persistente por estado dos dados.
-  function statusFinanceiroAtual(t) {
-    const saldo = Number(t.saldoAtualConta) || 0;
-    const limite = Number(t.conta) || 0;
-    const contasMes = (Number(t.aPagarFixosEsseMes)||0) + (Number(t.aPagarVariaveisEsseMes)||0);
-    const atrasados = listaFinita(state.gastosFixos).filter(i=>i.pago!==true && ehDoMesAnterior(i)).length + listaFinita(state.gastosVariaveis).filter(i=>gastoVariavelEhReal(i)&&i.pago!==true&&!i.lembrete&&ehDoMesAnterior(i)).length;
-    if (limite < 0 || saldo < 0) return {codigo:"apertado",titulo:"Apertado",classe:"status-financeiro-apertado"};
-    const base = Math.max(Math.abs(Number(t.ganhosOrigem?.ganhos)||0)+(Number(t.aReceber)||0),1);
-    if (atrasados > 0 || limite < Math.max(100, contasMes*.35) || contasMes/base >= .55) return {codigo:"atencao",titulo:"Atenção",classe:"status-financeiro-atencao"};
-    return {codigo:"tranquilo",titulo:"Tranquilo",classe:"status-financeiro-tranquilo"};
-  }
-  function chaveCacheStatusFinanceiro(t,status){ const {tom,imersao}=tomChat(); return `caixa:status-financeiro:v2:${hashDicasChat(JSON.stringify({pessoa:state.pessoaAtual||"davi",mes:state.mesAtual,ano:state.anoAtual,status:status.codigo,resumo:resumoParaIAChat(t),tom,imersao}))}`; }
-  function lerCacheStatusFinanceiro(chave){try{const raw=JSON.parse(localStorage.getItem(chave)||"null");return raw?.texto?String(raw.texto).trim():"";}catch(e){return "";}}
-  function salvarCacheStatusFinanceiro(chave,texto){try{localStorage.setItem(chave,JSON.stringify({salvoEm:Date.now(),texto:String(texto||"").trim()}));}catch(e){}}
-  function descricaoStatusFallback(t,status){ const limite=Number(t.conta)||0; if(status.codigo==="apertado") return limite<0?"Os compromissos que ainda precisam ser reservados ultrapassam o dinheiro projetado para o mês.":"Há compromissos que pedem atenção antes de considerar o dinheiro restante como folga."; return "Seu dinheiro projetado cobre os compromissos atuais e ainda deixa uma folga para o restante do mês."; }
-  async function atualizarDescricaoStatusIA(t,status,chave){
-    if(!API_URL||API_URL.includes("COLE_AQUI")||lerCacheStatusFinanceiro(chave)) return;
-    const token=(window._statusFinanceiroToken||0)+1; window._statusFinanceiroToken=token;
-    try{const respostas=await buscarDicasIA(t,{chave,modo:"statusFinanceiro"}); if(token!==window._statusFinanceiroToken)return; const texto=respostas?.[0]?.texto?String(respostas[0].texto).trim():""; if(!texto)return; salvarCacheStatusFinanceiro(chave,texto); const el=document.getElementById("statusFinanceiroDescricao"); if(el)el.innerHTML=formatarTextoIAChat(texto);}catch(e){}
-  }
-  function renderResumoStatusFinanceiro(){
-    const badge=document.getElementById("statusFinanceiroBadge"),titulo=document.getElementById("statusFinanceiroTitulo"),descricao=document.getElementById("statusFinanceiroDescricao");
-    if(!badge||!titulo||!descricao||!state.loaded)return; const t=totaisChat(),status=statusFinanceiroAtual(t); badge.classList.remove("status-financeiro-tranquilo","status-financeiro-atencao","status-financeiro-apertado","status-financeiro-neutro"); badge.classList.add(status.classe); titulo.textContent=status.titulo; const chave=chaveCacheStatusFinanceiro(t,status),cache=lerCacheStatusFinanceiro(chave); descricao.innerHTML=formatarTextoIAChat(cache||descricaoStatusFallback(t,status)); atualizarDescricaoStatusIA(t,status,chave);
-  }
-  function categoriasPendentesChat() {
-    const mapa = {};
-    const adicionar = (item, tipo) => {
-      if (!item || item.pago === true || ehFuturoDoMesAtual(item)) return;
-      if (tipo === "variavel" && (!gastoVariavelEhReal(item) || item.lembrete || !variavelContaNoSaldo(item))) return;
-      if (tipo === "fixo" && (Number(item.valor) || 0) <= 0) return;
-      const cat = String(item.tipo || "Outros").trim() || "Outros";
-      mapa[cat] = (mapa[cat] || 0) + (Number(item.valor) || 0);
-    };
-    listaFinita(state.gastosFixos).forEach(i => adicionar(i, "fixo"));
-    listaFinita(state.gastosVariaveis).forEach(i => adicionar(i, "variavel"));
-    return mapa;
-  }
-
-  function categoriasHistoricoAnteriorChat(){
-    const ant=compararMesAnteriorChat(); if(!ant)return null; const anos=listaFinita(state.historico?.anos); let pm=state.mesAtual-1,pa=state.anoAtual; if(pm===0){pm=12;pa--;} const bloco=anos.find(a=>Number(a.ano)===pa),mes=bloco?.meses?.find(m=>Number(m.mes)===pm); if(!mes)return null;
-    const fontes=state.pessoaAtual==="ambos"?[mes.categoriasDavi||{},mes.categoriasGabriel||{}]:[state.pessoaAtual==="gabriel"?(mes.categoriasGabriel||{}):(mes.categoriasDavi||{})]; const mapa={}; fontes.forEach(obj=>Object.entries(obj).forEach(([cat,valor])=>{if(String(cat).trim().toLowerCase()!=="metas")mapa[cat]=(mapa[cat]||0)+Math.abs(Number(valor)||0);})); return mapa;
-  }
-  function renderResumoAcontecimentos(){}
-  window.renderResumoStatusFinanceiro=renderResumoStatusFinanceiro;
-  window.renderResumoAcontecimentos=renderResumoAcontecimentos;
-
-  let fechamentoChatTimer = null;
-  function abrirChat() {
-    if (fechamentoChatTimer) { clearTimeout(fechamentoChatTimer); fechamentoChatTimer = null; }
-    // O + usa o mesmo painel do chat. Limpamos a altura temporária do fechamento
-    // antes de abrir para que o painel possa medir o conteúdo normalmente.
-    chat.style.height = "";
-    chat.classList.remove("is-closing");
-    chat.classList.add("is-open");
-    chat.setAttribute("aria-hidden", "false");
-    fab.setAttribute("aria-expanded", "true");
-    atualizarVisibilidadeFab();
-    const first = quick.querySelector("button");
-    if (first) setTimeout(() => first.focus(), 80);
-  }
-  function fecharChat() {
-    if (!chat.classList.contains("is-open")) return;
-    // Congela a altura por alguns frames. Sem isso, resetar o conteúdo enquanto
-    // a transição de saída roda faz o painel encolher de forma visível e parece
-    // que ele cresce/"estoura" antes de fechar — especialmente no fluxo do +.
-    const alturaAtual = chat.offsetHeight;
-    if (alturaAtual > 0) chat.style.height = alturaAtual + "px";
-    chat.classList.add("is-closing");
-    chat.classList.remove("is-open");
-    chat.setAttribute("aria-hidden", "true");
-    fab.setAttribute("aria-expanded", "false");
-    atualizarVisibilidadeFab();
-    cadastroAtivo = null;
-    if (fechamentoChatTimer) clearTimeout(fechamentoChatTimer);
-    fechamentoChatTimer = setTimeout(() => {
-      fechamentoChatTimer = null;
-      resetarChatParaSelecao();
-      chat.classList.remove("is-closing");
-      chat.style.height = "";
-    }, 280);
-  }
-
-  fab.addEventListener("click", () => chat.classList.contains("is-open") ? fecharChat() : abrirChat());
-  close.addEventListener("click", fecharChat);
-
-  document.addEventListener("caixa:abrirCadastroChat", () => {
-    abrirChat();
-    resetarChatParaSelecao();
-    iniciarCadastroConversacional();
-  });
-
-  quick.addEventListener("click", e => {
-    const btn = e.target.closest("[data-chat-acao]");
-    if (!btn) return;
-    executarAcao(btn.dataset.chatAcao);
-  });
-
-  document.addEventListener("keydown", e => {
-    if (e.key === "Escape" && chat.classList.contains("is-open")) fecharChat();
-  });
-
-  // Recalcula tudo de novo quando a pessoa trocar Davi/Gabriel/Juntos ou os
-  // dados forem sincronizados. A interface fica sempre ligada ao state atual.
-  function resetarChatParaSelecao() {
-    window._caixaChatSessao = (Number(window._caixaChatSessao) || 0) + 1;
-    clearTimeout(pensamentoTimer);
-    clearTimeout(dicaOutraTimer);
-    pensamentoTimer = null;
-    dicaOutraTimer = null;
-    window._caixaDicasIAEstoque = [];
-    window._caixaDicaIAIndice = 0;
-    thinking.classList.add("is-hidden");
-    body.querySelectorAll(".caixa-chat-message, .caixa-chat-choices, .caixa-chat-select-wrap, .caixa-chat-simulador-form, #caixaChatBack").forEach(x => x.remove());
-    quick.classList.remove("is-hidden");
-    const quickTitle = quick.previousElementSibling;
-    if (quickTitle && quickTitle.classList.contains("caixa-chat-quick-title")) quickTitle.classList.remove("is-hidden");
-    const welcome = body.querySelector(".caixa-chat-welcome");
-    if (welcome) welcome.classList.remove("is-hidden");
-    body.scrollTop = 0;
-    atualizarVisibilidadeFab();
-  }
-
-  document.addEventListener("click", e => {
-    if (e.target.closest(".person-btn")) {
-      resetarChatParaSelecao();
-      fecharChat();
-    }
-  });
-  document.addEventListener("caixa:perfil-trocado", () => {
-    resetarChatParaSelecao();
-    fecharChat();
-    carregarConfigIA();
-  });
-  document.addEventListener("caixa:ia-config-atualizada", () => { window._caixaDicaIndice = 0; });
-
-  async function preaquecerDicasIA() {
-    if (!API_URL || API_URL.includes("COLE_AQUI") || !state.mesAtual || !state.anoAtual) return;
-    try {
-      const t = totaisChat();
-      const chaveDicas = chaveCacheDicasChat(t);
-      const chaveGastar = chaveCacheGastarIA(t);
-      const status = statusFinanceiroAtual(t);
-      const chaveStatus = chaveCacheStatusFinanceiro(t, status);
-      await Promise.all([
-        lerCacheDicasChat(chaveDicas) ? Promise.resolve() : buscarDicasIA(t, { chave: chaveDicas }),
-        lerCacheGastarIA(chaveGastar) ? Promise.resolve() : buscarRespostasGastarIA(t, { chave: chaveGastar }),
-        lerCacheStatusFinanceiro(chaveStatus) ? Promise.resolve() : buscarDicasIA(t, { chave: chaveStatus, modo: "statusFinanceiro" })
-      ]);
-      if (typeof window.renderResumoStatusFinanceiro === "function") window.renderResumoStatusFinanceiro();
-    } catch (e) {}
-  }
-
-  mostrarAcoesRapidas();
-  setTimeout(() => preaquecerDicasIA(), 900);
-
-  // Expor os prompts para diagnóstico/uso futuro sem chamar a IA.
-  window.CAIXA_CHAT_PROMPTS = CHAT_PROMPTS;
-})();
