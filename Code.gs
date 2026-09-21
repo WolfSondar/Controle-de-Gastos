@@ -141,12 +141,17 @@ const OFFSET_GUARDADO_GABRIEL_MES = 13;
 const OFFSET_CATEGORIAS_GABRIEL = 14;
 const OFFSET_RENDIMENTO_GABRIEL = 15;
 
-// células de configuração (fora da tabela visual, à direita dela)
-const CONFIG_CEL_LABEL = "P1";
-const CONFIG_CEL_ANO_LABEL = "P2";
-const CONFIG_CEL_MES_LABEL = "P3";
-const CONFIG_CEL_ANO = "Q2";
-const CONFIG_CEL_MES = "Q3";
+// células de configuração do mês atual — uma coluna por perfil.
+// P = Davi | Q = Gabriel
+// Linha 1 = identificação do perfil
+// Linha 2 = ano atual
+// Linha 3 = mês atual (1-12)
+const CONFIG_CEL_DAVI_LABEL = "P1";
+const CONFIG_CEL_DAVI_ANO = "P2";
+const CONFIG_CEL_DAVI_MES = "P3";
+const CONFIG_CEL_GABRIEL_LABEL = "Q1";
+const CONFIG_CEL_GABRIEL_ANO = "Q2";
+const CONFIG_CEL_GABRIEL_MES = "Q3";
 
 function getSheetByPessoa(pessoa) {
   const nomeAba = SHEETS[pessoa];
@@ -172,11 +177,18 @@ function doGet(e) {
   try {
     const pessoa = ((e.parameter && e.parameter.pessoa) || "davi").toLowerCase();
     const historicoSheet = getHistoricoSheet();
-    const config = lerConfigMesAtual(historicoSheet);
 
     if (pessoa === "historico") {
+      const configDavi = lerConfigMesAtual(historicoSheet, "davi");
+      const configGabriel = lerConfigMesAtual(historicoSheet, "gabriel");
       return respond(
-        Object.assign({ ok: true }, config, { anos: lerHistoricoCompleto(historicoSheet) })
+        Object.assign({ ok: true }, {
+          mesAtual: configDavi.mesAtual,
+          anoAtual: configDavi.anoAtual,
+          configDavi: configDavi,
+          configGabriel: configGabriel,
+          anos: lerHistoricoCompleto(historicoSheet),
+        })
       );
     }
 
@@ -189,9 +201,19 @@ function doGet(e) {
     if (pessoa === "ambos") {
       const dadosDavi = getAllData(getSheetByPessoa("davi"));
       const dadosGabriel = getAllData(getSheetByPessoa("gabriel"));
-      return respond(Object.assign(mesclarDados(dadosDavi, dadosGabriel), config));
+      const configDavi = lerConfigMesAtual(historicoSheet, "davi");
+      const configGabriel = lerConfigMesAtual(historicoSheet, "gabriel");
+      return respond(Object.assign(mesclarDados(dadosDavi, dadosGabriel), {
+        // Juntos é somente leitura. Mantemos o mês do Davi apenas para
+        // compatibilidade visual, mas o fechamento nunca usa este modo.
+        mesAtual: configDavi.mesAtual,
+        anoAtual: configDavi.anoAtual,
+        configDavi: configDavi,
+        configGabriel: configGabriel,
+      }));
     }
 
+    const config = lerConfigMesAtual(historicoSheet, pessoa);
     return respond(Object.assign(getAllData(getSheetByPessoa(pessoa)), config));
   } catch (err) {
     return respond({ ok: false, error: String(err) });
@@ -226,7 +248,11 @@ function doPost(e) {
     const action = body.action;
 
     if (action === "fecharMes") {
-      return respond(fecharMes(body.mes, body.ano));
+      const pessoaFechamento = String(body.pessoa || "").toLowerCase();
+      if (pessoaFechamento !== "davi" && pessoaFechamento !== "gabriel") {
+        return respond({ ok: false, error: "O fechamento deve ser feito pelo perfil Davi ou Gabriel. Juntos não fecha mês." });
+      }
+      return respond(fecharMes(body.mes, body.ano, pessoaFechamento));
     }
     if (action === "transferir") {
       return respond(transferirEntrePessoas(body.de, body.para, body.nome, body.valor));
@@ -1079,133 +1105,105 @@ function gerarInsightComGemini(pessoa, periodo, resumo, opcoesModo) {
 // FECHAR MÊS
 // ---------------------------------------------------------------------
 
-function fecharMes(mes, ano) {
+function fecharMes(mes, ano, pessoa) {
   mes = Number(mes);
   ano = Number(ano);
+  pessoa = String(pessoa || "").toLowerCase();
   if (!mes || mes < 1 || mes > 12 || !ano) {
     throw new Error("Mês ou ano inválido para fechamento");
   }
+  if (pessoa !== "davi" && pessoa !== "gabriel") {
+    throw new Error("Juntos não fecha mês. Selecione Davi ou Gabriel.");
+  }
 
-  const sheetDavi = getSheetByPessoa("davi");
-  const sheetGabriel = getSheetByPessoa("gabriel");
-  const dadosDavi = getAllData(sheetDavi);
-  const dadosGabriel = getAllData(sheetGabriel);
-
-  const ganhosDavi = somaComStatus(dadosDavi.ganhos, "recebido");
-  const ganhosGabriel = somaComStatus(dadosGabriel.ganhos, "recebido");
-  const debitosDavi = somaFixosPagos(dadosDavi.gastosFixos) + somaVariaveisPagasReais(dadosDavi.gastosVariaveis);
-  const debitosGabriel = somaFixosPagos(dadosGabriel.gastosFixos) + somaVariaveisPagasReais(dadosGabriel.gastosVariaveis);
-
-  const saldoDavi = ganhosDavi - debitosDavi;
-  const saldoGabriel = ganhosGabriel - debitosGabriel;
-
-  // GUARDADO DAVI/GABRIEL no HISTORICO agora é o total de verdade (base + rendimento +
-  // o que foi guardado nesse mês) — é exatamente o valor que vira a nova base das
-  // caixinhas quando o mês fecha (ver seção 5 abaixo).
-  const guardadoDavi = somaTotalCaixinhas(dadosDavi.caixinhas);
-  const guardadoGabriel = somaTotalCaixinhas(dadosGabriel.caixinhas);
-  const guardadoDaviMes = somaCampo(dadosDavi.caixinhas, "valorGuardadoMes");
-  const guardadoGabrielMes = somaCampo(dadosGabriel.caixinhas, "valorGuardadoMes");
-
-  const categoriasDavi = categoriasDoMes(dadosDavi);
-  const categoriasGabriel = categoriasDoMes(dadosGabriel);
-
-  // Calcula o rendimento do mês antes de zerar
-  const rendimentoDavi = somaCampo(dadosDavi.caixinhas, "rendimentoTotal");
-  const rendimentoGabriel = somaCampo(dadosGabriel.caixinhas, "rendimentoTotal");
-
-  // 1) grava o mês fechado no HISTORICO
   const historico = getHistoricoSheet();
-  const yearRow = garantirBlocoDoAno(historico, ano);
-  const col = 1 + mes; // mês 1 (Jan) -> coluna B (2)
-  historico.getRange(yearRow + OFFSET_GANHOS_DAVI, col).setValue(ganhosDavi);
-  historico.getRange(yearRow + OFFSET_DEBITOS_DAVI, col).setValue(-debitosDavi);
-  historico.getRange(yearRow + OFFSET_SALDO_DAVI, col).setValue(saldoDavi);
-  historico.getRange(yearRow + OFFSET_GUARDADO_DAVI, col).setValue(guardadoDavi);
-  historico.getRange(yearRow + OFFSET_GUARDADO_DAVI_MES, col).setValue(guardadoDaviMes);
-  historico.getRange(yearRow + OFFSET_CATEGORIAS_DAVI, col).setValue(serializarCategorias(categoriasDavi));
-  historico.getRange(yearRow + OFFSET_RENDIMENTO_DAVI, col).setValue(rendimentoDavi); 
-  
-  historico.getRange(yearRow + OFFSET_GANHOS_GABRIEL, col).setValue(ganhosGabriel);
-  historico.getRange(yearRow + OFFSET_DEBITOS_GABRIEL, col).setValue(-debitosGabriel);
-  historico.getRange(yearRow + OFFSET_SALDO_GABRIEL, col).setValue(saldoGabriel);
-  historico.getRange(yearRow + OFFSET_GUARDADO_GABRIEL, col).setValue(guardadoGabriel);
-  historico.getRange(yearRow + OFFSET_GUARDADO_GABRIEL_MES, col).setValue(guardadoGabrielMes);
-  historico.getRange(yearRow + OFFSET_CATEGORIAS_GABRIEL, col).setValue(serializarCategorias(categoriasGabriel));
-  historico.getRange(yearRow + OFFSET_RENDIMENTO_GABRIEL, col).setValue(rendimentoGabriel); 
+  const configAtual = lerConfigMesAtual(historico, pessoa);
+  if (mes !== configAtual.mesAtual || ano !== configAtual.anoAtual) {
+    throw new Error(
+      "O mês informado não é o mês atual de " + PESSOA_NOME[pessoa] + ". " +
+      "O fechamento esperado é " + String(configAtual.mesAtual).padStart(2, "0") + "/" + configAtual.anoAtual + "."
+    );
+  }
 
-  // 2) GANHOS do mês seguinte
-  // O saldo que sobra no fechamento é separado pela origem dos ganhos.
-  // Agora cada gasto variável informa se saiu do Saldo ou do Benefício.
-  // Gastos fixos continuam saindo do Saldo. Assim, a origem do dinheiro
-  // é preservada exatamente, sem precisar fazer rateio proporcional.
-  const ganhosOrigemDavi = separarGanhosPorOrigem(dadosDavi.ganhos);
-  const ganhosOrigemGabriel = separarGanhosPorOrigem(dadosGabriel.ganhos);
-  const saldosProximoDavi = separarSaldoPorOrigem(ganhosOrigemDavi, somaFixosPagos(dadosDavi.gastosFixos), dadosDavi.gastosVariaveis);
-  const saldosProximoGabriel = separarSaldoPorOrigem(ganhosOrigemGabriel, somaFixosPagos(dadosGabriel.gastosFixos), dadosGabriel.gastosVariaveis);
+  const sheet = getSheetByPessoa(pessoa);
+  const dados = getAllData(sheet);
+
+  const ganhos = somaComStatus(dados.ganhos, "recebido");
+  const debitos = somaFixosPagos(dados.gastosFixos) + somaVariaveisPagasReais(dados.gastosVariaveis);
+  const saldo = ganhos - debitos;
+
+  // Total real das caixinhas no momento do fechamento: base + rendimento +
+  // aportes feitos durante o mês.
+  const guardado = somaTotalCaixinhas(dados.caixinhas);
+  const guardadoMes = somaCampo(dados.caixinhas, "valorGuardadoMes");
+  const categorias = categoriasDoMes(dados);
+  const rendimento = somaCampo(dados.caixinhas, "rendimentoTotal");
+
+  // 1) Grava SOMENTE o perfil que está fechando no histórico.
+  const yearRow = garantirBlocoDoAno(historico, ano);
+  const col = 1 + mes;
+  const ehDavi = pessoa === "davi";
+  historico.getRange(yearRow + (ehDavi ? OFFSET_GANHOS_DAVI : OFFSET_GANHOS_GABRIEL), col).setValue(ganhos);
+  historico.getRange(yearRow + (ehDavi ? OFFSET_DEBITOS_DAVI : OFFSET_DEBITOS_GABRIEL), col).setValue(-debitos);
+  historico.getRange(yearRow + (ehDavi ? OFFSET_SALDO_DAVI : OFFSET_SALDO_GABRIEL), col).setValue(saldo);
+  historico.getRange(yearRow + (ehDavi ? OFFSET_GUARDADO_DAVI : OFFSET_GUARDADO_GABRIEL), col).setValue(guardado);
+  historico.getRange(yearRow + (ehDavi ? OFFSET_GUARDADO_DAVI_MES : OFFSET_GUARDADO_GABRIEL_MES), col).setValue(guardadoMes);
+  historico.getRange(yearRow + (ehDavi ? OFFSET_CATEGORIAS_DAVI : OFFSET_CATEGORIAS_GABRIEL), col).setValue(serializarCategorias(categorias));
+  historico.getRange(yearRow + (ehDavi ? OFFSET_RENDIMENTO_DAVI : OFFSET_RENDIMENTO_GABRIEL), col).setValue(rendimento);
+
+  // 2) Prepara os ganhos do próximo mês preservando a origem do dinheiro.
+  const ganhosOrigem = separarGanhosPorOrigem(dados.ganhos);
+  const saldosProximo = separarSaldoPorOrigem(
+    ganhosOrigem,
+    somaFixosPagos(dados.gastosFixos),
+    dados.gastosVariaveis
+  );
   const nomeSaldo = "Saldo " + tituloMes(mes);
   const nomeSaldoBeneficios = "Saldo Beneficios " + tituloMes(mes);
-  
-  // Mantém os ganhos que NÃO foram recebidos OU os ganhos recorrentes (salário, etc)
-  const ganhosProximoDavi = [];
-  dadosDavi.ganhos.forEach(function (g) {
+
+  const ganhosProximo = [];
+  dados.ganhos.forEach(function (g) {
     if (g.recebido === false || ehGanhoRecorrente(g.nome)) {
-      ganhosProximoDavi.push({ nome: g.nome, valor: g.valor, data: proximaDataMesmoDia(g.data), recebido: false });
+      ganhosProximo.push({
+        nome: g.nome,
+        valor: g.valor,
+        data: proximaDataMesmoDia(g.data),
+        recebido: false,
+      });
     }
   });
 
-  const ganhosProximoGabriel = [];
-  dadosGabriel.ganhos.forEach(function (g) {
-    if (g.recebido === false || ehGanhoRecorrente(g.nome)) {
-      ganhosProximoGabriel.push({ nome: g.nome, valor: g.valor, data: proximaDataMesmoDia(g.data), recebido: false });
-    }
+  if (saldosProximo.ganhos > 0) {
+    ganhosProximo.push({ nome: nomeSaldo, valor: saldosProximo.ganhos, data: "", recebido: true });
+  }
+  if (saldosProximo.beneficios > 0) {
+    ganhosProximo.push({ nome: nomeSaldoBeneficios, valor: saldosProximo.beneficios, data: "", recebido: true });
+  }
+  saveGanhos(sheet, ganhosProximo);
+
+  // 3) Avança somente os gastos fixos deste perfil.
+  const proximosFixos = dados.gastosFixos.map(proximoFixo).filter(Boolean);
+  saveGastosFixos(sheet, proximosFixos);
+
+  // 4) Transfere somente as variáveis não pagas deste perfil.
+  const variaveisPendentes = dados.gastosVariaveis.filter(function (g) { return g.pago === false; });
+  saveGastosVariaveis(sheet, variaveisPendentes);
+
+  // 5) Consolida somente as caixinhas deste perfil.
+  const caixinhasProximo = dados.caixinhas.map(function (c) {
+    return {
+      nome: c.nome,
+      valorObjetivo: c.valorObjetivo,
+      valorGuardado: valorTotalCaixinha(c),
+      rendimentoTotal: 0,
+      valorGuardadoMes: 0,
+      data: c.data || "",
+      icone: c.icone || "",
+    };
   });
+  saveCaixinhasBlock(sheet, caixinhasProximo);
 
-  // Transporta o saldo positivo do mês que fechou, mantendo a origem.
-  if (saldosProximoDavi.ganhos > 0) {
-    ganhosProximoDavi.push({ nome: nomeSaldo, valor: saldosProximoDavi.ganhos, data: "", recebido: true });
-  }
-  if (saldosProximoDavi.beneficios > 0) {
-    ganhosProximoDavi.push({ nome: nomeSaldoBeneficios, valor: saldosProximoDavi.beneficios, data: "", recebido: true });
-  }
-  if (saldosProximoGabriel.ganhos > 0) {
-    ganhosProximoGabriel.push({ nome: nomeSaldo, valor: saldosProximoGabriel.ganhos, data: "", recebido: true });
-  }
-  if (saldosProximoGabriel.beneficios > 0) {
-    ganhosProximoGabriel.push({ nome: nomeSaldoBeneficios, valor: saldosProximoGabriel.beneficios, data: "", recebido: true });
-  }
-  
-  saveGanhos(sheetDavi, ganhosProximoDavi);
-  saveGanhos(sheetGabriel, ganhosProximoGabriel);
-
-  // 3) GASTOS FIXOS
-  const proximosFixosDavi = dadosDavi.gastosFixos.map(proximoFixo).filter(Boolean);
-  const proximosFixosGabriel = dadosGabriel.gastosFixos.map(proximoFixo).filter(Boolean);
-  saveGastosFixos(sheetDavi, proximosFixosDavi);
-  saveGastosFixos(sheetGabriel, proximosFixosGabriel);
-
-  // 4) GASTOS VARIÁVEIS (Transfere os não pagos para o mês seguinte)
-  const variaveisPendentesDavi = dadosDavi.gastosVariaveis.filter(function(g) { return g.pago === false; });
-  const variaveisPendentesGabriel = dadosGabriel.gastosVariaveis.filter(function(g) { return g.pago === false; });
-  
-  saveGastosVariaveis(sheetDavi, variaveisPendentesDavi);
-  saveGastosVariaveis(sheetGabriel, variaveisPendentesGabriel);
-
-  // 5) CAIXINHAS: fecham o mês consolidando tudo numa base só. O valor guardado
-  // (valorGuardado) NÃO é resetado — ele vira valorGuardado + rendimentoTotal +
-  // valorGuardadoMes, ou seja, passa a representar o total real acumulado até aqui.
-  // rendimentoTotal e valorGuardadoMes é que zeram, pra começar a contar o mês novo
-  // (o rendimento e o quanto foi guardado já foram lidos acima e gravados no HISTORICO).
-  const caixinhasProximoDavi = dadosDavi.caixinhas.map(function(c) {
-    return { nome: c.nome, valorObjetivo: c.valorObjetivo, valorGuardado: valorTotalCaixinha(c), rendimentoTotal: 0, valorGuardadoMes: 0, data: c.data || "", icone: c.icone || "" };
-  });
-  const caixinhasProximoGabriel = dadosGabriel.caixinhas.map(function(c) {
-    return { nome: c.nome, valorObjetivo: c.valorObjetivo, valorGuardado: valorTotalCaixinha(c), rendimentoTotal: 0, valorGuardadoMes: 0, data: c.data || "", icone: c.icone || "" };
-  });
-  saveCaixinhasBlock(sheetDavi, caixinhasProximoDavi);
-  saveCaixinhasBlock(sheetGabriel, caixinhasProximoGabriel);
-
-  // 6) avança o mês atual do app
+  // 6) Avança o mês atual SOMENTE do perfil que acabou de fechar.
   let proximoMes = mes + 1;
   let proximoAno = ano;
   if (proximoMes > 12) {
@@ -1213,32 +1211,34 @@ function fecharMes(mes, ano) {
     proximoAno = ano + 1;
   }
   garantirBlocoDoAno(historico, proximoAno);
-  salvarConfigMesAtual(historico, proximoMes, proximoAno);
+  salvarConfigMesAtual(historico, proximoMes, proximoAno, pessoa);
 
   return {
     ok: true,
     fechado: {
       mes: mes,
       ano: ano,
-      ganhosDavi: ganhosDavi,
-      debitosDavi: debitosDavi,
-      saldoDavi: saldoDavi,
-      saldoDaviGanhos: saldosProximoDavi.ganhos,
-      saldoDaviBeneficios: saldosProximoDavi.beneficios,
-      guardadoDavi: guardadoDavi,
-      guardadoDaviMes: guardadoDaviMes,
-      rendimentoDavi: rendimentoDavi,
-      ganhosGabriel: ganhosGabriel,
-      debitosGabriel: debitosGabriel,
-      saldoGabriel: saldoGabriel,
-      saldoGabrielGanhos: saldosProximoGabriel.ganhos,
-      saldoGabrielBeneficios: saldosProximoGabriel.beneficios,
-      guardadoGabriel: guardadoGabriel,
-      guardadoGabrielMes: guardadoGabrielMes,
-      rendimentoGabriel: rendimentoGabriel,
+      pessoa: pessoa,
+      ganhos: ganhos,
+      debitos: debitos,
+      saldo: saldo,
+      saldoGanhos: saldosProximo.ganhos,
+      saldoBeneficios: saldosProximo.beneficios,
+      guardado: guardado,
+      guardadoMes: guardadoMes,
+      rendimento: rendimento,
+      ganhosDavi: ehDavi ? ganhos : undefined,
+      debitosDavi: ehDavi ? debitos : undefined,
+      saldoDavi: ehDavi ? saldo : undefined,
+      ganhosGabriel: !ehDavi ? ganhos : undefined,
+      debitosGabriel: !ehDavi ? debitos : undefined,
+      saldoGabriel: !ehDavi ? saldo : undefined,
     },
+    pessoa: pessoa,
     mesAtual: proximoMes,
     anoAtual: proximoAno,
+    configDavi: lerConfigMesAtual(historico, "davi"),
+    configGabriel: lerConfigMesAtual(historico, "gabriel"),
   };
 }
 
@@ -1544,22 +1544,55 @@ function lerHistoricoCompleto(sheet) {
   return anos;
 }
 
-function lerConfigMesAtual(sheet) {
-  const anoCel = sheet.getRange(CONFIG_CEL_ANO).getValue();
-  const mesCel = sheet.getRange(CONFIG_CEL_MES).getValue();
+function configCelulasPorPessoa(pessoa) {
+  pessoa = String(pessoa || "").toLowerCase();
+  if (pessoa === "gabriel") {
+    return {
+      label: CONFIG_CEL_GABRIEL_LABEL,
+      ano: CONFIG_CEL_GABRIEL_ANO,
+      mes: CONFIG_CEL_GABRIEL_MES,
+      nome: "Gabriel",
+    };
+  }
+  return {
+    label: CONFIG_CEL_DAVI_LABEL,
+    ano: CONFIG_CEL_DAVI_ANO,
+    mes: CONFIG_CEL_DAVI_MES,
+    nome: "Davi",
+  };
+}
+
+function lerConfigMesAtual(sheet, pessoa) {
+  const cfg = configCelulasPorPessoa(pessoa);
+  let anoCel = sheet.getRange(cfg.ano).getValue();
+  let mesCel = sheet.getRange(cfg.mes).getValue();
+
+  // Migração do formato antigo: P1 era o rótulo, Q2/Q3 guardavam o único
+  // mês global. Na primeira leitura, copiamos esse valor para os dois perfis
+  // para que ninguém perca o mês em que já estava.
+  if ((!anoCel || !mesCel) && pessoa === "davi") {
+    const antigoAno = sheet.getRange("Q2").getValue();
+    const antigoMes = sheet.getRange("Q3").getValue();
+    if (antigoAno && antigoMes) {
+      anoCel = antigoAno;
+      mesCel = antigoMes;
+      sheet.getRange(cfg.ano).setValue(anoCel);
+      sheet.getRange(cfg.mes).setValue(mesCel);
+    }
+  }
+
   const agora = new Date();
   const ano = anoCel && Number(anoCel) > 2000 ? Number(anoCel) : agora.getFullYear();
   const mes = mesCel && Number(mesCel) >= 1 && Number(mesCel) <= 12 ? Number(mesCel) : agora.getMonth() + 1;
-  if (!anoCel || !mesCel) salvarConfigMesAtual(sheet, mes, ano);
-  return { mesAtual: mes, anoAtual: ano };
+  salvarConfigMesAtual(sheet, mes, ano, pessoa);
+  return { mesAtual: mes, anoAtual: ano, pessoa: String(pessoa || "davi").toLowerCase() };
 }
 
-function salvarConfigMesAtual(sheet, mes, ano) {
-  sheet.getRange(CONFIG_CEL_LABEL).setValue("Configuração do app (não editar manualmente)");
-  sheet.getRange(CONFIG_CEL_ANO_LABEL).setValue("Ano atual:");
-  sheet.getRange(CONFIG_CEL_MES_LABEL).setValue("Mês atual (1-12):");
-  sheet.getRange(CONFIG_CEL_ANO).setValue(ano);
-  sheet.getRange(CONFIG_CEL_MES).setValue(mes);
+function salvarConfigMesAtual(sheet, mes, ano, pessoa) {
+  const cfg = configCelulasPorPessoa(pessoa);
+  sheet.getRange(cfg.label).setValue(cfg.nome);
+  sheet.getRange(cfg.ano).setValue(ano);
+  sheet.getRange(cfg.mes).setValue(mes);
 }
 
 // ---------------------------------------------------------------------
