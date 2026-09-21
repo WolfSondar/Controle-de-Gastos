@@ -826,6 +826,14 @@ async function migrarPlanilhaParaFirebase() {
   return { ...resultado, resumo };
 }
 window.CAIXA_MIGRAR_PLANILHA_FIREBASE = migrarPlanilhaParaFirebase;
+window.CAIXA_VERIFICAR_MIGRACAO_FIREBASE = async function () {
+  if (!window.CAIXA_FIREBASE || typeof window.CAIXA_FIREBASE.verificarMigracaoFirebase !== "function") {
+    throw new Error("Firebase não está configurado.");
+  }
+  const resultado = await window.CAIXA_FIREBASE.verificarMigracaoFirebase();
+  console.info("CAIXA — estado da migração no Firestore:", resultado);
+  return resultado;
+};
 
 async function carregarConfigIA() {
   try {

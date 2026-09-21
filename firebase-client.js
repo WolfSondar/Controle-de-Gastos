@@ -20,6 +20,7 @@ import {
   getDoc,
   setDoc,
   runTransaction,
+  writeBatch,
 } from "https://www.gstatic.com/firebasejs/12.19.0/firebase-firestore.js";
 
 const cfg = window.CAIXA_FIREBASE_CONFIG || {};
@@ -227,6 +228,49 @@ if (!cfg.apiKey || cfg.apiKey.includes("COLE_")) {
     await deleteDoc(ref);
     return { ok: true };
   }
+  function resumoFirestoreDados(dados) {
+    const pessoa = (d = {}) => ({
+      ganhos: Array.isArray(d.ganhos) ? d.ganhos.length : 0,
+      gastosFixos: Array.isArray(d.gastosFixos) ? d.gastosFixos.length : 0,
+      gastosVariaveis: Array.isArray(d.gastosVariaveis) ? d.gastosVariaveis.length : 0,
+      caixinhas: Array.isArray(d.caixinhas) ? d.caixinhas.length : 0,
+      mesAtual: Number(d.mesAtual) || null,
+      anoAtual: Number(d.anoAtual) || null,
+    });
+    return {
+      davi: pessoa(dados?.davi),
+      gabriel: pessoa(dados?.gabriel),
+      anosHistorico: Array.isArray(dados?.historico?.anos) ? dados.historico.anos.length : 0,
+    };
+  }
+
+  function resumosIguais(a, b) {
+    return JSON.stringify(a || {}) === JSON.stringify(b || {});
+  }
+
+  async function verificarMigracaoFirebase() {
+    await window.CAIXA_FIREBASE_READY;
+    if (!currentUser) throw new Error("Faça login antes de verificar a migração.");
+    const uid = currentUser.uid;
+    const [dSnap, gSnap, hSnap, estadoSnap] = await Promise.all([
+      getDoc(perfilRef(uid, "davi")),
+      getDoc(perfilRef(uid, "gabriel")),
+      getDoc(historicoRef(uid)),
+      getDoc(doc(db, "users", uid, "migracoes", "estado")),
+    ]);
+    const dados = {
+      davi: dSnap.exists() ? dSnap.data() : {},
+      gabriel: gSnap.exists() ? gSnap.data() : {},
+      historico: hSnap.exists() ? hSnap.data() : { anos: [] },
+    };
+    return {
+      ok: true,
+      migrado: estadoSnap.exists() && estadoSnap.data()?.status === "concluida",
+      resumo: resumoFirestoreDados(dados),
+      estado: estadoSnap.exists() ? estadoSnap.data() : null,
+    };
+  }
+
   async function importarDados({fonte,historico,iaConfig,resumoMigracao}) {
     await window.CAIXA_FIREBASE_READY;
     if(!currentUser) throw new Error("Faça login antes de importar os dados.");
@@ -242,8 +286,22 @@ if (!cfg.apiKey || cfg.apiKey.includes("COLE_")) {
       iaConfig:iaConfig||null,
     };
     const backupRef = doc(db, "users", uid, "migracoes", "planilha-antes-da-migracao");
+    const estadoRef = doc(db, "users", uid, "migracoes", "estado");
+    const backupSnap = await getDoc(backupRef);
+    const estadoSnap = await getDoc(estadoRef);
+    if (estadoSnap.exists() && estadoSnap.data()?.status === "concluida") {
+      return { ok:true, jaMigrado:true, backupPath:`users/${uid}/migracoes/planilha-antes-da-migracao`, resumo:estadoSnap.data()?.resumoDestino||resumoMigracao||null };
+    }
+    if (backupSnap.exists()) {
+      const backupAtual = backupSnap.data() || {};
+      const resumoBackup = backupAtual.resumo || null;
+      if (resumoBackup && resumoMigracao && !resumosIguais(resumoBackup, resumoMigracao)) {
+        throw new Error("Já existe um backup de migração diferente neste usuário. A importação foi interrompida para evitar sobrescrever dados.");
+      }
+    }
+
     const backup = {
-      criadoEm: new Date().toISOString(),
+      criadoEm: backupSnap.exists() ? (backupSnap.data()?.criadoEm || new Date().toISOString()) : new Date().toISOString(),
       origem: "Google Sheets via Apps Script",
       resumo: resumoMigracao || null,
       davi: d,
@@ -251,18 +309,35 @@ if (!cfg.apiKey || cfg.apiKey.includes("COLE_")) {
       historico: { anos: Array.isArray(historico?.anos) ? historico.anos : [] },
       config: config,
     };
-    await setDoc(backupRef, backup, { merge: false });
-    await Promise.all([
-      setDoc(perfilRef(uid,"davi"),{...d},{merge:false}),
-      setDoc(perfilRef(uid,"gabriel"),{...g},{merge:false}),
-      setDoc(configRef(uid),config,{merge:true}),
-      setDoc(historicoRef(uid),{anos:Array.isArray(historico?.anos)?historico.anos:[]},{merge:true}),
-    ]);
-    const [dCheck,gCheck,hCheck] = await Promise.all([getDoc(perfilRef(uid,"davi")),getDoc(perfilRef(uid,"gabriel")),getDoc(historicoRef(uid))]);
-    if (!dCheck.exists() || !gCheck.exists() || !hCheck.exists()) throw new Error("A migração terminou sem confirmar todos os documentos no Firestore.");
-    return {ok:true, backupPath:`users/${uid}/migracoes/planilha-antes-da-migracao`, resumo:resumoMigracao||null};
+
+    // Primeiro preservamos a fonte em um documento de backup. Depois gravamos
+    // os quatro documentos de destino em um único batch, evitando estados
+    // intermediários entre Davi/Gabriel/config/histórico.
+    const batch = writeBatch(db);
+    batch.set(backupRef, backup, { merge: false });
+    batch.set(perfilRef(uid,"davi"),{...d},{merge:false});
+    batch.set(perfilRef(uid,"gabriel"),{...g},{merge:false});
+    batch.set(configRef(uid),config,{merge:true});
+    batch.set(historicoRef(uid),{anos:Array.isArray(historico?.anos)?historico.anos:[]},{merge:true});
+    await batch.commit();
+
+    const verificado = await verificarMigracaoFirebase();
+    if (!verificado.ok || !resumosIguais(verificado.resumo, resumoMigracao)) {
+      throw new Error("A gravação terminou, mas a conferência dos dados no Firestore não bateu com a fonte. Nenhuma nova tentativa automática foi feita.");
+    }
+
+    const estadoFinal = {
+      status: "concluida",
+      concluidaEm: new Date().toISOString(),
+      origem: "Snapshot da planilha",
+      resumoFonte: resumoMigracao || null,
+      resumoDestino: verificado.resumo,
+      backupPath: `users/${uid}/migracoes/planilha-antes-da-migracao`,
+    };
+    await setDoc(estadoRef, estadoFinal, { merge:false });
+    return {ok:true, jaMigrado:false, backupPath:estadoFinal.backupPath, resumo:verificado.resumo};
   }
-  window.CAIXA_FIREBASE={app,auth,db,request,get,getIAConfig,loginGoogle,signOut,importarDados,testarFirestore,apagarTesteFirestore};
+  window.CAIXA_FIREBASE={app,auth,db,request,get,getIAConfig,loginGoogle,signOut,importarDados,verificarMigracaoFirebase,testarFirestore,apagarTesteFirestore};
   window.CAIXA_FIREBASE_CONFIG_STATUS = { ok: true, projectId: cfg.projectId };
   function montarLogin() {
     if (document.getElementById("caixaFirebaseLogin")) return;
