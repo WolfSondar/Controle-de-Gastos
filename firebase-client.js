@@ -96,33 +96,58 @@ if (!cfg.apiKey || cfg.apiKey.includes("COLE_")) {
       return a;
     },{beneficios:0,ganhos:0});
   }
-  function separarSaldo(orig, fixosPagos, variaveis, listaGanhos) {
-    // Os lançamentos "Saldo ..." e "Saldo Beneficios ..." são saldos
-    // carregados de um mês anterior. Eles entram no saldo do fechamento,
-    // mas nunca devem voltar como ganho recorrente.
-    let saldoInicial=0, beneficioInicial=0;
-    (listaGanhos||[]).forEach(i=>{
-      if(i?.recebido!==true || !ehGanhoComMes(i?.nome)) return;
-      const v=Number(i?.valor)||0;
-      ganhoEhBeneficio(i) ? beneficioInicial+=v : saldoInicial+=v;
-    });
+  // Fonte única para os valores exibidos no card de Saldo disponível.
+  // O fechamento usa exatamente esta mesma conta, evitando que a cerimônia
+  // ou o backend reconstruam o saldo com uma fórmula diferente da tela.
+  function calcularSaldosDisponiveis(dados) {
+    const ganhos = Array.isArray(dados?.ganhos) ? dados.ganhos : [];
+    const fixos = Array.isArray(dados?.gastosFixos) ? dados.gastosFixos : [];
+    const variaveis = Array.isArray(dados?.gastosVariaveis) ? dados.gastosVariaveis : [];
+    const caixinhas = Array.isArray(dados?.caixinhas) ? dados.caixinhas : [];
 
-    let variaveisSaldo=0, variaveisBeneficio=0;
-    (variaveis||[]).forEach(i=>{
-      if(i?.pago!==true || i?.lembrete===true || ehCaixinhaLancamento(i?.nome)) return;
-      const v=Number(i?.valor)||0;
-      String(i?.origem||"saldo").toLowerCase()==="beneficio" ? (variaveisBeneficio+=v) : (variaveisSaldo+=v);
-    });
+    const ganhosPorOrigem = ganhos.reduce((acc, item) => {
+      if (item?.recebido !== true) return acc;
+      const valor = Number(item?.valor) || 0;
+      if (ganhoEhBeneficio(item)) acc.beneficios += valor;
+      else acc.ganhos += valor;
+      return acc;
+    }, { beneficios: 0, ganhos: 0 });
 
-    const totalPagosConta = (Number(fixosPagos)||0) + variaveisSaldo;
+    const fixosPagos = fixos.reduce((acc, item) =>
+      acc + (item?.pago === true ? Number(item?.valor) || 0 : 0), 0);
+
+    let gastosVariaveisBeneficio = 0;
+    let gastosVariaveisSaldo = 0;
+    for (const item of variaveis) {
+      const real = !ehCaixinhaLancamento(item?.nome);
+      if (!real || item?.pago !== true || item?.lembrete === true) continue;
+      const valor = Number(item?.valor) || 0;
+      if (String(item?.origem || "saldo").toLowerCase() === "beneficio") gastosVariaveisBeneficio += valor;
+      else gastosVariaveisSaldo += valor;
+    }
+
+    const guardadoNoMes = caixinhas.reduce((acc, item) =>
+      acc + (Number(item?.valorGuardadoMes) || 0), 0);
+
+    const beneficio = ganhosPorOrigem.beneficios - gastosVariaveisBeneficio;
+    const saldoConta = ganhosPorOrigem.ganhos - fixosPagos - gastosVariaveisSaldo - guardadoNoMes;
     return {
-      ganhos: Math.max(0, saldoInicial + (Number(orig.ganhos)||0) - totalPagosConta),
-      beneficios: Math.max(0, beneficioInicial + (Number(orig.beneficios)||0) - variaveisBeneficio),
-      saldoInicial,
-      beneficioInicial,
-      variaveisSaldo,
-      variaveisBeneficio,
+      ganhosPorOrigem,
+      fixosPagos,
+      gastosVariaveisBeneficio,
+      gastosVariaveisSaldo,
+      guardadoNoMes,
+      beneficio,
+      saldoConta,
+      total: beneficio + saldoConta,
     };
+  }
+
+  function separarSaldo(orig, fixosPagos, variaveis) {
+    let variaveisSaldo=0;
+    (variaveis||[]).forEach(i=>{ if(i?.pago===true && i?.lembrete!==true && !ehCaixinhaLancamento(i?.nome) && String(i?.origem||"saldo").toLowerCase()!=="beneficio") variaveisSaldo+=Number(i.valor)||0; });
+    const totalPagos = (Number(fixosPagos)||0) + variaveisSaldo;
+    return { ganhos: Math.max(0,(Number(orig.ganhos)||0)-totalPagos), beneficios: Math.max(0,Number(orig.beneficios)||0) };
   }
   function proximaDataMesmoDia(dataStr) {
     const m = /^(\d{4})-(\d{2})-(\d{2})$/.exec(String(dataStr||""));
@@ -183,15 +208,12 @@ if (!cfg.apiKey || cfg.apiKey.includes("COLE_")) {
     return runTransaction(db, async tx=>{
       const pref=perfilRef(uid,pessoa), href=historicoRef(uid); const ps=await tx.get(pref), hs=await tx.get(href);
       const dados=ps.exists()?ps.data():{}; if(Number(dados.mesAtual)!==mes||Number(dados.anoAtual)!==ano)throw new Error(`O mês informado não é o mês atual de ${pessoa}.`);
-      const ganhos=somaRecebidos(dados.ganhos),debitos=somaPagos(dados.gastosFixos)+somaVariaveisReais(dados.gastosVariaveis),saldo=ganhos-debitos;
+      const ganhos=somaRecebidos(dados.ganhos),debitos=somaPagos(dados.gastosFixos)+somaVariaveisReais(dados.gastosVariaveis);
+      const saldos=calcularSaldosDisponiveis(dados),saldo=saldos.total;
       const guardado=(dados.caixinhas||[]).reduce((a,c)=>a+totalCaixinha(c),0),guardadoMes=somaCampo(dados.caixinhas,"valorGuardadoMes"),rendimento=somaCampo(dados.caixinhas,"rendimentoTotal"),categorias=categoriasDoMes(dados);
       const hv=hs.exists()?hs.data():{};const anos=Array.isArray(hv.anos)?structuredClone(hv.anos):[];let bloco=anos.find(x=>Number(x.ano)===ano);if(!bloco){bloco={ano,meses:[]};anos.push(bloco);}
       let m=bloco.meses.find(x=>Number(x.mes)===mes);if(!m){m={mes,nome:tituloMes(mes)};bloco.meses.push(m);}const suf=pessoa==="davi"?"Davi":"Gabriel";
       m[`ganhos${suf}`]=ganhos;m[`debitos${suf}`]=-debitos;m[`saldo${suf}`]=saldo;m[`guardado${suf}`]=guardado;m[`guardado${suf}Mes`]=guardadoMes;m[`categorias${suf}`]=categorias;m[`rendimento${suf}`]=rendimento;
-      const orig=separarGanhos(dados.ganhos),saldos=separarSaldo(orig,somaPagos(dados.gastosFixos),dados.gastosVariaveis,dados.ganhos);
-      // O dinheiro colocado em caixinhas também saiu do saldo em conta.
-      // O benefício permanece separado e nunca financia uma caixinha.
-      saldos.ganhos=Math.max(0,saldos.ganhos-guardadoMes);
       const ganhosProx=[];(dados.ganhos||[]).forEach(g=>{
         if(g.recebido===false||ehGanhoRecorrente(g.nome)){
           const ganhoProx={nome:g.nome,valor:g.valor,data:proximaDataMesmoDia(g.data),recebido:false};
@@ -579,18 +601,27 @@ if (!cfg.apiKey || cfg.apiKey.includes("COLE_")) {
     await setDoc(estadoRef, estadoFinal, { merge:false });
     return {ok:true, jaMigrado:false, backupPath:estadoFinal.backupPath, resumo:verificado.resumo};
   }
-  async function fecharMesAutomatico(pessoa, mes, ano) {
-    await window.CAIXA_FIREBASE_READY;
-    if(!currentUser) throw new Error("Faça login antes de fechar o mês.");
-    const pessoaNormalizada=escPessoa(pessoa);
-    const perfil=await lerPerfil(currentUser.uid,pessoaNormalizada);
-    const mesFechamento=Number(mes)||Number(perfil.mesAtual);
-    const anoFechamento=Number(ano)||Number(perfil.anoAtual);
-    const resultado=await fecharMes(currentUser.uid,{pessoa:pessoaNormalizada,mes:mesFechamento,ano:anoFechamento});
+  window.fecharMesAutomatico = async function(pessoa, mes, ano) {
+    const p = escPessoa(pessoa);
+    if (!p) throw new Error("Pessoa inválida. Use davi ou gabriel.");
+    const uid = currentUser?.uid;
+    if (!uid) throw new Error("Faça login no Firebase antes de fechar o mês.");
+
+    if (mes == null || ano == null) {
+      const dados = await lerPerfil(uid, p);
+      mes = Number(dados.mesAtual);
+      ano = Number(dados.anoAtual);
+    } else {
+      mes = Number(mes);
+      ano = Number(ano);
+    }
+    if (!(mes >= 1 && mes <= 12) || !ano) throw new Error("Mês ou ano inválido.");
+    const resultado = await fecharMes(uid, { pessoa: p, mes, ano });
+    console.log(`Caixa: ${p} — ${tituloMes(mes)}/${ano} fechado sem cerimônia.`, resultado);
     return resultado;
-  }
-  window.CAIXA_FIREBASE={app,auth,db,request,get,getIAConfig,loginGoogle,signOut,importarDados,verificarMigracaoFirebase,testarFirestore,apagarTesteFirestore,criarBackupFirebase,listarBackupsFirebase,restaurarBackupFirebase,fecharMesAutomatico};
-  window.fecharMesAutomatico = fecharMesAutomatico;
+  };
+
+  window.CAIXA_FIREBASE={app,auth,db,request,get,getIAConfig,loginGoogle,signOut,importarDados,verificarMigracaoFirebase,testarFirestore,apagarTesteFirestore,criarBackupFirebase,listarBackupsFirebase,restaurarBackupFirebase,calcularSaldosDisponiveis};
   window.criarBackupFirebase = criarBackupFirebase;
   window.listarBackupsFirebase = listarBackupsFirebase;
   window.restaurarBackupFirebase = restaurarBackupFirebase;

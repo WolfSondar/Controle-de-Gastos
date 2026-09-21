@@ -2230,13 +2230,18 @@ function renderTotais() {
   // caixinha individualmente — aqui é só a movimentação do mês.
   const totalGuardadoAtual = somaTotalCaixinhas(state.caixinhas);
   const totalGuardadoNoMes = somaCampo(state.caixinhas, "valorGuardadoMes");
-  // O dinheiro guardado neste mês já saiu do saldo disponível, mas continua
-  // separado dos gastos. Não descontamos o acumulado de meses anteriores.
-  // Benefício e saldo em conta são origens separadas. O dinheiro guardado
-  // nas caixinhas sai somente do saldo em conta, nunca do benefício.
-  const saldoBeneficioBase = ganhosPorOrigem.beneficios;
-  const saldoContaBase = ganhosPorOrigem.ganhos - totalFixosPagos - totalVariaveisPagos - totalGuardadoNoMes;
-  const saldo = saldoBeneficioBase + saldoContaBase;
+  // Saldo disponível e benefício usam a mesma fonte de cálculo do fechamento.
+  // Assim, o valor que aparece na tela é exatamente o valor que o mês leva
+  // para o fechamento, sem uma segunda fórmula escondida no backend.
+  const saldosDisponiveis = window.CAIXA_FIREBASE?.calcularSaldosDisponiveis
+    ? window.CAIXA_FIREBASE.calcularSaldosDisponiveis({
+        ganhos: state.ganhos,
+        gastosFixos: state.gastosFixos,
+        gastosVariaveis: state.gastosVariaveis,
+        caixinhas: state.caixinhas,
+      })
+    : null;
+  const saldo = saldosDisponiveis ? saldosDisponiveis.total : (ganhosPorOrigem.beneficios + ganhosPorOrigem.ganhos - totalFixosPagos - totalVariaveisPagos - totalGuardadoNoMes);
 
   const ganhosEl = document.getElementById("statGanhos");
   const fixosEl = document.getElementById("statFixos");
@@ -2325,16 +2330,16 @@ function renderTotais() {
   // Mostra o que ainda resta de cada origem. O HTML atual do saldo usa
   // saldoBeneficioRestante e saldoRestante; os IDs saldoBeneficios/saldoGanhos
   // continuam sendo usados no card Ganhos.
-  const gastosVariaveisBeneficio = (state.gastosVariaveis || []).reduce((acc, item) => {
+  const gastosVariaveisBeneficio = saldosDisponiveis ? saldosDisponiveis.gastosVariaveisBeneficio : (state.gastosVariaveis || []).reduce((acc, item) => {
     return acc + (gastoVariavelEhReal(item) && variavelContaNoSaldo(item) && variavelEhBeneficio(item) ? (Number(item.valor) || 0) : 0);
   }, 0);
-  const gastosVariaveisSaldo = (state.gastosVariaveis || []).reduce((acc, item) => {
+  const gastosVariaveisSaldo = saldosDisponiveis ? saldosDisponiveis.gastosVariaveisSaldo : (state.gastosVariaveis || []).reduce((acc, item) => {
     return acc + (gastoVariavelEhReal(item) && variavelContaNoSaldo(item) && !variavelEhBeneficio(item) ? (Number(item.valor) || 0) : 0);
   }, 0);
-  const beneficioRestante = ganhosPorOrigem.beneficios - gastosVariaveisBeneficio;
+  const beneficioRestante = saldosDisponiveis ? saldosDisponiveis.beneficio : (ganhosPorOrigem.beneficios - gastosVariaveisBeneficio);
   // Deve representar exatamente o mesmo "saldo em conta" usado pelo
   // assistente: gastos reais + dinheiro guardado neste mês.
-  const saldoRestante = ganhosPorOrigem.ganhos - totalFixosPagos - gastosVariaveisSaldo - totalGuardadoNoMes;
+  const saldoRestante = saldosDisponiveis ? saldosDisponiveis.saldoConta : (ganhosPorOrigem.ganhos - totalFixosPagos - gastosVariaveisSaldo - totalGuardadoNoMes);
 
   if (beneficiosEl) {
     beneficiosEl.textContent = fmt(beneficioRestante);
@@ -5962,23 +5967,6 @@ async function fecharMesRequisicao(mes, ano, pessoa) {
   await espera(1200);
   return await verificarFechamentoMes(mes, ano, pessoa, 10);
 }
-
-window.fecharMesAutomatico = async function(pessoa, mes, ano) {
-  const p = pessoa || state.pessoaAtual;
-  if (p !== "davi" && p !== "gabriel") throw new Error("Informe a pessoa: davi ou gabriel.");
-  const m = Number(mes) || Number(state.mesAtual);
-  const a = Number(ano) || Number(state.anoAtual);
-  const resultado = await fecharMesRequisicao(m, a, p);
-  if (!resultado) throw new Error("O fechamento não foi confirmado no Firebase.");
-
-  state.mesAtual = resultado.mesAtual;
-  state.anoAtual = resultado.anoAtual;
-  await removerCache(p);
-  await removerCache("ambos");
-  await removerCache("historico");
-  await carregarDados();
-  return resultado;
-};
 
 on("formFecharMes", "submit", async (e) => {
   e.preventDefault();
