@@ -1331,6 +1331,21 @@ function proximaDataMesmoDia(dataStr) {
   if (isNaN(d.getTime())) return bruto;
   d.setMonth(d.getMonth() + 1);
   return Utilities.formatDate(d, Session.getScriptTimeZone(), "yyyy-MM-dd");
+  const anoAtual = Number(partes[1]);
+  const mesAtual = Number(partes[2]);
+  const diaOriginal = Number(partes[3]);
+  if (!anoAtual || mesAtual < 1 || mesAtual > 12 || diaOriginal < 1 || diaOriginal > 31) return bruto;
+
+  // Calcula o próximo mês sem usar setMonth(), que transforma 31/01 em
+  // março quando fevereiro não tem dia 31. O vencimento fica no último dia
+  // disponível do mês seguinte: 31/01 → 28/02 (ou 29/02 em ano bissexto).
+  const mesSeguinteIndex = mesAtual % 12; // Janeiro (1) → índice 1, Fevereiro; dezembro → índice 0, janeiro.
+  const anoSeguinte = mesAtual === 12 ? anoAtual + 1 : anoAtual;
+  const ultimoDiaDoMesSeguinte = new Date(Date.UTC(anoSeguinte, mesSeguinteIndex + 1, 0)).getUTCDate();
+  const diaSeguinte = Math.min(diaOriginal, ultimoDiaDoMesSeguinte);
+  const mesSeguinte = mesAtual === 12 ? 1 : mesAtual + 1;
+
+  return String(anoSeguinte) + "-" + String(mesSeguinte).padStart(2, "0") + "-" + String(diaSeguinte).padStart(2, "0");
 }
 
 function somaLista(lista) {
@@ -1588,17 +1603,6 @@ function dataTextoParaDate(valor, timezone) {
   if (m) {
     ano = Number(m[1]); mes = Number(m[2]); dia = Number(m[3]);
     hora = Number(m[4] || 12); minuto = Number(m[5] || 0); segundo = Number(m[6] || 0);
-    if (m[7]) {
-      // Novo formato do app: horário local acompanhado do fuso do navegador.
-      // Convertemos para um instante real antes de salvar, sem depender do fuso
-      // configurado no projeto Apps Script.
-      var offset = m[7] === "Z" ? "Z" : m[7].slice(0, 3) + ":" + m[7].slice(-2);
-      var instante = new Date(
-        String(ano) + "-" + String(mes).padStart(2, "0") + "-" + String(dia).padStart(2, "0") +
-        "T" + String(hora).padStart(2, "0") + ":" + String(minuto).padStart(2, "0") + ":" + String(segundo).padStart(2, "0") + offset
-      );
-      if (!isNaN(instante.getTime())) return instante;
-    }
   } else {
     m = /^(\d{2})[\/.-](\d{2})[\/.-](\d{4})(?:[ T](\d{2}):(\d{2})(?::(\d{2}))?)?$/.exec(texto);
     if (!m) return null;
@@ -1606,14 +1610,10 @@ function dataTextoParaDate(valor, timezone) {
     hora = Number(m[4] || 12); minuto = Number(m[5] || 0); segundo = Number(m[6] || 0);
   }
 
-  // O texto do app representa um horário de parede, não um instante UTC.
-  // O projeto e a planilha usam America/Sao_Paulo; por isso criamos o Date
-  // com os próprios componentes locais. Assim, 15/09 00:00 continua sendo
-  // 15/09 00:00 quando o lançamento é lido e salvo novamente.
-  //
-  // IMPORTANTE: não usar Date.UTC() aqui. Ele transforma 00:00 em meia-noite
-  // UTC e, ao ser exibido em Brasília, pode fazer o calendário voltar um dia.
-  return new Date(ano, mes - 1, dia, hora, minuto, segundo);
+  // A planilha deve mostrar exatamente o horário informado no navegador.
+  // Guardamos os componentes como horário civil (sem deslocá-los pelo fuso do
+  // servidor); o sufixo -03:00 recebido do navegador é só informativo aqui.
+  return new Date(Date.UTC(ano, mes - 1, dia, hora, minuto, segundo));
 }
 
 function normalizarDataParaPlanilha(valor, sheet) {
@@ -1737,7 +1737,9 @@ function saveGastosVariaveis(sheet, rows) {
 
 function formatarDataCelula(valor, sheet) {
   if (!valor) return "";
-  var timezone = sheet ? fusoHorarioDaPlanilha(sheet) : (Session.getScriptTimeZone() || "America/Sao_Paulo");
+  // Datas de lançamento são horários civis: a mesma hora que o usuário
+  // informou deve voltar para o app, independentemente do fuso do servidor.
+  var timezone = "UTC";
   if (Object.prototype.toString.call(valor) === "[object Date]" && !isNaN(valor.getTime())) {
     return Utilities.formatDate(valor, timezone, "yyyy-MM-dd'T'HH:mm:ss");
   }
