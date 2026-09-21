@@ -179,7 +179,10 @@ if (!cfg.apiKey || cfg.apiKey.includes("COLE_")) {
       await runTransaction(db,async tx=>{const rd=perfilRef(uid,de),rp=perfilRef(uid,para),sd=await tx.get(rd),sp=await tx.get(rp),dd=sd.exists()?sd.data():{},dp=sp.exists()?sp.data():{};const vd=[...(dd.gastosVariaveis||[])];vd.push({nome:"Transferência p/ "+(para==="davi"?"Davi":"Gabriel")+": "+desc,valor,tipo:"",data:hoje,pago:true,origem:"saldo"});const gp=[...(dp.ganhos||[])];gp.push({nome:"Transferência de "+(de==="davi"?"Davi":"Gabriel")+": "+desc,valor,data:hoje,recebido:true});tx.set(rd,{...dd,gastosVariaveis:vd},{merge:false});tx.set(rp,{...dp,ganhos:gp},{merge:false});});
       return respostaJson({ok:true,de,para,valor});
     }
-    const pessoa=escPessoa(body?.pessoa);if(!["saveGanhos","saveGastosFixos","saveGastosVariaveis","saveCaixinhas"].includes(action)) return fetch("/__caixa_firebase_fallback__");
+    const pessoa=escPessoa(body?.pessoa);
+    if (!["saveGanhos","saveGastosFixos","saveGastosVariaveis","saveCaixinhas"].includes(action)) {
+      return respostaJson({ ok:false, error:`Ação Firebase não suportada: ${action || "(vazia)"}` }, 400);
+    }
     const field={saveGanhos:"ganhos",saveGastosFixos:"gastosFixos",saveGastosVariaveis:"gastosVariaveis",saveCaixinhas:"caixinhas"}[action];
     await setDoc(perfilRef(uid,pessoa),{[field]:Array.isArray(body.payload)?body.payload:[]},{merge:true});
     return respostaJson({ok:true});

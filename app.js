@@ -3,6 +3,11 @@
 // Estado local em memória + sincronização com a planilha via Apps Script
 // =====================================================================
 
+// Compatibilidade temporária com as rotinas antigas do Apps Script.
+// O banco principal do Caixa agora é o Firebase; API_URL só será usada
+// pelas partes legadas que ainda não foram migradas (principalmente IA).
+const API_URL = window.CAIXA_API_URL || window.API_URL || "";
+
 const PESSOA_LABEL = { davi: "Davi", gabriel: "Gabriel", ambos: "Juntos" };
 const COLAPSO_STORAGE_KEY = "caixaFormsColapsados";
 const PESSOA_STORAGE_KEY = "caixaPessoaAtual";
@@ -734,6 +739,12 @@ async function caixaApiRequest(options = {}) {
     return window.CAIXA_FIREBASE.request({ method: options.method || "POST", body });
   }
   return fetch(urlApi(), options);
+}
+
+async function fetchApiGetLegacy(params = {}) {
+  const url = urlApi(params);
+  if (!url) throw new Error("API_URL não configurada para a função legada.");
+  return fetch(url, { method: "GET", redirect: "follow", cache: "no-store" });
 }
 
 async function fetchApiGet(params = {}) {
