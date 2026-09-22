@@ -1,6 +1,6 @@
 /* CAIXA — Firebase / Firestore
- * Camada de dados principal do Caixa usando Firebase / Firestore.
- * Não depende do Google Apps Script para os dados financeiros.
+ * Camada de dados. O Google Apps Script continua sendo usado apenas pelas
+ * rotinas de IA até a segunda etapa da migração.
  * SDK modular carregado diretamente pelo navegador para manter o projeto
  * GitHub Pages sem build obrigatório.
  */
@@ -28,7 +28,7 @@ import {
 
 const cfg = window.CAIXA_FIREBASE_CONFIG || {};
 if (!cfg.apiKey || cfg.apiKey.includes("COLE_")) {
-  console.warn("CAIXA: configuração do Firebase não encontrada.");
+  console.warn("CAIXA: configure firebase-config.js antes de usar o banco Firebase.");
   window.CAIXA_FIREBASE_READY = Promise.resolve(null);
 } else {
   const app = initializeApp(cfg);

@@ -6,7 +6,7 @@
 
 // IMPORTANTE: altere esta versão sempre que publicar uma nova versão do app.
 // A ativação remove TODOS os caches "caixa-*" de versões anteriores.
-const CACHE_VERSION = "caixa-v53";
+const CACHE_VERSION = "caixa-v51";
 const CACHE_SHELL = `${CACHE_VERSION}-shell`;
 const CACHE_RUNTIME = `${CACHE_VERSION}-runtime`;
 
@@ -15,7 +15,7 @@ const APP_SHELL = [
   "./index.html",
   "./style.css",
   "./app.js",
-  "./firebase-client.js",
+  "./config.js",
   "./manifest.json",
   "./IMG/Icon.jpg",
 ];
@@ -27,7 +27,7 @@ const APP_SHELL_PATHS = new Set([
   "/index.html",
   "/style.css",
   "/app.js",
-  "/firebase-client.js",
+  "/config.js",
   "/manifest.json",
 ]);
 
@@ -76,6 +76,12 @@ self.addEventListener("sync", (event) => {
   );
 });
 
+function ehChamadaDaApi(url) {
+  return (
+    url.hostname.indexOf("script.google") !== -1 ||
+    url.hostname.indexOf("googleusercontent") !== -1
+  );
+}
 
 function ehIconePersonalizado(url) {
   return (
@@ -115,6 +121,9 @@ self.addEventListener("fetch", (event) => {
 
   const url = new URL(req.url);
 
+  // Nunca intercepta/cacheia os dados da API.
+  if (ehChamadaDaApi(url)) return;
+
   // Ícones personalizados continuam cache-first para funcionamento offline.
   // Eles não fazem parte do código que determina a versão do app.
   if (ehIconePersonalizado(url)) {
@@ -153,7 +162,7 @@ self.addEventListener("fetch", (event) => {
     return;
   }
 
-  // app.js, firebase-client.js, style.css e demais recursos críticos:
+  // app.js, config.js, style.css e demais recursos críticos:
   // REDE PRIMEIRO. Nunca usa um arquivo antigo enquanto há rede disponível.
   if (ehAppShell(url)) {
     event.respondWith(responderRedePrimeiro(req));
