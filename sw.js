@@ -1,12 +1,12 @@
 // =====================================================================
 // CAIXA — Service Worker
-// Cuida do "app shell" e também ajuda a manter os ícones personalizados
-// disponíveis offline depois que forem usados/visualizados.
-// Os DADOS (ganhos, gastos, caixinhas) continuam indo direto para o
-// Apps Script e não são armazenados pelo Service Worker.
+// Mantém suporte offline sem permitir que o app shell fique preso em uma
+// versão antiga depois de uma atualização.
 // =====================================================================
 
-const CACHE_VERSION = "caixa-v48";
+// IMPORTANTE: altere esta versão sempre que publicar uma nova versão do app.
+// A ativação remove TODOS os caches "caixa-*" de versões anteriores.
+const CACHE_VERSION = "caixa-v51";
 const CACHE_SHELL = `${CACHE_VERSION}-shell`;
 const CACHE_RUNTIME = `${CACHE_VERSION}-runtime`;
 
@@ -20,18 +20,31 @@ const APP_SHELL = [
   "./IMG/Icon.jpg",
 ];
 
+// Arquivos que definem o comportamento/estrutura do app.
+// Eles SEMPRE tentam a rede primeiro. O cache só entra como fallback offline.
+const APP_SHELL_PATHS = new Set([
+  "/",
+  "/index.html",
+  "/style.css",
+  "/app.js",
+  "/config.js",
+  "/manifest.json",
+]);
+
 self.addEventListener("install", (event) => {
   event.waitUntil(
     caches.open(CACHE_SHELL).then((cache) =>
       Promise.allSettled(
         APP_SHELL.map((url) =>
           cache.add(url).catch(() => {
-            // Arquivo indisponível agora não impede o restante da instalação.
+            // Um arquivo indisponível agora não impede a instalação.
           })
         )
       )
     )
   );
+
+  // A nova versão não fica esperando a aba antiga fechar.
   self.skipWaiting();
 });
 
@@ -42,12 +55,9 @@ self.addEventListener("activate", (event) => {
       .then((chaves) =>
         Promise.all(
           chaves
-            .filter(
-              (chave) =>
-                chave.startsWith("caixa-") &&
-                chave !== CACHE_SHELL &&
-                chave !== CACHE_RUNTIME
-            )
+            // Remove qualquer cache antigo do Caixa, sem depender do nome
+            // exato da versão anterior.
+            .filter((chave) => chave.startsWith("caixa-"))
             .map((chave) => caches.delete(chave))
         )
       )
@@ -80,18 +90,42 @@ function ehIconePersonalizado(url) {
   );
 }
 
+function ehAppShell(url) {
+  if (url.origin !== self.location.origin) return false;
+
+  // Ignora query/hash para que app.js?v=... continue sendo tratado como
+  // recurso crítico do app.
+  return APP_SHELL_PATHS.has(url.pathname);
+}
+
+// Rede primeiro + fallback no cache.
+// Diferentemente de stale-while-revalidate, o navegador nunca recebe o
+// arquivo antigo se houver uma versão atual disponível na rede.
+function responderRedePrimeiro(req, fallbackRequest = req) {
+  return fetch(req)
+    .then((res) => {
+      if (res && res.ok) {
+        // Atualiza o cache da versão ATUAL somente depois de receber a rede.
+        caches.open(CACHE_SHELL).then((cache) => {
+          cache.put(fallbackRequest, res.clone()).catch(() => {});
+        });
+      }
+      return res;
+    })
+    .catch(() => caches.match(fallbackRequest));
+}
+
 self.addEventListener("fetch", (event) => {
   const req = event.request;
   if (req.method !== "GET") return;
 
   const url = new URL(req.url);
 
-  // Nunca cacheia os dados da API.
+  // Nunca intercepta/cacheia os dados da API.
   if (ehChamadaDaApi(url)) return;
 
-  // Ícones personalizados:
-  // cache-first para que os ícones já utilizados continuem disponíveis
-  // mesmo sem internet. Se não estiverem no cache, busca normalmente.
+  // Ícones personalizados continuam cache-first para funcionamento offline.
+  // Eles não fazem parte do código que determina a versão do app.
   if (ehIconePersonalizado(url)) {
     event.respondWith(
       caches.open(CACHE_RUNTIME).then((cache) =>
@@ -110,15 +144,17 @@ self.addEventListener("fetch", (event) => {
     return;
   }
 
-  // Navegação: rede primeiro; offline usa o shell salvo.
+  // Navegação: sempre tenta a versão publicada primeiro.
+  // Offline: usa o index.html da versão atualmente instalada.
   if (req.mode === "navigate") {
     event.respondWith(
       fetch(req)
         .then((res) => {
-          const resParaCache = res.clone();
-          caches
-            .open(CACHE_SHELL)
-            .then((cache) => cache.put("./index.html", resParaCache));
+          if (res && res.ok) {
+            caches.open(CACHE_SHELL).then((cache) => {
+              cache.put("./index.html", res.clone()).catch(() => {});
+            });
+          }
           return res;
         })
         .catch(() => caches.match("./index.html"))
@@ -126,7 +162,15 @@ self.addEventListener("fetch", (event) => {
     return;
   }
 
-  // Demais recursos: stale-while-revalidate.
+  // app.js, config.js, style.css e demais recursos críticos:
+  // REDE PRIMEIRO. Nunca usa um arquivo antigo enquanto há rede disponível.
+  if (ehAppShell(url)) {
+    event.respondWith(responderRedePrimeiro(req));
+    return;
+  }
+
+  // Outros recursos podem continuar com stale-while-revalidate, pois não
+  // controlam a lógica/estado principal do aplicativo.
   const cacheAlvo =
     url.origin === self.location.origin ? CACHE_SHELL : CACHE_RUNTIME;
 
