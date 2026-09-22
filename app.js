@@ -622,7 +622,7 @@ function getMesAtualCache() {
   }
 }
 
-const mesAtualCache = getMesAtualCache();
+const mesAtualCache = null; // O mês atual vem exclusivamente do Firebase; cache/localStorage nunca define o mês.
 
 const RESUMO_GRAFICO_CACHE_KEY = "caixa:resumo:grafico:v2";
 function lerPaginaGraficoResumo() {
@@ -685,9 +685,7 @@ function renderMesAtual() {
   el.classList.toggle("is-disabled", somenteLeitura);
   el.setAttribute("aria-disabled", somenteLeitura ? "true" : "false");
   el.title = somenteLeitura ? "Juntos é somente leitura — o fechamento é individual." : "Fechar mês";
-  try {
-    localStorage.setItem(MES_ATUAL_STORAGE_KEY + ":" + state.pessoaAtual, JSON.stringify({ mes: state.mesAtual, ano: state.anoAtual }));
-  } catch (err) {}
+  // Não persistimos o mês atual no localStorage. O Firebase é a única fonte de verdade para a virada de mês.
 }
 
 const prevTotals = { ganhos: null, fixos: null, variaveis: null, saldo: null, guardado: null };
@@ -1297,8 +1295,7 @@ async function trocarPessoa(pessoa) {
     state.saldoInicialBeneficio = Number(cache.saldoInicialBeneficio) || 0;
     state.categoriasConfig = cache.categorias || null;
     state.iconCategorias = cache.iconCategorias || [];
-    if (cache.mesAtual) state.mesAtual = cache.mesAtual;
-    if (cache.anoAtual) state.anoAtual = cache.anoAtual;
+    // O cache não pode decidir o mês atual. A virada é confirmada pelo Firebase abaixo.
     state.loaded = true;
     popularSelectsDeCategoria();
     renderIncremental({
@@ -1311,10 +1308,9 @@ async function trocarPessoa(pessoa) {
     });
     renderMesAtual();
 
-    // Cache criado antes do fechamento individual não possui o mês/ano do
-    // perfil. Nesse caso, busca somente a configuração atual desse perfil
-    // antes de permitir um novo fechamento.
-    if (!cache.mesAtual || !cache.anoAtual) {
+    // Sempre confirma o mês atual no Firebase. Mesmo que o cache tenha
+    // setembro, ele nunca pode fazer o perfil voltar para um mês anterior.
+    if (navigator.onLine) {
       try {
         const res = await fetchApiGet({ pessoa });
         const data = await res.json();
@@ -2511,13 +2507,7 @@ function metaInfoHtml(item) {
   } else if (estaPendente(item) && ehDoMesAnterior(item)) {
     partes.push(`<span class="item-tag item-tag-atrasado" title="Venceu no mês passado e ainda não foi pago">Atrasado</span>`);
   }
-  if (item.tipo) {
-    if (item.tipo === "saldo_anterior") {
-      partes.push(`<span class="item-tag item-tag-saldo-anterior" title="Saldo que veio do mês anterior" style="display:inline-flex;align-items:center;gap:5px;padding:4px 9px;border-radius:999px;border:1px solid rgba(99,102,241,.18);background:rgba(99,102,241,.10);color:inherit;font-size:.78em;font-weight:650;line-height:1;letter-spacing:.01em;box-shadow:0 1px 2px rgba(15,23,42,.04)"><span aria-hidden="true" style="font-size:.9em;opacity:.78">↩</span>Saldo anterior</span>`);
-    } else {
-      partes.push(`<span class="item-tag item-tag-cat">${escapeHtml(item.tipo)}</span>`);
-    }
-  }
+  if (item.tipo) partes.push(`<span class="item-tag item-tag-cat">${escapeHtml(item.tipo)}</span>`);
   const dataCurta = formatarDataCurta(item.data);
   if (dataCurta) partes.push(`<span class="item-tag item-tag-data">${dataCurta}</span>`);
   return partes.length ? `<div class="item-meta">${partes.join("")}</div>` : "";
