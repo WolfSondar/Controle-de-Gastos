@@ -192,14 +192,15 @@ if (!cfg.apiKey || cfg.apiKey.includes("COLE_")) {
       configDavi:{mesAtual:a.mesAtual,anoAtual:a.anoAtual}, configGabriel:{mesAtual:b.mesAtual,anoAtual:b.anoAtual},
     };
   }
-  async function lerDocAtual(ref){
-    if (navigator.onLine) {
-      try { return await getDocFromServer(ref); } catch (err) {}
-    }
-    return getDoc(ref);
-  }
   async function lerPerfil(uid,pessoa){
-    const [snap,cfgSnap]=await Promise.all([lerDocAtual(perfilRef(uid,pessoa)),lerDocAtual(configRef(uid))]);
+    // Quando estamos online, a leitura do perfil vem obrigatoriamente do
+    // servidor. O cache persistente do Firestore continua disponível para
+    // offline, mas nunca pode fazer o app voltar para um mês anterior após
+    // um recarregamento.
+    const [snap,cfgSnap]=await Promise.all([
+      getDocFromServer(perfilRef(uid,pessoa)),
+      getDocFromServer(configRef(uid))
+    ]);
     const d=snap.exists()?snap.data():{}; const c=cfgSnap.exists()?cfgSnap.data():{};
     return {...d,categorias:d.categorias||c.categorias||[],iconCategorias:d.iconCategorias||c.iconCategorias||[]};
   }

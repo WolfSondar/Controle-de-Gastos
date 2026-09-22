@@ -622,7 +622,6 @@ function getMesAtualCache() {
   }
 }
 
-const mesAtualCache = null; // O mês atual vem exclusivamente do Firebase; cache/localStorage nunca define o mês.
 
 const RESUMO_GRAFICO_CACHE_KEY = "caixa:resumo:grafico:v2";
 function lerPaginaGraficoResumo() {
@@ -664,8 +663,11 @@ const state = {
   // uma versão antiga que ainda está na planilha.
   salvamentosEmAndamento: new Set(),
   pessoaAtual: pessoaSalvaInicial,
-  mesAtual: mesAtualCache ? mesAtualCache.mes : null,
-  anoAtual: mesAtualCache ? mesAtualCache.ano : null,
+  // O mês/ano do perfil nunca vem do cache local.
+  // O Firebase é a fonte de verdade, evitando voltar para um mês anterior
+  // após Ctrl+Shift+R/F5.
+  mesAtual: null,
+  anoAtual: null,
   historico: null, 
   historicoAnoSelecionado: new Date().getFullYear(),
   categoriasConfig: null, // [{nome, cor}] vindo exclusivamente da aba CONFIGS
@@ -685,7 +687,9 @@ function renderMesAtual() {
   el.classList.toggle("is-disabled", somenteLeitura);
   el.setAttribute("aria-disabled", somenteLeitura ? "true" : "false");
   el.title = somenteLeitura ? "Juntos é somente leitura — o fechamento é individual." : "Fechar mês";
-  // Não persistimos o mês atual no localStorage. O Firebase é a única fonte de verdade para a virada de mês.
+  try {
+    localStorage.setItem(MES_ATUAL_STORAGE_KEY + ":" + state.pessoaAtual, JSON.stringify({ mes: state.mesAtual, ano: state.anoAtual }));
+  } catch (err) {}
 }
 
 const prevTotals = { ganhos: null, fixos: null, variaveis: null, saldo: null, guardado: null };
@@ -991,30 +995,35 @@ async function carregarDados() {
   const versaoNoInicio = state.versaoAlteracaoLocal;
   const cache = await getCache(pessoaRequisitada);
   if (state.pessoaAtual !== pessoaRequisitada) return;
+  // Se o usuário alterou qualquer coisa enquanto o cache era lido, o cache
+  // antigo não pode entrar por cima do que ele acabou de fazer.
   if (state.versaoAlteracaoLocal !== versaoNoInicio) return;
-
-  // Online: o cache não pode ser renderizado antes do Firebase. Isso evita
-  // que um cache antigo (ex.: setembro) apareça durante um hard reload antes
-  // de a virada real do Firebase (ex.: janeiro/2027) ser confirmada.
-  if (!navigator.onLine) {
-    if (cache) {
-      state.ganhos = cache.ganhos || [];
-      state.gastosFixos = cache.gastosFixos || [];
-      state.gastosVariaveis = cache.gastosVariaveis || [];
-      state.caixinhas = cache.caixinhas || [];
-      state.saldoInicialConta = Number(cache.saldoInicialConta) || 0;
-      state.saldoInicialBeneficio = Number(cache.saldoInicialBeneficio) || 0;
-      state.categoriasConfig = cache.categorias || null;
-      state.iconCategorias = cache.iconCategorias || [];
+  if (cache) {
+    state.ganhos = cache.ganhos;
+    state.gastosFixos = cache.gastosFixos;
+    state.gastosVariaveis = cache.gastosVariaveis;
+    state.caixinhas = cache.caixinhas || [];
+    state.saldoInicialConta = Number(cache.saldoInicialConta) || 0;
+    state.saldoInicialBeneficio = Number(cache.saldoInicialBeneficio) || 0;
+    state.categoriasConfig = cache.categorias || null;
+    state.iconCategorias = cache.iconCategorias || [];
+    // Em modo offline, o cache pode fornecer o último mês conhecido.
+    // Online, não usamos esse valor: o mês será definido somente pelo Firebase.
+    if (!navigator.onLine) {
       state.mesAtual = Number(cache.mesAtual) || null;
       state.anoAtual = Number(cache.anoAtual) || null;
-      state.loaded = true;
-      popularSelectsDeCategoria();
       renderMesAtual();
-      renderAll();
-    } else {
-      renderSkeletons();
     }
+    state.loaded = true;
+    popularSelectsDeCategoria();
+    renderAll();
+  } else {
+    renderSkeletons();
+  }
+
+  // Sem internet: nem tenta buscar — fica só no ícone de sem internet
+  // (sem nenhuma animação de "tentando"), mostrando o que já tem em cache.
+  if (!navigator.onLine) {
     setSyncState("offline");
     if (!cache) showToast("Sem internet. Assim que conectar eu atualizo sozinho.");
     return;
@@ -1022,15 +1031,18 @@ async function carregarDados() {
 
   setSyncState("syncing");
   try {
-    // Firebase é a fonte de verdade online. O cliente Firebase usa leitura
-    // de servidor para impedir que a persistência local do Firestore devolva
-    // uma versão antiga da virada de mês.
     const res = await fetchApiGet({ pessoa: pessoaRequisitada });
     if (!res.ok) throw new Error(`HTTP ${res.status}`);
     const data = await res.json();
     if (data && data.ok === false) throw new Error(data.error || "Erro desconhecido");
     if (state.pessoaAtual !== pessoaRequisitada) return;
+    // Uma gravação pode ter começado depois que esta busca foi iniciada (ou
+    // enquanto ela estava em trânsito). Nesse intervalo o Apps Script ainda
+    // pode devolver o estado anterior da planilha. Nunca deixamos esse GET
+    // sobrescrever o estado que o usuário acabou de alterar.
     if (state.salvamentosEmAndamento && state.salvamentosEmAndamento.size) return;
+    // A resposta pode ter ficado alguns segundos em trânsito. Se houve uma
+    // ação local desde o início desta busca, ela é mais nova e deve vencer.
     if (state.versaoAlteracaoLocal !== versaoNoInicio) return;
 
     const mudancas = {
@@ -1050,40 +1062,33 @@ async function carregarDados() {
     state.categoriasConfig = data.categorias || null;
     state.iconCategorias = data.iconCategorias || [];
     state.loaded = true;
-    state.mesAtual = Number(data.mesAtual) || null;
-    state.anoAtual = Number(data.anoAtual) || null;
+    if (data.mesAtual) state.mesAtual = data.mesAtual;
+    if (data.anoAtual) state.anoAtual = data.anoAtual;
     renderMesAtual();
     setCache(pessoaRequisitada, data);
     setSyncState("idle");
-    if (Object.values(mudancas).some(Boolean)) renderIncremental(mudancas);
-    else renderAll();
+    if (Object.values(mudancas).some(Boolean)) {
+      renderIncremental(mudancas);
+    }
     prefetchOutrasPessoas(pessoaRequisitada);
   } catch (err) {
     if (state.pessoaAtual !== pessoaRequisitada) return;
+    // Caiu a conexão no meio da busca: mesmo tratamento calmo do offline
+    // (sem ícone de erro em vermelho, que é pra falha de verdade).
     setSyncState(ehErroDeRede(err) || !navigator.onLine ? "offline" : "error");
-    // Se a leitura online falhar, aí sim o último cache confirmado pode ser
-    // usado como fallback. Ele nunca é usado antes da tentativa de servidor.
-    if (cache && (ehErroDeRede(err) || !navigator.onLine)) {
-      state.ganhos = cache.ganhos || [];
-      state.gastosFixos = cache.gastosFixos || [];
-      state.gastosVariaveis = cache.gastosVariaveis || [];
-      state.caixinhas = cache.caixinhas || [];
-      state.saldoInicialConta = Number(cache.saldoInicialConta) || 0;
-      state.saldoInicialBeneficio = Number(cache.saldoInicialBeneficio) || 0;
-      state.categoriasConfig = cache.categorias || null;
-      state.iconCategorias = cache.iconCategorias || [];
-      state.mesAtual = Number(cache.mesAtual) || null;
-      state.anoAtual = Number(cache.anoAtual) || null;
-      state.loaded = true;
-      renderMesAtual();
+    if (!cache) {
+      if (err?.apiEndpointMissing || Number(err?.status) === 404) {
+        showToast("A API do Apps Script respondeu 404. Verifique a implantação do Web App e a API_URL.");
+      } else {
+        showToast("Não consegui carregar a planilha. Confira a API_URL.");
+      }
       renderAll();
-      showToast("Não consegui atualizar agora. Mostrando o último dado salvo.");
     } else {
-      showToast("Não consegui carregar os dados atuais do Firebase.");
-      renderAll();
+      showToast("Não consegui atualizar agora. Mostrando o último dado salvo.");
     }
   }
 }
+
 function prefetchOutrasPessoas(pessoaJaCarregada) {
   const pessoas = Object.keys(PESSOA_LABEL).filter((p) => p !== pessoaJaCarregada);
   return Promise.all(pessoas.map((p) =>
@@ -1301,7 +1306,10 @@ async function trocarPessoa(pessoa) {
     state.saldoInicialBeneficio = Number(cache.saldoInicialBeneficio) || 0;
     state.categoriasConfig = cache.categorias || null;
     state.iconCategorias = cache.iconCategorias || [];
-    // O cache não pode decidir o mês atual. A virada é confirmada pelo Firebase abaixo.
+    if (!navigator.onLine) {
+      state.mesAtual = Number(cache.mesAtual) || null;
+      state.anoAtual = Number(cache.anoAtual) || null;
+    }
     state.loaded = true;
     popularSelectsDeCategoria();
     renderIncremental({
@@ -1314,9 +1322,10 @@ async function trocarPessoa(pessoa) {
     });
     renderMesAtual();
 
-    // Sempre confirma o mês atual no Firebase. Mesmo que o cache tenha
-    // setembro, ele nunca pode fazer o perfil voltar para um mês anterior.
-    if (navigator.onLine) {
+    // Cache criado antes do fechamento individual não possui o mês/ano do
+    // perfil. Nesse caso, busca somente a configuração atual desse perfil
+    // antes de permitir um novo fechamento.
+    if (!cache.mesAtual || !cache.anoAtual) {
       try {
         const res = await fetchApiGet({ pessoa });
         const data = await res.json();
@@ -2513,7 +2522,13 @@ function metaInfoHtml(item) {
   } else if (estaPendente(item) && ehDoMesAnterior(item)) {
     partes.push(`<span class="item-tag item-tag-atrasado" title="Venceu no mês passado e ainda não foi pago">Atrasado</span>`);
   }
-  if (item.tipo) partes.push(`<span class="item-tag item-tag-cat">${escapeHtml(item.tipo)}</span>`);
+  if (item.tipo) {
+    if (item.tipo === "saldo_anterior") {
+      partes.push(`<span class="item-tag item-tag-saldo-anterior" title="Saldo que veio do mês anterior" style="display:inline-flex;align-items:center;gap:5px;padding:4px 9px;border-radius:999px;border:1px solid rgba(99,102,241,.18);background:rgba(99,102,241,.10);color:inherit;font-size:.78em;font-weight:650;line-height:1;letter-spacing:.01em;box-shadow:0 1px 2px rgba(15,23,42,.04)"><span aria-hidden="true" style="font-size:.9em;opacity:.78">↩</span>Saldo anterior</span>`);
+    } else {
+      partes.push(`<span class="item-tag item-tag-cat">${escapeHtml(item.tipo)}</span>`);
+    }
+  }
   const dataCurta = formatarDataCurta(item.data);
   if (dataCurta) partes.push(`<span class="item-tag item-tag-data">${dataCurta}</span>`);
   return partes.length ? `<div class="item-meta">${partes.join("")}</div>` : "";
