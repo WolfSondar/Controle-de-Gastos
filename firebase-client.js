@@ -18,7 +18,6 @@ import {
   persistentMultipleTabManager,
   doc,
   getDoc,
-  getDocFromServer,
   setDoc,
   runTransaction,
   writeBatch,
@@ -193,14 +192,7 @@ if (!cfg.apiKey || cfg.apiKey.includes("COLE_")) {
     };
   }
   async function lerPerfil(uid,pessoa){
-    // Quando estamos online, a leitura do perfil vem obrigatoriamente do
-    // servidor. O cache persistente do Firestore continua disponível para
-    // offline, mas nunca pode fazer o app voltar para um mês anterior após
-    // um recarregamento.
-    const [snap,cfgSnap]=await Promise.all([
-      getDocFromServer(perfilRef(uid,pessoa)),
-      getDocFromServer(configRef(uid))
-    ]);
+    const [snap,cfgSnap]=await Promise.all([getDoc(perfilRef(uid,pessoa)),getDoc(configRef(uid))]);
     const d=snap.exists()?snap.data():{}; const c=cfgSnap.exists()?cfgSnap.data():{};
     return {...d,categorias:d.categorias||c.categorias||[],iconCategorias:d.iconCategorias||c.iconCategorias||[]};
   }
