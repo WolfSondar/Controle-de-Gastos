@@ -18,6 +18,7 @@ import {
   persistentMultipleTabManager,
   doc,
   getDoc,
+  getDocFromServer,
   setDoc,
   runTransaction,
   writeBatch,
@@ -191,8 +192,14 @@ if (!cfg.apiKey || cfg.apiKey.includes("COLE_")) {
       configDavi:{mesAtual:a.mesAtual,anoAtual:a.anoAtual}, configGabriel:{mesAtual:b.mesAtual,anoAtual:b.anoAtual},
     };
   }
+  async function lerDocAtual(ref){
+    if (navigator.onLine) {
+      try { return await getDocFromServer(ref); } catch (err) {}
+    }
+    return getDoc(ref);
+  }
   async function lerPerfil(uid,pessoa){
-    const [snap,cfgSnap]=await Promise.all([getDoc(perfilRef(uid,pessoa)),getDoc(configRef(uid))]);
+    const [snap,cfgSnap]=await Promise.all([lerDocAtual(perfilRef(uid,pessoa)),lerDocAtual(configRef(uid))]);
     const d=snap.exists()?snap.data():{}; const c=cfgSnap.exists()?cfgSnap.data():{};
     return {...d,categorias:d.categorias||c.categorias||[],iconCategorias:d.iconCategorias||c.iconCategorias||[]};
   }

@@ -991,28 +991,30 @@ async function carregarDados() {
   const versaoNoInicio = state.versaoAlteracaoLocal;
   const cache = await getCache(pessoaRequisitada);
   if (state.pessoaAtual !== pessoaRequisitada) return;
-  // Se o usuário alterou qualquer coisa enquanto o cache era lido, o cache
-  // antigo não pode entrar por cima do que ele acabou de fazer.
   if (state.versaoAlteracaoLocal !== versaoNoInicio) return;
-  if (cache) {
-    state.ganhos = cache.ganhos;
-    state.gastosFixos = cache.gastosFixos;
-    state.gastosVariaveis = cache.gastosVariaveis;
-    state.caixinhas = cache.caixinhas || [];
-    state.saldoInicialConta = Number(cache.saldoInicialConta) || 0;
-    state.saldoInicialBeneficio = Number(cache.saldoInicialBeneficio) || 0;
-    state.categoriasConfig = cache.categorias || null;
-    state.iconCategorias = cache.iconCategorias || [];
-    state.loaded = true;
-    popularSelectsDeCategoria();
-    renderAll();
-  } else {
-    renderSkeletons();
-  }
 
-  // Sem internet: nem tenta buscar — fica só no ícone de sem internet
-  // (sem nenhuma animação de "tentando"), mostrando o que já tem em cache.
+  // Online: o cache não pode ser renderizado antes do Firebase. Isso evita
+  // que um cache antigo (ex.: setembro) apareça durante um hard reload antes
+  // de a virada real do Firebase (ex.: janeiro/2027) ser confirmada.
   if (!navigator.onLine) {
+    if (cache) {
+      state.ganhos = cache.ganhos || [];
+      state.gastosFixos = cache.gastosFixos || [];
+      state.gastosVariaveis = cache.gastosVariaveis || [];
+      state.caixinhas = cache.caixinhas || [];
+      state.saldoInicialConta = Number(cache.saldoInicialConta) || 0;
+      state.saldoInicialBeneficio = Number(cache.saldoInicialBeneficio) || 0;
+      state.categoriasConfig = cache.categorias || null;
+      state.iconCategorias = cache.iconCategorias || [];
+      state.mesAtual = Number(cache.mesAtual) || null;
+      state.anoAtual = Number(cache.anoAtual) || null;
+      state.loaded = true;
+      popularSelectsDeCategoria();
+      renderMesAtual();
+      renderAll();
+    } else {
+      renderSkeletons();
+    }
     setSyncState("offline");
     if (!cache) showToast("Sem internet. Assim que conectar eu atualizo sozinho.");
     return;
@@ -1020,18 +1022,15 @@ async function carregarDados() {
 
   setSyncState("syncing");
   try {
+    // Firebase é a fonte de verdade online. O cliente Firebase usa leitura
+    // de servidor para impedir que a persistência local do Firestore devolva
+    // uma versão antiga da virada de mês.
     const res = await fetchApiGet({ pessoa: pessoaRequisitada });
     if (!res.ok) throw new Error(`HTTP ${res.status}`);
     const data = await res.json();
     if (data && data.ok === false) throw new Error(data.error || "Erro desconhecido");
     if (state.pessoaAtual !== pessoaRequisitada) return;
-    // Uma gravação pode ter começado depois que esta busca foi iniciada (ou
-    // enquanto ela estava em trânsito). Nesse intervalo o Apps Script ainda
-    // pode devolver o estado anterior da planilha. Nunca deixamos esse GET
-    // sobrescrever o estado que o usuário acabou de alterar.
     if (state.salvamentosEmAndamento && state.salvamentosEmAndamento.size) return;
-    // A resposta pode ter ficado alguns segundos em trânsito. Se houve uma
-    // ação local desde o início desta busca, ela é mais nova e deve vencer.
     if (state.versaoAlteracaoLocal !== versaoNoInicio) return;
 
     const mudancas = {
@@ -1051,33 +1050,40 @@ async function carregarDados() {
     state.categoriasConfig = data.categorias || null;
     state.iconCategorias = data.iconCategorias || [];
     state.loaded = true;
-    if (data.mesAtual) state.mesAtual = data.mesAtual;
-    if (data.anoAtual) state.anoAtual = data.anoAtual;
+    state.mesAtual = Number(data.mesAtual) || null;
+    state.anoAtual = Number(data.anoAtual) || null;
     renderMesAtual();
     setCache(pessoaRequisitada, data);
     setSyncState("idle");
-    if (Object.values(mudancas).some(Boolean)) {
-      renderIncremental(mudancas);
-    }
+    if (Object.values(mudancas).some(Boolean)) renderIncremental(mudancas);
+    else renderAll();
     prefetchOutrasPessoas(pessoaRequisitada);
   } catch (err) {
     if (state.pessoaAtual !== pessoaRequisitada) return;
-    // Caiu a conexão no meio da busca: mesmo tratamento calmo do offline
-    // (sem ícone de erro em vermelho, que é pra falha de verdade).
     setSyncState(ehErroDeRede(err) || !navigator.onLine ? "offline" : "error");
-    if (!cache) {
-      if (err?.apiEndpointMissing || Number(err?.status) === 404) {
-        showToast("A API do Apps Script respondeu 404. Verifique a implantação do Web App e a API_URL.");
-      } else {
-        showToast("Não consegui carregar a planilha. Confira a API_URL.");
-      }
+    // Se a leitura online falhar, aí sim o último cache confirmado pode ser
+    // usado como fallback. Ele nunca é usado antes da tentativa de servidor.
+    if (cache && (ehErroDeRede(err) || !navigator.onLine)) {
+      state.ganhos = cache.ganhos || [];
+      state.gastosFixos = cache.gastosFixos || [];
+      state.gastosVariaveis = cache.gastosVariaveis || [];
+      state.caixinhas = cache.caixinhas || [];
+      state.saldoInicialConta = Number(cache.saldoInicialConta) || 0;
+      state.saldoInicialBeneficio = Number(cache.saldoInicialBeneficio) || 0;
+      state.categoriasConfig = cache.categorias || null;
+      state.iconCategorias = cache.iconCategorias || [];
+      state.mesAtual = Number(cache.mesAtual) || null;
+      state.anoAtual = Number(cache.anoAtual) || null;
+      state.loaded = true;
+      renderMesAtual();
       renderAll();
-    } else {
       showToast("Não consegui atualizar agora. Mostrando o último dado salvo.");
+    } else {
+      showToast("Não consegui carregar os dados atuais do Firebase.");
+      renderAll();
     }
   }
 }
-
 function prefetchOutrasPessoas(pessoaJaCarregada) {
   const pessoas = Object.keys(PESSOA_LABEL).filter((p) => p !== pessoaJaCarregada);
   return Promise.all(pessoas.map((p) =>
