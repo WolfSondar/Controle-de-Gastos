@@ -1,14 +1,7 @@
 // =====================================================================
 // CAIXA — app.js
-// Estado local em memória + sincronização com a planilha via Apps Script
+// Estado local em memória + sincronização com Firebase / Firestore
 // =====================================================================
-
-// Compatibilidade temporária com as rotinas antigas do Apps Script.
-// O banco principal do Caixa agora é o Firebase; API_URL só será usada
-// pelas partes legadas que ainda não foram migradas (principalmente IA).
-const CAIXA_LEGACY_API_DEFAULT = "https://script.google.com/macros/s/AKfycbxgbGSwFX0DnM7GUf7uF4n2MxLsVXtH2obphoMn3YhYkQtoYEmZ0JkzV2bzT7-VSrConQ/exec";
-const API_URL = window.CAIXA_API_URL || window.API_URL || localStorage.getItem("caixaLegacyApiUrl") || CAIXA_LEGACY_API_DEFAULT;
-try { if (!localStorage.getItem("caixaLegacyApiUrl")) localStorage.setItem("caixaLegacyApiUrl", CAIXA_LEGACY_API_DEFAULT); } catch (_err) {}
 
 const PESSOA_LABEL = { davi: "Davi", gabriel: "Gabriel", ambos: "Juntos" };
 const COLAPSO_STORAGE_KEY = "caixaFormsColapsados";
@@ -703,76 +696,36 @@ function isAmbos() {
 }
 
 function temBackendDados() {
-  return !!(window.CAIXA_FIREBASE && typeof window.CAIXA_FIREBASE.get === "function") || !!(API_URL && !API_URL.includes("COLE_AQUI"));
+  return !!(window.CAIXA_FIREBASE && typeof window.CAIXA_FIREBASE.get === "function");
 }
 
 // ---------------------------------------------------------------------
-// URL DA API
+// CAMADA DE DADOS — FIREBASE
 // ---------------------------------------------------------------------
-// Mantemos a URL do Apps Script exatamente como configurada em config.js.
-// Os parâmetros opcionais são adicionados somente quando necessários; não
-// alteramos o endpoint nem adicionamos cache-busters, pois isso pode quebrar
-// redirects do Web App do Apps Script.
-function urlApi(params = {}) {
-  if (!API_URL || API_URL.includes("COLE_AQUI")) return "";
-  if (!params || !Object.keys(params).length) return API_URL;
-
-  try {
-    const url = new URL(API_URL, window.location.href);
-    Object.entries(params).forEach(([chave, valor]) => {
-      if (valor !== undefined && valor !== null) url.searchParams.set(chave, String(valor));
-    });
-    return url.toString();
-  } catch (_err) {
-    const extras = new URLSearchParams(params).toString();
-    if (!extras) return API_URL;
-    return `${API_URL}${API_URL.includes("?") ? "&" : "?"}${extras}`;
-  }
-}
-
+// Todas as leituras e gravações passam pela camada Firebase exposta em
+// window.CAIXA_FIREBASE. Não há endpoint legado no cliente.
 async function caixaApiRequest(options = {}) {
-  const bodyText = options?.body;
-  let body = null;
-  try { body = typeof bodyText === "string" ? JSON.parse(bodyText) : bodyText; } catch (_err) {}
-  const action = body?.action || "";
-  const usaFirebase = window.CAIXA_FIREBASE && typeof window.CAIXA_FIREBASE.request === "function";
-  const acoesFirebase = new Set(["saveGanhos","saveGastosFixos","saveGastosVariaveis","saveCaixinhas","transferir","fecharMes","dividirCompra","atualizarGanhoDivisao","sincronizarGanhoCorrespondenteFixo"]);
-  if (usaFirebase && acoesFirebase.has(action)) {
-    return window.CAIXA_FIREBASE.request({ method: options.method || "POST", body });
+  if (!window.CAIXA_FIREBASE || typeof window.CAIXA_FIREBASE.request !== "function") {
+    throw new Error("Firebase não está configurado.");
   }
-  return fetch(urlApi(), options);
-}
-
-async function fetchApiGetLegacy(params = {}) {
-  const url = urlApi(params);
-  if (!url) throw new Error("API_URL não configurada para a função legada.");
-  return fetch(url, { method: "GET", redirect: "follow", cache: "no-store" });
+  let body = null;
+  try { body = typeof options?.body === "string" ? JSON.parse(options.body) : options?.body; } catch (_err) {}
+  return window.CAIXA_FIREBASE.request({
+    method: options.method || "POST",
+    body,
+  });
 }
 
 async function fetchApiGet(params = {}) {
-  if (window.CAIXA_FIREBASE && typeof window.CAIXA_FIREBASE.get === "function") {
-    const pessoa = String(params?.pessoa || "davi").toLowerCase();
-    if (["davi","gabriel","ambos","historico"].includes(pessoa)) {
-      return window.CAIXA_FIREBASE.get({ pessoa });
-    }
+  if (!window.CAIXA_FIREBASE || typeof window.CAIXA_FIREBASE.get !== "function") {
+    throw new Error("Firebase não está configurado.");
   }
-  return fetchApiGetLegacy(params);
+  const pessoa = String(params?.pessoa || "davi").toLowerCase();
+  return window.CAIXA_FIREBASE.get({ pessoa });
 }
-
-
-function configurarApiLegado(url) {
-  const valor = String(url || "").trim();
-  if (!valor) { localStorage.setItem("caixaLegacyApiUrl", CAIXA_LEGACY_API_DEFAULT); return { ok: true, url: CAIXA_LEGACY_API_DEFAULT }; }
-  if (!/^https:\/\/script\.google\.com\/macros\/s\/[^\s]+\/exec(?:\?.*)?$/i.test(valor)) {
-    throw new Error("Use a URL /exec do Web App do Apps Script (https://script.google.com/macros/s/.../exec).");
-  }
-  localStorage.setItem("caixaLegacyApiUrl", valor);
-  return { ok: true, url: valor };
-}
-window.CAIXA_CONFIGURAR_API_LEGADO = configurarApiLegado;
 
 async function carregarSnapshotMigracaoFirebase() {
-  // A migração não consulta mais o Web App do Apps Script. O snapshot é
+  // A migração não consulta mais nenhum Web App. O snapshot é
   // carregado localmente e foi gerado a partir da planilha fornecida para a
   // migração. Isso evita o redirect script.googleusercontent.com/echo.
   const modulo = await import("./firebase-migration-data.js?v=35");
@@ -805,7 +758,7 @@ async function verificarFontePlanilhaFirebase() {
   try {
     const { fonte, historico } = await lerFonteLegadaParaMigracao();
     const resultado = { ok: true, origem: "Snapshot da planilha para migração", resumo: resumoMigracaoFonte(fonte, historico) };
-    console.info("CAIXA — fonte de migração verificada sem consultar o Apps Script:", resultado);
+    console.info("CAIXA — fonte de migração verificada sem backend legado:", resultado);
     return resultado;
   } catch (err) {
     const mensagem = err?.message || String(err);
@@ -1664,7 +1617,7 @@ async function atualizarGanhoDivisao(credor, devedor, nomeOriginal, valor, data,
 // opts: { tipo, data, pago, quemPagouTudo }
 // A divisão agora é uma operação atômica no Firestore: os dois perfis e,
 // quando necessário, o "A receber" são gravados juntos. Isso elimina a
-// dependência do Apps Script e evita deixar Davi e Gabriel em estados diferentes.
+// dependência de um backend externo e evita deixar Davi e Gabriel em estados diferentes.
 async function dividirCompra(nome, valorTotal, categoria, opts) {
   if (!temBackendDados()) {
     showToast("Configure o Firebase antes de continuar.");
@@ -5671,7 +5624,7 @@ function mostrarFechamentoMes(dados, { resultadoPromessa = null } = {}) {
 
   const etapas = [];
 
-  // Abertura curta. Não espera o Apps Script.
+  // Abertura curta. Não bloqueia a cerimônia esperando a rede.
   etapas.push(async () => {
     await esperar(1100);
     await trocarTela({
@@ -5874,7 +5827,7 @@ function mostrarFechamentoMes(dados, { resultadoPromessa = null } = {}) {
       try {
         const promessa = resultadoPromessa || cena._resultadoPromessa;
         if (promessa) {
-          // O Apps Script pode demorar ou perder a resposta mesmo depois de
+          // O Firebase pode demorar ou perder a resposta mesmo depois de
           // concluir a gravação. A cerimônia nunca deve ficar presa na última
           // etapa esperando indefinidamente.
           resultado = await Promise.race([
@@ -5932,8 +5885,8 @@ async function verificarFechamentoMes(mes, ano, pessoa, tentativas = 8) {
         }
       }
     } catch (err) {
-      // 404/redirect temporário do Apps Script não significa que o fechamento
-      // falhou. O Apps Script pode ainda estar concluindo a gravação.
+      // Uma falha temporária de resposta não significa que o fechamento
+      // falhou. O Firebase pode ainda estar concluindo a gravação.
     }
     await espera(1800 + tentativa * 500);
   }
@@ -6016,7 +5969,7 @@ on("formFecharMes", "submit", async (e) => {
 
   await new Promise((resolve) => requestAnimationFrame(() => requestAnimationFrame(resolve)));
 
-  // As duas partes começam juntas: o Apps Script salva em segundo plano e a
+  // As duas partes começam juntas: o Firebase salva em segundo plano e a
   // cerimônia segue sua narrativa visual. A promessa é compartilhada com a
   // cerimônia para que somente a última tela dependa do resultado real.
   const resultadoPromessa = fecharMesRequisicao(mes, ano, pessoaFechamento);
@@ -6632,7 +6585,7 @@ if (document.readyState === "loading") {
   }
 
   async function buscarRespostasGastarIA(t, opcoes = {}) {
-    if (!API_URL || API_URL.includes("COLE_AQUI")) return null;
+    if (!window.CAIXA_FIREBASE || typeof window.CAIXA_FIREBASE.request !== "function") return null;
     const chave = opcoes.chave || chaveCacheGastarIA(t);
     if (!opcoes.forcar) {
       const cache = lerCacheGastarIA(chave);
@@ -6679,7 +6632,7 @@ if (document.readyState === "loading") {
   }
 
   async function buscarDicasIA(t, opcoes = {}) {
-    if (!API_URL || API_URL.includes("COLE_AQUI")) return [];
+    if (!window.CAIXA_FIREBASE || typeof window.CAIXA_FIREBASE.request !== "function") return [];
     const chave = opcoes.chave || chaveCacheDicasChat(t, opcoes.modo || "");
     if (!opcoes.forcar) {
       const cache = lerCacheDicasChat(chave);
@@ -7646,7 +7599,7 @@ if (document.readyState === "loading") {
   function salvarCacheStatusFinanceiro(chave,texto){try{localStorage.setItem(chave,JSON.stringify({salvoEm:Date.now(),texto:String(texto||"").trim()}));}catch(e){}}
   function descricaoStatusFallback(t,status){ const limite=Number(t.conta)||0; if(status.codigo==="apertado") return limite<0?"Os compromissos que ainda precisam ser reservados ultrapassam o dinheiro projetado para o mês.":"Há compromissos que pedem atenção antes de considerar o dinheiro restante como folga."; return "Seu dinheiro projetado cobre os compromissos atuais e ainda deixa uma folga para o restante do mês."; }
   async function atualizarDescricaoStatusIA(t,status,chave){
-    if(!API_URL||API_URL.includes("COLE_AQUI")||lerCacheStatusFinanceiro(chave)) return;
+    if(!window.CAIXA_FIREBASE || typeof window.CAIXA_FIREBASE.request !== "function" || lerCacheStatusFinanceiro(chave)) return;
     const token=(window._statusFinanceiroToken||0)+1; window._statusFinanceiroToken=token;
     try{const respostas=await buscarDicasIA(t,{chave,modo:"statusFinanceiro"}); if(token!==window._statusFinanceiroToken)return; const texto=respostas?.[0]?.texto?String(respostas[0].texto).trim():""; if(!texto)return; salvarCacheStatusFinanceiro(chave,texto); const el=document.getElementById("statusFinanceiroDescricao"); if(el)el.innerHTML=formatarTextoIAChat(texto);}catch(e){}
   }
@@ -7766,7 +7719,7 @@ if (document.readyState === "loading") {
   document.addEventListener("caixa:ia-config-atualizada", () => { window._caixaDicaIndice = 0; });
 
   async function preaquecerDicasIA() {
-    if (!API_URL || API_URL.includes("COLE_AQUI") || !state.mesAtual || !state.anoAtual) return;
+    if (!window.CAIXA_FIREBASE || typeof window.CAIXA_FIREBASE.request !== "function" || !state.mesAtual || !state.anoAtual) return;
     try {
       const t = totaisChat();
       const chaveDicas = chaveCacheDicasChat(t);
