@@ -4,10 +4,10 @@
 // =====================================================================
 
 // Compatibilidade temporária com as rotinas antigas do Apps Script.
-// O banco principal do Caixa agora é o Firebase; API_URL só será usada
+// O banco principal do Caixa agora é o Firebase; window.__CAIXA_API_URL_RUNTIME só será usada
 // pelas partes legadas que ainda não foram migradas (principalmente IA).
 const CAIXA_LEGACY_API_DEFAULT = "https://script.google.com/macros/s/AKfycbxgbGSwFX0DnM7GUf7uF4n2MxLsVXtH2obphoMn3YhYkQtoYEmZ0JkzV2bzT7-VSrConQ/exec";
-const API_URL = window.CAIXA_API_URL || window.API_URL || localStorage.getItem("caixaLegacyApiUrl") || CAIXA_LEGACY_API_DEFAULT;
+window.__CAIXA_API_URL_RUNTIME = window.CAIXA_API_URL || window.API_URL || localStorage.getItem("caixaLegacyApiUrl") || CAIXA_LEGACY_API_DEFAULT;
 try { if (!localStorage.getItem("caixaLegacyApiUrl")) localStorage.setItem("caixaLegacyApiUrl", CAIXA_LEGACY_API_DEFAULT); } catch (_err) {}
 
 const PESSOA_LABEL = { davi: "Davi", gabriel: "Gabriel", ambos: "Juntos" };
@@ -707,7 +707,7 @@ function isAmbos() {
 }
 
 function temBackendDados() {
-  return !!(window.CAIXA_FIREBASE && typeof window.CAIXA_FIREBASE.get === "function") || !!(API_URL && !API_URL.includes("COLE_AQUI"));
+  return !!(window.CAIXA_FIREBASE && typeof window.CAIXA_FIREBASE.get === "function") || !!(window.__CAIXA_API_URL_RUNTIME && !window.__CAIXA_API_URL_RUNTIME.includes("COLE_AQUI"));
 }
 
 // ---------------------------------------------------------------------
@@ -718,19 +718,19 @@ function temBackendDados() {
 // alteramos o endpoint nem adicionamos cache-busters, pois isso pode quebrar
 // redirects do Web App do Apps Script.
 function urlApi(params = {}) {
-  if (!API_URL || API_URL.includes("COLE_AQUI")) return "";
-  if (!params || !Object.keys(params).length) return API_URL;
+  if (!window.__CAIXA_API_URL_RUNTIME || window.__CAIXA_API_URL_RUNTIME.includes("COLE_AQUI")) return "";
+  if (!params || !Object.keys(params).length) return window.__CAIXA_API_URL_RUNTIME;
 
   try {
-    const url = new URL(API_URL, window.location.href);
+    const url = new URL(window.__CAIXA_API_URL_RUNTIME, window.location.href);
     Object.entries(params).forEach(([chave, valor]) => {
       if (valor !== undefined && valor !== null) url.searchParams.set(chave, String(valor));
     });
     return url.toString();
   } catch (_err) {
     const extras = new URLSearchParams(params).toString();
-    if (!extras) return API_URL;
-    return `${API_URL}${API_URL.includes("?") ? "&" : "?"}${extras}`;
+    if (!extras) return window.__CAIXA_API_URL_RUNTIME;
+    return `${window.__CAIXA_API_URL_RUNTIME}${window.__CAIXA_API_URL_RUNTIME.includes("?") ? "&" : "?"}${extras}`;
   }
 }
 
@@ -749,7 +749,7 @@ async function caixaApiRequest(options = {}) {
 
 async function fetchApiGetLegacy(params = {}) {
   const url = urlApi(params);
-  if (!url) throw new Error("API_URL não configurada para a função legada.");
+  if (!url) throw new Error("window.__CAIXA_API_URL_RUNTIME não configurada para a função legada.");
   return fetch(url, { method: "GET", redirect: "follow", cache: "no-store" });
 }
 
@@ -1078,9 +1078,9 @@ async function carregarDados() {
     setSyncState(ehErroDeRede(err) || !navigator.onLine ? "offline" : "error");
     if (!cache) {
       if (err?.apiEndpointMissing || Number(err?.status) === 404) {
-        showToast("A API do Apps Script respondeu 404. Verifique a implantação do Web App e a API_URL.");
+        showToast("A API do Apps Script respondeu 404. Verifique a implantação do Web App e a window.__CAIXA_API_URL_RUNTIME.");
       } else {
-        showToast("Não consegui carregar a planilha. Confira a API_URL.");
+        showToast("Não consegui carregar a planilha. Confira a window.__CAIXA_API_URL_RUNTIME.");
       }
       renderAll();
     } else {
@@ -6647,7 +6647,7 @@ if (document.readyState === "loading") {
   }
 
   async function buscarRespostasGastarIA(t, opcoes = {}) {
-    if (!API_URL || API_URL.includes("COLE_AQUI")) return null;
+    if (!window.__CAIXA_API_URL_RUNTIME || window.__CAIXA_API_URL_RUNTIME.includes("COLE_AQUI")) return null;
     const chave = opcoes.chave || chaveCacheGastarIA(t);
     if (!opcoes.forcar) {
       const cache = lerCacheGastarIA(chave);
@@ -6694,7 +6694,7 @@ if (document.readyState === "loading") {
   }
 
   async function buscarDicasIA(t, opcoes = {}) {
-    if (!API_URL || API_URL.includes("COLE_AQUI")) return [];
+    if (!window.__CAIXA_API_URL_RUNTIME || window.__CAIXA_API_URL_RUNTIME.includes("COLE_AQUI")) return [];
     const chave = opcoes.chave || chaveCacheDicasChat(t, opcoes.modo || "");
     if (!opcoes.forcar) {
       const cache = lerCacheDicasChat(chave);
@@ -7661,7 +7661,7 @@ if (document.readyState === "loading") {
   function salvarCacheStatusFinanceiro(chave,texto){try{localStorage.setItem(chave,JSON.stringify({salvoEm:Date.now(),texto:String(texto||"").trim()}));}catch(e){}}
   function descricaoStatusFallback(t,status){ const limite=Number(t.conta)||0; if(status.codigo==="apertado") return limite<0?"Os compromissos que ainda precisam ser reservados ultrapassam o dinheiro projetado para o mês.":"Há compromissos que pedem atenção antes de considerar o dinheiro restante como folga."; return "Seu dinheiro projetado cobre os compromissos atuais e ainda deixa uma folga para o restante do mês."; }
   async function atualizarDescricaoStatusIA(t,status,chave){
-    if(!API_URL||API_URL.includes("COLE_AQUI")||lerCacheStatusFinanceiro(chave)) return;
+    if(!window.__CAIXA_API_URL_RUNTIME||window.__CAIXA_API_URL_RUNTIME.includes("COLE_AQUI")||lerCacheStatusFinanceiro(chave)) return;
     const token=(window._statusFinanceiroToken||0)+1; window._statusFinanceiroToken=token;
     try{const respostas=await buscarDicasIA(t,{chave,modo:"statusFinanceiro"}); if(token!==window._statusFinanceiroToken)return; const texto=respostas?.[0]?.texto?String(respostas[0].texto).trim():""; if(!texto)return; salvarCacheStatusFinanceiro(chave,texto); const el=document.getElementById("statusFinanceiroDescricao"); if(el)el.innerHTML=formatarTextoIAChat(texto);}catch(e){}
   }
@@ -7781,7 +7781,7 @@ if (document.readyState === "loading") {
   document.addEventListener("caixa:ia-config-atualizada", () => { window._caixaDicaIndice = 0; });
 
   async function preaquecerDicasIA() {
-    if (!API_URL || API_URL.includes("COLE_AQUI") || !state.mesAtual || !state.anoAtual) return;
+    if (!window.__CAIXA_API_URL_RUNTIME || window.__CAIXA_API_URL_RUNTIME.includes("COLE_AQUI") || !state.mesAtual || !state.anoAtual) return;
     try {
       const t = totaisChat();
       const chaveDicas = chaveCacheDicasChat(t);
