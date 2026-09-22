@@ -552,15 +552,23 @@
 
 <!-- MODAL DE FECHAR MÊS (aberto ao tocar no selo de mês, no topo) -->
 <div class="modal-backdrop is-hidden" id="fecharMesBackdrop">
-  <div class="modal">
-    <div class="fechar-mes-titulo">
-      <span class="fechar-mes-icone" aria-hidden="true">✓</span>
-      <div>
+  <div class="modal fechar-mes-modal">
+    <div class="fechar-mes-cabecalho">
+      <div class="fechar-mes-icone" aria-hidden="true">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
+          <path d="M20 6 9 17l-5-5"/>
+        </svg>
+      </div>
+      <div class="fechar-mes-cabecalho-texto">
+        <span class="fechar-mes-kicker">ENCERRAMENTO</span>
         <h3>Fechar o mês</h3>
-        <p class="section-hint">Você está prestes a fechar o mês atual.</p>
+        <p>Você vai fechar o mês atual.</p>
       </div>
     </div>
-    <div class="fechar-mes-periodo" id="fecharMesPeriodo" aria-live="polite"></div>
+    <div class="fechar-mes-periodo" id="fecharMesPeriodo" aria-live="polite">
+      <span>MES A FECHAR</span>
+      <strong>Mês atual</strong>
+    </div>
     <form id="formFecharMes">
       <div class="modal-actions">
         <button type="button" class="btn btn-ghost" id="fecharMesCancelar">Cancelar</button>

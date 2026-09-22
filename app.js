@@ -5462,7 +5462,10 @@ function prepararFormFecharMes() {
   const mes = Number(state.mesAtual);
   const ano = Number(state.anoAtual);
   if (periodo) {
-    periodo.textContent = mes && ano ? `${MESES_LABEL[mes - 1]}/${ano}` : "Mês atual";
+    const valor = mes && ano ? `${MESES_LABEL[mes - 1]}/${ano}` : "Mês atual";
+    const valorEl = periodo.querySelector("strong");
+    if (valorEl) valorEl.textContent = valor;
+    else periodo.textContent = valor;
   }
 }
 
