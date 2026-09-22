@@ -668,6 +668,10 @@ const state = {
   // após Ctrl+Shift+R/F5.
   mesAtual: null,
   anoAtual: null,
+  mesAtualDavi: null,
+  anoAtualDavi: null,
+  mesAtualGabriel: null,
+  anoAtualGabriel: null,
   historico: null, 
   historicoAnoSelecionado: new Date().getFullYear(),
   categoriasConfig: null, // [{nome, cor}] vindo exclusivamente da aba CONFIGS
@@ -678,17 +682,33 @@ const state = {
 function renderMesAtual() {
   const el = document.getElementById("mesAtualBadge");
   if (!el) return;
-  if (!state.mesAtual || !state.anoAtual) {
-    el.textContent = "";
-    return;
+
+  const pessoa = state.pessoaAtual;
+  const formato = (mes, ano) => mes && ano ? `${MESES_LABEL[Number(mes) - 1]}/${ano}` : "";
+
+  if (pessoa === "ambos") {
+    const davi = formato(state.mesAtualDavi, state.anoAtualDavi);
+    const gabriel = formato(state.mesAtualGabriel, state.anoAtualGabriel);
+    el.textContent = davi && gabriel
+      ? `Davi · ${davi}  •  Gabriel · ${gabriel}`
+      : davi || gabriel || "";
+    el.classList.add("is-disabled");
+    el.disabled = true;
+    el.setAttribute("aria-disabled", "true");
+    el.title = "Juntos é somente leitura — cada perfil tem seu próprio mês.";
+  } else {
+    el.textContent = formato(state.mesAtual, state.anoAtual);
+    el.classList.remove("is-disabled");
+    el.disabled = false;
+    el.setAttribute("aria-disabled", "false");
+    el.title = "Fechar mês";
   }
-  el.textContent = MESES_LABEL[state.mesAtual - 1] + "/" + state.anoAtual;
-  const somenteLeitura = state.pessoaAtual === "ambos";
-  el.classList.toggle("is-disabled", somenteLeitura);
-  el.setAttribute("aria-disabled", somenteLeitura ? "true" : "false");
-  el.title = somenteLeitura ? "Juntos é somente leitura — o fechamento é individual." : "Fechar mês";
+
+  el.hidden = !el.textContent;
   try {
-    localStorage.setItem(MES_ATUAL_STORAGE_KEY + ":" + state.pessoaAtual, JSON.stringify({ mes: state.mesAtual, ano: state.anoAtual }));
+    if (state.mesAtual && state.anoAtual) {
+      localStorage.setItem(MES_ATUAL_STORAGE_KEY + ":" + state.pessoaAtual, JSON.stringify({ mes: state.mesAtual, ano: state.anoAtual }));
+    }
   } catch (err) {}
 }
 
@@ -1062,8 +1082,19 @@ async function carregarDados() {
     state.categoriasConfig = data.categorias || null;
     state.iconCategorias = data.iconCategorias || [];
     state.loaded = true;
-    if (data.mesAtual) state.mesAtual = data.mesAtual;
-    if (data.anoAtual) state.anoAtual = data.anoAtual;
+    if (pessoaRequisitada === "ambos") {
+      state.mesAtualDavi = Number(data.configDavi?.mesAtual) || null;
+      state.anoAtualDavi = Number(data.configDavi?.anoAtual) || null;
+      state.mesAtualGabriel = Number(data.configGabriel?.mesAtual) || null;
+      state.anoAtualGabriel = Number(data.configGabriel?.anoAtual) || null;
+      state.mesAtual = state.mesAtualDavi;
+      state.anoAtual = state.anoAtualDavi;
+    } else {
+      if (data.mesAtual) state.mesAtual = data.mesAtual;
+      if (data.anoAtual) state.anoAtual = data.anoAtual;
+      if (pessoaRequisitada === "davi") { state.mesAtualDavi = Number(data.mesAtual) || null; state.anoAtualDavi = Number(data.anoAtual) || null; }
+      if (pessoaRequisitada === "gabriel") { state.mesAtualGabriel = Number(data.mesAtual) || null; state.anoAtualGabriel = Number(data.anoAtual) || null; }
+    }
     renderMesAtual();
     setCache(pessoaRequisitada, data);
     setSyncState("idle");
@@ -1278,6 +1309,8 @@ async function trocarPessoa(pessoa) {
   // causa de um GET no meio da navegação.
   const pessoaAnterior = state.pessoaAtual;
   state.pessoaAtual = pessoa;
+  if (pessoa === "davi" && state.mesAtualDavi && state.anoAtualDavi) { state.mesAtual = state.mesAtualDavi; state.anoAtual = state.anoAtualDavi; }
+  if (pessoa === "gabriel" && state.mesAtualGabriel && state.anoAtualGabriel) { state.mesAtual = state.mesAtualGabriel; state.anoAtual = state.anoAtualGabriel; }
   localStorage.setItem(PESSOA_STORAGE_KEY, pessoa);
   atualizarVisibilidadeFab();
   document.dispatchEvent(new CustomEvent("caixa:perfil-trocado", { detail: { pessoa } }));
@@ -1291,6 +1324,7 @@ async function trocarPessoa(pessoa) {
   atualizarVisibilidadeSplitCard();
   atualizarVisibilidadeVisaoGeral();
   atualizarVisibilidadeJuntosView();
+  renderMesAtual();
 
   const cache = await getCache(pessoa);
   // Se o usuário trocou de perfil novamente enquanto o cache era lido, não
@@ -1309,6 +1343,8 @@ async function trocarPessoa(pessoa) {
     if (!navigator.onLine) {
       state.mesAtual = Number(cache.mesAtual) || null;
       state.anoAtual = Number(cache.anoAtual) || null;
+      if (pessoa === "davi") { state.mesAtualDavi = state.mesAtual; state.anoAtualDavi = state.anoAtual; }
+      if (pessoa === "gabriel") { state.mesAtualGabriel = state.mesAtual; state.anoAtualGabriel = state.anoAtual; }
     }
     state.loaded = true;
     popularSelectsDeCategoria();
@@ -1332,6 +1368,8 @@ async function trocarPessoa(pessoa) {
         if (data && data.ok !== false && state.pessoaAtual === pessoa) {
           if (data.mesAtual) state.mesAtual = data.mesAtual;
           if (data.anoAtual) state.anoAtual = data.anoAtual;
+          if (pessoa === "davi") { state.mesAtualDavi = Number(data.mesAtual) || null; state.anoAtualDavi = Number(data.anoAtual) || null; }
+          if (pessoa === "gabriel") { state.mesAtualGabriel = Number(data.mesAtual) || null; state.anoAtualGabriel = Number(data.anoAtual) || null; }
           setCache(pessoa, data);
           renderMesAtual();
         }
@@ -5420,21 +5458,12 @@ if (fecharMesBackdrop) {
 }
 
 function prepararFormFecharMes() {
-  const selectMes = document.getElementById("fecharMesSelect");
-  const inputAno = document.getElementById("fecharAnoInput");
-  if (selectMes && selectMes.options.length === 0) {
-    MESES_LABEL.forEach((nome, idx) => {
-      const opt = document.createElement("option");
-      opt.value = String(idx + 1);
-      opt.textContent = nome;
-      selectMes.appendChild(opt);
-    });
+  const periodo = document.getElementById("fecharMesPeriodo");
+  const mes = Number(state.mesAtual);
+  const ano = Number(state.anoAtual);
+  if (periodo) {
+    periodo.textContent = mes && ano ? `${MESES_LABEL[mes - 1]}/${ano}` : "Mês atual";
   }
-  const agora = new Date();
-  const mes = state.mesAtual || agora.getMonth() + 1;
-  const ano = state.anoAtual || agora.getFullYear();
-  if (selectMes) selectMes.value = String(mes);
-  if (inputAno) inputAno.value = ano;
 }
 
 
@@ -5999,8 +6028,8 @@ async function fecharMesRequisicao(mes, ano, pessoa) {
 
 on("formFecharMes", "submit", async (e) => {
   e.preventDefault();
-  const mes = Number(document.getElementById("fecharMesSelect").value);
-  const ano = Number(document.getElementById("fecharAnoInput").value);
+  const mes = Number(state.mesAtual);
+  const ano = Number(state.anoAtual);
   const pessoaFechamento = state.pessoaAtual;
   if (!mes || !ano || (pessoaFechamento !== "davi" && pessoaFechamento !== "gabriel")) {
     if (pessoaFechamento === "ambos") showToast("Juntos é somente leitura. Selecione Davi ou Gabriel para fechar o mês.");
@@ -6052,6 +6081,8 @@ on("formFecharMes", "submit", async (e) => {
     const f = resultado.fechado;
     state.mesAtual = resultado.mesAtual;
     state.anoAtual = resultado.anoAtual;
+    if (pessoaFechamento === "davi") { state.mesAtualDavi = state.mesAtual; state.anoAtualDavi = state.anoAtual; }
+    if (pessoaFechamento === "gabriel") { state.mesAtualGabriel = state.mesAtual; state.anoAtualGabriel = state.anoAtual; }
     renderMesAtual();
 
     await removerCache(pessoaFechamento);

@@ -8465,3 +8465,27 @@ body.fechamento-mes-ativo { overflow: hidden !important; }
   color: #9f3b35;
   font-size: .86rem;
 }
+
+/* Ajustes visuais — mês atual e login */
+.mes-atual-badge[disabled] { cursor: default; pointer-events: none; }
+.mes-atual-badge[hidden] { display: none; }
+
+.fechar-mes-titulo { display: flex; align-items: center; gap: 13px; margin-bottom: 16px; }
+.fechar-mes-titulo h3 { margin: 0 0 4px; }
+.fechar-mes-titulo .section-hint { margin: 0; }
+.fechar-mes-icone { width: 40px; height: 40px; border-radius: 13px; display: inline-flex; align-items: center; justify-content: center; flex: 0 0 auto; background: var(--income-bg); color: var(--income); font-size: 18px; font-weight: 700; }
+.fechar-mes-periodo { margin: 4px 0 22px; padding: 15px 18px; border: 1px solid rgba(185,134,47,.28); border-radius: 16px; background: linear-gradient(135deg, rgba(185,134,47,.13), rgba(185,134,47,.05)); color: var(--ink-text); font-family: var(--font-display); font-size: 21px; font-weight: 700; text-align: center; letter-spacing: .01em; }
+
+.caixa-firebase-login-card { padding: 42px 34px 36px; border-radius: 28px; box-shadow: 0 30px 90px rgba(0,0,0,.32), 0 4px 18px rgba(0,0,0,.08); }
+.caixa-firebase-login-mark { width: 62px; height: 62px; margin: 0 auto 16px; display: flex; align-items: center; justify-content: center; border-radius: 19px; background: var(--ink); color: var(--gold); font-family: Fraunces, Georgia, serif; font-size: 31px; font-weight: 700; box-shadow: 0 12px 28px rgba(22,51,44,.18); }
+.caixa-firebase-login-kicker { margin-bottom: 7px; color: var(--gold-deep, #93691f); font-family: var(--font-mono); font-size: 10px; font-weight: 700; letter-spacing: .16em; }
+.caixa-firebase-login-card h2 { font-size: 29px; letter-spacing: -.02em; }
+.caixa-firebase-login-card p { margin-bottom: 24px; font-size: 14px; opacity: .68; }
+.caixa-firebase-google { position: relative; display: flex !important; align-items: center; justify-content: center; gap: 11px; border-radius: 14px !important; box-shadow: 0 10px 22px rgba(22,51,44,.14); }
+.google-g { width: 24px; height: 24px; display: inline-flex; align-items: center; justify-content: center; border-radius: 50%; background: #fff; color: #4285f4; font-family: Arial, sans-serif; font-size: 16px; font-weight: 700; }
+.caixa-firebase-login-erro { margin-top: 12px; }
+@media (max-width: 560px) {
+  .mes-atual-badge { max-width: 250px; overflow: hidden; text-overflow: ellipsis; }
+  .fechar-mes-titulo { align-items: flex-start; }
+  .caixa-firebase-login-card { padding: 34px 22px 28px; }
+}

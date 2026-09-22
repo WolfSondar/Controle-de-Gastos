@@ -33,7 +33,7 @@
         <span class="brand-mark">Caixa</span>
       </div>
       <div class="hero-top-actions">
-        <button type="button" class="mes-atual-badge" id="mesAtualBadge"></button>
+        <button type="button" class="mes-atual-badge" id="mesAtualBadge" aria-label="Mês atual"></button>
         <div class="icon-btn-wrap">
           <button class="icon-btn" id="btnAcoesConjunto" aria-label="Ações em conjunto">
             <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
@@ -553,15 +553,15 @@
 <!-- MODAL DE FECHAR MÊS (aberto ao tocar no selo de mês, no topo) -->
 <div class="modal-backdrop is-hidden" id="fecharMesBackdrop">
   <div class="modal">
-    <h3>Fechar o mês</h3>
-    <p class="section-hint">
-      Confira o mês e o ano antes de confirmar. O saldo de cada um (o que sobrar depois dos gastos pagos) vira ganho automático da própria pessoa no mês seguinte. Os gastos variáveis zeram; os ganhos e os gastos fixos continuam do mesmo jeito. As caixinhas mantêm o valor guardado. Essa ação não pode ser desfeita.
-    </p>
-    <form id="formFecharMes">
-      <div class="fechar-mes-campos">
-        <select id="fecharMesSelect" required></select>
-        <input type="number" id="fecharAnoInput" placeholder="Ano" required min="2026" max="2100" />
+    <div class="fechar-mes-titulo">
+      <span class="fechar-mes-icone" aria-hidden="true">✓</span>
+      <div>
+        <h3>Fechar o mês</h3>
+        <p class="section-hint">Você está prestes a fechar o mês atual.</p>
       </div>
+    </div>
+    <div class="fechar-mes-periodo" id="fecharMesPeriodo" aria-live="polite"></div>
+    <form id="formFecharMes">
       <div class="modal-actions">
         <button type="button" class="btn btn-ghost" id="fecharMesCancelar">Cancelar</button>
         <button type="submit" class="btn btn-gold" id="fecharMesSubmit">Fechar mês</button>

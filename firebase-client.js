@@ -666,12 +666,15 @@ if (!cfg.apiKey || cfg.apiKey.includes("COLE_")) {
     const el = document.createElement("div");
     el.id = "caixaFirebaseLogin";
     el.innerHTML = `<div class="caixa-firebase-login-card">
-      <div class="caixa-firebase-login-mark">✦</div>
-      <h2>Entrar no Caixa</h2>
-      <p>Agora seus lançamentos ficam salvos com segurança no Firebase e sincronizados entre seus dispositivos.</p>
-      <button type="button" id="caixaFirebaseGoogle" class="btn btn-gold">Continuar com Google</button>
-      <small>Você continuará usando Davi, Gabriel e Juntos normalmente depois de entrar.</small>
-      <span id="caixaFirebaseLoginErro" class="caixa-firebase-login-erro"></span>
+      <div class="caixa-firebase-login-mark" aria-hidden="true">C</div>
+      <div class="caixa-firebase-login-kicker">CONTROLE FINANCEIRO</div>
+      <h2>Bem-vindo ao Caixa</h2>
+      <p>Entre para continuar.</p>
+      <button type="button" id="caixaFirebaseGoogle" class="btn btn-gold caixa-firebase-google">
+        <span class="google-g">G</span>
+        <span>Continuar com Google</span>
+      </button>
+      <span id="caixaFirebaseLoginErro" class="caixa-firebase-login-erro" role="alert"></span>
     </div>`;
     document.body.appendChild(el);
     el.querySelector("#caixaFirebaseGoogle")?.addEventListener("click", async () => {
