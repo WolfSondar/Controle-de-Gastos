@@ -229,6 +229,32 @@ if (!cfg.apiKey || cfg.apiKey.includes("COLE_")) {
           ganhosProx.push(ganhoProx);
         }
       });
+
+      // O saldo que sobrou no encerramento vira um GANHO recebido no novo mês.
+      // Assim ele aparece normalmente no fluxo de ganhos e volta a participar
+      // do cálculo do Saldo disponível. Não usamos apenas campos auxiliares
+      // de saldo inicial: o usuário deve enxergar esse dinheiro como saldo
+      // carregado do mês anterior.
+      if (saldos.saldoConta > 0) {
+        ganhosProx.push({
+          nome: `Saldo ${tituloMes(mes)}`,
+          valor: Number(saldos.saldoConta.toFixed(2)),
+          data: "",
+          recebido: true,
+          origem: "saldo",
+          tipo: "saldo_anterior"
+        });
+      }
+      if (saldos.beneficio > 0) {
+        ganhosProx.push({
+          nome: `Saldo Beneficios ${tituloMes(mes)}`,
+          valor: Number(saldos.beneficio.toFixed(2)),
+          data: "",
+          recebido: true,
+          origem: "beneficio",
+          tipo: "saldo_anterior"
+        });
+      }
       const fixos=(dados.gastosFixos||[]).map(proximoFixo).filter(Boolean);
       const variaveis=(dados.gastosVariaveis||[]).filter(g=>g?.pago===false);
       const caixinhas=(dados.caixinhas||[]).map(c=>({nome:c.nome,valorObjetivo:c.valorObjetivo,valorGuardado:totalCaixinha(c),rendimentoTotal:0,valorGuardadoMes:0,data:c.data||"",icone:c.icone||""}));
