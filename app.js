@@ -2511,7 +2511,13 @@ function metaInfoHtml(item) {
   } else if (estaPendente(item) && ehDoMesAnterior(item)) {
     partes.push(`<span class="item-tag item-tag-atrasado" title="Venceu no mês passado e ainda não foi pago">Atrasado</span>`);
   }
-  if (item.tipo) partes.push(`<span class="item-tag item-tag-cat">${escapeHtml(item.tipo)}</span>`);
+  if (item.tipo) {
+    if (item.tipo === "saldo_anterior") {
+      partes.push(`<span class="item-tag item-tag-saldo-anterior" title="Saldo que veio do mês anterior" style="display:inline-flex;align-items:center;gap:5px;padding:4px 9px;border-radius:999px;border:1px solid rgba(99,102,241,.18);background:rgba(99,102,241,.10);color:inherit;font-size:.78em;font-weight:650;line-height:1;letter-spacing:.01em;box-shadow:0 1px 2px rgba(15,23,42,.04)"><span aria-hidden="true" style="font-size:.9em;opacity:.78">↩</span>Saldo anterior</span>`);
+    } else {
+      partes.push(`<span class="item-tag item-tag-cat">${escapeHtml(item.tipo)}</span>`);
+    }
+  }
   const dataCurta = formatarDataCurta(item.data);
   if (dataCurta) partes.push(`<span class="item-tag item-tag-data">${dataCurta}</span>`);
   return partes.length ? `<div class="item-meta">${partes.join("")}</div>` : "";
