@@ -2251,8 +2251,6 @@ function renderTotais() {
         gastosFixos: state.gastosFixos,
         gastosVariaveis: state.gastosVariaveis,
         caixinhas: state.caixinhas,
-        saldoInicialConta: state.saldoInicialConta,
-        saldoInicialBeneficio: state.saldoInicialBeneficio,
       })
     : null;
   const saldo = saldosDisponiveis ? saldosDisponiveis.total : (ganhosPorOrigem.beneficios + ganhosPorOrigem.ganhos - totalFixosPagos - totalVariaveisPagos - totalGuardadoNoMes);
