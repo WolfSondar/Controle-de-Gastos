@@ -6,5 +6,7 @@ window.CAIXA_FIREBASE_CONFIG = {
   projectId: "caixa-controle-financeir-6c7bd",
   storageBucket: "caixa-controle-financeir-6c7bd.firebasestorage.app",
   messagingSenderId: "1039928111098",
-  appId: "1:1039928111098:web:14143543a6607e7182fe43"
+  appId: "1:1039928111098:web:14143543a6607e7182fe43",
+  // Preencha com a chave pública do reCAPTCHA Enterprise quando o App Check estiver configurado.
+  appCheckRecaptchaKey: ""
 };

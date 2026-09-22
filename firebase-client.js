@@ -1,10 +1,11 @@
-/* CAIXA — Firebase / Firestore
- * Camada de dados. O Google Apps Script continua sendo usado apenas pelas
- * rotinas de IA até a segunda etapa da migração.
+/* CAIXA — Firebase / Firestore / Firebase AI Logic
+ * Banco, autenticação e IA do Caixa. Não depende de Google Apps Script.
  * SDK modular carregado diretamente pelo navegador para manter o projeto
  * GitHub Pages sem build obrigatório.
  */
 import { initializeApp } from "https://www.gstatic.com/firebasejs/12.19.0/firebase-app.js";
+import { getAI, getGenerativeModel, GoogleAIBackend, Schema } from "https://www.gstatic.com/firebasejs/12.19.0/firebase-ai.js";
+import { initializeAppCheck, ReCaptchaEnterpriseProvider } from "https://www.gstatic.com/firebasejs/12.19.0/firebase-app-check.js";
 import {
   getAuth,
   onAuthStateChanged,
@@ -59,12 +60,28 @@ if (!cfg.apiKey || cfg.apiKey.includes("COLE_")) {
   window.CAIXA_FIREBASE_READY = Promise.resolve(null);
 } else {
   const app = initializeApp(cfg);
+
+  // O Firebase AI Logic usa o proxy oficial do Firebase para falar com o Gemini.
+  // Nenhuma chave do Gemini fica exposta no código do aplicativo.
+  let appCheck = null;
+  if (cfg.appCheckRecaptchaKey && !String(cfg.appCheckRecaptchaKey).includes("COLE_")) {
+    try {
+      appCheck = initializeAppCheck(app, {
+        provider: new ReCaptchaEnterpriseProvider(cfg.appCheckRecaptchaKey),
+        isTokenAutoRefreshEnabled: true,
+      });
+    } catch (err) {
+      console.warn("CAIXA: não foi possível iniciar o App Check.", err);
+    }
+  }
+
   const auth = getAuth(app);
   const db = initializeFirestore(app, {
     localCache: persistentLocalCache({ tabManager: persistentMultipleTabManager() }),
   });
 
   const provider = new GoogleAuthProvider();
+  const ai = getAI(app, { backend: new GoogleAIBackend() });
   let currentUser = null;
   let authResolve;
   let authReject;
@@ -413,6 +430,168 @@ if (!cfg.apiKey || cfg.apiKey.includes("COLE_")) {
     if(pessoa==="ambos"){const [a,b]=await Promise.all([lerPerfil(uid,"davi"),lerPerfil(uid,"gabriel")]);return respostaJson(mergeAmbos(a,b));}
     const d=await lerPerfil(uid,pessoa);return respostaJson({ok:true,...d});
   }
+  const MODELO_IA_CAIXA = "gemini-3.8-flash";
+  const TIPOS_INSIGHT_CAIXA = ["gasto", "ganho", "beneficio", "guardado", "rendimento", "atencao", "comparacao", "planejamento", "geral"];
+
+  function textoTomIAFirebase(pessoa, iaConfig) {
+    if (pessoa === "gabriel") return String(iaConfig?.tomGabriel || "").trim();
+    if (pessoa === "ambos") return "natural, equilibrado e conversado, falando com vocês dois";
+    return String(iaConfig?.tomDavi || "").trim();
+  }
+
+  function textoImersaoIAFirebase(pessoa, iaConfig) {
+    const comum = Array.isArray(iaConfig?.ambos) ? iaConfig.ambos : [];
+    if (pessoa === "gabriel") return [...(Array.isArray(iaConfig?.gabriel) ? iaConfig.gabriel : []), ...comum];
+    if (pessoa === "ambos") return comum;
+    return [...(Array.isArray(iaConfig?.davi) ? iaConfig.davi : []), ...comum];
+  }
+
+  async function modeloIA() {
+    await window.CAIXA_FIREBASE_READY;
+    return getGenerativeModel(ai, { model: MODELO_IA_CAIXA });
+  }
+
+  async function gerarComRetry(model, prompt, generationConfig, tentativas = 3) {
+    let ultimoErro = null;
+    for (let tentativa = 0; tentativa < tentativas; tentativa++) {
+      try {
+        const instancia = getGenerativeModel(ai, {
+          model: MODELO_IA_CAIXA,
+          generationConfig,
+        });
+        return await instancia.generateContent(prompt);
+      } catch (err) {
+        ultimoErro = err;
+        if (tentativa < tentativas - 1) await new Promise(resolve => setTimeout(resolve, 900 * (tentativa + 1)));
+      }
+    }
+    throw ultimoErro || new Error("Falha ao chamar a IA.");
+  }
+
+  function promptGastarIA(pessoa, resumo, iaConfig) {
+    const tom = textoTomIAFirebase(pessoa, iaConfig) || "natural, direto e conversado.";
+    const imersao = textoImersaoIAFirebase(pessoa, iaConfig);
+    const limite = Number(resumo?.mesAtual?.limiteDeGastoProjetado) || 0;
+    const beneficio = Number(resumo?.mesAtual?.beneficioDisponivel) || 0;
+    return [
+      "Você é o assistente financeiro do app Caixa e está respondendo quanto a pessoa ainda pode gastar.",
+      "Responda de forma muito curta e natural, normalmente uma única frase para cada campo.",
+      "Não explique a conta, não liste saldo atual, entradas futuras ou contas reservadas. A pessoa quer a margem de gasto.",
+      "Use exclusivamente os números de mesAtual no resumo. Para saldo em conta, use limiteDeGastoProjetado. Para benefício, use beneficioDisponivel.",
+      "IMPORTANTE: limiteDeGastoProjetado NÃO é dinheiro disponível agora. É o que ficará livre DEPOIS de considerar as obrigações pendentes deste mês. Se positivo, não diga 'você tem X'; diga que, depois de pagar o que falta, sobram X para gastar. Se zero, diga que não sobra margem. Se negativo, diga que não pode gastar mais nada e ainda falta dinheiro para cobrir as obrigações.",
+      "Seja humano, direto e sem tom de sermão. Não julgue os gastos.",
+      `PERSONA/TOM: ${tom}`,
+      `IMERSÃO PESSOAL: ${imersao.length ? imersao.join(" | ") : "nenhuma informação adicional."}`,
+      "Valores monetários devem permanecer completos no padrão R$ 0,00. Para destacar margem positiva use {{+R$ 0,00}}; para falta use {{-R$ 0,00}}. Não invente outros valores monetários.",
+      "Retorne SOMENTE JSON no formato {\"respostas\":{\"saldo\":\"...\",\"beneficio\":\"...\"}}.",
+      `limiteDeGastoProjetado=${limite}. beneficioDisponivel=${beneficio}.`,
+      "Resumo completo em JSON:", JSON.stringify(resumo || {})
+    ].join("\n");
+  }
+
+  async function gerarRespostaGastarIA({ pessoa = "davi", periodo = null, resumo = {} } = {}) {
+    await window.CAIXA_FIREBASE_READY;
+    if (!currentUser) return { ok: false, error: "Faça login para usar a IA." };
+    const iaConfig = await getIAConfig();
+    const generationConfig = {
+      responseMimeType: "application/json",
+      responseSchema: Schema.object({
+        properties: {
+          respostas: Schema.object({
+            properties: {
+              saldo: Schema.string(),
+              beneficio: Schema.string(),
+            },
+          }),
+        },
+      }),
+    };
+    try {
+      const result = await gerarComRetry(await modeloIA(), promptGastarIA(String(pessoa).toLowerCase(), resumo, iaConfig), generationConfig, 3);
+      const texto = result?.response?.text?.() || "";
+      const parsed = JSON.parse(texto);
+      const respostas = parsed?.respostas;
+      if (!respostas) throw new Error("Resposta da IA sem o formato esperado.");
+      return { ok: true, respostas: { saldo: String(respostas.saldo || "").trim(), beneficio: String(respostas.beneficio || "").trim() }, periodo };
+    } catch (err) {
+      console.warn("CAIXA — erro na IA de gasto:", err);
+      return { ok: false, error: String(err?.message || err) };
+    }
+  }
+
+  function promptInsightsIA(pessoa, resumo, modo, iaConfig) {
+    const tom = textoTomIAFirebase(pessoa, iaConfig) || "natural, direto e conversado.";
+    const imersao = textoImersaoIAFirebase(pessoa, iaConfig);
+    const regras = [
+      "Você é o assistente financeiro do app Caixa, um app pessoal de controle de gastos. Seja específico aos números recebidos; nunca dê conselho financeiro genérico.",
+      "Lançamentos cujo nome começa por 'Guardado: ' são transferências para caixinhas e NÃO são gastos de consumo. Nunca trate esses lançamentos como despesa.",
+      "valorGuardado das caixinhas é o total acumulado real guardado até agora. Não some rendimentoTotal ou guardadoNesseMes novamente ao valorGuardado.",
+      "Diferencie sempre mês em andamento de histórico e diferencie contas futuras de contas que vencem neste mês. Gastos futuros não reduzem a margem de gasto do mês atual.",
+      "Quando comentar planejamento futuro, considere também ganhosFuturos; um gasto futuro isolado não é uma dívida líquida.",
+      "Use saldoAtualEmConta, saldoProjetadoComEntradas, contasAbertasTotal e limiteDeGastoProjetado para falar de disponibilidade. Para 'quanto ainda posso gastar', prefira limiteDeGastoProjetado.",
+      "aindaAPagarFixosEsseMes e aindaAPagarVariaveisEsseMes são exclusivamente pendências deste mês. Não some gastosFuturos a elas.",
+      "Use categorias, lançamentos, caixinhas, recebimentos e comparações somente quando os dados realmente sustentarem a observação. Nunca invente números, nomes ou causas.",
+      "Os insights devem ser curtos, em português do Brasil, com 1 a 3 frases e no máximo aproximadamente 280 caracteres no texto.",
+      "Cada insight deve ter um ângulo diferente. Evite repetir a mesma informação ou recomendação.",
+      "Cada objeto deve ter somente titulo, texto e tipo. titulo deve ser curto e em CAIXA ALTA. tipo deve ser um destes: gasto, ganho, beneficio, guardado, rendimento, atencao, comparacao, planejamento ou geral.",
+      `TOM/PERSONA: ${tom}`,
+      `CONTEXTO PESSOAL: ${imersao.length ? imersao.join(" | ") : "nenhum."}`,
+      "Use o contexto pessoal apenas quando houver ligação natural com os dados; não force referências pessoais.",
+    ];
+    if (modo === "statusFinanceiro") {
+      regras.push("MODO STATUS FINANCEIRO: o primeiro insight será mostrado diretamente no card de status. Ele deve ser uma observação curta de 1 a 2 frases explicando por que o status calculado pelo aplicativo faz sentido. Não crie outro status, não faça lista e não dê uma recomendação no primeiro insight.");
+    } else if (modo === "economia") {
+      regras.push("MODO DICAS: produza dicas de verdade, concretas e imediatamente aplicáveis aos números atuais. Evite frases genéricas como 'gaste com sabedoria', 'organize suas finanças' ou 'economize mais'. Uma dica pode aproveitar uma situação boa, não precisa apontar um problema.");
+    } else {
+      regras.push("Escolha os ângulos mais úteis do resumo atual, priorizando mudanças relevantes, pendências do mês, categorias, caixinhas, recebimentos e planejamento quando existirem dados para isso.");
+    }
+    return regras.join("\n") + "\n\nResumo em JSON:\n" + JSON.stringify(resumo || {});
+  }
+
+  async function gerarInsightIA({ pessoa = "davi", periodo = null, resumo = {}, modo = "" } = {}) {
+    await window.CAIXA_FIREBASE_READY;
+    if (!currentUser) return { ok: false, error: "Faça login para usar a IA." };
+    const iaConfig = await getIAConfig();
+    const generationConfig = {
+      responseMimeType: "application/json",
+      responseSchema: Schema.array({
+        minItems: 5,
+        maxItems: 5,
+        items: Schema.object({
+          properties: {
+            titulo: Schema.string(),
+            texto: Schema.string(),
+            tipo: Schema.enumString({ enum: TIPOS_INSIGHT_CAIXA }),
+          },
+        }),
+      }),
+    };
+    const prompt = promptInsightsIA(String(pessoa).toLowerCase(), resumo, modo, iaConfig);
+    try {
+      let result = await gerarComRetry(await modeloIA(), prompt, generationConfig, 3);
+      let texto = result?.response?.text?.() || "";
+      let lista = JSON.parse(texto);
+      if (!Array.isArray(lista) || lista.length < 5) {
+        result = await gerarComRetry(await modeloIA(), `${prompt}\n\nATENÇÃO: gere exatamente 5 objetos válidos e independentes agora.`, generationConfig, 2);
+        texto = result?.response?.text?.() || "";
+        lista = JSON.parse(texto);
+      }
+      const textos = (Array.isArray(lista) ? lista : []).map(item => {
+        if (!item || typeof item !== "object") return null;
+        const titulo = String(item.titulo || "").trim();
+        const textoInsight = String(item.texto || "").trim();
+        const tipoBruto = String(item.tipo || "geral").trim().toLowerCase();
+        if (!titulo || !textoInsight) return null;
+        return { titulo: titulo.slice(0, 32), texto: textoInsight, tipo: TIPOS_INSIGHT_CAIXA.includes(tipoBruto) ? tipoBruto : "geral" };
+      }).filter(Boolean).slice(0, 5);
+      if (textos.length < 5) throw new Error("A IA não devolveu os 5 insights completos.");
+      return { ok: true, textos, periodo };
+    } catch (err) {
+      console.warn("CAIXA — erro na IA de insights:", err);
+      return { ok: false, error: String(err?.message || err) };
+    }
+  }
+
   async function getIAConfig(){
     await window.CAIXA_FIREBASE_READY;
     if(!currentUser) return null;
@@ -656,7 +835,7 @@ if (!cfg.apiKey || cfg.apiKey.includes("COLE_")) {
     await setDoc(estadoRef, estadoFinal, { merge:false });
     return {ok:true, jaMigrado:false, backupPath:estadoFinal.backupPath, resumo:verificado.resumo};
   }
-  window.CAIXA_FIREBASE={app,auth,db,request,get,getIAConfig,loginGoogle,signOut,importarDados,verificarMigracaoFirebase,testarFirestore,apagarTesteFirestore,criarBackupFirebase,listarBackupsFirebase,restaurarBackupFirebase,calcularSaldosDisponiveis};
+  window.CAIXA_FIREBASE={app,auth,db,request,get,getIAConfig,gerarInsightIA,gerarRespostaGastarIA,loginGoogle,signOut,importarDados,verificarMigracaoFirebase,testarFirestore,apagarTesteFirestore,criarBackupFirebase,listarBackupsFirebase,restaurarBackupFirebase,calcularSaldosDisponiveis};
   window.criarBackupFirebase = criarBackupFirebase;
   window.listarBackupsFirebase = listarBackupsFirebase;
   window.restaurarBackupFirebase = restaurarBackupFirebase;
@@ -666,15 +845,12 @@ if (!cfg.apiKey || cfg.apiKey.includes("COLE_")) {
     const el = document.createElement("div");
     el.id = "caixaFirebaseLogin";
     el.innerHTML = `<div class="caixa-firebase-login-card">
-      <div class="caixa-firebase-login-mark" aria-hidden="true">C</div>
-      <div class="caixa-firebase-login-kicker">CONTROLE FINANCEIRO</div>
-      <h2>Bem-vindo ao Caixa</h2>
-      <p>Entre para continuar.</p>
-      <button type="button" id="caixaFirebaseGoogle" class="btn btn-gold caixa-firebase-google">
-        <span class="google-g">G</span>
-        <span>Continuar com Google</span>
-      </button>
-      <span id="caixaFirebaseLoginErro" class="caixa-firebase-login-erro" role="alert"></span>
+      <div class="caixa-firebase-login-mark">✦</div>
+      <h2>Entrar no Caixa</h2>
+      <p>Agora seus lançamentos ficam salvos com segurança no Firebase e sincronizados entre seus dispositivos.</p>
+      <button type="button" id="caixaFirebaseGoogle" class="btn btn-gold">Continuar com Google</button>
+      <small>Você continuará usando Davi, Gabriel e Juntos normalmente depois de entrar.</small>
+      <span id="caixaFirebaseLoginErro" class="caixa-firebase-login-erro"></span>
     </div>`;
     document.body.appendChild(el);
     el.querySelector("#caixaFirebaseGoogle")?.addEventListener("click", async () => {

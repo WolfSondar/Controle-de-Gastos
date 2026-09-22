@@ -1,14 +1,8 @@
 // =====================================================================
 // CAIXA — app.js
-// Estado local em memória + sincronização com a planilha via Apps Script
+// Banco e sincronização: Firebase / Firestore
+// IA: Firebase AI Logic (Gemini)
 // =====================================================================
-
-// Compatibilidade temporária com as rotinas antigas do Apps Script.
-// O banco principal do Caixa agora é o Firebase; window.__CAIXA_API_URL_RUNTIME só será usada
-// pelas partes legadas que ainda não foram migradas (principalmente IA).
-const CAIXA_LEGACY_API_DEFAULT = "https://script.google.com/macros/s/AKfycbxgbGSwFX0DnM7GUf7uF4n2MxLsVXtH2obphoMn3YhYkQtoYEmZ0JkzV2bzT7-VSrConQ/exec";
-window.__CAIXA_API_URL_RUNTIME = window.CAIXA_API_URL || window.API_URL || localStorage.getItem("caixaLegacyApiUrl") || CAIXA_LEGACY_API_DEFAULT;
-try { if (!localStorage.getItem("caixaLegacyApiUrl")) localStorage.setItem("caixaLegacyApiUrl", CAIXA_LEGACY_API_DEFAULT); } catch (_err) {}
 
 const PESSOA_LABEL = { davi: "Davi", gabriel: "Gabriel", ambos: "Juntos" };
 const COLAPSO_STORAGE_KEY = "caixaFormsColapsados";
@@ -466,7 +460,7 @@ function dataHoraAgoraISO() {
   const minuto = String(d.getMinutes()).padStart(2, "0");
   const segundo = String(d.getSeconds()).padStart(2, "0");
   // O offset identifica o fuso do navegador no instante do lançamento.
-  // Assim o Apps Script não precisa adivinhar o horário local do usuário.
+  // Assim o Firebase não precisa adivinhar o horário local do usuário.
   const offsetEmMinutos = -d.getTimezoneOffset();
   const sinal = offsetEmMinutos >= 0 ? "+" : "-";
   const offsetAbsoluto = Math.abs(offsetEmMinutos);
@@ -660,7 +654,7 @@ const state = {
   versaoAlteracaoLocal: 0,
   // Ações que ainda estão sendo persistidas. Enquanto um salvamento está
   // em andamento, uma leitura GET não pode substituir o estado local com
-  // uma versão antiga que ainda está na planilha.
+  // uma versão antiga que ainda está na Firebase.
   salvamentosEmAndamento: new Set(),
   pessoaAtual: pessoaSalvaInicial,
   // O mês/ano do perfil nunca vem do cache local.
@@ -727,78 +721,31 @@ function isAmbos() {
 }
 
 function temBackendDados() {
-  return !!(window.CAIXA_FIREBASE && typeof window.CAIXA_FIREBASE.get === "function") || !!(window.__CAIXA_API_URL_RUNTIME && !window.__CAIXA_API_URL_RUNTIME.includes("COLE_AQUI"));
-}
-
-// ---------------------------------------------------------------------
-// URL DA API
-// ---------------------------------------------------------------------
-// Mantemos a URL do Apps Script exatamente como configurada em config.js.
-// Os parâmetros opcionais são adicionados somente quando necessários; não
-// alteramos o endpoint nem adicionamos cache-busters, pois isso pode quebrar
-// redirects do Web App do Apps Script.
-function urlApi(params = {}) {
-  if (!window.__CAIXA_API_URL_RUNTIME || window.__CAIXA_API_URL_RUNTIME.includes("COLE_AQUI")) return "";
-  if (!params || !Object.keys(params).length) return window.__CAIXA_API_URL_RUNTIME;
-
-  try {
-    const url = new URL(window.__CAIXA_API_URL_RUNTIME, window.location.href);
-    Object.entries(params).forEach(([chave, valor]) => {
-      if (valor !== undefined && valor !== null) url.searchParams.set(chave, String(valor));
-    });
-    return url.toString();
-  } catch (_err) {
-    const extras = new URLSearchParams(params).toString();
-    if (!extras) return window.__CAIXA_API_URL_RUNTIME;
-    return `${window.__CAIXA_API_URL_RUNTIME}${window.__CAIXA_API_URL_RUNTIME.includes("?") ? "&" : "?"}${extras}`;
-  }
+  return !!(window.CAIXA_FIREBASE && typeof window.CAIXA_FIREBASE.get === "function");
 }
 
 async function caixaApiRequest(options = {}) {
   const bodyText = options?.body;
   let body = null;
   try { body = typeof bodyText === "string" ? JSON.parse(bodyText) : bodyText; } catch (_err) {}
-  const action = body?.action || "";
-  const usaFirebase = window.CAIXA_FIREBASE && typeof window.CAIXA_FIREBASE.request === "function";
-  const acoesFirebase = new Set(["saveGanhos","saveGastosFixos","saveGastosVariaveis","saveCaixinhas","transferir","fecharMes","dividirCompra","atualizarGanhoDivisao","sincronizarGanhoCorrespondenteFixo"]);
-  if (usaFirebase && acoesFirebase.has(action)) {
-    return window.CAIXA_FIREBASE.request({ method: options.method || "POST", body });
+  if (!window.CAIXA_FIREBASE || typeof window.CAIXA_FIREBASE.request !== "function") {
+    throw new Error("Firebase ainda não terminou de carregar.");
   }
-  return fetch(urlApi(), options);
-}
-
-async function fetchApiGetLegacy(params = {}) {
-  const url = urlApi(params);
-  if (!url) throw new Error("window.__CAIXA_API_URL_RUNTIME não configurada para a função legada.");
-  return fetch(url, { method: "GET", redirect: "follow", cache: "no-store" });
+  return window.CAIXA_FIREBASE.request({ method: options.method || "POST", body });
 }
 
 async function fetchApiGet(params = {}) {
-  if (window.CAIXA_FIREBASE && typeof window.CAIXA_FIREBASE.get === "function") {
-    const pessoa = String(params?.pessoa || "davi").toLowerCase();
-    if (["davi","gabriel","ambos","historico"].includes(pessoa)) {
-      return window.CAIXA_FIREBASE.get({ pessoa });
-    }
+  if (!window.CAIXA_FIREBASE || typeof window.CAIXA_FIREBASE.get !== "function") {
+    throw new Error("Firebase ainda não terminou de carregar.");
   }
-  return fetchApiGetLegacy(params);
+  const pessoa = String(params?.pessoa || "davi").toLowerCase();
+  return window.CAIXA_FIREBASE.get({ pessoa });
 }
-
-
-function configurarApiLegado(url) {
-  const valor = String(url || "").trim();
-  if (!valor) { localStorage.setItem("caixaLegacyApiUrl", CAIXA_LEGACY_API_DEFAULT); return { ok: true, url: CAIXA_LEGACY_API_DEFAULT }; }
-  if (!/^https:\/\/script\.google\.com\/macros\/s\/[^\s]+\/exec(?:\?.*)?$/i.test(valor)) {
-    throw new Error("Use a URL /exec do Web App do Apps Script (https://script.google.com/macros/s/.../exec).");
-  }
-  localStorage.setItem("caixaLegacyApiUrl", valor);
-  return { ok: true, url: valor };
-}
-window.CAIXA_CONFIGURAR_API_LEGADO = configurarApiLegado;
 
 async function carregarSnapshotMigracaoFirebase() {
-  // A migração não consulta mais o Web App do Apps Script. O snapshot é
-  // carregado localmente e foi gerado a partir da planilha fornecida para a
-  // migração. Isso evita o redirect script.googleusercontent.com/echo.
+  // A migração não consulta mais o Web App do Firebase. O snapshot é
+  // carregado localmente e foi gerado a partir da Firebase fornecida para a
+  // migração. O snapshot é local e não depende de nenhum serviço legado.
   const modulo = await import("./firebase-migration-data.js?v=35");
   if (!modulo?.CAIXA_MIGRATION_SNAPSHOT) throw new Error("Snapshot de migração não encontrado.");
   return modulo.CAIXA_MIGRATION_SNAPSHOT;
@@ -828,13 +775,13 @@ function resumoMigracaoFonte(fonte, historico) {
 async function verificarFontePlanilhaFirebase() {
   try {
     const { fonte, historico } = await lerFonteLegadaParaMigracao();
-    const resultado = { ok: true, origem: "Snapshot da planilha para migração", resumo: resumoMigracaoFonte(fonte, historico) };
-    console.info("CAIXA — fonte de migração verificada sem consultar o Apps Script:", resultado);
+    const resultado = { ok: true, origem: "Snapshot da Firebase para migração", resumo: resumoMigracaoFonte(fonte, historico) };
+    console.info("CAIXA — fonte de migração verificada sem consultar o Firebase:", resultado);
     return resultado;
   } catch (err) {
     const mensagem = err?.message || String(err);
     console.error("CAIXA — não foi possível carregar a fonte de migração:", err);
-    return { ok: false, origem: "Snapshot da planilha para migração", error: mensagem };
+    return { ok: false, origem: "Snapshot da Firebase para migração", error: mensagem };
   }
 }
 window.CAIXA_VERIFICAR_FONTE_MIGRACAO = verificarFontePlanilhaFirebase;
@@ -914,7 +861,7 @@ function setSyncState(mode) {
     setTimeout(() => syncEl.classList.remove("is-reconectando"), 700);
   }
   // Acabou de salvar com sucesso (saving -> idle, ou seja, uma alteração
-  // enviada pra planilha, não só uma busca): pisca o check (ver
+  // enviada pra Firebase, não só uma busca): pisca o check (ver
   // .sync-icone-check no style.css) por um instante antes de assentar no
   // wifi parado — um "confirmado" rápido, em vez de pular direto pro idle
   // sem feedback. Uma simples busca de dados (syncing -> idle) não passa
@@ -1057,8 +1004,8 @@ async function carregarDados() {
     if (data && data.ok === false) throw new Error(data.error || "Erro desconhecido");
     if (state.pessoaAtual !== pessoaRequisitada) return;
     // Uma gravação pode ter começado depois que esta busca foi iniciada (ou
-    // enquanto ela estava em trânsito). Nesse intervalo o Apps Script ainda
-    // pode devolver o estado anterior da planilha. Nunca deixamos esse GET
+    // enquanto ela estava em trânsito). Nesse intervalo o Firebase ainda
+    // pode devolver o estado anterior da Firebase. Nunca deixamos esse GET
     // sobrescrever o estado que o usuário acabou de alterar.
     if (state.salvamentosEmAndamento && state.salvamentosEmAndamento.size) return;
     // A resposta pode ter ficado alguns segundos em trânsito. Se houve uma
@@ -1109,9 +1056,9 @@ async function carregarDados() {
     setSyncState(ehErroDeRede(err) || !navigator.onLine ? "offline" : "error");
     if (!cache) {
       if (err?.apiEndpointMissing || Number(err?.status) === 404) {
-        showToast("A API do Apps Script respondeu 404. Verifique a implantação do Web App e a window.__CAIXA_API_URL_RUNTIME.");
+        showToast("O Firebase recusou a leitura. Confira a configuração do Firebase e tente novamente.");
       } else {
-        showToast("Não consegui carregar a planilha. Confira a window.__CAIXA_API_URL_RUNTIME.");
+        showToast("Não consegui carregar os dados do Firebase agora. Tente novamente.");
       }
       renderAll();
     } else {
@@ -1185,7 +1132,7 @@ async function salvarBloco(action, payload) {
       await atualizarIndicadorOffline();
     } else {
       setSyncState("error");
-      showToast("Não consegui salvar na planilha agora.");
+      showToast("Não consegui salvar no Firebase agora.");
     }
   } finally {
     entrada.emVoo = false;
@@ -1288,7 +1235,7 @@ document.addEventListener("visibilitychange", () => {
   if (document.visibilityState === "visible") flushFilaOffline();
 });
 
-// A leitura da planilha acontece somente na abertura/recarregamento da página.
+// A leitura da Firebase acontece somente na abertura/recarregamento da página.
 // O indicador continua mostrando o estado de salvamento, mas não existe mais
 // uma ação manual que faça um GET e reconcilie tudo no meio da navegação.
 if (syncEl) {
@@ -1303,7 +1250,7 @@ if (syncEl) {
 async function trocarPessoa(pessoa) {
   if (pessoa === state.pessoaAtual) return;
 
-  // Trocar de perfil não faz mais uma nova leitura na planilha. A página já
+  // Trocar de perfil não faz mais uma nova leitura na Firebase. A página já
   // carregou os perfis necessários na abertura e cada perfil fica disponível
   // no cache local. Assim a troca é instantânea e não reconstrói a tela por
   // causa de um GET no meio da navegação.
@@ -1376,7 +1323,7 @@ async function trocarPessoa(pessoa) {
       } catch (err) {}
     }
   } else {
-    // Não busca a planilha aqui. Se esse perfil ainda não tiver sido
+    // Não busca a Firebase aqui. Se esse perfil ainda não tiver sido
     // pré-carregado no cache durante a abertura, deixa os dados locais
     // atuais e informa de forma discreta que a atualização ocorrerá no
     // próximo recarregamento.
@@ -1587,7 +1534,7 @@ function retirarDaCaixinha(index, valor) {
 // mostrando hoje no banco/investimento) — não quanto rendeu. O app calcula
 // a diferença sozinho (positiva = rendeu, negativa = essa caixinha perdeu
 // valor no período) e acumula em rendimentoTotal, que vai pra coluna S na
-// planilha (RENDIMENTO). Ver o badge em renderCaixinhas(): mostra em verde
+// Firebase (RENDIMENTO). Ver o badge em renderCaixinhas(): mostra em verde
 // quando é ganho e em vermelho quando é perda, em vez de só sumir quando
 // negativo (perda também é informação — esconder isso seria mascarar que a
 // caixinha desvalorizou).
@@ -1627,7 +1574,7 @@ async function obterListaLocal(pessoa, chave) {
 }
 
 // Marcador guardado dentro do PRÓPRIO nome do lançamento (não tem coluna
-// extra sobrando na planilha pra isso) pra lembrar que aquela "metade" é uma
+// extra sobrando na Firebase pra isso) pra lembrar que aquela "metade" é uma
 // dívida de uma compra dividida, e de quem é o dinheiro quando for paga.
 // Ex: "Mercado (deve pra Davi)" — assim que a pessoa marca como paga (ver
 // togglePagoVariavel/togglePagoFixo), a gente credita o Davi sozinho e tira
@@ -1711,7 +1658,7 @@ async function atualizarGanhoDivisao(credor, devedor, nomeOriginal, valor, data,
 // opts: { tipo, data, pago, quemPagouTudo }
 // A divisão agora é uma operação atômica no Firestore: os dois perfis e,
 // quando necessário, o "A receber" são gravados juntos. Isso elimina a
-// dependência do Apps Script e evita deixar Davi e Gabriel em estados diferentes.
+// dependência do Firebase e evita deixar Davi e Gabriel em estados diferentes.
 async function dividirCompra(nome, valorTotal, categoria, opts) {
   if (!temBackendDados()) {
     showToast("Configure o Firebase antes de continuar.");
@@ -1773,10 +1720,10 @@ async function creditarPagamentoDeDivisao(pagador, devedor, nomeOriginal, valor,
   return criarGanhoAReceberDivisao(pagador, devedor, nomeOriginal, valor, tipo, data, recebido);
 }
 
-// Espelha o que o backend (transferirEntrePessoas em Code.gs) faz: lança um
+// Espelha a operação de transferência entre perfis: lança um
 // gasto variável já pago de quem transfere e um ganho já recebido de quem
 // recebe. Atualizando local/cache direto (em vez de invalidar e ter que
-// buscar tudo de novo na planilha com carregarDados()), a tela responde na
+// buscar tudo de novo na Firebase com carregarDados()), a tela responde na
 // hora — igual já era feito em dividirCompra.
 async function transferirEntrePessoas(de, para, nome, valor, tipo) {
   if (!temBackendDados()) {
@@ -2107,7 +2054,7 @@ function animarMudancaStatusFluida(listaId, pendingId, index, ligado, tipo, stat
       : (tipo === "expense" && listaId === "listaFixos" ? state.gastosFixos : state.gastosVariaveis);
 
     // A tela passa a refletir o estado do objeto local imediatamente.
-    // Não fazemos nenhum GET aqui: a planilha é persistida em paralelo e
+    // Não fazemos nenhum GET aqui: a Firebase é persistida em paralelo e
     // nunca deve ser necessária uma atualização da página para enxergar a
     // mudança que o próprio usuário acabou de fazer.
     renderPendentesDestaque(pendingId, lista, tipo, statusKey, toggleFn, rotuloOff, ops, tipoModal);
@@ -2237,7 +2184,7 @@ function somaTotalCaixinhas(lista) { return (lista || []).reduce((acc, cx) => ac
 // Soma dos Gastos Variáveis pagos que contam no saldo — exclui os marcados
 // como "lembrete" (compra do mês que vem, paga adiantada: já foi debitada
 // no mês em que foi paga, então não conta de novo aqui). Ver fecharMes() no
-// Code.gs e o comentário em variavelContaNoSaldo().
+// A regra também é aplicada localmente pela função variavelContaNoSaldo().
 function gastoVariavelEhReal(item) {
   return !ehLancamentoDeCaixinha(item?.nome);
 }
@@ -3079,7 +3026,7 @@ function montarCardCaixinha(cx, idx, ambos) {
   const vazia = guardado <= 0;
   const prazoHtml = montarInfoPrazoCaixinha(cx.data || "", completo);
 
-  // IMPORTANTE: uma meta já concluída ao carregar a planilha NÃO dispara
+  // IMPORTANTE: uma meta já concluída ao carregar a Firebase NÃO dispara
   // comemoração. A comemoração só é marcada pelas ações que realmente fazem
   // uma caixinha passar de incompleta para completa (guardar, rendimento ou
   // edição). Assim abrir/recarregar o app nunca solta confete novamente.
@@ -4662,7 +4609,7 @@ on("formFixos", "submit", (e) => {
 
   // "valor" no formulário agora é o valor INTEGRAL da compra — o select de
   // parcelas decide como ele é dividido antes de salvar (cada linha guarda
-  // o valor de UMA parcela, igual sempre foi; ver proximoFixo no Code.gs
+  // o valor de UMA parcela, mantendo o comportamento do fechamento mensal.
   // pra como isso avança de mês em mês).
   const numParcelas = f.parcelas ? Number(f.parcelas.value) : 0;
   let valor = valorTotal;
@@ -5718,7 +5665,7 @@ function mostrarFechamentoMes(dados, { resultadoPromessa = null } = {}) {
 
   const etapas = [];
 
-  // Abertura curta. Não espera o Apps Script.
+  // Abertura curta. Não espera o Firebase.
   etapas.push(async () => {
     await esperar(1100);
     await trocarTela({
@@ -5921,7 +5868,7 @@ function mostrarFechamentoMes(dados, { resultadoPromessa = null } = {}) {
       try {
         const promessa = resultadoPromessa || cena._resultadoPromessa;
         if (promessa) {
-          // O Apps Script pode demorar ou perder a resposta mesmo depois de
+          // O Firebase pode demorar ou perder a resposta mesmo depois de
           // concluir a gravação. A cerimônia nunca deve ficar presa na última
           // etapa esperando indefinidamente.
           resultado = await Promise.race([
@@ -5979,8 +5926,8 @@ async function verificarFechamentoMes(mes, ano, pessoa, tentativas = 8) {
         }
       }
     } catch (err) {
-      // 404/redirect temporário do Apps Script não significa que o fechamento
-      // falhou. O Apps Script pode ainda estar concluindo a gravação.
+      // 404/redirect temporário do Firebase não significa que o fechamento
+      // falhou. O Firebase pode ainda estar concluindo a gravação.
     }
     await espera(1800 + tentativa * 500);
   }
@@ -6063,7 +6010,7 @@ on("formFecharMes", "submit", async (e) => {
 
   await new Promise((resolve) => requestAnimationFrame(() => requestAnimationFrame(resolve)));
 
-  // As duas partes começam juntas: o Apps Script salva em segundo plano e a
+  // As duas partes começam juntas: o Firebase salva em segundo plano e a
   // cerimônia segue sua narrativa visual. A promessa é compartilhada com a
   // cerimônia para que somente a última tela dependa do resultado real.
   const resultadoPromessa = fecharMesRequisicao(mes, ano, pessoaFechamento);
@@ -6143,7 +6090,7 @@ atualizarVisibilidadeJuntosView();
 initGavetas();
 aplicarMascaraMoedaEmTodos();
 posicionarIndicadorAba();
-// Leituras da planilha acontecem na abertura da página. Depois disso, a
+// Leituras da Firebase acontecem na abertura da página. Depois disso, a
 // navegação e a troca de perfil usam os dados em memória/cache; alterações
 // feitas pelo usuário continuam sendo enviadas normalmente via POST.
 carregarDados();
@@ -6499,7 +6446,7 @@ if (document.readyState === "loading") {
     return { tom: pessoa === "gabriel" ? (cfg.tomGabriel || "") : (cfg.tomDavi || ""), imersao: [...(cfg[pessoa] || []), ...(cfg.ambos || [])] };
   }
   function aplicarTomChat(texto) {
-    // A personalidade vem exclusivamente da TOM IA da planilha e, nas
+    // A personalidade vem exclusivamente da TOM IA da Firebase e, nas
     // respostas geradas pela IA, já é aplicada no backend. O navegador não
     // deve inventar bordões como "Ora, ora" ou "Boa, Davi".
     return String(texto || "").trim();
@@ -6681,38 +6628,19 @@ if (document.readyState === "loading") {
   }
 
   async function buscarRespostasGastarIA(t, opcoes = {}) {
-    if (!window.__CAIXA_API_URL_RUNTIME || window.__CAIXA_API_URL_RUNTIME.includes("COLE_AQUI")) return null;
+    if (!window.CAIXA_FIREBASE || typeof window.CAIXA_FIREBASE.gerarRespostaGastarIA !== "function") return null;
     const chave = opcoes.chave || chaveCacheGastarIA(t);
     if (!opcoes.forcar) {
       const cache = lerCacheGastarIA(chave);
       if (cache) return cache;
     }
 
-    const TEMPO_MAXIMO_IA_MS = 14000;
-    let controller = null;
-    let timer = null;
     try {
-      controller = typeof AbortController !== "undefined" ? new AbortController() : null;
-      const requisicao = caixaApiRequest({
-        method: "POST",
-        body: JSON.stringify({
-          action: "gerarRespostaGastarIA",
-          pessoa: state.pessoaAtual || "davi",
-          periodo: { mes: state.mesAtual, ano: state.anoAtual },
-          resumo: resumoParaIAChat(t)
-        }),
-        signal: controller ? controller.signal : undefined
+      const data = await window.CAIXA_FIREBASE.gerarRespostaGastarIA({
+        pessoa: state.pessoaAtual || "davi",
+        periodo: { mes: state.mesAtual, ano: state.anoAtual },
+        resumo: resumoParaIAChat(t),
       });
-      const limite = new Promise((_, reject) => {
-        timer = setTimeout(() => {
-          try { if (controller) controller.abort(); } catch (e) {}
-          reject(new Error("timeout_ia"));
-        }, TEMPO_MAXIMO_IA_MS);
-      });
-      const res = await Promise.race([requisicao, limite]);
-      clearTimeout(timer);
-      if (!res || !res.ok) return null;
-      const data = await res.json();
       if (!data || data.ok === false || !data.respostas) return null;
       const respostas = {
         beneficio: String(data.respostas.beneficio || "").trim(),
@@ -6722,41 +6650,26 @@ if (document.readyState === "loading") {
       salvarCacheGastarIA(chave, respostas);
       return respostas;
     } catch (err) {
-      if (timer) clearTimeout(timer);
+      console.warn("CAIXA — IA de gasto indisponível:", err);
       return null;
     }
   }
 
   async function buscarDicasIA(t, opcoes = {}) {
-    if (!window.__CAIXA_API_URL_RUNTIME || window.__CAIXA_API_URL_RUNTIME.includes("COLE_AQUI")) return [];
+    if (!window.CAIXA_FIREBASE || typeof window.CAIXA_FIREBASE.gerarInsightIA !== "function") return [];
     const chave = opcoes.chave || chaveCacheDicasChat(t, opcoes.modo || "");
     if (!opcoes.forcar) {
       const cache = lerCacheDicasChat(chave);
       if (cache) return cache;
     }
 
-    // A IA é um extra: se a rede/backend ficar preso, o chat nunca pode
-    // deixar o usuário eternamente em "Analisando seus números…".
-    const TEMPO_MAXIMO_IA_MS = 14000;
-    let controller = null;
-    let timer = null;
     try {
-      controller = typeof AbortController !== "undefined" ? new AbortController() : null;
-      const requisicao = caixaApiRequest({
-        method: "POST",
-        body: JSON.stringify({ action: "gerarInsightIA", pessoa: state.pessoaAtual || "davi", periodo: { mes: state.mesAtual, ano: state.anoAtual }, resumo: resumoParaIAChat(t), modo: opcoes.modo || "" }),
-        signal: controller ? controller.signal : undefined
+      const data = await window.CAIXA_FIREBASE.gerarInsightIA({
+        pessoa: state.pessoaAtual || "davi",
+        periodo: { mes: state.mesAtual, ano: state.anoAtual },
+        resumo: resumoParaIAChat(t),
+        modo: opcoes.modo || "",
       });
-      const limite = new Promise((_, reject) => {
-        timer = setTimeout(() => {
-          try { if (controller) controller.abort(); } catch (e) {}
-          reject(new Error("timeout_ia"));
-        }, TEMPO_MAXIMO_IA_MS);
-      });
-      const res = await Promise.race([requisicao, limite]);
-      clearTimeout(timer);
-      if (!res || !res.ok) return [];
-      const data = await res.json();
       if (!data || data.ok === false || !Array.isArray(data.textos)) return [];
       const textos = data.textos.map(x => {
         if (typeof x === "string") return { texto: x };
@@ -6765,7 +6678,7 @@ if (document.readyState === "loading") {
       if (textos.length) salvarCacheDicasChat(chave, textos);
       return textos;
     } catch (err) {
-      if (timer) clearTimeout(timer);
+      console.warn("CAIXA — IA de insights indisponível:", err);
       return [];
     }
   }
@@ -7150,7 +7063,7 @@ if (document.readyState === "loading") {
   // O botão + usa este fluxo para TODOS os tipos de lançamento. Cada
   // pergunta aparece como uma mensagem do assistente, com cards e/ou
   // campo de resposta. O salvamento usa as mesmas operações dos formulários
-  // antigos, portanto a planilha e as regras existentes continuam iguais.
+  // antigos, portanto a Firebase e as regras existentes continuam iguais.
   // -------------------------------------------------------------------
   let cadastroAtivo = null;
 
@@ -7695,7 +7608,7 @@ if (document.readyState === "loading") {
   function salvarCacheStatusFinanceiro(chave,texto){try{localStorage.setItem(chave,JSON.stringify({salvoEm:Date.now(),texto:String(texto||"").trim()}));}catch(e){}}
   function descricaoStatusFallback(t,status){ const limite=Number(t.conta)||0; if(status.codigo==="apertado") return limite<0?"Os compromissos que ainda precisam ser reservados ultrapassam o dinheiro projetado para o mês.":"Há compromissos que pedem atenção antes de considerar o dinheiro restante como folga."; return "Seu dinheiro projetado cobre os compromissos atuais e ainda deixa uma folga para o restante do mês."; }
   async function atualizarDescricaoStatusIA(t,status,chave){
-    if(!window.__CAIXA_API_URL_RUNTIME||window.__CAIXA_API_URL_RUNTIME.includes("COLE_AQUI")||lerCacheStatusFinanceiro(chave)) return;
+    if (lerCacheStatusFinanceiro(chave)) return;
     const token=(window._statusFinanceiroToken||0)+1; window._statusFinanceiroToken=token;
     try{const respostas=await buscarDicasIA(t,{chave,modo:"statusFinanceiro"}); if(token!==window._statusFinanceiroToken)return; const texto=respostas?.[0]?.texto?String(respostas[0].texto).trim():""; if(!texto)return; salvarCacheStatusFinanceiro(chave,texto); const el=document.getElementById("statusFinanceiroDescricao"); if(el)el.innerHTML=formatarTextoIAChat(texto);}catch(e){}
   }
@@ -7815,7 +7728,7 @@ if (document.readyState === "loading") {
   document.addEventListener("caixa:ia-config-atualizada", () => { window._caixaDicaIndice = 0; });
 
   async function preaquecerDicasIA() {
-    if (!window.__CAIXA_API_URL_RUNTIME || window.__CAIXA_API_URL_RUNTIME.includes("COLE_AQUI") || !state.mesAtual || !state.anoAtual) return;
+    if (!state.mesAtual || !state.anoAtual) return;
     try {
       const t = totaisChat();
       const chaveDicas = chaveCacheDicasChat(t);
