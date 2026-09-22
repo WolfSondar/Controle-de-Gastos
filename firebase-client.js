@@ -25,6 +25,34 @@ import {
   getDocs,
 } from "https://www.gstatic.com/firebasejs/12.19.0/firebase-firestore.js";
 
+// Compatibilidade global: os backups precisam estar disponíveis também no console.
+// Os wrappers são criados antes da inicialização do Firebase para evitar ReferenceError
+// mesmo quando o módulo ainda está carregando ou quando o navegador mantém cache.
+if (typeof window.criarBackupFirebase !== "function") {
+  window.criarBackupFirebase = async (...args) => {
+    await (window.CAIXA_FIREBASE_READY || Promise.resolve());
+    const fn = window.CAIXA_FIREBASE?.criarBackupFirebase;
+    if (typeof fn !== "function") throw new Error("Firebase ainda não terminou de carregar.");
+    return fn(...args);
+  };
+}
+if (typeof window.listarBackupsFirebase !== "function") {
+  window.listarBackupsFirebase = async (...args) => {
+    await (window.CAIXA_FIREBASE_READY || Promise.resolve());
+    const fn = window.CAIXA_FIREBASE?.listarBackupsFirebase;
+    if (typeof fn !== "function") throw new Error("Firebase ainda não terminou de carregar.");
+    return fn(...args);
+  };
+}
+if (typeof window.restaurarBackupFirebase !== "function") {
+  window.restaurarBackupFirebase = async (...args) => {
+    await (window.CAIXA_FIREBASE_READY || Promise.resolve());
+    const fn = window.CAIXA_FIREBASE?.restaurarBackupFirebase;
+    if (typeof fn !== "function") throw new Error("Firebase ainda não terminou de carregar.");
+    return fn(...args);
+  };
+}
+
 const cfg = window.CAIXA_FIREBASE_CONFIG || {};
 if (!cfg.apiKey || cfg.apiKey.includes("COLE_")) {
   console.warn("CAIXA: configure firebase-config.js antes de usar o banco Firebase.");
