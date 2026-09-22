@@ -642,7 +642,7 @@
   // O Firebase é carregado antes do app. O antigo config.js do Apps Script
   // não participa mais da inicialização.
   window.CAIXA_FIREBASE_CONFIG = {
-    apiKey: "AIzaSyAPHew-LapRaCOta8m-1qFNv5ZSTmbAlww",
+    apiKey: "AIzaSyAPHew-LapRaCOta8m-1-FNqV5ZSTmbAlww",
     authDomain: "caixa-controle-financeir-6c7bd.firebaseapp.com",
     projectId: "caixa-controle-financeir-6c7bd",
     storageBucket: "caixa-controle-financeir-6c7bd.firebasestorage.app",
@@ -651,10 +651,10 @@
   };
 </script>
 <script type="module">
-  import "./firebase-client.js?v=52";
+  import "./firebase-client.js?v=53";
   await window.CAIXA_FIREBASE_READY?.catch(() => null);
   const appScript = document.createElement("script");
-  appScript.src = "app.js?v=52";
+  appScript.src = "app.js?v=53";
   document.body.appendChild(appScript);
 </script>
 
