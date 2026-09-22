@@ -8661,3 +8661,188 @@ body.fechamento-mes-ativo { overflow: hidden !important; }
     font-size: 19px;
   }
 }
+
+/* ==========================================================
+   LOGIN — tela limpa e acolhedora
+   ========================================================== */
+#caixaFirebaseLogin {
+  isolation: isolate;
+  overflow: hidden;
+  padding: 24px;
+  background:
+    radial-gradient(circle at 18% 12%, rgba(185,134,47,.16), transparent 30%),
+    radial-gradient(circle at 84% 88%, rgba(60,110,79,.22), transparent 34%),
+    linear-gradient(145deg, #102b24 0%, #173b31 48%, #10261f 100%);
+}
+#caixaFirebaseLogin::before,
+#caixaFirebaseLogin::after {
+  content: "";
+  position: absolute;
+  z-index: -1;
+  border-radius: 50%;
+  pointer-events: none;
+  filter: blur(2px);
+}
+#caixaFirebaseLogin::before {
+  width: 360px;
+  height: 360px;
+  left: -180px;
+  top: -180px;
+  border: 1px solid rgba(255,255,255,.08);
+  box-shadow: 0 0 0 38px rgba(255,255,255,.018), 0 0 0 78px rgba(255,255,255,.012);
+}
+#caixaFirebaseLogin::after {
+  width: 280px;
+  height: 280px;
+  right: -140px;
+  bottom: -140px;
+  border: 1px solid rgba(185,134,47,.14);
+  box-shadow: 0 0 0 34px rgba(185,134,47,.018), 0 0 0 70px rgba(185,134,47,.01);
+}
+.caixa-firebase-login-card {
+  position: relative;
+  overflow: hidden;
+  width: min(420px, 100%);
+  padding: 42px 38px 30px;
+  border: 1px solid rgba(255,255,255,.58);
+  border-radius: 30px;
+  background: rgba(251,247,237,.96);
+  box-shadow: 0 34px 90px rgba(0,0,0,.34), 0 8px 24px rgba(0,0,0,.12);
+  color: var(--ink, #16332c);
+  text-align: center;
+  animation: caixaLoginIn .42s ease-out both;
+}
+.caixa-firebase-login-card::before {
+  content: "";
+  position: absolute;
+  width: 170px;
+  height: 170px;
+  right: -95px;
+  top: -105px;
+  border-radius: 50%;
+  background: rgba(185,134,47,.09);
+}
+.caixa-firebase-login-mark {
+  position: relative;
+  width: 72px;
+  height: 72px;
+  margin: 0 auto 19px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border: 1px solid rgba(185,134,47,.28);
+  border-radius: 22px;
+  background: var(--ink, #16332c);
+  color: #f0d28e;
+  box-shadow: 0 15px 30px rgba(22,51,44,.2);
+}
+.caixa-firebase-login-mark span {
+  font-family: Fraunces, Georgia, serif;
+  font-size: 21px;
+  font-weight: 700;
+  letter-spacing: -.04em;
+}
+.caixa-firebase-login-kicker {
+  margin-bottom: 8px;
+  color: #9a7029;
+  font-family: var(--font-mono, monospace);
+  font-size: 9px;
+  font-weight: 700;
+  letter-spacing: .18em;
+}
+.caixa-firebase-login-card h2 {
+  position: relative;
+  margin: 0;
+  color: var(--ink, #16332c);
+  font-family: Fraunces, Georgia, serif;
+  font-size: clamp(28px, 7vw, 34px);
+  line-height: 1.05;
+  letter-spacing: -.035em;
+}
+.caixa-firebase-login-card .caixa-firebase-login-lead {
+  margin: 11px auto 27px;
+  color: #6e695d;
+  font-size: 14px;
+  line-height: 1.5;
+}
+.caixa-firebase-google {
+  position: relative;
+  display: flex !important;
+  align-items: center;
+  justify-content: center;
+  gap: 12px;
+  width: 100%;
+  min-height: 54px;
+  padding: 0 20px;
+  border: 1px solid #ddd7c9 !important;
+  border-radius: 15px !important;
+  background: #fff !important;
+  color: #2b302e !important;
+  font-family: Inter, sans-serif;
+  font-size: 14px;
+  font-weight: 700;
+  box-shadow: 0 8px 20px rgba(35,42,38,.08) !important;
+  transition: transform .18s ease, box-shadow .18s ease, border-color .18s ease;
+}
+.caixa-firebase-google:hover:not(:disabled) {
+  transform: translateY(-1px);
+  border-color: #c9c1af !important;
+  box-shadow: 0 12px 26px rgba(35,42,38,.12) !important;
+}
+.caixa-firebase-google:active:not(:disabled) {
+  transform: translateY(0);
+}
+.caixa-firebase-google:focus-visible {
+  outline: 3px solid rgba(185,134,47,.28);
+  outline-offset: 3px;
+}
+.caixa-google-icon {
+  width: 21px;
+  height: 21px;
+  flex: 0 0 21px;
+}
+.caixa-firebase-login-foot {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 7px;
+  margin-top: 19px;
+  color: #858073;
+  font-size: 11px;
+  line-height: 1.45;
+}
+.caixa-login-lock {
+  width: 19px;
+  height: 19px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 50%;
+  background: rgba(60,110,79,.09);
+  color: #3c6e4f;
+  font-size: 14px;
+  font-weight: 700;
+}
+.caixa-firebase-login-erro {
+  display: block;
+  min-height: 0;
+  margin-top: 13px;
+  color: #9f3b35;
+  font-size: 12px;
+  line-height: 1.4;
+}
+.caixa-firebase-login-google-loading {
+  opacity: .75;
+}
+@keyframes caixaLoginIn {
+  from { opacity: 0; transform: translateY(10px) scale(.985); }
+  to { opacity: 1; transform: translateY(0) scale(1); }
+}
+@media (max-width: 560px) {
+  #caixaFirebaseLogin { padding: 16px; }
+  .caixa-firebase-login-card { padding: 34px 22px 26px; border-radius: 25px; }
+  .caixa-firebase-login-mark { width: 64px; height: 64px; border-radius: 19px; }
+  .caixa-firebase-login-mark span { font-size: 19px; }
+  .caixa-firebase-login-card .caixa-firebase-login-lead { margin-bottom: 23px; }
+  .caixa-firebase-login-foot { max-width: 270px; margin-left: auto; margin-right: auto; }
+}
