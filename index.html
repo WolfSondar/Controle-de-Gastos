@@ -638,30 +638,10 @@
 </section>
 
 
-<script>
-// Atualização do PWA: remove o Service Worker antigo antes de carregar o app.
-// Assim um hard reload não consegue inicializar uma versão antiga do app.js.
-(async () => {
-  try {
-    if ("serviceWorker" in navigator) {
-      const regs = await navigator.serviceWorker.getRegistrations();
-      await Promise.all(regs.map(r => r.unregister()));
-    }
-  } catch (_) {}
-
-  const carregar = (src) => new Promise((resolve, reject) => {
-    const script = document.createElement("script");
-    script.src = src;
-    script.onload = resolve;
-    script.onerror = reject;
-    document.body.appendChild(script);
-  });
-
-  try {
-    await carregar("config.js?v=51");
-    await carregar("app.js?v=51");
-  } catch (_) {}
-})();
-</script>
+<script src="config.js"></script>
+<script src="firebase-config.js"></script>
+<!-- Firebase precisa carregar antes do app. O arquivo é um ES module. -->
+<script type="module" src="firebase-client.js"></script>
+<script defer src="app.js"></script>
 </body>
 </html>

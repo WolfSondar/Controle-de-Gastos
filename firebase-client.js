@@ -551,7 +551,7 @@ if (!cfg.apiKey || cfg.apiKey.includes("COLE_")) {
       };
     });
     backups.sort((a, b) => String(b.criadoEm || b.id).localeCompare(String(a.criadoEm || a.id)));
-    return backups;
+    return { ok: true, backups, total: backups.length };
   }
 
   async function restaurarBackupFirebase(id) {
@@ -657,11 +657,9 @@ if (!cfg.apiKey || cfg.apiKey.includes("COLE_")) {
     return {ok:true, jaMigrado:false, backupPath:estadoFinal.backupPath, resumo:verificado.resumo};
   }
   window.CAIXA_FIREBASE={app,auth,db,request,get,getIAConfig,loginGoogle,signOut,importarDados,verificarMigracaoFirebase,testarFirestore,apagarTesteFirestore,criarBackupFirebase,listarBackupsFirebase,restaurarBackupFirebase,calcularSaldosDisponiveis};
-  // Mantém os wrappers globais criados no início do módulo. Eles aguardam o Firebase
-  // e continuam funcionando diretamente pelo console, inclusive após recarregamentos.
-  window.CAIXA_FIREBASE.criarBackupFirebase = criarBackupFirebase;
-  window.CAIXA_FIREBASE.listarBackupsFirebase = listarBackupsFirebase;
-  window.CAIXA_FIREBASE.restaurarBackupFirebase = restaurarBackupFirebase;
+  window.criarBackupFirebase = criarBackupFirebase;
+  window.listarBackupsFirebase = listarBackupsFirebase;
+  window.restaurarBackupFirebase = restaurarBackupFirebase;
   window.CAIXA_FIREBASE_CONFIG_STATUS = { ok: true, projectId: cfg.projectId };
   function montarLogin() {
     if (document.getElementById("caixaFirebaseLogin")) return;
