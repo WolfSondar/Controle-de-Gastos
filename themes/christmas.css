@@ -247,3 +247,223 @@ html[data-theme="dark"][data-caixa-theme="christmas"] #tab-variaveis .btn::befor
   background:linear-gradient(180deg,#fff 0%,#eaf6ff 58%,rgba(234,246,255,0) 100%);
 }
 html[data-theme="dark"][data-caixa-theme="christmas"] .caixa-tema-natal .caixa-tema-preview{background:linear-gradient(180deg,#102d3a 0 58%,#eef8ff 58% 100%)!important}
+
+/* ==========================================================
+   NATAL 2.0 — acabamento premium / noite de Natal
+   A intenção é transformar o tema base, não apenas trocar cores.
+   ========================================================== */
+
+/* Paleta noturna mais profunda, quente e elegante. */
+html[data-theme="dark"][data-caixa-theme="christmas"] {
+  --ink: #0d2b24;
+  --on-ink: #f8f0df;
+  --paper: #f2eee5;
+  --paper-deep: #e7e1d4;
+  --ink-text: #f2eadb;
+  --muted: #aab8ae;
+  --line: rgba(221, 194, 130, .18);
+  --line-soft: rgba(221, 194, 130, .11);
+  --gold: #e6c56d;
+  --gold-deep: #b58a35;
+  --income: #83c99a;
+  --income-bg: rgba(76, 145, 94, .18);
+  --expense: #e9a08b;
+  --christmas-night: #08241e;
+  --christmas-night-2: #12372d;
+  --christmas-red: #d85b5f;
+  --christmas-ice: #eaf7fb;
+}
+
+html[data-caixa-theme="christmas"] .hero {
+  background:
+    radial-gradient(90px 50px at 7% 88%, rgba(196,226,205,.20), transparent 72%),
+    radial-gradient(110px 65px at 92% 82%, rgba(196,226,205,.16), transparent 72%),
+    radial-gradient(120px 80px at 78% 5%, rgba(228,197,109,.10), transparent 72%),
+    linear-gradient(155deg, #123d31 0%, #0d3027 46%, #0a241e 100%);
+  box-shadow: inset 0 -1px 0 rgba(255,255,255,.08), 0 16px 34px rgba(12,43,34,.22);
+}
+
+/* Pequenos galhos de pinheiro nas extremidades do hero. */
+html[data-caixa-theme="christmas"] .hero::before {
+  content: "";
+  position: absolute;
+  left: -34px;
+  bottom: 14px;
+  width: 175px;
+  height: 72px;
+  opacity: .72;
+  transform: rotate(-9deg);
+  background:
+    repeating-linear-gradient(118deg, transparent 0 8px, rgba(169,201,177,.58) 9px 10px, transparent 11px 15px),
+    repeating-linear-gradient(72deg, transparent 0 12px, rgba(105,154,123,.54) 13px 14px, transparent 15px 20px);
+  filter: blur(.1px);
+  pointer-events: none;
+}
+html[data-caixa-theme="christmas"] .hero::after {
+  height: 16px;
+  bottom: -1px;
+  background:
+    radial-gradient(22px 11px at 10px 4px, #fff 0 70%, transparent 73%) repeat-x;
+  background-size: 42px 14px;
+  opacity: .98;
+  filter: drop-shadow(0 2px 2px rgba(33,58,52,.22));
+}
+
+/* Noite de Natal: cartões e navegação com verde pinho + ouro quente. */
+html[data-theme="dark"][data-caixa-theme="christmas"] .content {
+  background:
+    radial-gradient(circle at 15% 10%, rgba(255,255,255,.06) 0 1.5px, transparent 2px) 0 0/130px 130px,
+    linear-gradient(180deg, #122b24 0%, #10271f 48%, #0c201b 100%);
+}
+html[data-theme="dark"][data-caixa-theme="christmas"] .section-title { color: #f4ead8; }
+html[data-theme="dark"][data-caixa-theme="christmas"] .section-hint { color: #a9b8ae; }
+html[data-theme="dark"][data-caixa-theme="christmas"] .tabbar {
+  background: linear-gradient(180deg, #102a23, #0b211b);
+  border-top: 1px solid rgba(228,197,109,.18);
+  box-shadow: 0 -12px 30px rgba(3,18,14,.42);
+}
+html[data-theme="dark"][data-caixa-theme="christmas"] .tabbar::before {
+  background-image:
+    linear-gradient(135deg, #102a23 25%, transparent 25.5%),
+    linear-gradient(225deg, #102a23 25%, transparent 25.5%);
+  filter: drop-shadow(0 -2px 4px rgba(0,0,0,.22));
+}
+html[data-theme="dark"][data-caixa-theme="christmas"] .tab-btn { color: #9fb1a7; }
+html[data-theme="dark"][data-caixa-theme="christmas"] .tab-btn.is-active { color: #f6ead3; }
+html[data-theme="dark"][data-caixa-theme="christmas"] .tab-btn.is-active svg { stroke: #e5c56e; }
+
+/* Cartões de lançamentos: verde escuro, borda quente e neve espessa. */
+html[data-theme="dark"][data-caixa-theme="christmas"] #tab-ganhos .item-list-row,
+html[data-theme="dark"][data-caixa-theme="christmas"] #tab-fixos .item-list-row,
+html[data-theme="dark"][data-caixa-theme="christmas"] #tab-variaveis .item-list-row {
+  background: linear-gradient(145deg, #1b382f, #122a23) !important;
+  border-color: rgba(222,194,127,.20) !important;
+  box-shadow: 0 8px 22px rgba(2,18,13,.26), inset 0 1px 0 rgba(255,255,255,.035) !important;
+}
+
+/* Neve mais grossa e irregular — parece realmente acumulada. */
+html[data-caixa-theme="christmas"] #tab-ganhos .btn::before,
+html[data-caixa-theme="christmas"] #tab-fixos .btn::before,
+html[data-caixa-theme="christmas"] #tab-variaveis .btn::before,
+html[data-caixa-theme="christmas"] #tab-ganhos .item-list-row::before,
+html[data-caixa-theme="christmas"] #tab-fixos .item-list-row::before,
+html[data-caixa-theme="christmas"] #tab-variaveis .item-list-row::before {
+  top: -2px;
+  height: 14px;
+  left: 3px;
+  right: 3px;
+  background:
+    radial-gradient(18px 8px at 8px 4px, #fff 0 72%, transparent 74%) repeat-x,
+    linear-gradient(180deg, #fff 0%, #f9fdff 65%, rgba(231,246,251,.72) 100%);
+  background-size: 31px 12px, 100% 100%;
+  clip-path: polygon(0 0,100% 0,99% 54%,95% 72%,91% 46%,86% 84%,81% 55%,76% 74%,70% 42%,64% 80%,57% 52%,50% 76%,43% 44%,36% 83%,29% 55%,22% 73%,15% 45%,8% 80%,3% 54%);
+  filter: drop-shadow(0 2px 2px rgba(62,90,98,.25));
+}
+
+/* Botões recebem uma camada de gelo translúcida por baixo da neve. */
+html[data-caixa-theme="christmas"] #tab-ganhos .btn,
+html[data-caixa-theme="christmas"] #tab-fixos .btn,
+html[data-caixa-theme="christmas"] #tab-variaveis .btn {
+  border-color: rgba(190,210,205,.34);
+  box-shadow: 0 7px 16px rgba(20,54,43,.10), inset 0 1px 0 rgba(255,255,255,.32);
+}
+html[data-theme="dark"][data-caixa-theme="christmas"] #tab-ganhos .btn,
+html[data-theme="dark"][data-caixa-theme="christmas"] #tab-fixos .btn,
+html[data-theme="dark"][data-caixa-theme="christmas"] #tab-variaveis .btn {
+  background: linear-gradient(145deg,#23473a,#17352c);
+  color: #f4ead9;
+  border-color: rgba(222,194,127,.22);
+  box-shadow: 0 8px 20px rgba(0,0,0,.24), inset 0 1px 0 rgba(255,255,255,.06);
+}
+
+/* Caixinhas: a barra vira uma faixa de pinheiro + ouro, com brilho de gelo. */
+html[data-caixa-theme="christmas"] .goal-card.caixinha-card {
+  background:
+    radial-gradient(100px 55px at 100% 0%, rgba(216,180,91,.10), transparent 72%),
+    linear-gradient(145deg, rgba(255,255,255,.30), transparent 45%),
+    var(--paper-deep) !important;
+  border-color: rgba(185,134,47,.20) !important;
+}
+html[data-theme="dark"][data-caixa-theme="christmas"] .goal-card.caixinha-card {
+  background:
+    radial-gradient(120px 70px at 100% 0%, rgba(216,180,91,.12), transparent 70%),
+    linear-gradient(145deg, #193a30, #10271f) !important;
+  border-color: rgba(222,194,127,.20) !important;
+  box-shadow: 0 10px 25px rgba(0,0,0,.24), inset 0 1px 0 rgba(255,255,255,.035) !important;
+}
+html[data-caixa-theme="christmas"] .goal-card.caixinha-card::before {
+  content: "";
+  position: absolute;
+  z-index: 4;
+  left: 8px;
+  right: 8px;
+  top: -1px;
+  height: 12px;
+  background:
+    radial-gradient(17px 7px at 9px 3px, #fff 0 72%, transparent 75%) repeat-x,
+    linear-gradient(180deg,#fff,#edf8fb);
+  background-size: 30px 11px, 100% 100%;
+  clip-path: polygon(0 0,100% 0,98% 60%,93% 44%,88% 82%,82% 50%,76% 74%,70% 43%,64% 79%,57% 50%,51% 73%,44% 42%,37% 81%,30% 50%,24% 72%,17% 45%,10% 79%,3% 52%);
+  filter: drop-shadow(0 2px 2px rgba(70,94,98,.22));
+  pointer-events: none;
+}
+html[data-caixa-theme="christmas"] .goal-bar-track {
+  background: linear-gradient(180deg, rgba(18,57,44,.16), rgba(255,255,255,.18));
+  border: 1px solid rgba(185,134,47,.16);
+  box-shadow: inset 0 1px 3px rgba(0,0,0,.13), 0 1px 0 rgba(255,255,255,.35);
+}
+html[data-caixa-theme="christmas"] .goal-bar-fill {
+  background: linear-gradient(90deg, #2d6848 0%, #3e8a5d 48%, #d4ad54 100%) !important;
+  box-shadow: inset 0 1px 0 rgba(255,255,255,.28), 0 1px 5px rgba(45,104,72,.25);
+}
+html[data-caixa-theme="christmas"] .goal-bar-fill.completo {
+  background: linear-gradient(90deg,#2b6b47,#68ae78,#d9b65f) !important;
+}
+html[data-caixa-theme="christmas"] .goal-icon-ring {
+  background: conic-gradient(#d9b65f var(--pct,0%), #2b5e46 0) !important;
+  box-shadow: 0 0 0 2px rgba(217,182,95,.08), 0 4px 12px rgba(35,100,71,.14);
+}
+html[data-caixa-theme="christmas"] .goal-icon-ring-inner {
+  background: var(--paper-deep);
+}
+html[data-theme="dark"][data-caixa-theme="christmas"] .goal-icon-ring-inner {
+  background: #17352b;
+  color: #e4c56c;
+}
+html[data-theme="dark"][data-caixa-theme="christmas"] .goal-nome { color: #f3eadb; }
+html[data-theme="dark"][data-caixa-theme="christmas"] .goal-status,
+html[data-theme="dark"][data-caixa-theme="christmas"] .caixinha-guardado,
+html[data-theme="dark"][data-caixa-theme="christmas"] .caixinha-de { color: #aebdb3; }
+html[data-theme="dark"][data-caixa-theme="christmas"] .goal-falta { color: #e8c875; background: rgba(216,180,91,.10); }
+
+/* FAB como um pequeno enfeite de Natal. */
+html[data-caixa-theme="christmas"] .fab-criar {
+  background: linear-gradient(145deg,#245d43,#153c2f);
+  border-color: rgba(227,197,129,.34);
+  box-shadow: 0 12px 28px rgba(20,61,47,.28), 0 2px 0 rgba(228,197,109,.65) inset;
+}
+html[data-caixa-theme="christmas"] .fab-criar svg { color: #e7c66f; }
+
+/* Luzinhas: no escuro, o brilho é mais quente e mais visível. */
+html[data-theme="dark"][data-caixa-theme="christmas"] .caixa-christmas-lights .christmas-wire {
+  border-color: rgba(236,213,154,.48);
+  filter: drop-shadow(0 1px 2px rgba(0,0,0,.25));
+}
+html[data-theme="dark"][data-caixa-theme="christmas"] .caixa-christmas-lights i {
+  width: 8px;
+  height: 11px;
+  box-shadow: 0 0 9px currentColor, 0 0 20px currentColor, 0 0 30px rgba(255,255,255,.10);
+}
+
+/* Neve caindo mais suave e variada. */
+html[data-caixa-theme="christmas"] .caixa-snowflake {
+  text-shadow: 0 1px 2px rgba(42,69,74,.20);
+}
+
+/* Respeita redução de movimento. */
+@media (prefers-reduced-motion: reduce) {
+  html[data-caixa-theme="christmas"] .caixa-christmas-lights i,
+  html[data-caixa-theme="christmas"] .caixa-snowflake,
+  html[data-caixa-theme="christmas"] .goal-bar-fill::before,
+  html[data-caixa-theme="christmas"] .goal-bar-fill::after { animation: none !important; }
+}
