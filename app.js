@@ -160,7 +160,9 @@ function categoriasDeIconesDisponiveis() {
 }
 
 function nomeIconeBonito(nome) {
-  return normalizarNomeIcone(nome).replace(/\.(png|webp|jpe?g)$/i, "");
+  const arquivo = normalizarNomeIcone(nome);
+  const mapa = state?.iconNomes || {};
+  return mapa[arquivo] || arquivo.replace(/\.(png|webp|jpe?g)$/i, "");
 }
 
 function aplicarPreviewIcone(picker, nome) {
@@ -670,6 +672,8 @@ const state = {
   historicoAnoSelecionado: new Date().getFullYear(),
   categoriasConfig: null, // [{nome, cor}] vindas da configuração do usuário
   iconCategorias: [], // regras [{categoria, padroes}] vindas da configuração
+  iconNomes: {}, // nomes amigáveis dos ícones
+  temasConfig: null, // temas sazonais e regras administrativas
   iaConfig: null, // tom/imersão compartilhados com a IA
   faturas: [], // [{id,nome,dia,pessoa}] configuradas pelo usuário
 };
@@ -837,6 +841,8 @@ async function setCache(pessoa, data) {
     saldoInicialBeneficio: Number(data.saldoInicialBeneficio) || 0,
     categorias: data.categorias || null,
     iconCategorias: data.iconCategorias || [],
+    iconNomes: data.iconNomes || {},
+    temasConfig: data.temasConfig || null,
     iaConfig: data.iaConfig || null,
     faturas: Array.isArray(data.faturas) ? data.faturas : [],
     mesAtual: data.mesAtual || null,
@@ -977,6 +983,8 @@ async function carregarDados() {
     state.saldoInicialBeneficio = Number(cache.saldoInicialBeneficio) || 0;
     state.categoriasConfig = cache.categorias || null;
     state.iconCategorias = cache.iconCategorias || [];
+    state.iconNomes = cache.iconNomes || {};
+    state.temasConfig = cache.temasConfig || null;
     state.iaConfig = cache.iaConfig || state.iaConfig || null;
     state.faturas = Array.isArray(cache.faturas) ? cache.faturas : state.faturas;
     // Em modo offline, o cache pode fornecer o último mês conhecido.
@@ -7880,7 +7888,7 @@ if (document.readyState === "loading") {
     ia: document.getElementById("caixaConfigIA"),
     faturas: document.getElementById("caixaConfigFaturas"),
     tema: document.getElementById("caixaConfigTema"),
-    temas: document.getElementById("caixaConfigTemas"),
+    admin: document.getElementById("caixaConfigAdmin"),
   };
   const titles = {
     home: "Configurações",
@@ -7888,7 +7896,7 @@ if (document.readyState === "loading") {
     ia: "Assistente IA",
     faturas: "Faturas",
     tema: "Aparência",
-    temas: "Temas",
+    admin: "Admin",
   };
 
   let viewAtual = "home";
@@ -7937,6 +7945,7 @@ if (document.readyState === "loading") {
     overlay.classList.add("is-opening");
     overlay.setAttribute("aria-hidden", "false");
     document.body.classList.add("caixa-config-open");
+    document.getElementById("caixaConfigAdminCard")?.classList.toggle("is-hidden", state.pessoaAtual !== "davi");
     setTimeout(() => overlay.classList.remove("is-opening"), 30);
     mostrarView("home");
     renderTudo();
@@ -7963,7 +7972,7 @@ if (document.readyState === "loading") {
     if (nome === "ia") renderIA();
     if (nome === "faturas") renderFaturas();
     if (nome === "tema") renderTema();
-    if (nome === "temas") renderTemas();
+    if (nome === "admin") renderAdmin();
   }
 
   function renderCategorias() {
@@ -7976,10 +7985,10 @@ if (document.readyState === "loading") {
     }
     wrap.innerHTML = lista.map((cat, idx) => `
       <div class="caixa-config-row" data-cat-index="${idx}">
-        <input class="caixa-config-color" type="color" value="${cat.cor}" aria-label="Cor de ${escapeHtml(cat.nome)}" data-cat-color="${idx}" title="Alterar cor">
+        <span class="caixa-config-color caixa-config-color-static" style="--cat-color:${cat.cor}" aria-hidden="true" title="Edite a categoria para alterar a cor"></span>
         <div class="caixa-config-row-main">
           <div class="caixa-config-row-title">${escapeHtml(cat.nome)}</div>
-          <div class="caixa-config-row-sub">Clique na cor para alterar</div>
+          <div class="caixa-config-row-sub">Edite a categoria para alterar a cor.</div>
         </div>
         <div class="caixa-config-row-actions">
           <button type="button" class="caixa-config-mini-btn" data-cat-edit="${idx}" aria-label="Editar ${escapeHtml(cat.nome)}">
@@ -7992,21 +8001,6 @@ if (document.readyState === "loading") {
       </div>
     `).join("");
 
-    wrap.querySelectorAll("[data-cat-color]").forEach(input => {
-      input.addEventListener("change", async () => {
-        const idx = Number(input.dataset.catColor);
-        const listaNova = categoriasLocais();
-        if (!listaNova[idx]) return;
-        listaNova[idx].cor = input.value;
-        state.categoriasConfig = listaNova;
-        marcarAlteracaoLocal();
-        try {
-          await salvarConfig({ categorias: listaNova });
-          popularSelectsDeCategoria();
-          renderAll();
-        } catch (_) {}
-      });
-    });
     wrap.querySelectorAll("[data-cat-edit]").forEach(btn => {
       btn.addEventListener("click", () => editarCategoria(Number(btn.dataset.catEdit)));
     });
@@ -8180,6 +8174,7 @@ if (document.readyState === "loading") {
   }
   function renderFaturas() {
     faturaPessoa = state.pessoaAtual === "gabriel" ? "gabriel" : "davi";
+    document.getElementById("caixaConfigAdminCard")?.classList.toggle("is-hidden", state.pessoaAtual !== "davi");
     garantirFaturas();
     const wrap = document.getElementById("listaConfigFaturas");
     const lista = faturasPessoa();
@@ -8317,12 +8312,101 @@ if (document.readyState === "loading") {
     });
   }
 
+  function temaPodeSerUsado(id) {
+    if (id === "default") return true;
+    const cfg = state.temasConfig || {};
+    const regra = cfg[id] || (id === "christmas" ? { permanente: true, inicio: "2026-12-01", fim: "2026-12-31" } : {});
+    if (regra.permanente) return true;
+    const hoje = new Date();
+    const inicio = regra.inicio ? new Date(`${regra.inicio}T00:00:00`) : null;
+    const fim = regra.fim ? new Date(`${regra.fim}T23:59:59`) : null;
+    if (!inicio || !fim || Number.isNaN(inicio.getTime()) || Number.isNaN(fim.getTime())) return false;
+    return hoje >= inicio && hoje <= fim;
+  }
+  function temaAtivo() {
+    try { return localStorage.getItem("caixa-tema-estilo-v1") || "default"; } catch (_) { return "default"; }
+  }
+  function aplicarTemaCaixa(id) {
+    if (id !== "default" && !temaPodeSerUsado(id)) { showToast("Esse tema ainda não está disponível."); return; }
+    try { localStorage.setItem("caixa-tema-estilo-v1", id); } catch (_) {}
+    document.documentElement.dataset.caixaTheme = id;
+    renderTemas();
+  }
   function renderTemas() {
+    let ativo = temaAtivo();
+    if (ativo !== "default" && !temaPodeSerUsado(ativo)) { ativo = "default"; try { localStorage.setItem("caixa-tema-estilo-v1", ativo); } catch (_) {} }
+    document.documentElement.dataset.caixaTheme = ativo;
     document.querySelectorAll("[data-caixa-theme]").forEach(btn => {
-      const ativo = btn.dataset.caixaTheme === "default";
-      btn.classList.toggle("is-active", ativo);
-      btn.setAttribute("aria-pressed", ativo ? "true" : "false");
+      const id = btn.dataset.caixaTheme;
+      const disponivel = temaPodeSerUsado(id);
+      btn.classList.toggle("is-active", id === ativo);
+      btn.classList.toggle("is-unavailable", !disponivel);
+      btn.classList.toggle("is-hidden", !disponivel);
+      btn.setAttribute("aria-pressed", id === ativo ? "true" : "false");
+      btn.disabled = !disponivel;
     });
+  }
+  function renderAdmin() {
+    if (state.pessoaAtual !== "davi") return;
+    renderAdminIcones();
+    const cfg = state.temasConfig || {};
+    const natal = cfg.christmas || {};
+    const ini = document.getElementById("temaNatalInicio"); const fim = document.getElementById("temaNatalFim"); const perm = document.getElementById("temaNatalPermanente");
+    if (ini) ini.value = natal.inicio || "2026-12-01";
+    if (fim) fim.value = natal.fim || "2026-12-31";
+    if (perm) perm.checked = natal.permanente !== false;
+  }
+  function renderAdminIcones() {
+    const catsWrap = document.getElementById("listaCategoriasIcones");
+    const nomesWrap = document.getElementById("listaNomesIcones");
+    const regras = Array.isArray(state.iconCategorias) ? clone(state.iconCategorias) : [];
+    const nomes = state.iconNomes || {};
+    const categorias = [...new Set(regras.map(r => String(r.categoria || "Outros")).concat(iconesCaixinhas.map(obterCategoriaIcone)))].filter(Boolean).sort((a,b)=>a.localeCompare(b,"pt-BR"));
+    if (catsWrap) catsWrap.innerHTML = categorias.map((cat, idx) => {
+      const regra = regras.find(r => r.categoria === cat) || {categoria:cat,padroes:[]};
+      return `<div class="caixa-config-row"><div class="caixa-config-row-main"><div class="caixa-config-row-title">${escapeHtml(cat)}</div><div class="caixa-config-row-sub">${escapeHtml((regra.padroes||[]).join(", ") || "Nenhum ícone associado")}</div></div><div class="caixa-config-row-actions"><button type="button" class="caixa-config-mini-btn" data-admin-cat-edit="${idx}" data-admin-cat="${escapeHtml(cat)}">✎</button></div></div>`;
+    }).join("") || `<div class="caixa-config-empty">Nenhuma categoria de ícone cadastrada.</div>`;
+    if (nomesWrap) nomesWrap.innerHTML = iconesCaixinhas.map(nome => {
+      const atual = obterCategoriaIcone(nome);
+      const opcoes = categorias.map(cat => `<option value="${escapeHtml(cat)}" ${cat === atual ? "selected" : ""}>${escapeHtml(cat)}</option>`).join("");
+      return `<div class="caixa-config-row"><div class="caixa-config-row-main"><div class="caixa-config-row-title">${escapeHtml(nomeIconeBonito(nome))}</div><div class="caixa-config-row-sub">${escapeHtml(nome)}</div></div><div class="caixa-config-row-actions"><select class="caixa-config-icon-category-select" data-admin-icon-category="${escapeHtml(nome)}">${opcoes}</select><button type="button" class="caixa-config-mini-btn" data-admin-icon-edit="${escapeHtml(nome)}">✎</button></div></div>`;
+    }).join("") || `<div class="caixa-config-empty">Nenhum ícone encontrado.</div>`;
+    catsWrap?.querySelectorAll("[data-admin-cat-edit]").forEach(btn => btn.addEventListener("click", async () => {
+      const atual = btn.dataset.adminCat;
+      const novo = prompt("Nome da categoria do ícone:", atual); if (!novo?.trim()) return;
+      const regra = regras.find(r=>r.categoria===atual) || {categoria:atual,padroes:[]};
+      regra.categoria = novo.trim();
+      state.iconCategorias = regras.filter(r=>r.categoria!==atual).concat(regra);
+      await salvarConfig({iconCategorias:state.iconCategorias}, "Categoria de ícone atualizada."); renderAdminIcones();
+    }));
+    nomesWrap?.querySelectorAll("[data-admin-icon-category]").forEach(select => select.addEventListener("change", async () => {
+      const arquivo = select.dataset.adminIconCategory; const categoria = select.value;
+      const regrasNovas = (Array.isArray(state.iconCategorias) ? clone(state.iconCategorias) : []).map(r => ({...r, padroes:Array.isArray(r.padroes) ? r.padroes.filter(p => normalizarNomeIcone(p) !== normalizarNomeIcone(arquivo)) : []})).filter(r => r.padroes.length || r.categoria === categoria);
+      let regra = regrasNovas.find(r => r.categoria === categoria);
+      if (!regra) { regra = {categoria, padroes:[]}; regrasNovas.push(regra); }
+      if (!regra.padroes.includes(arquivo)) regra.padroes.push(arquivo);
+      state.iconCategorias = regrasNovas;
+      await salvarConfig({iconCategorias:state.iconCategorias}, "Categoria do ícone atualizada.");
+      renderAdminIcones();
+      carregarIconesCaixinhas(true);
+    }));
+    nomesWrap?.querySelectorAll("[data-admin-icon-edit]").forEach(btn => btn.addEventListener("click", async () => {
+      const arquivo = btn.dataset.adminIconEdit; const atual = nomes[arquivo] || nomeIconeBonito(arquivo);
+      const novo = prompt("Nome exibido para este ícone:", atual); if (!novo?.trim()) return;
+      state.iconNomes = {...(state.iconNomes||{}), [arquivo]: novo.trim()};
+      await salvarConfig({iconNomes:state.iconNomes}, "Nome do ícone atualizado."); renderAdminIcones();
+    }));
+  }
+  async function novaCategoriaIcone() {
+    const nome = prompt("Nome da nova categoria:"); if (!nome?.trim()) return;
+    const lista = Array.isArray(state.iconCategorias) ? clone(state.iconCategorias) : [];
+    if (lista.some(r => String(r.categoria).toLowerCase() === nome.trim().toLowerCase())) { showToast("Essa categoria já existe."); return; }
+    lista.push({categoria:nome.trim(),padroes:[]}); state.iconCategorias = lista; await salvarConfig({iconCategorias:lista}, "Categoria de ícone criada."); renderAdminIcones();
+  }
+  async function salvarAdminTemas() {
+    const inicio = document.getElementById("temaNatalInicio")?.value || "2026-12-01"; const fim = document.getElementById("temaNatalFim")?.value || "2026-12-31"; const permanente = !!document.getElementById("temaNatalPermanente")?.checked;
+    state.temasConfig = {...(state.temasConfig||{}), christmas:{inicio,fim,permanente}};
+    await salvarConfig({temasConfig:state.temasConfig}, "Regras de temas salvas."); renderTemas();
   }
 
   function renderTudo() {
@@ -8330,7 +8414,8 @@ if (document.readyState === "loading") {
     if (viewAtual === "ia") renderIA();
     if (viewAtual === "faturas") renderFaturas();
     if (viewAtual === "tema") renderTema();
-    if (viewAtual === "temas") renderTemas();
+    if (viewAtual === "admin") renderAdmin();
+    if (viewAtual === "tema") renderTemas();
   }
 
   document.getElementById("btnAbrirConfiguracoes")?.addEventListener("click", abrir);
@@ -8349,6 +8434,9 @@ if (document.readyState === "loading") {
   document.getElementById("btnNovaImersao")?.addEventListener("click", novaImersao);
   document.getElementById("btnSalvarConfigIA")?.addEventListener("click", salvarIA);
   document.getElementById("btnNovaFatura")?.addEventListener("click", novaFatura);
+  document.getElementById("btnNovaCategoriaIcone")?.addEventListener("click", novaCategoriaIcone);
+  document.getElementById("btnSalvarAdminTemas")?.addEventListener("click", salvarAdminTemas);
+  document.querySelectorAll("[data-caixa-theme]").forEach(btn => btn.addEventListener("click", () => aplicarTemaCaixa(btn.dataset.caixaTheme)));
   faturaModal.salvar?.addEventListener("click", salvarFaturaModal);
   faturaModal.cancelar?.addEventListener("click", fecharModalFatura);
   faturaModal.fechar?.addEventListener("click", fecharModalFatura);
@@ -8359,7 +8447,11 @@ if (document.readyState === "loading") {
     faturaPessoa = state.pessoaAtual === "gabriel" ? "gabriel" : "davi";
     if (viewAtual === "ia") renderIA();
     if (viewAtual === "faturas") renderFaturas();
+    document.getElementById("caixaConfigAdminCard")?.classList.toggle("is-hidden", state.pessoaAtual !== "davi");
+    if (viewAtual === "admin" && state.pessoaAtual !== "davi") mostrarView("home");
   });
+
+  renderTemas();
 
   window.CAIXA_CONFIG = {
     abrir,
@@ -8368,6 +8460,7 @@ if (document.readyState === "loading") {
     renderCategorias,
     renderIA,
     renderFaturas,
-    renderTemas
+    renderTemas,
+    renderAdmin
   };
 })();

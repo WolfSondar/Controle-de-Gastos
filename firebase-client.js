@@ -231,7 +231,7 @@ if (!cfg.apiKey || cfg.apiKey.includes("COLE_")) {
       gastosFixos:[...(a.gastosFixos||[]).map(x=>({...x,pessoa:"davi"})),...(b.gastosFixos||[]).map(x=>({...x,pessoa:"gabriel"}))],
       gastosVariaveis:[...(a.gastosVariaveis||[]).map(x=>({...x,pessoa:"davi"})),...(b.gastosVariaveis||[]).map(x=>({...x,pessoa:"gabriel"}))],
       caixinhas:[...(a.caixinhas||[]).map(x=>({...x,pessoa:"davi"})),...(b.caixinhas||[]).map(x=>({...x,pessoa:"gabriel"}))],
-      categorias:a.categorias||b.categorias||[], iconCategorias:a.iconCategorias||b.iconCategorias||[],
+      categorias:a.categorias||b.categorias||[], iconCategorias:a.iconCategorias||b.iconCategorias||[], iconNomes:a.iconNomes||b.iconNomes||{}, temasConfig:a.temasConfig||b.temasConfig||null,
       iaConfig:a.iaConfig||b.iaConfig||null, faturas:Array.isArray(a.faturas)?a.faturas:[],
       mesAtual:a.mesAtual, anoAtual:a.anoAtual,
       configDavi:{mesAtual:a.mesAtual,anoAtual:a.anoAtual}, configGabriel:{mesAtual:b.mesAtual,anoAtual:b.anoAtual},
@@ -246,6 +246,8 @@ if (!cfg.apiKey || cfg.apiKey.includes("COLE_")) {
       // cópias antigas que possam existir dentro do perfil.
       categorias:c.categorias||d.categorias||[],
       iconCategorias:c.iconCategorias||d.iconCategorias||[],
+      iconNomes:c.iconNomes||d.iconNomes||{},
+      temasConfig:c.temasConfig||null,
       iaConfig:c.iaConfig||null,
       faturas:Array.isArray(c.faturas)?c.faturas:[],
     };
@@ -460,7 +462,7 @@ if (!cfg.apiKey || cfg.apiKey.includes("COLE_")) {
     if(action==="sincronizarGanhoCorrespondenteFixo") return respostaJson(await sincronizarGanhoCorrespondenteFixoFirestore(uid,body));
     if(action==="saveConfig"){
       const patch = body?.payload && typeof body.payload === "object" ? body.payload : {};
-      const permitidos = ["categorias","iconCategorias","iaConfig","faturas"];
+      const permitidos = ["categorias","iconCategorias","iconNomes","temasConfig","iaConfig","faturas"];
       const limpo = {};
       for (const chave of permitidos) {
         if (Object.prototype.hasOwnProperty.call(patch, chave)) limpo[chave] = patch[chave];
@@ -846,6 +848,8 @@ if (!cfg.apiKey || cfg.apiKey.includes("COLE_")) {
     const config={
       categorias:d.categorias||g.categorias||[],
       iconCategorias:d.iconCategorias||g.iconCategorias||[],
+      iconNomes:d.iconNomes||g.iconNomes||{},
+      temasConfig:d.temasConfig||g.temasConfig||null,
       mesDavi:Number(d.mesAtual)||Number(historico?.configDavi?.mesAtual)||1,
       anoDavi:Number(d.anoAtual)||Number(historico?.configDavi?.anoAtual)||new Date().getFullYear(),
       mesGabriel:Number(g.mesAtual)||Number(historico?.configGabriel?.mesAtual)||1,

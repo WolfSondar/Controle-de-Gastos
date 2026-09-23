@@ -710,15 +710,15 @@
         </button>
         <button type="button" class="caixa-config-card" data-config-view="tema">
           <span class="caixa-config-card-icon">
-            <svg viewBox="0 0 24 24" fill="none"><path d="M12 3v2M12 19v2M3 12h2M19 12h2M5.64 5.64l1.41 1.41M16.95 16.95l1.41 1.41M18.36 5.64l-1.41 1.41M7.05 16.95l-1.41 1.41" stroke="currentColor" stroke-width="1.7" stroke-linecap="round"/><circle cx="12" cy="12" r="4" stroke="currentColor" stroke-width="1.8"/></svg>
+            <svg viewBox="0 0 24 24" fill="none"><path d="M12 3v2M12 19v2M3 12h2M19 12h2M5.64 5.64l1.41 1.41M16.95 16.95l1.41 1.41M18.36 5.64l-1.41 1.41M7.05 16.95l-1.41 1.41" stroke="currentColor" stroke-width="1.7" stroke-linecap="round"/><circle cx="12" cy="12" r="4" stroke="currentColor" stroke-width="1.8"/><path d="M17.5 3.5 18 5l1.5.5L18 6l-.5 1.5L17 6l-1.5-.5L17 5l.5-1.5Z" fill="currentColor"/></svg>
           </span>
-          <span><strong>Aparência</strong><small>Escolha entre claro, escuro ou dispositivo.</small></span><b>›</b>
+          <span><strong>Aparência e temas</strong><small>Escolha o modo de luz e o tema do Caixa.</small></span><b>›</b>
         </button>
-        <button type="button" class="caixa-config-card" data-config-view="temas">
+        <button type="button" class="caixa-config-card is-hidden" id="caixaConfigAdminCard" data-config-view="admin">
           <span class="caixa-config-card-icon">
-            <svg viewBox="0 0 24 24" fill="none"><rect x="4" y="4" width="16" height="16" rx="5" stroke="currentColor" stroke-width="1.7"/><path d="M8 14.5c1.3-2.7 2.9-4 4.6-4 1.4 0 2.5.8 3.4 2.4" stroke="currentColor" stroke-width="1.7" stroke-linecap="round"/><circle cx="9" cy="9" r="1.1" fill="currentColor"/><path d="M7 17h10" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/></svg>
+            <svg viewBox="0 0 24 24" fill="none"><path d="M12 3.5 14 5l2.5-.2.8 2.4 2 1.5-.9 2.3.9 2.3-2 1.5-.8 2.4L14 17l-2 1.5L10 17l-2.5.2-.8-2.4-2-1.5.9-2.3-.9-2.3 2-1.5.8-2.4L10 5l2-1.5Z" stroke="currentColor" stroke-width="1.5"/><circle cx="12" cy="12" r="3" stroke="currentColor" stroke-width="1.7"/><path d="M12 10.5v3M10.5 12h3" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/></svg>
           </span>
-          <span><strong>Temas</strong><small>Escolha o estilo temático do Caixa.</small></span><b>›</b>
+          <span><strong>Admin</strong><small>Gerencie ícones, categorias e regras dos temas.</small></span><b>›</b>
         </button>
       </section>
 
@@ -766,20 +766,41 @@
             <span class="caixa-theme-check" aria-hidden="true">✓</span>
           </button>
         </div>
-      </section>
-
-      <section class="caixa-config-view is-hidden" id="caixaConfigTemas">
-        <div class="caixa-config-section-head">
-          <div><h3>Temas</h3><p>Escolha um tema especial para dar um toque diferente ao Caixa.</p></div>
+        <div class="caixa-config-section-head caixa-config-subhead">
+          <div><h3>Temas</h3><p>Temas especiais aparecem somente quando estiverem disponíveis.</p></div>
         </div>
         <div class="caixa-theme-options" id="caixaTemasOptions">
           <button type="button" class="caixa-theme-option caixa-tema-option" data-caixa-theme="default" aria-pressed="true">
-            <span class="caixa-tema-preview" aria-hidden="true">
-              <i></i><b></b><em></em><strong></strong>
-            </span>
-            <span><strong>Padrão</strong><small>O visual original do Caixa.</small></span>
+            <span class="caixa-tema-preview" aria-hidden="true"><i></i><b></b><em></em><strong></strong></span>
+            <span><strong>Padrão</strong><small>O visual original do Caixa. Sempre disponível.</small></span>
             <span class="caixa-theme-check">✓</span>
           </button>
+          <button type="button" class="caixa-theme-option caixa-tema-option caixa-tema-natal" data-caixa-theme="christmas" aria-pressed="false">
+            <span class="caixa-tema-preview" aria-hidden="true"><i></i><b></b><em></em><strong></strong><u></u></span>
+            <span><strong>Natal</strong><small>Neve, luzinhas e clima natalino.</small></span>
+            <span class="caixa-theme-check">✓</span>
+          </button>
+        </div>
+      </section>
+
+      <section class="caixa-config-view is-hidden" id="caixaConfigAdmin">
+        <div class="caixa-config-section-head">
+          <div><h3>Admin</h3><p>Configurações avançadas do Caixa.</p></div>
+        </div>
+        <div class="caixa-config-admin-panel">
+          <div class="caixa-config-admin-group">
+            <div class="caixa-config-section-head"><div><h3>Categorias dos ícones</h3><p>Organize os ícones das caixinhas por categoria.</p></div><button type="button" class="btn btn-gold btn-config-small" id="btnNovaCategoriaIcone">+ Nova</button></div>
+            <div class="caixa-config-list" id="listaCategoriasIcones"></div>
+          </div>
+          <div class="caixa-config-admin-group">
+            <div class="caixa-config-section-head"><div><h3>Nomes dos ícones</h3><p>Dê nomes mais bonitos aos arquivos exibidos no seletor.</p></div></div>
+            <div class="caixa-config-list" id="listaNomesIcones"></div>
+          </div>
+          <div class="caixa-config-admin-group">
+            <div class="caixa-config-section-head"><div><h3>Sazonalidade dos temas</h3><p>Defina quando um tema especial pode aparecer.</p></div></div>
+            <div class="caixa-config-season-row"><strong>Natal</strong><label>Início <input type="date" id="temaNatalInicio"></label><label>Fim <input type="date" id="temaNatalFim"></label><label class="caixa-config-checkline"><input type="checkbox" id="temaNatalPermanente"> Permanente</label></div>
+            <button type="button" class="btn btn-gold caixa-config-save-wide" id="btnSalvarAdminTemas">Salvar regras</button>
+          </div>
         </div>
       </section>
 
