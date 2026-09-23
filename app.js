@@ -4074,18 +4074,22 @@ function renderVisaoGeral() {
   const corGastos = temaEspecial ? "var(--theme-summary-expense)" : "var(--expense)";
   const corLivre = temaEspecial ? "var(--theme-summary-free)" : "var(--income)";
   if (donut) {
-    // Pequenos separadores tornam as três fatias claramente visíveis no
-    // tema padrão e no Natal, sem alterar o cálculo dos percentuais.
-    const separador = temaEspecial ? "rgba(255,255,255,.82)" : "#ffffff";
-    const gap = temaEspecial ? 0 : 0.9;
+    // Separadores visíveis: no Natal o branco se perde sobre o fundo creme,
+    // então usamos um dourado discreto no claro e um branco translúcido no escuro.
+    const temaAtual = document.documentElement.dataset.caixaTheme || "default";
+    const modoEscuro = document.documentElement.dataset.theme === "dark";
+    const separador = temaAtual === "christmas"
+      ? (modoEscuro ? "rgba(255,255,255,.68)" : "rgba(132,100,48,.58)")
+      : "#ffffff";
+    const gap = temaAtual === "halloween" ? 0 : temaAtual === "christmas" ? 1.05 : 0.9;
     const g = gap / 2;
-    const stops = temaEspecial
-      ? `${corGuardado} 0% ${corte1}%, ${corGastos} ${corte1}% ${corte2}%, ${corLivre} ${corte2}% 100%`
-      : `${corGuardado} 0% ${Math.max(corte1-g,0)}%, ${separador} ${Math.max(corte1-g,0)}% ${Math.min(corte1+g,100)}%, ${corGastos} ${Math.min(corte1+g,100)}% ${Math.max(corte2-g,0)}%, ${separador} ${Math.max(corte2-g,0)}% ${Math.min(corte2+g,100)}%, ${corLivre} ${Math.min(corte2+g,100)}% 100%`;
+    const usaSeparadores = temaAtual !== "halloween";
+    const stops = usaSeparadores
+      ? `${corGuardado} 0% ${Math.max(corte1-g,0)}%, ${separador} ${Math.max(corte1-g,0)}% ${Math.min(corte1+g,100)}%, ${corGastos} ${Math.min(corte1+g,100)}% ${Math.max(corte2-g,0)}%, ${separador} ${Math.max(corte2-g,0)}% ${Math.min(corte2+g,100)}%, ${corLivre} ${Math.min(corte2+g,100)}% 100%`
+      : `${corGuardado} 0% ${corte1}%, ${corGastos} ${corte1}% ${corte2}%, ${corLivre} ${corte2}% 100%`;
     const donutBackground = `conic-gradient(${stops})`;
     donut.style.setProperty("background-image", donutBackground, "important");
     donut.style.setProperty("background-color", "transparent", "important");
-    const temaAtual = document.documentElement.dataset.caixaTheme || "default";
     const sombraDonut = temaAtual === "halloween"
       ? "0 0 0 1px rgba(85,223,255,.24), 0 8px 24px rgba(61,31,78,.14)"
       : temaAtual === "christmas"
@@ -8420,36 +8424,84 @@ if (document.readyState === "loading") {
     document.documentElement.dataset.caixaTheme = ativo;
     return ativo;
   }
+  function garantirEstiloNatalRefinado() {
+    const id = "caixaChristmasRefinamentoV2";
+    if (document.getElementById(id)) return;
+    const style = document.createElement("style");
+    style.id = id;
+    style.textContent = `
+      html[data-caixa-theme="christmas"] .caixa-christmas-scenery{
+        position:absolute;left:0;right:0;bottom:0;height:86px;z-index:7;
+        pointer-events:none;overflow:visible;
+      }
+      html[data-caixa-theme="christmas"] .christmas-scenery-item{
+        position:absolute;display:block;line-height:1;
+        transform:translate(-50%,2px) scale(var(--scene-scale,1));
+        transform-origin:50% 100%;
+        font-family:"Segoe UI Emoji","Apple Color Emoji","Noto Color Emoji",sans-serif;
+        user-select:none;filter:drop-shadow(0 3px 5px rgba(42,52,68,.18));
+        z-index:1;
+      }
+      html[data-caixa-theme="christmas"] .christmas-scenery-item.tree{font-size:52px}
+      html[data-caixa-theme="christmas"] .christmas-scenery-item.pine{font-size:45px;opacity:.90}
+      html[data-caixa-theme="christmas"] .christmas-scenery-item.snowman{font-size:36px;z-index:2}
+      html[data-caixa-theme="christmas"] .hero-stats-toggle,
+      html[data-caixa-theme="christmas"] .hero .collapse-toggle,
+      html[data-caixa-theme="christmas"] .hero .btn-expandir,
+      html[data-caixa-theme="christmas"] .hero .btn-recolher{
+        position:relative !important;z-index:30 !important;
+      }
+      html[data-caixa-theme="christmas"] .caixa-christmas-snow-cap{
+        position:absolute;left:-1px;right:-1px;top:-1px;height:20px;
+        display:block;pointer-events:none;z-index:8;
+        background-repeat:no-repeat;background-size:100% 100%;background-position:center top;
+        filter:drop-shadow(0 2px 2px rgba(75,94,111,.12));
+      }
+      html[data-caixa-theme="christmas"] .goal-card.caixinha-card > *:not(.caixa-christmas-snow-cap){position:relative;z-index:3}
+      html[data-theme="dark"][data-caixa-theme="christmas"] .caixa-christmas-snow-cap{filter:drop-shadow(0 2px 3px rgba(0,0,0,.30)) brightness(.96)}
+      @media(max-width:640px){
+        html[data-caixa-theme="christmas"] .caixa-christmas-scenery{height:72px}
+        html[data-caixa-theme="christmas"] .christmas-scenery-item.tree{font-size:44px}
+        html[data-caixa-theme="christmas"] .christmas-scenery-item.pine{font-size:37px}
+        html[data-caixa-theme="christmas"] .christmas-scenery-item.snowman{font-size:30px}
+        html[data-caixa-theme="christmas"] .caixa-christmas-snow-cap{height:17px}
+      }
+    `;
+    document.head.appendChild(style);
+  }
+
   function prepararCenarioNatal() {
     const hero = document.querySelector(".hero");
-    if (!hero || hero.querySelector(".caixa-christmas-scenery")) return;
-    const wrap = document.createElement("div");
-    wrap.className = "caixa-christmas-scenery";
-    wrap.setAttribute("aria-hidden", "true");
+    if (!hero) return;
+    let wrap = hero.querySelector(".caixa-christmas-scenery");
+    if (!wrap) {
+      wrap = document.createElement("div");
+      wrap.className = "caixa-christmas-scenery";
+      wrap.setAttribute("aria-hidden", "true");
+      hero.appendChild(wrap);
+    }
+
+    // Composição fixa para manter o centro livre para o botão de recolher.
+    // Exatamente: 1 🎄, 3 🌲 e 1 ⛄.
     const itens = [
-      { cls: "tree", x: 15, y: 8, s: .82 },
-      { cls: "pine", x: 32, y: 6, s: .68 },
-      { cls: "pine", x: 72, y: 5, s: .72 },
-      { cls: "pine", x: 88, y: 4, s: .62 },
+      { cls: "tree", x: 11, s: .92, emoji: "🎄" },
+      { cls: "pine pine-one", x: 28, s: .68, emoji: "🌲" },
+      { cls: "snowman", x: 70, s: .70, emoji: "⛄" },
+      { cls: "pine pine-two", x: 78, s: .58, emoji: "🌲" },
+      { cls: "pine pine-three", x: 90, s: .64, emoji: "🌲" }
     ];
-    itens.sort(() => Math.random() - 0.5);
+
+    wrap.innerHTML = "";
     itens.forEach((item, idx) => {
       const el = document.createElement("span");
       el.className = `christmas-scenery-item ${item.cls}`;
-      el.style.left = `${item.x + (Math.random() * 7 - 3.5)}%`;
-      el.style.bottom = `${2 + Math.random() * 2}px`;
-      el.style.setProperty("--scene-scale", String(item.s + (Math.random() * .08 - .04)));
-      el.style.setProperty("--scene-delay", `${idx * -1.4}s`);
-      if (item.cls === "tree") {
-        el.innerHTML = `<svg viewBox="0 0 64 72" role="presentation"><path d="M32 3 18 24h8L12 42h12L7 61h50L40 42h12L38 24h8Z" fill="currentColor"/><rect x="28" y="59" width="8" height="10" rx="2" fill="#a97843"/><circle cx="24" cy="31" r="2.1" fill="#f4d77f"/><circle cx="40" cy="44" r="2.1" fill="#d7eff4"/><circle cx="30" cy="51" r="2" fill="#e7b86c"/></svg>`;
-      } else if (item.cls === "pine") {
-        el.innerHTML = `<svg viewBox="0 0 64 72" role="presentation"><path d="M32 4 19 25h8L14 43h11L8 62h48L39 43h11L37 25h8Z" fill="currentColor" opacity=".82"/><path d="M31 61h6v8h-6z" fill="#9a7049"/></svg>`;
-      } else {
-        el.innerHTML = `<svg viewBox="0 0 90 62" role="presentation"><path d="M14 43c7-9 15-13 27-13 7 0 12 2 18 6l9-3 7 5-5 5-7-1-6 8H48l-5-8H29l-6 7h-9l4-7-7-2 3-4Z" fill="currentColor"/><path d="M71 30l5-15 6-5 3 2-6 6 4 2-5 6M77 16l-5-9 3-3 7 7" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"/></svg>`;
-      }
+      el.textContent = item.emoji;
+      el.style.left = `${item.x}%`;
+      el.style.bottom = item.cls === "snowman" ? "2px" : "0px";
+      el.style.setProperty("--scene-scale", String(item.s));
+      el.style.setProperty("--scene-delay", `${idx * -1.1}s`);
       wrap.appendChild(el);
     });
-    hero.appendChild(wrap);
   }
 
   function prepararNeveNatal() {
@@ -8541,6 +8593,7 @@ if (document.readyState === "loading") {
     const layer = document.getElementById("caixaChristmasSnow");
     const lights = document.getElementById("caixaChristmasLights");
     if (natal) {
+      garantirEstiloNatalRefinado();
       prepararNeveNatal();
       prepararCenarioNatal();
       aplicarNeveProcedural();
@@ -8553,6 +8606,7 @@ if (document.readyState === "loading") {
         el.style.removeProperty("--snow-image");
         delete el.dataset.snowProfile;
       });
+      document.querySelectorAll(".caixa-christmas-snow-cap").forEach(el => el.remove());
     }
     if (layer) layer.setAttribute("aria-hidden", natal ? "false" : "true");
     if (lights) lights.setAttribute("aria-hidden", natal ? "false" : "true");
@@ -8730,15 +8784,15 @@ if (document.readyState === "loading") {
     // Neve suave e arredondada: uma camada fina, com pequenas ondulações,
     // sempre fechada até a base do elemento para não parecer uma faixa solta.
     const largura = 1000;
-    const altura = tipo === "hero" ? 34 : 24;
-    const quantidade = tipo === "hero" ? 12 : 10;
+    const altura = tipo === "hero" ? 34 : tipo === "caixinha" ? 28 : 24;
+    const quantidade = tipo === "hero" ? 12 : tipo === "caixinha" ? 16 : 10;
     const pontos = [];
     for (let i = 0; i <= quantidade; i++) {
       const x = (i / quantidade) * largura;
-      const onda = Math.sin((i / quantidade) * Math.PI * 2.15 + .7) * 2.2;
-      const variacao = (Math.random() - .5) * (tipo === "hero" ? 3.2 : 2.4);
-      const montinho = Math.random() < .20 ? 2 + Math.random() * 3.5 : 0;
-      const y = 5.5 + onda + variacao + montinho;
+      const onda = Math.sin((i / quantidade) * Math.PI * (tipo === "caixinha" ? 3.2 : 2.15) + .7) * (tipo === "caixinha" ? 3.0 : 2.2);
+      const variacao = (Math.random() - .5) * (tipo === "hero" ? 3.2 : tipo === "caixinha" ? 3.4 : 2.4);
+      const montinho = Math.random() < (tipo === "caixinha" ? .30 : .20) ? 2 + Math.random() * (tipo === "caixinha" ? 4.5 : 3.5) : 0;
+      const y = (tipo === "caixinha" ? 7.0 : 5.5) + onda + variacao + montinho;
       pontos.push({x, y: Math.max(3.5, y)});
     }
 
@@ -8767,9 +8821,21 @@ if (document.readyState === "loading") {
   function aplicarNeveProcedural(root = document) {
     if (document.documentElement.dataset.caixaTheme !== "christmas") return;
     root.querySelectorAll(".item-list-row, .caixa-christmas-lights, .goal-card.caixinha-card").forEach((el) => {
-      if (el.dataset.snowProfile) return;
-      el.style.setProperty("--snow-image", gerarPerfilNeve("card"));
-      el.dataset.snowProfile = "1";
+      if (!el.dataset.snowProfile) {
+        const tipo = el.matches(".goal-card.caixinha-card") ? "caixinha" : "card";
+        el.style.setProperty("--snow-image", gerarPerfilNeve(tipo));
+        el.dataset.snowProfile = "1";
+      }
+
+      // As caixinhas ganham uma camada própria de neve espessa e irregular,
+      // sem depender do pseudo-elemento usado pelos demais cartões.
+      if (el.matches(".goal-card.caixinha-card") && !el.querySelector(":scope > .caixa-christmas-snow-cap")) {
+        const cap = document.createElement("span");
+        cap.className = "caixa-christmas-snow-cap";
+        cap.setAttribute("aria-hidden", "true");
+        cap.style.backgroundImage = gerarPerfilNeve("caixinha");
+        el.appendChild(cap);
+      }
     });
 
     const hero = document.querySelector(".hero");
