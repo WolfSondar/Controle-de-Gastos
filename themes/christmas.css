@@ -1204,3 +1204,133 @@ html[data-caixa-theme="christmas"] #tab-fixos .item-list-row,
 html[data-caixa-theme="christmas"] #tab-variaveis .item-list-row {
   overflow: hidden;
 }
+
+
+/* ==========================================================
+   NATAL 5.0 — neve integrada ao hero + títulos protegidos
+   ========================================================== */
+
+/* A neve do saldo é uma linha de separação do próprio hero.
+   Ela fica exatamente dentro da borda inferior e acompanha a altura do
+   cartão quando o hero expande/recolhe. */
+html[data-caixa-theme="christmas"] .hero {
+  overflow: hidden !important;
+  isolation: isolate;
+}
+html[data-caixa-theme="christmas"] .hero::after {
+  left: 0 !important;
+  right: 0 !important;
+  bottom: 0 !important;
+  height: 19px !important;
+  border-radius: 0 0 30px 30px !important;
+  background: var(--snow-image, linear-gradient(180deg,#fff 0%,#f7fcfd 68%,#e5f1f4 100%)) !important;
+  background-size: 100% 100% !important;
+  background-repeat: no-repeat !important;
+  clip-path: none !important;
+  opacity: .98 !important;
+  filter: drop-shadow(0 -1px 1px rgba(255,255,255,.24)) drop-shadow(0 1px 2px rgba(28,54,49,.20));
+  z-index: 9 !important;
+  pointer-events: none;
+}
+
+/* A neve deve parecer uma camada macia sobre a borda, não uma fileira de dentes. */
+html[data-caixa-theme="christmas"] .hero::after {
+  mask-image: linear-gradient(to bottom,#000 0%,#000 82%,transparent 100%);
+  -webkit-mask-image: linear-gradient(to bottom,#000 0%,#000 82%,transparent 100%);
+}
+
+/* O título "Pagos/Recebidos" não atravessa os botões de ação durante o scroll. */
+html[data-caixa-theme="christmas"] .status-list-title-row {
+  position: relative !important;
+  z-index: 0 !important;
+  isolation: isolate;
+  overflow: hidden;
+}
+html[data-caixa-theme="christmas"] .status-list-title-row .status-list-title {
+  position: relative !important;
+  z-index: 0 !important;
+  background: transparent !important;
+}
+html[data-caixa-theme="christmas"] .status-list-title-row + .item-list-row {
+  position: relative;
+  z-index: 1;
+}
+
+/* O preview do Natal mostra o tema como ele realmente é: noite, árvore,
+   luzes, neve e um pequeno presente. */
+.caixa-tema-natal .caixa-tema-preview {
+  background:
+    radial-gradient(circle at 78% 24%,rgba(248,232,182,.85) 0 1px,transparent 2px),
+    radial-gradient(circle at 88% 42%,rgba(248,232,182,.7) 0 1px,transparent 2px),
+    linear-gradient(180deg,#102f27 0%,#0a241d 63%,#eef7f5 64%,#dcecef 100%) !important;
+  border-color: rgba(216,180,91,.34) !important;
+}
+.caixa-tema-natal .caixa-tema-preview::before {
+  content:"";
+  left:4px !important;
+  right:4px !important;
+  top:6px !important;
+  height:5px !important;
+  border:0 !important;
+  background: radial-gradient(circle,#f8e8b6 0 1.5px,transparent 2px) 0 0/10px 6px repeat-x !important;
+  filter: drop-shadow(0 0 3px rgba(248,232,182,.55));
+}
+.caixa-tema-natal .caixa-tema-preview::after {
+  content:"❄" !important;
+  left:auto !important;
+  right:5px !important;
+  top:12px !important;
+  color:#fff !important;
+  font-size:7px !important;
+  letter-spacing:0 !important;
+  text-shadow:0 0 4px rgba(255,255,255,.6) !important;
+}
+.caixa-tema-natal .caixa-tema-preview i {
+  left:9px !important;
+  top:18px !important;
+  width:21px !important;
+  height:22px !important;
+  background:linear-gradient(180deg,#347d58,#174d38) !important;
+  clip-path:polygon(50% 0,100% 34%,80% 34%,100% 62%,76% 62%,91% 100%,9% 100%,24% 62%,0 62%,20% 34%,0 34%) !important;
+  box-shadow:0 0 0 1px rgba(216,180,91,.18),0 3px 6px rgba(0,0,0,.18) !important;
+}
+.caixa-tema-natal .caixa-tema-preview b {
+  left:13px !important;
+  top:25px !important;
+  width:4px !important;
+  height:4px !important;
+  background:#e2bd60 !important;
+  box-shadow:8px 4px 0 #c95858,3px 11px 0 #e2bd60,13px 13px 0 #c95858 !important;
+}
+.caixa-tema-natal .caixa-tema-preview strong {
+  left:39px !important;
+  top:24px !important;
+  width:6px !important;
+  height:6px !important;
+  background:#c95858 !important;
+  border-radius:50% !important;
+  box-shadow:0 12px 0 #e2bd60,0 24px 0 #2f7553 !important;
+}
+.caixa-tema-natal .caixa-tema-preview u {
+  right:8px !important;
+  bottom:7px !important;
+  width:9px !important;
+  height:7px !important;
+  background:#c95858 !important;
+  border:1px solid #e2bd60 !important;
+  box-shadow:0 4px 0 -1px #fff !important;
+}
+.caixa-tema-natal .caixa-tema-preview em {
+  left:2px !important;
+  right:2px !important;
+  bottom:1px !important;
+  height:5px !important;
+  background:linear-gradient(180deg,#fff,#eaf5f7) !important;
+  border-radius:8px !important;
+  box-shadow:0 -1px 2px rgba(255,255,255,.5) !important;
+}
+
+/* O tema não precisa de um brilho difuso atrás do saldo. */
+html[data-caixa-theme="christmas"] .hero .caixa-christmas-lights {
+  filter: none !important;
+}
