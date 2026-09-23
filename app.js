@@ -8335,19 +8335,24 @@ if (document.readyState === "loading") {
 
   function idsDeTemasConfiguraveis() {
     const ids = new Set();
-    document.querySelectorAll("[data-caixa-theme]").forEach(btn => {
+    const view = document.getElementById("caixaConfigTema");
+    const container = view ? encontrarContainerTemas() : null;
+    (container ? container.querySelectorAll("[data-caixa-theme]") : []).forEach(btn => {
       const id = String(btn.dataset.caixaTheme || "").trim();
       if (id && id !== "default") ids.add(id);
     });
     Object.keys(state.temasConfig || {}).forEach(id => {
       if (id && id !== "default") ids.add(id);
     });
+    ["christmas", "halloween"].forEach(id => ids.add(id));
     return [...ids];
   }
 
   function infoAdminTema(id) {
     const padrao = ADMIN_TEMA_PADRAO[id] || {};
-    const btn = [...document.querySelectorAll("[data-caixa-theme]")].find(el => String(el.dataset.caixaTheme || "") === String(id));
+    const view = document.getElementById("caixaConfigTema");
+    const container = view ? encontrarContainerTemas() : null;
+    const btn = [...(container?.querySelectorAll("[data-caixa-theme]") || [])].find(el => String(el.dataset.caixaTheme || "") === String(id));
     const titulo = btn?.querySelector("strong")?.textContent?.trim() || btn?.textContent?.trim() || id;
     const descricao = btn?.querySelector("small")?.textContent?.trim() || padrao.descricao || "Tema especial do Caixa.";
     return {
@@ -8400,6 +8405,20 @@ if (document.readyState === "loading") {
       #caixaSpecialThemesSection .caixa-special-themes-head p{margin:0;font-size:11px;line-height:1.45;color:var(--muted);}
       #caixaSpecialThemeOptions{display:flex;flex-direction:column;gap:9px;}
       #caixaSpecialThemeOptions .caixa-theme-option{box-sizing:border-box;}
+      html[data-caixa-theme="christmas"]{
+        --theme-summary-saved:#9ee9ff;
+        --theme-summary-expense:#5b8fe8;
+        --theme-summary-free:#d9f6ff;
+        --theme-summary-rest:#274f75;
+      }
+      html[data-caixa-theme="christmas"] .visao-geral-bar,
+      html[data-caixa-theme="christmas"] .overview-bar,
+      html[data-caixa-theme="christmas"] .chart-bar,
+      html[data-caixa-theme="christmas"] .bar-fill,
+      html[data-caixa-theme="christmas"] .grafico-barra-fill{
+        background:linear-gradient(180deg,#c8f5ff 0%,#78c9ee 52%,#315eaa 100%) !important;
+        background-color:#78c9ee !important;
+      }
       .caixa-theme-preview-halloween{position:relative;overflow:hidden;background:linear-gradient(160deg,#24112f 0%,#171020 62%,#553078 100%)!important;border-color:rgba(255,138,36,.38)!important;}
       .caixa-theme-preview-halloween .preview-moon{position:absolute;right:7px;top:5px;color:#ffe7a8;font-size:12px;line-height:1;}
       .caixa-theme-preview-halloween .preview-pumpkin{position:absolute;left:8px;bottom:3px;font-size:19px;line-height:1;filter:drop-shadow(0 2px 3px rgba(0,0,0,.3));}
@@ -8422,38 +8441,64 @@ if (document.readyState === "loading") {
     if (!view) return null;
     garantirEstilosTemasEspeciais();
 
-    // IMPORTANTE: a tela de Aparência já possui uma seção nativa "Temas".
-    // Nunca criamos uma segunda seção aqui. As versões anteriores criavam um
-    // card novo e isso acabava deixando "Temas" duplicado/vazio.
+    // A tela já possui duas áreas diferentes: Aparência (Claro/Escuro/Dispositivo)
+    // e Temas (Padrão/Natal/Halloween...). O container dos temas precisa ser
+    // encontrado pela seção cujo título é exatamente "Temas". Nunca usamos o
+    // primeiro .caixa-theme-options da tela, pois ele pertence à Aparência base.
     view.querySelectorAll("#caixaSpecialThemesSection").forEach(el => el.remove());
 
-    // Primeiro tenta usar o grid/container original do projeto.
-    let container = view.querySelector(".caixa-themes-grid, .caixa-temas-grid, .caixa-theme-options");
-    if (container) return container;
-
-    // Compatibilidade com versões intermediárias que marcaram a seção original.
-    const marked = view.querySelector("[data-caixa-themes-section='1'], [data-caixa-theme-section='1']");
-    if (marked) {
-      container = marked.querySelector(".caixa-themes-grid, .caixa-temas-grid, .caixa-theme-options") || marked;
-      return container;
-    }
-
-    // Último recurso: localizar a seção que já contém o título "Temas" e usar
-    // seu conteúdo interno. Ainda assim, não criamos um card novo.
-    const secoes = [...view.querySelectorAll("section, .caixa-config-card, .caixa-settings-card, .settings-card, .config-card")];
+    const secoes = [...view.querySelectorAll(
+      "section, .caixa-config-card, .caixa-settings-card, .settings-card, .config-card, .caixa-config-section"
+    )];
     const secaoTemas = secoes.find(sec => {
-      const titulo = sec.querySelector("h2,h3,h4,.caixa-config-section-title,.caixa-section-title");
+      const titulo = sec.querySelector(
+        "h2,h3,h4,.caixa-config-section-title,.caixa-section-title,.section-title"
+      );
       return String(titulo?.textContent || "").trim().toLowerCase() === "temas";
     });
+
     if (secaoTemas) {
-      container = secaoTemas.querySelector(".caixa-themes-grid, .caixa-temas-grid, .caixa-theme-options") || secaoTemas;
+      let container = secaoTemas.querySelector(
+        ".caixa-themes-grid, .caixa-temas-grid, .caixa-theme-options"
+      );
+      if (!container) {
+        container = secaoTemas;
+      }
       container.dataset.caixaThemeNativeContainer = "1";
       return container;
     }
 
-    // Se a estrutura nativa ainda não existir, não inventamos uma nova seção.
-    // Isso evita a duplicação infinita e deixa a tela original intacta.
+    // Compatibilidade: algumas versões marcaram explicitamente a seção nativa.
+    const marked = view.querySelector(
+      "[data-caixa-themes-section='1'], [data-caixa-theme-section='1']"
+    );
+    if (marked) {
+      const container = marked.querySelector(
+        ".caixa-themes-grid, .caixa-temas-grid, .caixa-theme-options"
+      ) || marked;
+      container.dataset.caixaThemeNativeContainer = "1";
+      return container;
+    }
+
+    // Sem a seção nativa, não criamos outra. Isso evita duplicações.
     return null;
+  }
+
+  function limparTemasForaDoContainer(container) {
+    if (!container) return;
+    const idsConhecidos = new Set([
+      "default", "christmas", "halloween",
+      ...Object.keys(state.temasConfig || {})
+    ]);
+    const todos = [...document.querySelectorAll("[data-caixa-theme]")];
+    todos.forEach(btn => {
+      if (container.contains(btn)) return;
+      const id = String(btn.dataset.caixaTheme || "").trim();
+      if (!idsConhecidos.has(id)) return;
+      // Remove somente os temas especiais que foram indevidamente parar na
+      // área Claro/Escuro/Dispositivo. Nunca toca nos controles de aparência.
+      btn.remove();
+    });
   }
 
   function criarBotaoTemaEspecial(id, info) {
@@ -8461,6 +8506,7 @@ if (document.readyState === "loading") {
     btn.type = "button";
     btn.className = "caixa-theme-option" + (id === "halloween" ? " caixa-tema-halloween" : "");
     btn.dataset.caixaTheme = id;
+    btn.dataset.caixaThemeSpecial = "1";
     btn.setAttribute("aria-pressed", "false");
     let preview = "<span class=\"caixa-theme-preview caixa-theme-preview-default\" aria-hidden=\"true\"></span>";
     if (id === "christmas") preview = "<span class=\"caixa-theme-preview caixa-theme-preview-christmas\" aria-hidden=\"true\"></span>";
@@ -8472,6 +8518,7 @@ if (document.readyState === "loading") {
   function garantirCardsTemasEspeciais() {
     const container = encontrarContainerTemas();
     if (!container) return;
+    limparTemasForaDoContainer(container);
     const existentes = new Map([...container.querySelectorAll("[data-caixa-theme]")].map(btn => [String(btn.dataset.caixaTheme), btn]));
     const temas = [
       { id:"default", nome:"Padrão", descricao:"O visual original do Caixa. Sempre disponível." },
@@ -8665,7 +8712,9 @@ if (document.readyState === "loading") {
     garantirCssTema(ativo);
     atualizarCamadasTemas();
     const automatico = temaSazonalAutomaticoAtivo();
-    document.querySelectorAll("[data-caixa-theme]").forEach(btn => {
+    const temasContainer = encontrarContainerTemas();
+    if (!temasContainer) return;
+    temasContainer.querySelectorAll("[data-caixa-theme]").forEach(btn => {
       const id = btn.dataset.caixaTheme;
       const disponivel = temaPodeSerUsado(id);
       btn.classList.toggle("is-active", id === ativo);
@@ -8994,6 +9043,9 @@ if (document.readyState === "loading") {
   document.addEventListener("click", e => {
     const btn = e.target.closest("[data-caixa-theme]");
     if (!btn || btn.disabled) return;
+    const view = document.getElementById("caixaConfigTema");
+    const container = view ? encontrarContainerTemas() : null;
+    if (!container || !container.contains(btn)) return;
     aplicarTemaCaixa(btn.dataset.caixaTheme);
   });
   faturaModal.salvar?.addEventListener("click", salvarFaturaModal);
