@@ -87,32 +87,38 @@ html[data-caixa-theme="halloween"] .hero-stat-valor.income{color:#75e1ad}
 html[data-caixa-theme="halloween"] .hero-stat-valor.expense{color:#ff9ca9}
 html[data-caixa-theme="halloween"] .hero-stat-valor.gold{color:#ffd17d}
 
-/* Slime procedural sobre os cards: curvas suaves + brilho líquido. */
+/* Cartões: o slime não vira uma faixa larga. Ele aparece só como um detalhe
+   líquido fino, com curvas suaves e sem picos. */
 html[data-caixa-theme="halloween"] .item-list-row .swipe-content,
 html[data-caixa-theme="halloween"] .goal-card {
-  background:linear-gradient(180deg,#fffaf4,#f5eaf8);
+  background:linear-gradient(180deg,#fffaf4 0%,#f7edf8 100%);
   border-color:rgba(116,61,150,.18);
+  overflow:hidden;
 }
 html[data-caixa-theme="halloween"] .item-list-row .swipe-content::before,
 html[data-caixa-theme="halloween"] .goal-card::before {
   content:"";
   position:absolute;
-  left:0;right:0;top:-1px;height:38px;
-  background-image:var(--slime-image);
-  background-size:100% 100%;background-repeat:no-repeat;
-  pointer-events:none;z-index:2;
-  filter:drop-shadow(0 2px 2px rgba(64,39,86,.14));
+  left:0;right:0;top:0;height:9px;
+  background:
+    radial-gradient(ellipse 38px 10px at 12% 100%,#62dff5 0 72%,transparent 74%),
+    radial-gradient(ellipse 52px 12px at 42% 100%,#648df6 0 70%,transparent 72%),
+    radial-gradient(ellipse 34px 9px at 72% 100%,#7c55dc 0 72%,transparent 74%),
+    linear-gradient(90deg,#61dff4,#638ef7 52%,#7b3ec2);
+  pointer-events:none;
+  z-index:2;
+  opacity:.92;
 }
 html[data-caixa-theme="halloween"] .item-list-row .swipe-content > *,
 html[data-caixa-theme="halloween"] .goal-card > * { position:relative;z-index:3; }
-html[data-caixa-theme="halloween"] .goal-card::before{height:42px}
-
-/* Um brilho líquido bem discreto no slime. */
+html[data-caixa-theme="halloween"] .goal-card::before{height:10px}
 html[data-caixa-theme="halloween"] .item-list-row .swipe-content::after,
 html[data-caixa-theme="halloween"] .goal-card .goal-head::after {
-  content:"";position:absolute;left:7%;top:5px;width:28%;height:5px;border-radius:50%;
-  background:linear-gradient(90deg,transparent,rgba(255,255,255,.6),transparent);
-  filter:blur(1px);opacity:.65;pointer-events:none;
+  content:"";
+  position:absolute;
+  left:8%;top:2px;width:22%;height:2px;border-radius:999px;
+  background:rgba(255,255,255,.55);
+  filter:blur(.5px);opacity:.48;pointer-events:none;z-index:4;
 }
 
 /* Caixinhas: líquido azul/roxo, sem amarelo. */
@@ -155,26 +161,47 @@ html[data-caixa-theme="halloween"] .modal::before{content:"";position:absolute;l
 html[data-caixa-theme="halloween"] .caixa-config-head{background:linear-gradient(180deg,#fffaf4,#f2e7f7)}
 html[data-caixa-theme="halloween"] .caixa-config-kicker{color:#7a38c7;letter-spacing:.18em}
 
-/* Cenário: abóboras e morcegos, sem qualquer decoração natalina. */
+/* Cenário: usa os próprios emojis 🎃 e 🦇 do sistema, em vez de SVGs desenhados. */
 .caixa-halloween-scenery{position:absolute;left:0;right:0;bottom:4px;height:92px;z-index:15;pointer-events:none;overflow:visible}
-html[data-caixa-theme="halloween"] .halloween-scenery-item{position:absolute;display:block;transform:translateY(2px) scale(var(--scene-scale,1));transform-origin:50% 100%;color:#ff8a24;filter:drop-shadow(0 3px 5px rgba(20,8,31,.26));opacity:.96}
-html[data-caixa-theme="halloween"] .halloween-scenery-item svg{width:100%;height:100%;display:block}
-html[data-caixa-theme="halloween"] .halloween-scenery-item.pumpkin{width:54px;height:48px;bottom:2px}
-html[data-caixa-theme="halloween"] .halloween-scenery-item.pumpkin.mini{width:38px;height:34px;bottom:2px;color:#ff9d35}
-html[data-caixa-theme="halloween"] .halloween-scenery-item.bat{width:58px;height:34px;color:#2c1a3d;animation:halloweenBatFloat 5.6s ease-in-out var(--scene-delay,0s) infinite}
-html[data-caixa-theme="halloween"] .halloween-scenery-item.bat-two{width:44px;height:26px}
-html[data-caixa-theme="halloween"] .halloween-scenery-item.bat-three{width:36px;height:22px}
+html[data-caixa-theme="halloween"] .halloween-scenery-item{
+  position:absolute;display:block;
+  transform:translateY(2px) scale(var(--scene-scale,1));
+  transform-origin:50% 100%;
+  line-height:1;
+  font-family:"Segoe UI Emoji","Apple Color Emoji","Noto Color Emoji",sans-serif;
+  user-select:none;
+  filter:drop-shadow(0 3px 5px rgba(20,8,31,.25));
+  opacity:.98;
+}
+html[data-caixa-theme="halloween"] .halloween-scenery-item.pumpkin{font-size:52px;bottom:2px}
+html[data-caixa-theme="halloween"] .halloween-scenery-item.pumpkin.mini{font-size:36px;bottom:2px}
+html[data-caixa-theme="halloween"] .halloween-scenery-item.bat{font-size:46px;animation:halloweenBatFloat 5.6s ease-in-out var(--scene-delay,0s) infinite}
+html[data-caixa-theme="halloween"] .halloween-scenery-item.bat-two{font-size:34px}
+html[data-caixa-theme="halloween"] .halloween-scenery-item.bat-three{font-size:28px}
 @keyframes halloweenBatFloat{0%,100%{transform:translateY(0) scale(var(--scene-scale,1)) rotate(-2deg)}50%{transform:translateY(-7px) scale(var(--scene-scale,1)) rotate(2deg)}}
 
 /* Preview do Halloween na seleção de temas. */
-.caixa-tema-halloween .caixa-theme-preview-halloween{position:relative;overflow:hidden;background:linear-gradient(180deg,#261334 0 58%,#4a2670 58% 100%) !important;border-color:#6f43a0 !important}
-.caixa-tema-halloween .caixa-theme-preview-halloween::before{content:"";position:absolute;right:6px;top:5px;width:12px;height:12px;border-radius:50%;background:#dff8ff;box-shadow:0 0 8px rgba(85,223,255,.7)}
-.caixa-tema-halloween .caixa-theme-preview-halloween i{position:absolute;left:8px!important;bottom:5px!important;top:auto!important;width:20px!important;height:17px!important;border-radius:45% 45% 48% 48%!important;background:#ff8a24!important;box-shadow:inset 0 -2px 0 #db641d,0 0 5px rgba(255,138,36,.25)!important}
-.caixa-tema-halloween .caixa-theme-preview-halloween i::after{content:"⌁";position:absolute;left:5px;top:0;color:#25152f;font-size:12px;font-weight:900}
-.caixa-tema-halloween .caixa-theme-preview-halloween b{position:absolute;left:35px!important;top:8px!important;width:25px!important;height:12px!important;background:#21152f!important;clip-path:polygon(0 45%,35% 0,48% 42%,50% 100%,52% 42%,65% 0,100% 45%,76% 62%,24% 62%)!important;border-radius:0!important}
-.caixa-tema-halloween .caixa-theme-preview-halloween em{position:absolute;left:5px!important;right:5px!important;bottom:0!important;top:auto!important;width:auto!important;height:7px!important;border-radius:8px 8px 3px 3px!important;background:linear-gradient(90deg,#6cecff,#8b4ce1)!important;box-shadow:none!important}
-.caixa-tema-halloween .caixa-theme-preview-halloween strong{position:absolute;left:43px!important;bottom:4px!important;width:8px!important;height:8px!important;border-radius:50%!important;background:#66eaff!important;box-shadow:0 0 7px #66eaff!important}
-.caixa-tema-halloween .caixa-theme-preview-halloween u{display:none!important}
+.caixa-tema-halloween .caixa-theme-preview-halloween{
+  position:relative;overflow:hidden;
+  background:linear-gradient(180deg,#24122f 0%,#1a1630 58%,#3e2570 100%) !important;
+  border-color:#70459c !important;
+}
+.caixa-tema-halloween .caixa-theme-preview-halloween .preview-moon{
+  position:absolute;right:7px;top:5px;color:#dff8ff;font-size:15px;line-height:1;
+  text-shadow:0 0 8px rgba(85,223,255,.7);
+}
+.caixa-tema-halloween .caixa-theme-preview-halloween .preview-pumpkin{
+  position:absolute;left:7px;bottom:3px;font-size:21px;line-height:1;
+}
+.caixa-tema-halloween .caixa-theme-preview-halloween .preview-bat{
+  position:absolute;left:34px;top:10px;font-size:17px;line-height:1;
+  filter:brightness(.45) saturate(.8);
+}
+.caixa-tema-halloween .caixa-theme-preview-halloween .preview-slime{
+  position:absolute;left:0;right:0;bottom:0;height:7px;
+  background:linear-gradient(90deg,#61dff4,#668af5 52%,#793fc2);
+  border-radius:9px 9px 0 0;
+}
 
 /* Escuro: noite de Halloween com roxo, azul elétrico e laranja queimado. */
 html[data-theme="dark"][data-caixa-theme="halloween"] body{background:radial-gradient(circle at 18% 8%,rgba(85,223,255,.10) 0 2px,transparent 3px),radial-gradient(circle at 80% 30%,rgba(255,138,36,.10) 0 2px,transparent 3px),linear-gradient(180deg,#0f0917,#171021 52%,#0e0a14)}
@@ -199,6 +226,86 @@ html[data-theme="dark"][data-caixa-theme="halloween"] .caixa-theme-option.is-act
 html[data-theme="dark"][data-caixa-theme="halloween"] .caixa-tema-halloween .caixa-theme-preview-halloween{border-color:#7b4ba9 !important}
 html[data-theme="dark"][data-caixa-theme="halloween"] .halloween-scenery-item.pumpkin{filter:drop-shadow(0 0 7px rgba(255,138,36,.20))}
 html[data-theme="dark"][data-caixa-theme="halloween"] .halloween-scenery-item.bat{color:#08050d;filter:drop-shadow(0 2px 5px rgba(0,0,0,.45))}
+
+/* Halloween escuro: mais profundo e legível, sem superfícies acinzentadas. */
+html[data-theme="dark"][data-caixa-theme="halloween"]{
+  --ink-text:#f7effb;
+  --muted:#b7a9c2;
+  --line:rgba(195,157,230,.16);
+  --paper:#17101f;
+  --paper-deep:#21152c;
+}
+html[data-theme="dark"][data-caixa-theme="halloween"] body{
+  background:
+    radial-gradient(circle at 12% 7%,rgba(108,232,255,.08),transparent 24%),
+    radial-gradient(circle at 88% 18%,rgba(255,116,37,.09),transparent 26%),
+    linear-gradient(180deg,#09060e 0%,#100916 45%,#0a0710 100%);
+  color:#f7effb;
+}
+html[data-theme="dark"][data-caixa-theme="halloween"] .topbar,
+html[data-theme="dark"][data-caixa-theme="halloween"] .caixa-config-drawer,
+html[data-theme="dark"][data-caixa-theme="halloween"] .caixa-config-card,
+html[data-theme="dark"][data-caixa-theme="halloween"] .card,
+html[data-theme="dark"][data-caixa-theme="halloween"] .split-card,
+html[data-theme="dark"][data-caixa-theme="halloween"] .modal,
+html[data-theme="dark"][data-caixa-theme="halloween"] .caixa-theme-option{
+  background:linear-gradient(180deg,#1a1024 0%,#100a17 100%) !important;
+  color:#f7effb;
+  border-color:rgba(133,226,255,.13) !important;
+  box-shadow:0 14px 34px rgba(0,0,0,.34),0 1px 0 rgba(255,255,255,.025);
+}
+html[data-theme="dark"][data-caixa-theme="halloween"] .item-list-row .swipe-content,
+html[data-theme="dark"][data-caixa-theme="halloween"] .goal-card{
+  background:linear-gradient(180deg,#1b1026 0%,#120b1b 100%) !important;
+  color:#f7effb;
+  border-color:rgba(133,226,255,.15) !important;
+}
+html[data-theme="dark"][data-caixa-theme="halloween"] .item-nome,
+html[data-theme="dark"][data-caixa-theme="halloween"] .goal-title,
+html[data-theme="dark"][data-caixa-theme="halloween"] h1,
+html[data-theme="dark"][data-caixa-theme="halloween"] h2,
+html[data-theme="dark"][data-caixa-theme="halloween"] h3,
+html[data-theme="dark"][data-caixa-theme="halloween"] h4{
+  color:#fff7ff;
+}
+html[data-theme="dark"][data-caixa-theme="halloween"] .item-meta,
+html[data-theme="dark"][data-caixa-theme="halloween"] .item-data,
+html[data-theme="dark"][data-caixa-theme="halloween"] .goal-subtitle,
+html[data-theme="dark"][data-caixa-theme="halloween"] small{
+  color:#b9a9c5;
+}
+html[data-theme="dark"][data-caixa-theme="halloween"] input,
+html[data-theme="dark"][data-caixa-theme="halloween"] select,
+html[data-theme="dark"][data-caixa-theme="halloween"] textarea{
+  background:#21132c !important;
+  color:#fff7ff !important;
+  border-color:rgba(133,226,255,.18) !important;
+  color-scheme:dark;
+}
+html[data-theme="dark"][data-caixa-theme="halloween"] .caixa-theme-option.is-active,
+html[data-theme="dark"][data-caixa-theme="halloween"] .caixa-tema-halloween.is-active{
+  background:linear-gradient(135deg,#2b1838 0%,#17152c 100%) !important;
+  border-color:#ff8a24 !important;
+  box-shadow:0 0 0 1px rgba(255,138,36,.14),0 10px 28px rgba(255,138,36,.08);
+}
+html[data-theme="dark"][data-caixa-theme="halloween"] .hero{
+  background:
+    radial-gradient(circle at 80% 18%,rgba(91,225,255,.12),transparent 23%),
+    radial-gradient(circle at 14% 72%,rgba(255,117,35,.13),transparent 25%),
+    linear-gradient(145deg,#21102e 0%,#110b1d 55%,#241033 100%);
+  box-shadow:0 18px 42px rgba(0,0,0,.42);
+}
+html[data-theme="dark"][data-caixa-theme="halloween"] .hero-stat{
+  background:rgba(255,255,255,.045);
+  border-color:rgba(127,224,255,.13);
+}
+html[data-theme="dark"][data-caixa-theme="halloween"] .hero-stat-label{color:#9fdcea}
+html[data-theme="dark"][data-caixa-theme="halloween"] .hero-stat-valor.gold{color:#ffc86e}
+html[data-theme="dark"][data-caixa-theme="halloween"] .hero-stat-valor.income{color:#70e2ac}
+html[data-theme="dark"][data-caixa-theme="halloween"] .hero-stat-valor.expense{color:#ff8798}
+html[data-theme="dark"][data-caixa-theme="halloween"] .goal-icon-ring-inner{background:#1b1026;color:#8ceeff}
+html[data-theme="dark"][data-caixa-theme="halloween"] .goal-bar-track{background:#21162e !important;border-color:rgba(103,218,246,.18) !important}
+html[data-theme="dark"][data-caixa-theme="halloween"] .modal-backdrop{background:rgba(4,2,8,.72)}
 
 @media(max-width:640px){
   html[data-caixa-theme="halloween"] .caixa-halloween-scenery{height:78px}

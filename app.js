@@ -8380,13 +8380,45 @@ if (document.readyState === "loading") {
     document.head.appendChild(link);
   }
 
+  function encontrarContainerTemas() {
+    // Primeiro procuramos os grids pelo contexto do título. Isso evita que
+    // .caixa-theme-options da seção Aparência seja confundido com Temas.
+    const grids = [...document.querySelectorAll(".caixa-themes-grid, .caixa-temas-grid, .caixa-theme-options")];
+    for (const grid of grids) {
+      const bloco = grid.closest("section, .caixa-config-card, .caixa-settings-card, .settings-card, .config-card, .card") || grid.parentElement;
+      const titulos = [...(bloco?.querySelectorAll?.("h1,h2,h3,h4,.caixa-config-title,.caixa-settings-title,.settings-title") || [])]
+        .map(el => (el.textContent || "").trim().toLowerCase());
+      if (titulos.some(t => /\btemas?\b/.test(t) && !/sazonalidade/.test(t))) return grid;
+    }
+
+    // Fallback para layouts antigos: encontrar a própria seção pelo título Temas.
+    const candidatos = [...document.querySelectorAll("section, .caixa-config-card, .caixa-settings-card, .settings-card, .config-card, .card")];
+    for (const bloco of candidatos) {
+      const titulo = [...bloco.querySelectorAll("h1,h2,h3,h4,.caixa-config-title,.caixa-settings-title,.settings-title")]
+        .map(el => (el.textContent || "").trim().toLowerCase())
+        .find(t => /\btemas?\b/.test(t) && !/sazonalidade/.test(t));
+      if (titulo) return bloco.querySelector(".caixa-theme-options, .caixa-themes-grid, .caixa-temas-grid") || bloco;
+    }
+    return null;
+  }
+
   function garantirCardTemaHalloween() {
-    const container = document.querySelector(".caixa-themes-grid, .caixa-temas-grid, .caixa-theme-options");
-    if (!container || container.querySelector('[data-caixa-theme="halloween"]')) return;
+    const container = encontrarContainerTemas();
+    if (!container) return;
+
+    // Se uma versão anterior colocou o Halloween em Aparência, remova-o dali;
+    // o card será recriado dentro de Temas.
+    document.querySelectorAll('[data-caixa-theme="halloween"]').forEach(btn => {
+      if (!container.contains(btn)) btn.remove();
+    });
+    if (container.querySelector('[data-caixa-theme="halloween"]')) return;
+
     const btn = document.createElement("button");
-    btn.type = "button"; btn.className = "caixa-theme-option caixa-tema-halloween";
-    btn.dataset.caixaTheme = "halloween"; btn.setAttribute("aria-pressed", "false");
-    btn.innerHTML = `<span class="caixa-theme-preview caixa-theme-preview-halloween" aria-hidden="true"><i></i><b></b><em></em><strong></strong><u></u></span><span><strong>Halloween</strong><small>Abóboras, morcegos e slime encantado.</small></span><span class="caixa-theme-check" aria-hidden="true">✓</span>`;
+    btn.type = "button";
+    btn.className = "caixa-theme-option caixa-tema-halloween";
+    btn.dataset.caixaTheme = "halloween";
+    btn.setAttribute("aria-pressed", "false");
+    btn.innerHTML = `<span class="caixa-theme-preview caixa-theme-preview-halloween" aria-hidden="true"><span class="preview-moon">◐</span><span class="preview-pumpkin">🎃</span><span class="preview-bat">🦇</span><span class="preview-slime"></span></span><span><strong>Halloween</strong><small>Abóboras, morcegos e slime encantado.</small></span><span class="caixa-theme-check" aria-hidden="true">✓</span>`;
     container.appendChild(btn);
     btn.addEventListener("click", () => aplicarTemaCaixa("halloween"));
   }
@@ -8469,23 +8501,32 @@ if (document.readyState === "loading") {
   function prepararCenarioHalloween() {
     const hero = document.querySelector(".hero");
     if (!hero || hero.querySelector(".caixa-halloween-scenery")) return;
-    const wrap = document.createElement("div"); wrap.className = "caixa-halloween-scenery"; wrap.setAttribute("aria-hidden", "true");
+    const wrap = document.createElement("div");
+    wrap.className = "caixa-halloween-scenery";
+    wrap.setAttribute("aria-hidden", "true");
+
     const itens = [
-      { cls:"pumpkin", x:22, s:.92 }, { cls:"pumpkin mini", x:78, s:.62 },
-      { cls:"bat", x:38, y:10, s:.72 }, { cls:"bat bat-two", x:63, y:16, s:.52 }, { cls:"bat bat-three", x:88, y:8, s:.46 }
+      { emoji:"🎃", cls:"pumpkin", x:22, s:.92 },
+      { emoji:"🎃", cls:"pumpkin mini", x:78, s:.62 },
+      { emoji:"🦇", cls:"bat", x:38, y:10, s:.72 },
+      { emoji:"🦇", cls:"bat bat-two", x:63, y:16, s:.52 },
+      { emoji:"🦇", cls:"bat bat-three", x:88, y:8, s:.46 }
     ];
     itens.sort(() => Math.random() - .5);
     itens.forEach((item, idx) => {
-      const el=document.createElement("span"); el.className=`halloween-scenery-item ${item.cls}`;
-      el.style.left=`${item.x + (Math.random()*6-3)}%`;
-      if(item.y!=null) el.style.top=`${item.y + Math.random()*7}px`; else el.style.bottom=`${2+Math.random()*2}px`;
-      el.style.setProperty("--scene-scale", String(item.s+(Math.random()*.1-.05))); el.style.setProperty("--scene-delay", `${idx*-1.7}s`);
-      if(item.cls.includes("pumpkin")) el.innerHTML=`<svg viewBox="0 0 80 68" role="presentation"><path d="M40 13c-4-6-2-10 3-12 4 3 5 7 2 12" fill="none" stroke="currentColor" stroke-width="5" stroke-linecap="round"/><path d="M40 15C27 8 10 19 10 39c0 17 14 26 30 26s30-9 30-26C70 19 53 8 40 15Z" fill="currentColor"/><path d="M24 34 32 28 30 40 22 38ZM56 34 48 28 50 40 58 38ZM28 48c8 6 16 6 24 0-7 2-17 2-24 0Z" fill="#21172b"/></svg>`;
-      else el.innerHTML=`<svg viewBox="0 0 90 50" role="presentation"><path d="M45 25c-9-12-21-18-36-18 5 7 6 12 2 18-5-1-8-1-11 1 10 5 19 9 29 8 6 0 10-2 16-9 6 7 10 9 16 9 10 1 19-3 29-8-3-2-6-2-11-1-4-6-3-11 2-18-15 0-27 6-36 18Z" fill="currentColor"/></svg>`;
+      const el = document.createElement("span");
+      el.className = `halloween-scenery-item ${item.cls}`;
+      el.textContent = item.emoji;
+      el.style.left = `${item.x + (Math.random() * 6 - 3)}%`;
+      if (item.y != null) el.style.top = `${item.y + Math.random() * 7}px`;
+      else el.style.bottom = `${2 + Math.random() * 2}px`;
+      el.style.setProperty("--scene-scale", String(item.s + (Math.random() * .08 - .04)));
+      el.style.setProperty("--scene-delay", `${idx * -1.7}s`);
       wrap.appendChild(el);
     });
     hero.appendChild(wrap);
   }
+
   function gerarPerfilSlime(tipo="card") {
     const largura=1000, altura=tipo==="hero"?54:38, qtd=tipo==="hero"?10:9, pontos=[];
     for(let i=0;i<=qtd;i++){const x=i/qtd*largura; const y=4+Math.random()*(tipo==="hero"?10:9)+(Math.random()<.2?5+Math.random()*8:0); pontos.push({x,y});}
