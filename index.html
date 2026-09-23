@@ -30,6 +30,11 @@
   <header class="hero">
     <div class="hero-top">
       <div class="brand">
+        <button type="button" class="caixa-config-trigger" id="btnAbrirConfiguracoes" aria-label="Abrir configurações" aria-controls="caixaConfiguracoes" aria-expanded="false">
+          <svg viewBox="0 0 24 24" fill="none" aria-hidden="true">
+            <path d="M4 7h16M4 12h16M4 17h16" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/>
+          </svg>
+        </button>
         <span class="brand-mark">Caixa</span>
       </div>
       <div class="hero-top-actions">
@@ -650,5 +655,85 @@
 <!-- Firebase precisa carregar antes do app. O arquivo é um ES module. -->
 <script type="module" src="firebase-client.js"></script>
 <script defer src="app.js"></script>
+
+
+<!-- CONFIGURAÇÕES DO USUÁRIO -->
+<div class="caixa-config-overlay is-hidden" id="caixaConfiguracoesOverlay" aria-hidden="true">
+  <aside class="caixa-config-drawer" id="caixaConfiguracoes" aria-label="Configurações do Caixa">
+    <div class="caixa-config-head">
+      <button type="button" class="icon-btn caixa-config-back is-hidden" id="caixaConfigBack" aria-label="Voltar para configurações">
+        <svg viewBox="0 0 24 24" fill="none"><path d="M15 18 9 12l6-6" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"/></svg>
+      </button>
+      <div>
+        <span class="caixa-config-kicker">PERSONALIZAÇÃO</span>
+        <h2 id="caixaConfigTitle">Configurações</h2>
+      </div>
+      <button type="button" class="icon-btn" id="caixaConfigClose" aria-label="Fechar configurações">
+        <svg viewBox="0 0 24 24" fill="none"><path d="m6 6 12 12M18 6 6 18" stroke="currentColor" stroke-width="1.9" stroke-linecap="round"/></svg>
+      </button>
+    </div>
+
+    <div class="caixa-config-body">
+      <section class="caixa-config-view" id="caixaConfigHome">
+        <p class="caixa-config-intro">Deixe o Caixa com a sua cara. Tudo que você alterar aqui fica salvo na sua conta Firebase.</p>
+        <button type="button" class="caixa-config-card" data-config-view="categorias">
+          <span class="caixa-config-card-icon">
+            <svg viewBox="0 0 24 24" fill="none"><circle cx="7" cy="7" r="2.5" stroke="currentColor" stroke-width="1.8"/><circle cx="17" cy="17" r="2.5" stroke="currentColor" stroke-width="1.8"/><path d="m9 9 6 6M15 9l-6 6" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/></svg>
+          </span>
+          <span><strong>Categorias</strong><small>Crie, edite, exclua e escolha as cores.</small></span><b>›</b>
+        </button>
+        <button type="button" class="caixa-config-card" data-config-view="ia">
+          <span class="caixa-config-card-icon">
+            <svg viewBox="0 0 24 24" fill="none"><path d="M7 4.5h10A2.5 2.5 0 0 1 19.5 7v7A2.5 2.5 0 0 1 17 16.5h-4.5L8 20v-3.5H7A2.5 2.5 0 0 1 4.5 14V7A2.5 2.5 0 0 1 7 4.5Z" stroke="currentColor" stroke-width="1.7"/><path d="M8 9h8M8 12h5" stroke="currentColor" stroke-width="1.7" stroke-linecap="round"/></svg>
+          </span>
+          <span><strong>Assistente IA</strong><small>Edite o tom e as informações pessoais usadas pela IA.</small></span><b>›</b>
+        </button>
+        <button type="button" class="caixa-config-card" data-config-view="faturas">
+          <span class="caixa-config-card-icon">
+            <svg viewBox="0 0 24 24" fill="none"><rect x="4" y="3.5" width="16" height="17" rx="2" stroke="currentColor" stroke-width="1.8"/><path d="M7.5 8h9M7.5 12h9M7.5 16h5" stroke="currentColor" stroke-width="1.7" stroke-linecap="round"/></svg>
+          </span>
+          <span><strong>Faturas</strong><small>Adicione cartões e altere o dia de vencimento.</small></span><b>›</b>
+        </button>
+      </section>
+
+      <section class="caixa-config-view is-hidden" id="caixaConfigCategorias">
+        <div class="caixa-config-section-head">
+          <div><h3>Suas categorias</h3><p>As mudanças também valem para os próximos cadastros.</p></div>
+          <button type="button" class="btn btn-gold btn-config-small" id="btnNovaCategoria">+ Nova</button>
+        </div>
+        <div class="caixa-config-list" id="listaConfigCategorias"></div>
+      </section>
+
+      <section class="caixa-config-view is-hidden" id="caixaConfigIA">
+        <div class="caixa-config-person-switch" id="configIAPessoa">
+          <button type="button" class="is-active" data-ia-pessoa="davi">Davi</button>
+          <button type="button" data-ia-pessoa="gabriel">Gabriel</button>
+          <button type="button" data-ia-pessoa="ambos">Juntos</button>
+        </div>
+        <label class="caixa-config-label" for="configIATom">Tom da IA</label>
+        <textarea id="configIATom" class="caixa-config-textarea" rows="7" placeholder="Como a IA deve falar com essa pessoa?"></textarea>
+        <div class="caixa-config-section-head caixa-config-subhead">
+          <div><h3>Imersão IA</h3><p>Informações pessoais que ajudam a IA a responder com contexto.</p></div>
+          <button type="button" class="btn btn-gold btn-config-small" id="btnNovaImersao">+ Nova</button>
+        </div>
+        <div class="caixa-config-list" id="listaConfigImersao"></div>
+        <button type="button" class="btn btn-gold caixa-config-save-wide" id="btnSalvarConfigIA">Salvar alterações</button>
+      </section>
+
+      <section class="caixa-config-view is-hidden" id="caixaConfigFaturas">
+        <div class="caixa-config-section-head">
+          <div><h3>Suas faturas</h3><p>Cada fatura pode ter seu próprio vencimento. No cadastro de gasto, se houver mais de uma, o Caixa pergunta qual usar.</p></div>
+          <button type="button" class="btn btn-gold btn-config-small" id="btnNovaFatura">+ Nova</button>
+        </div>
+        <div class="caixa-config-person-switch" id="configFaturaPessoa">
+          <button type="button" class="is-active" data-fatura-pessoa="davi">Davi</button>
+          <button type="button" data-fatura-pessoa="gabriel">Gabriel</button>
+        </div>
+        <div class="caixa-config-list" id="listaConfigFaturas"></div>
+      </section>
+    </div>
+  </aside>
+</div>
+
 </body>
 </html>

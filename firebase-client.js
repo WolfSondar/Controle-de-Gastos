@@ -232,6 +232,7 @@ if (!cfg.apiKey || cfg.apiKey.includes("COLE_")) {
       gastosVariaveis:[...(a.gastosVariaveis||[]).map(x=>({...x,pessoa:"davi"})),...(b.gastosVariaveis||[]).map(x=>({...x,pessoa:"gabriel"}))],
       caixinhas:[...(a.caixinhas||[]).map(x=>({...x,pessoa:"davi"})),...(b.caixinhas||[]).map(x=>({...x,pessoa:"gabriel"}))],
       categorias:a.categorias||b.categorias||[], iconCategorias:a.iconCategorias||b.iconCategorias||[],
+      iaConfig:a.iaConfig||b.iaConfig||null, faturas:Array.isArray(a.faturas)?a.faturas:[],
       mesAtual:a.mesAtual, anoAtual:a.anoAtual,
       configDavi:{mesAtual:a.mesAtual,anoAtual:a.anoAtual}, configGabriel:{mesAtual:b.mesAtual,anoAtual:b.anoAtual},
     };
@@ -239,7 +240,15 @@ if (!cfg.apiKey || cfg.apiKey.includes("COLE_")) {
   async function lerPerfil(uid,pessoa){
     const [snap,cfgSnap]=await Promise.all([getDoc(perfilRef(uid,pessoa)),getDoc(configRef(uid))]);
     const d=snap.exists()?snap.data():{}; const c=cfgSnap.exists()?cfgSnap.data():{};
-    return {...d,categorias:d.categorias||c.categorias||[],iconCategorias:d.iconCategorias||c.iconCategorias||[]};
+    return {...d,
+      // Configurações globais pertencem ao documento /config/app. Elas são
+      // compartilhadas pelos dois perfis e, por isso, têm prioridade sobre
+      // cópias antigas que possam existir dentro do perfil.
+      categorias:c.categorias||d.categorias||[],
+      iconCategorias:c.iconCategorias||d.iconCategorias||[],
+      iaConfig:c.iaConfig||null,
+      faturas:Array.isArray(c.faturas)?c.faturas:[],
+    };
   }
   async function lerHistorico(uid){
     const [h,c,d,g]=await Promise.all([getDoc(historicoRef(uid)),getDoc(configRef(uid)),getDoc(perfilRef(uid,"davi")),getDoc(perfilRef(uid,"gabriel"))]);
@@ -399,6 +408,46 @@ if (!cfg.apiKey || cfg.apiKey.includes("COLE_")) {
     });
   }
 
+  async function atualizarCategoriasFirestore(uid, categorias, operacao = {}) {
+    const lista = Array.isArray(categorias) ? categorias : [];
+    const nomes = new Set(lista.map(c => String(c?.nome || "").trim()).filter(Boolean));
+    if (!nomes.size) throw new Error("Mantenha pelo menos uma categoria.");
+    if ([...nomes].some(n => n.length > 60)) throw new Error("O nome da categoria é muito longo.");
+    if (nomes.size !== lista.length) throw new Error("Existem categorias repetidas.");
+    const de = String(operacao?.renomearDe || "").trim();
+    const para = String(operacao?.renomearPara || "").trim();
+    const excluir = String(operacao?.excluirNome || "").trim();
+    const fallback = nomes.has("Outro") ? "Outro" : lista[0].nome;
+
+    return runTransaction(db, async tx => {
+      const [sd,sg,sc] = await Promise.all([
+        tx.get(perfilRef(uid,"davi")),
+        tx.get(perfilRef(uid,"gabriel")),
+        tx.get(configRef(uid))
+      ]);
+      const d = sd.exists()?sd.data():{}, g = sg.exists()?sg.data():{}, c = sc.exists()?sc.data():{};
+      const atualizarLista = (listaItens) => (Array.isArray(listaItens)?listaItens:[]).map(item => {
+        if (!item || typeof item !== "object") return item;
+        const out = {...item};
+        if (de && para && String(out.tipo||"") === de) out.tipo = para;
+        if (excluir && String(out.tipo||"") === excluir) out.tipo = fallback;
+        return out;
+      });
+      const novoD = {...d,
+        gastosFixos:atualizarLista(d.gastosFixos),
+        gastosVariaveis:atualizarLista(d.gastosVariaveis)
+      };
+      const novoG = {...g,
+        gastosFixos:atualizarLista(g.gastosFixos),
+        gastosVariaveis:atualizarLista(g.gastosVariaveis)
+      };
+      tx.set(perfilRef(uid,"davi"),novoD,{merge:false});
+      tx.set(perfilRef(uid,"gabriel"),novoG,{merge:false});
+      tx.set(configRef(uid),{categorias:lista},{merge:true});
+      return {ok:true,categorias:lista};
+    });
+  }
+
   async function request({method="POST",body}){
     await window.CAIXA_FIREBASE_READY;
     if(!currentUser) return respostaJson({ok:false,error:"Faça login para usar o Caixa."},401);
@@ -409,6 +458,26 @@ if (!cfg.apiKey || cfg.apiKey.includes("COLE_")) {
     if(action==="dividirCompra") return respostaJson(await dividirCompraFirestore(uid,body));
     if(action==="atualizarGanhoDivisao") return respostaJson(await atualizarGanhoDivisaoFirestore(uid,body));
     if(action==="sincronizarGanhoCorrespondenteFixo") return respostaJson(await sincronizarGanhoCorrespondenteFixoFirestore(uid,body));
+    if(action==="saveConfig"){
+      const patch = body?.payload && typeof body.payload === "object" ? body.payload : {};
+      const permitidos = ["categorias","iconCategorias","iaConfig","faturas"];
+      const limpo = {};
+      for (const chave of permitidos) {
+        if (Object.prototype.hasOwnProperty.call(patch, chave)) limpo[chave] = patch[chave];
+      }
+      if (Object.prototype.hasOwnProperty.call(limpo,"categorias") && !Array.isArray(limpo.categorias)) throw new Error("Categorias inválidas.");
+      if (Object.prototype.hasOwnProperty.call(limpo,"faturas") && !Array.isArray(limpo.faturas)) throw new Error("Faturas inválidas.");
+      if (Object.prototype.hasOwnProperty.call(limpo,"iaConfig") && limpo.iaConfig !== null && typeof limpo.iaConfig !== "object") throw new Error("Configuração da IA inválida.");
+      await setDoc(configRef(uid), limpo, {merge:true});
+      return respostaJson({ok:true});
+    }
+    if(action==="saveCategorias"){
+      const categorias = Array.isArray(body?.payload?.categorias) ? body.payload.categorias : [];
+      const renomearDe = String(body?.payload?.renomearDe || "").trim();
+      const renomearPara = String(body?.payload?.renomearPara || "").trim();
+      const excluirNome = String(body?.payload?.excluirNome || "").trim();
+      return respostaJson(await atualizarCategoriasFirestore(uid, categorias, {renomearDe,renomearPara,excluirNome}));
+    }
     if(action==="transferir"){
       const de=escPessoa(body.de),para=escPessoa(body.para),valor=Number(body.valor);if(de===para||!valor||valor<=0)throw new Error("Transferência inválida");
       const hoje=hojeISO(),desc=String(body.nome||"").trim()||"Transferência";
@@ -435,7 +504,7 @@ if (!cfg.apiKey || cfg.apiKey.includes("COLE_")) {
 
   function textoTomIAFirebase(pessoa, iaConfig) {
     if (pessoa === "gabriel") return String(iaConfig?.tomGabriel || "").trim();
-    if (pessoa === "ambos") return "natural, equilibrado e conversado, falando com vocês dois";
+    if (pessoa === "ambos") return String(iaConfig?.tomAmbos || "natural, equilibrado e conversado, falando com vocês dois").trim();
     return String(iaConfig?.tomDavi || "").trim();
   }
 

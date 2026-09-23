@@ -668,9 +668,10 @@ const state = {
   anoAtualGabriel: null,
   historico: null, 
   historicoAnoSelecionado: new Date().getFullYear(),
-  categoriasConfig: null, // [{nome, cor}] vindo exclusivamente da aba CONFIGS
-  iconCategorias: [], // regras [{categoria, padroes}] vindas da aba CONFIGS
-  iaConfig: null, // imersão/tom compartilhados com o assistente local
+  categoriasConfig: null, // [{nome, cor}] vindas da configuração do usuário
+  iconCategorias: [], // regras [{categoria, padroes}] vindas da configuração
+  iaConfig: null, // tom/imersão compartilhados com a IA
+  faturas: [], // [{id,nome,dia,pessoa}] configuradas pelo usuário
 };
 
 function renderMesAtual() {
@@ -836,6 +837,8 @@ async function setCache(pessoa, data) {
     saldoInicialBeneficio: Number(data.saldoInicialBeneficio) || 0,
     categorias: data.categorias || null,
     iconCategorias: data.iconCategorias || [],
+    iaConfig: data.iaConfig || null,
+    faturas: Array.isArray(data.faturas) ? data.faturas : [],
     mesAtual: data.mesAtual || null,
     anoAtual: data.anoAtual || null,
   });
@@ -974,6 +977,8 @@ async function carregarDados() {
     state.saldoInicialBeneficio = Number(cache.saldoInicialBeneficio) || 0;
     state.categoriasConfig = cache.categorias || null;
     state.iconCategorias = cache.iconCategorias || [];
+    state.iaConfig = cache.iaConfig || state.iaConfig || null;
+    state.faturas = Array.isArray(cache.faturas) ? cache.faturas : state.faturas;
     // Em modo offline, o cache pode fornecer o último mês conhecido.
     // Online, não usamos esse valor: o mês será definido somente pelo Firebase.
     if (!navigator.onLine) {
@@ -1019,6 +1024,8 @@ async function carregarDados() {
       caixinhas: colecaoMudou(state.caixinhas, data.caixinhas || []),
       categoriasConfig: colecaoMudou(state.categoriasConfig || [], data.categorias || []),
       iconCategorias: colecaoMudou(state.iconCategorias || [], data.iconCategorias || []),
+      iaConfig: JSON.stringify(state.iaConfig || null) !== JSON.stringify(data.iaConfig || null),
+      faturas: JSON.stringify(state.faturas || []) !== JSON.stringify(Array.isArray(data.faturas) ? data.faturas : []),
     };
     state.ganhos = data.ganhos || [];
     state.gastosFixos = data.gastosFixos || [];
@@ -1028,6 +1035,8 @@ async function carregarDados() {
     state.saldoInicialBeneficio = Number(data.saldoInicialBeneficio) || 0;
     state.categoriasConfig = data.categorias || null;
     state.iconCategorias = data.iconCategorias || [];
+    state.iaConfig = data.iaConfig || null;
+    state.faturas = Array.isArray(data.faturas) ? data.faturas : [];
     state.loaded = true;
     if (pessoaRequisitada === "ambos") {
       state.mesAtualDavi = Number(data.configDavi?.mesAtual) || null;
@@ -2452,7 +2461,34 @@ function estaPendente(item) {
   return false;
 }
 
-const VENCIMENTOS_FATURA = { davi: 9, gabriel: 20 };
+const VENCIMENTOS_FATURA_PADRAO = { davi: 9, gabriel: 20 };
+
+function faturasConfiguradas(pessoa = state.pessoaAtual) {
+  const lista = Array.isArray(state.faturas) ? state.faturas : [];
+  const p = String(pessoa || "davi").toLowerCase();
+  const filtradas = lista.filter(f => {
+    const dono = String(f?.pessoa || "davi").toLowerCase();
+    return p === "ambos" ? true : dono === p;
+  });
+  if (filtradas.length) return filtradas;
+  if (p === "ambos") return [];
+  return [{
+    id: `nubank-${p}`,
+    nome: "Nubank",
+    dia: VENCIMENTOS_FATURA_PADRAO[p] || 9,
+    pessoa: p,
+    padrao: true
+  }];
+}
+
+function faturaPadraoPessoa(pessoa = state.pessoaAtual) {
+  return faturasConfiguradas(pessoa)[0] || null;
+}
+
+function faturaPorId(id, pessoa = state.pessoaAtual) {
+  const lista = faturasConfiguradas(pessoa);
+  return lista.find(f => String(f?.id || "") === String(id || "")) || lista[0] || null;
+}
 
 function itemEhFatura(item) {
   return item?.fatura === true || /^Fatura:\s*/i.test(String(item?.nome || ""));
@@ -2470,8 +2506,9 @@ function nomeInternoFatura(nome) {
   return limpo ? `Fatura: ${limpo}` : limpo;
 }
 
-function proximaDataVencimentoFatura(pessoa, base = new Date()) {
-  const diaVencimento = VENCIMENTOS_FATURA[pessoa] || VENCIMENTOS_FATURA.davi;
+function proximaDataVencimentoFatura(pessoa, base = new Date(), faturaId = "") {
+  const fatura = faturaId ? faturaPorId(faturaId, pessoa) : faturaPadraoPessoa(pessoa);
+  const diaVencimento = Math.max(1, Math.min(31, Number(fatura?.dia) || VENCIMENTOS_FATURA_PADRAO[pessoa] || 9));
   const data = new Date(base);
   data.setHours(12, 0, 0, 0);
   let ano = data.getFullYear();
@@ -2480,8 +2517,12 @@ function proximaDataVencimentoFatura(pessoa, base = new Date()) {
   // Se o vencimento deste mês já passou, a compra entra na próxima fatura.
   if (data.getDate() > diaVencimento) mes += 1;
   if (mes > 11) { mes = 0; ano += 1; }
+  // Faturas com vencimento no dia 29/30/31 usam o último dia disponível
+  // quando o mês não possui aquele dia.
+  const ultimoDiaDoMes = new Date(ano, mes + 1, 0).getDate();
+  const diaReal = Math.min(diaVencimento, ultimoDiaDoMes);
 
-  return `${ano}-${String(mes + 1).padStart(2, "0")}-${String(diaVencimento).padStart(2, "0")}`;
+  return `${ano}-${String(mes + 1).padStart(2, "0")}-${String(diaReal).padStart(2, "0")}`;
 }
 
 function pessoaDaFaturaAtual() {
@@ -2492,8 +2533,8 @@ function nomePessoaFatura(pessoa) {
   return pessoa === "gabriel" ? "Gabriel" : "Davi";
 }
 
-function dataVencimentoFaturaAtual() {
-  return proximaDataVencimentoFatura(pessoaDaFaturaAtual());
+function dataVencimentoFaturaAtual(faturaId = "") {
+  return proximaDataVencimentoFatura(pessoaDaFaturaAtual(), new Date(), faturaId);
 }
 
 function metaInfoHtml(item) {
@@ -4884,7 +4925,7 @@ on("formEditar", "submit", (e) => {
     const parcela = document.getElementById("editParcela").value.trim();
     const itemAtual = state.gastosFixos[idx];
     const nomeSalvo = itemEhFatura(itemAtual) ? nomeInternoFatura(nome) : nome;
-    opFixos.edit(idx, nomeSalvo, valor, { tipo: categoria, data, parcela, fatura: itemEhFatura(itemAtual) });
+    opFixos.edit(idx, nomeSalvo, valor, { tipo: categoria, data, parcela, fatura: itemEhFatura(itemAtual), faturaId: itemAtual?.faturaId || "" });
   } else if (tipo === "variaveis") {
     const categoria = document.getElementById("editCategoria").value;
     const data = document.getElementById("editData").value;
@@ -4894,7 +4935,7 @@ on("formEditar", "submit", (e) => {
     // Editar manualmente tira o item do modo "lembrete" (compra adiantada) —
     // a partir daqui ele volta a contar normalmente no saldo, com a nova
     // data/categoria/origem que a pessoa escolheu.
-    opVariaveis.edit(idx, nomeSalvo, valor, { tipo: categoria, data, origem, lembrete: false, fatura: itemEhFatura(itemAtual) });
+    opVariaveis.edit(idx, nomeSalvo, valor, { tipo: categoria, data, origem, lembrete: false, fatura: itemEhFatura(itemAtual), faturaId: itemAtual?.faturaId || "" });
   } else if (tipo === "caixinhas") {
     const icone = normalizarNomeIcone(document.getElementById("editIcone")?.value || "");
     const data = document.getElementById("editData").value;
@@ -7450,7 +7491,6 @@ if (document.readyState === "loading") {
     }
 
     function perguntarFaturaAntesDaData(callback) {
-      const vencimento = dataVencimentoFaturaAtual();
       appendMensagem("Esse gasto vai entrar em uma <strong>fatura</strong>?");
       escolhaChat([
         ["sim", "Sim"],
@@ -7458,11 +7498,30 @@ if (document.readyState === "loading") {
       ], escolha => {
         if (escolha === "sim") {
           cadastroAtivo.fatura = true;
-          cadastroAtivo.data = vencimento;
-          appendMensagem(`Vencimento em: ${esc(formatarDataParaChat(vencimento))}`);
-          callback(vencimento, true);
+          const faturas = faturasConfiguradas(state.pessoaAtual);
+          const concluirFatura = (faturaId) => {
+            const fatura = faturaPorId(faturaId, state.pessoaAtual);
+            const vencimento = dataVencimentoFaturaAtual(fatura?.id || "");
+            cadastroAtivo.faturaId = fatura?.id || "";
+            cadastroAtivo.faturaNome = fatura?.nome || "Fatura";
+            cadastroAtivo.data = vencimento;
+            appendMensagem(`Vencimento em: ${esc(formatarDataParaChat(vencimento))}`);
+            callback(vencimento, true);
+          };
+          if (faturas.length > 1) {
+            selectChat(
+              "Em qual fatura?",
+              faturas.map(f => [String(f.id), String(f.nome || "Fatura")]),
+              concluirFatura,
+              { placeholder: "Escolha a fatura…" }
+            );
+          } else {
+            concluirFatura(faturas[0]?.id || "");
+          }
         } else {
           cadastroAtivo.fatura = false;
+          cadastroAtivo.faturaId = "";
+          cadastroAtivo.faturaNome = "";
           perguntaDataCadastro(data => callback(data, false));
         }
       });
@@ -7498,7 +7557,7 @@ if (document.readyState === "loading") {
         const valor = n > 0 ? Math.round((cadastroAtivo.valor / n) * 100) / 100 : cadastroAtivo.valor;
         const parcela = n > 0 ? `1/${n}` : "";
         const nomeSalvo = cadastroAtivo.fatura ? nomeInternoFatura(cadastroAtivo.nome) : cadastroAtivo.nome;
-        opFixos.add(nomeSalvo, valor, { pago, tipo: cadastroAtivo.categoria, data: dataDoLancamento(cadastroAtivo.data), parcela, fatura: cadastroAtivo.fatura === true });
+        opFixos.add(nomeSalvo, valor, { pago, tipo: cadastroAtivo.categoria, data: dataDoLancamento(cadastroAtivo.data), parcela, fatura: cadastroAtivo.fatura === true, faturaId: cadastroAtivo.faturaId || "" });
         finalizarCadastro("Gasto adicionado", `${esc(cadastroAtivo.nome)} · <span class="chat-valor chat-valor-neg">${chatFmt(valor)}</span>${n > 1 ? ` · parcela 1/${n}` : ""}.`);
       });
     }
@@ -7516,7 +7575,7 @@ if (document.readyState === "loading") {
             cadastroAtivo.data = data;
             perguntaStatusCadastro("Essa compra já foi paga?", "Sim, já paguei", "Não, está pendente", pago => {
               const nomeSalvo = cadastroAtivo.fatura ? nomeInternoFatura(cadastroAtivo.nome) : cadastroAtivo.nome;
-              opVariaveis.add(nomeSalvo, cadastroAtivo.valor, { pago, tipo: cadastroAtivo.categoria, data: dataDoLancamento(cadastroAtivo.data), origem: cadastroAtivo.origem, fatura: cadastroAtivo.fatura === true });
+              opVariaveis.add(nomeSalvo, cadastroAtivo.valor, { pago, tipo: cadastroAtivo.categoria, data: dataDoLancamento(cadastroAtivo.data), origem: cadastroAtivo.origem, fatura: cadastroAtivo.fatura === true, faturaId: cadastroAtivo.faturaId || "" });
               finalizarCadastro("Gasto adicionado", `${esc(cadastroAtivo.nome)} · <span class="chat-valor chat-valor-neg">${chatFmt(cadastroAtivo.valor)}</span>.`);
             });
           });
@@ -7749,4 +7808,443 @@ if (document.readyState === "loading") {
 
   // Expor os prompts para diagnóstico/uso futuro sem chamar a IA.
   window.CAIXA_CHAT_PROMPTS = CHAT_PROMPTS;
+})();
+
+
+/* ============================================================
+   CONFIGURAÇÕES DO USUÁRIO
+   Painel único para categorias, IA e faturas.
+   ============================================================ */
+(function inicializarConfiguracoesUsuario() {
+  const overlay = document.getElementById("caixaConfiguracoesOverlay");
+  const drawer = document.getElementById("caixaConfiguracoes");
+  const home = document.getElementById("caixaConfigHome");
+  const title = document.getElementById("caixaConfigTitle");
+  const back = document.getElementById("caixaConfigBack");
+  const close = document.getElementById("caixaConfigClose");
+  if (!overlay || !drawer || !home) return;
+
+  const views = {
+    categorias: document.getElementById("caixaConfigCategorias"),
+    ia: document.getElementById("caixaConfigIA"),
+    faturas: document.getElementById("caixaConfigFaturas"),
+  };
+  const titles = {
+    home: "Configurações",
+    categorias: "Categorias",
+    ia: "Assistente IA",
+    faturas: "Faturas",
+  };
+
+  let viewAtual = "home";
+  let iaPessoa = "davi";
+  let faturaPessoa = state.pessoaAtual === "gabriel" ? "gabriel" : "davi";
+
+  const clone = value => {
+    try { return structuredClone(value); } catch (_) { return JSON.parse(JSON.stringify(value ?? null)); }
+  };
+  const configFaturasPadrao = () => [
+    { id: "nubank-davi", nome: "Nubank", dia: 9, pessoa: "davi" },
+    { id: "nubank-gabriel", nome: "Nubank", dia: 20, pessoa: "gabriel" },
+  ];
+  const garantirFaturas = () => {
+    if (!Array.isArray(state.faturas) || !state.faturas.length) state.faturas = configFaturasPadrao();
+    return state.faturas;
+  };
+  const salvarConfig = async (patch, mensagem = "Alterações salvas.") => {
+    if (!window.CAIXA_FIREBASE || typeof window.CAIXA_FIREBASE.request !== "function") {
+      showToast("Firebase ainda não terminou de carregar.");
+      throw new Error("Firebase indisponível.");
+    }
+    try {
+      const res = await caixaApiRequest({
+        method: "POST",
+        body: JSON.stringify({ action: "saveConfig", payload: patch }),
+      });
+      if (!res.ok) throw new Error(`HTTP ${res.status}`);
+      const data = await res.json().catch(() => null);
+      if (data?.ok === false) throw new Error(data.error || "Não foi possível salvar.");
+      showToast(mensagem);
+      return data;
+    } catch (err) {
+      showToast("Não consegui salvar no Firebase agora.");
+      throw err;
+    }
+  };
+  const normalizarCategoria = c => ({
+    nome: String(c?.nome || "").trim(),
+    cor: /^#[0-9a-f]{6}$/i.test(String(c?.cor || "")) ? String(c.cor) : "#4a7866",
+  });
+  const categoriasLocais = () => (Array.isArray(state.categoriasConfig) ? state.categoriasConfig : []).map(normalizarCategoria).filter(c => c.nome);
+
+  function abrir() {
+    overlay.classList.remove("is-hidden");
+    overlay.classList.add("is-opening");
+    overlay.setAttribute("aria-hidden", "false");
+    document.body.classList.add("caixa-config-open");
+    setTimeout(() => overlay.classList.remove("is-opening"), 30);
+    mostrarView("home");
+    renderTudo();
+  }
+  function fechar() {
+    overlay.classList.add("is-hidden");
+    overlay.setAttribute("aria-hidden", "true");
+    document.body.classList.remove("caixa-config-open");
+    const trigger = document.getElementById("btnAbrirConfiguracoes");
+    trigger?.setAttribute("aria-expanded", "false");
+  }
+  function mostrarView(nome) {
+    viewAtual = nome;
+    home.classList.toggle("is-hidden", nome !== "home");
+    Object.entries(views).forEach(([key, el]) => el?.classList.toggle("is-hidden", key !== nome));
+    back.classList.toggle("is-hidden", nome === "home");
+    title.textContent = titles[nome] || titles.home;
+    if (nome === "categorias") renderCategorias();
+    if (nome === "ia") renderIA();
+    if (nome === "faturas") renderFaturas();
+  }
+
+  function renderCategorias() {
+    const wrap = document.getElementById("listaConfigCategorias");
+    if (!wrap) return;
+    const lista = categoriasLocais();
+    if (!lista.length) {
+      wrap.innerHTML = `<div class="caixa-config-empty">Nenhuma categoria cadastrada.</div>`;
+      return;
+    }
+    wrap.innerHTML = lista.map((cat, idx) => `
+      <div class="caixa-config-row" data-cat-index="${idx}">
+        <div class="caixa-config-row-main">
+          <div class="caixa-config-row-title">${escapeHtml(cat.nome)}</div>
+          <div class="caixa-config-row-sub">Cor da categoria</div>
+        </div>
+        <input class="caixa-config-color" type="color" value="${cat.cor}" aria-label="Cor de ${escapeHtml(cat.nome)}" data-cat-color="${idx}">
+        <div class="caixa-config-row-actions">
+          <button type="button" class="caixa-config-mini-btn" data-cat-edit="${idx}" aria-label="Editar ${escapeHtml(cat.nome)}">
+            <svg viewBox="0 0 24 24" fill="none"><path d="m4 16.5-.7 3.2 3.2-.7L18.8 6.7a2 2 0 0 0 0-2.8l-.7-.7a2 2 0 0 0-2.8 0L4 16.5Z" stroke="currentColor" stroke-width="1.7" stroke-linejoin="round"/><path d="m14 5 5 5" stroke="currentColor" stroke-width="1.7"/></svg>
+          </button>
+          <button type="button" class="caixa-config-mini-btn danger" data-cat-delete="${idx}" aria-label="Excluir ${escapeHtml(cat.nome)}">
+            <svg viewBox="0 0 24 24" fill="none"><path d="M5 7h14M9 7V4h6v3m-8 0 .8 13h8.4L17 7M10 11v6M14 11v6" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"/></svg>
+          </button>
+        </div>
+      </div>
+    `).join("");
+
+    wrap.querySelectorAll("[data-cat-color]").forEach(input => {
+      input.addEventListener("change", async () => {
+        const idx = Number(input.dataset.catColor);
+        const listaNova = categoriasLocais();
+        if (!listaNova[idx]) return;
+        listaNova[idx].cor = input.value;
+        state.categoriasConfig = listaNova;
+        marcarAlteracaoLocal();
+        try {
+          await salvarConfig({ categorias: listaNova });
+          popularSelectsDeCategoria();
+          renderAll();
+        } catch (_) {}
+      });
+    });
+    wrap.querySelectorAll("[data-cat-edit]").forEach(btn => {
+      btn.addEventListener("click", () => editarCategoria(Number(btn.dataset.catEdit)));
+    });
+    wrap.querySelectorAll("[data-cat-delete]").forEach(btn => {
+      btn.addEventListener("click", () => excluirCategoria(Number(btn.dataset.catDelete)));
+    });
+  }
+
+  async function salvarCategorias(listaNova, operacao = {}) {
+    const lista = listaNova.map(normalizarCategoria).filter(c => c.nome);
+    if (!lista.length) { showToast("Mantenha pelo menos uma categoria."); return false; }
+    const nomes = lista.map(c => c.nome.toLocaleLowerCase("pt-BR"));
+    if (new Set(nomes).size !== nomes.length) { showToast("Não pode haver categorias com o mesmo nome."); return false; }
+    try {
+      const res = await caixaApiRequest({
+        method: "POST",
+        body: JSON.stringify({
+          action: "saveCategorias",
+          payload: {
+            categorias: lista,
+            renomearDe: operacao.renomearDe || "",
+            renomearPara: operacao.renomearPara || "",
+            excluirNome: operacao.excluirNome || "",
+          }
+        })
+      });
+      if (!res.ok) throw new Error(`HTTP ${res.status}`);
+      const data = await res.json();
+      if (data?.ok === false) throw new Error(data.error || "Não foi possível salvar.");
+      state.categoriasConfig = lista;
+      marcarAlteracaoLocal();
+      popularSelectsDeCategoria();
+      renderAll();
+      showToast("Categorias atualizadas.");
+      return true;
+    } catch (err) {
+      showToast("Não consegui salvar as categorias agora.");
+      return false;
+    }
+  }
+
+  async function editarCategoria(idx) {
+    const lista = categoriasLocais();
+    const atual = lista[idx];
+    if (!atual) return;
+    const row = document.querySelector(`[data-cat-index="${idx}"]`);
+    if (!row) return;
+    row.innerHTML = `
+      <div class="caixa-config-edit">
+        <input type="text" value="${escapeHtml(atual.nome)}" maxlength="50" aria-label="Nome da categoria">
+        <input type="color" value="${atual.cor}" aria-label="Cor da categoria">
+        <button type="button" class="btn btn-gold btn-config-small">Salvar</button>
+      </div>`;
+    const [nomeInput, corInput] = row.querySelectorAll("input");
+    row.querySelector("button").addEventListener("click", async () => {
+      const novoNome = nomeInput.value.trim();
+      if (!novoNome) { showToast("Digite um nome para a categoria."); return; }
+      const duplicada = lista.some((c, i) => i !== idx && c.nome.toLocaleLowerCase("pt-BR") === novoNome.toLocaleLowerCase("pt-BR"));
+      if (duplicada) { showToast("Já existe uma categoria com esse nome."); return; }
+      const antiga = atual.nome;
+      lista[idx] = { nome: novoNome, cor: corInput.value };
+      await salvarCategorias(lista, { renomearDe: antiga, renomearPara: novoNome });
+      renderCategorias();
+    });
+    nomeInput.focus();
+    nomeInput.select();
+  }
+
+  async function excluirCategoria(idx) {
+    const lista = categoriasLocais();
+    const atual = lista[idx];
+    if (!atual) return;
+    if (!confirm(`Excluir a categoria "${atual.nome}"? Lançamentos antigos dessa categoria serão movidos para "Outro" quando essa categoria existir.`)) return;
+    if (lista.length === 1) { showToast("Você precisa manter pelo menos uma categoria."); return; }
+    lista.splice(idx, 1);
+    const ok = await salvarCategorias(lista, { excluirNome: atual.nome });
+    if (ok) renderCategorias();
+  }
+
+  async function novaCategoria() {
+    const nome = prompt("Nome da nova categoria:");
+    if (!nome) return;
+    const nomeLimpo = nome.trim();
+    if (!nomeLimpo) return;
+    const lista = categoriasLocais();
+    if (lista.some(c => c.nome.toLocaleLowerCase("pt-BR") === nomeLimpo.toLocaleLowerCase("pt-BR"))) {
+      showToast("Essa categoria já existe.");
+      return;
+    }
+    const cor = prompt("Cor da categoria (hex, ex.: #4a7866):", "#4a7866") || "#4a7866";
+    lista.push(normalizarCategoria({ nome: nomeLimpo, cor }));
+    const ok = await salvarCategorias(lista);
+    if (ok) renderCategorias();
+  }
+
+  function iaConfigAtual() {
+    const cfg = clone(state.iaConfig || {});
+    cfg.davi = Array.isArray(cfg.davi) ? cfg.davi : [];
+    cfg.gabriel = Array.isArray(cfg.gabriel) ? cfg.gabriel : [];
+    cfg.ambos = Array.isArray(cfg.ambos) ? cfg.ambos : [];
+    cfg.tomDavi = String(cfg.tomDavi || "");
+    cfg.tomGabriel = String(cfg.tomGabriel || "");
+    cfg.tomAmbos = String(cfg.tomAmbos || "natural, equilibrado e conversado, falando com vocês dois");
+    return cfg;
+  }
+  function renderIA() {
+    const cfg = iaConfigAtual();
+    const tom = iaPessoa === "gabriel" ? cfg.tomGabriel : iaPessoa === "ambos" ? cfg.tomAmbos : cfg.tomDavi;
+    document.querySelectorAll("[data-ia-pessoa]").forEach(btn => btn.classList.toggle("is-active", btn.dataset.iaPessoa === iaPessoa));
+    const textarea = document.getElementById("configIATom");
+    textarea.value = tom;
+    textarea.disabled = false;
+    textarea.placeholder = "Descreva como a IA deve falar…";
+    const lista = document.getElementById("listaConfigImersao");
+    const imersoes = Array.isArray(cfg[iaPessoa]) ? cfg[iaPessoa] : [];
+    if (!imersoes.length) {
+      lista.innerHTML = `<div class="caixa-config-empty">Nenhuma informação cadastrada para esta pessoa.</div>`;
+    } else {
+      lista.innerHTML = imersoes.map((item, idx) => `
+        <div class="caixa-config-immersion-row" data-immersion-index="${idx}">
+          <textarea rows="2" aria-label="Informação de imersão">${escapeHtml(String(item))}</textarea>
+          <button type="button" class="caixa-config-mini-btn danger" data-immersion-delete="${idx}" aria-label="Excluir informação">
+            <svg viewBox="0 0 24 24" fill="none"><path d="M5 7h14M9 7V4h6v3m-8 0 .8 13h8.4L17 7M10 11v6M14 11v6" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"/></svg>
+          </button>
+        </div>`).join("");
+      lista.querySelectorAll("textarea").forEach((el, idx) => {
+        el.addEventListener("input", () => { cfg[iaPessoa][idx] = el.value; state._iaConfigEdicao = cfg; });
+      });
+      lista.querySelectorAll("[data-immersion-delete]").forEach(btn => {
+        btn.addEventListener("click", () => {
+          const index = Number(btn.dataset.immersionDelete);
+          cfg[iaPessoa].splice(index, 1);
+          state._iaConfigEdicao = cfg;
+          renderIA();
+        });
+      });
+    }
+    state._iaConfigEdicao = cfg;
+  }
+
+  async function salvarIA() {
+    const cfg = state._iaConfigEdicao ? clone(state._iaConfigEdicao) : iaConfigAtual();
+    const textarea = document.getElementById("configIATom");
+    if (iaPessoa === "davi") cfg.tomDavi = textarea.value.trim();
+    if (iaPessoa === "gabriel") cfg.tomGabriel = textarea.value.trim();
+    if (iaPessoa === "ambos") cfg.tomAmbos = textarea.value.trim();
+    try {
+      await salvarConfig({ iaConfig: cfg }, "Configuração da IA salva.");
+      state.iaConfig = cfg;
+      try { localStorage.setItem("caixa-ia-config-v1", JSON.stringify({ data: cfg, expira: Date.now() + 86400000 })); } catch (_) {}
+      document.dispatchEvent(new CustomEvent("caixa:ia-config-atualizada"));
+      renderIA();
+    } catch (_) {}
+  }
+
+  function novaImersao() {
+    const texto = prompt("O que a IA deve saber sobre você? Ex.: Gosto muito de RPG.");
+    if (!texto?.trim()) return;
+    const cfg = iaConfigAtual();
+    cfg[iaPessoa].push(texto.trim());
+    state._iaConfigEdicao = cfg;
+    renderIA();
+  }
+
+  function faturasPessoa() {
+    return garantirFaturas().filter(f => String(f?.pessoa || "davi") === faturaPessoa);
+  }
+  function renderFaturas() {
+    garantirFaturas();
+    document.querySelectorAll("[data-fatura-pessoa]").forEach(btn => btn.classList.toggle("is-active", btn.dataset.faturaPessoa === faturaPessoa));
+    const wrap = document.getElementById("listaConfigFaturas");
+    const lista = faturasPessoa();
+    if (!lista.length) {
+      wrap.innerHTML = `<div class="caixa-config-empty">Nenhuma fatura cadastrada para ${faturaPessoa === "davi" ? "Davi" : "Gabriel"}.</div>`;
+      return;
+    }
+    wrap.innerHTML = lista.map(f => `
+      <div class="caixa-config-row" data-fatura-id="${escapeHtml(String(f.id))}">
+        <div class="caixa-config-row-main">
+          <div class="caixa-config-row-title">${escapeHtml(String(f.nome || "Fatura"))}</div>
+          <div class="caixa-config-fatura-meta"><span class="caixa-config-fatura-owner">${faturaPessoa === "davi" ? "Davi" : "Gabriel"}</span><span>•</span><span>vence todo dia ${Number(f.dia) || 1}</span></div>
+        </div>
+        <div class="caixa-config-row-actions">
+          <button type="button" class="caixa-config-mini-btn" data-fatura-edit="${escapeHtml(String(f.id))}" aria-label="Editar fatura">
+            <svg viewBox="0 0 24 24" fill="none"><path d="m4 16.5-.7 3.2 3.2-.7L18.8 6.7a2 2 0 0 0 0-2.8l-.7-.7a2 2 0 0 0-2.8 0L4 16.5Z" stroke="currentColor" stroke-width="1.7" stroke-linejoin="round"/><path d="m14 5 5 5" stroke="currentColor" stroke-width="1.7"/></svg>
+          </button>
+          <button type="button" class="caixa-config-mini-btn danger" data-fatura-delete="${escapeHtml(String(f.id))}" aria-label="Excluir fatura">
+            <svg viewBox="0 0 24 24" fill="none"><path d="M5 7h14M9 7V4h6v3m-8 0 .8 13h8.4L17 7M10 11v6M14 11v6" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"/></svg>
+          </button>
+        </div>
+      </div>`).join("");
+    wrap.querySelectorAll("[data-fatura-edit]").forEach(btn => btn.addEventListener("click", () => editarFatura(String(btn.dataset.faturaEdit))));
+    wrap.querySelectorAll("[data-fatura-delete]").forEach(btn => btn.addEventListener("click", () => excluirFatura(String(btn.dataset.faturaDelete))));
+  }
+
+  async function salvarFaturas(lista) {
+    const normalizada = lista.map(f => ({
+      id: String(f.id || "").trim(),
+      nome: String(f.nome || "").trim(),
+      dia: Math.max(1, Math.min(31, Number(f.dia) || 1)),
+      pessoa: String(f.pessoa || "davi") === "gabriel" ? "gabriel" : "davi",
+    })).filter(f => f.id && f.nome);
+    if (!normalizada.length) { showToast("Mantenha pelo menos uma fatura."); return false; }
+    const ids = normalizada.map(f => f.id);
+    if (new Set(ids).size !== ids.length) { showToast("As faturas precisam ter identificadores diferentes."); return false; }
+    try {
+      await salvarConfig({ faturas: normalizada }, "Faturas atualizadas.");
+      state.faturas = normalizada;
+      marcarAlteracaoLocal();
+      return true;
+    } catch (_) { return false; }
+  }
+
+  async function novaFatura() {
+    const nome = prompt(`Nome da nova fatura de ${faturaPessoa === "davi" ? "Davi" : "Gabriel"}:`, "Novo cartão");
+    if (!nome?.trim()) return;
+    const dia = Number(prompt("Dia do vencimento (1 a 31):", "10"));
+    if (!(dia >= 1 && dia <= 31)) { showToast("Informe um dia entre 1 e 31."); return; }
+    const lista = garantirFaturas().slice();
+    lista.push({
+      id: `${faturaPessoa}-${Date.now().toString(36)}`,
+      nome: nome.trim(),
+      dia,
+      pessoa: faturaPessoa
+    });
+    if (await salvarFaturas(lista)) renderFaturas();
+  }
+
+  async function editarFatura(id) {
+    const lista = garantirFaturas().slice();
+    const idx = lista.findIndex(f => String(f.id) === id);
+    if (idx < 0) return;
+    const atual = lista[idx];
+    const row = document.querySelector(`[data-fatura-id="${CSS.escape(id)}"]`);
+    if (!row) return;
+    row.innerHTML = `
+      <div class="caixa-config-fatura-edit">
+        <input type="text" maxlength="50" value="${escapeHtml(String(atual.nome || ""))}" aria-label="Nome da fatura">
+        <input type="number" min="1" max="31" value="${Number(atual.dia) || 1}" aria-label="Dia de vencimento">
+        <button type="button" class="btn btn-gold btn-config-small">Salvar</button>
+      </div>`;
+    const inputs = row.querySelectorAll("input");
+    row.querySelector("button").addEventListener("click", async () => {
+      const nome = inputs[0].value.trim();
+      const dia = Number(inputs[1].value);
+      if (!nome || dia < 1 || dia > 31) { showToast("Preencha nome e dia de vencimento."); return; }
+      lista[idx] = {...atual,nome,dia};
+      if (await salvarFaturas(lista)) renderFaturas();
+    });
+    inputs[0].focus();
+    inputs[0].select();
+  }
+
+  async function excluirFatura(id) {
+    const lista = garantirFaturas().slice();
+    const idx = lista.findIndex(f => String(f.id) === id);
+    if (idx < 0) return;
+    if (lista.filter(f => f.pessoa === faturaPessoa).length <= 1) {
+      showToast("Mantenha pelo menos uma fatura para essa pessoa.");
+      return;
+    }
+    if (!confirm(`Excluir a fatura "${lista[idx].nome}"?`)) return;
+    lista.splice(idx,1);
+    if (await salvarFaturas(lista)) renderFaturas();
+  }
+
+  function renderTudo() {
+    if (viewAtual === "categorias") renderCategorias();
+    if (viewAtual === "ia") renderIA();
+    if (viewAtual === "faturas") renderFaturas();
+  }
+
+  document.getElementById("btnAbrirConfiguracoes")?.addEventListener("click", abrir);
+  close.addEventListener("click", fechar);
+  overlay.addEventListener("click", e => { if (e.target === overlay) fechar(); });
+  back.addEventListener("click", () => mostrarView("home"));
+  document.addEventListener("keydown", e => { if (e.key === "Escape" && !overlay.classList.contains("is-hidden")) fechar(); });
+
+  document.querySelectorAll("[data-config-view]").forEach(btn => {
+    btn.addEventListener("click", () => mostrarView(btn.dataset.configView));
+  });
+  document.getElementById("btnNovaCategoria")?.addEventListener("click", novaCategoria);
+  document.querySelectorAll("[data-ia-pessoa]").forEach(btn => btn.addEventListener("click", () => {
+    iaPessoa = btn.dataset.iaPessoa || "davi";
+    renderIA();
+  }));
+  document.getElementById("btnNovaImersao")?.addEventListener("click", novaImersao);
+  document.getElementById("btnSalvarConfigIA")?.addEventListener("click", salvarIA);
+  document.querySelectorAll("[data-fatura-pessoa]").forEach(btn => btn.addEventListener("click", () => {
+    faturaPessoa = btn.dataset.faturaPessoa || "davi";
+    renderFaturas();
+  }));
+  document.getElementById("btnNovaFatura")?.addEventListener("click", novaFatura);
+
+  window.CAIXA_CONFIG = {
+    abrir,
+    fechar,
+    mostrarView,
+    renderCategorias,
+    renderIA,
+    renderFaturas
+  };
 })();
