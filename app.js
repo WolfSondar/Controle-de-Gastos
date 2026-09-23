@@ -1068,15 +1068,16 @@ async function carregarDados() {
       renderMesAtual();
     }
     state.loaded = true;
-    const temaAntesCache = window.CAIXA_TEMA_ATIVO?.() || "default";
-    const temaDepoisCache = window.CAIXA_SINCRONIZAR_TEMA_SAZONAL?.() || temaAntesCache;
+    // O cache já pode conter as regras sazonais da última sincronização.
+    // Primeiro decidimos o tema e depois renderizamos o DOM; só então criamos
+    // árvores, neve, morcegos e terreno. Assim nenhuma camada é criada antes
+    // do Hero existir.
+    const temaDepoisCache = window.CAIXA_SINCRONIZAR_TEMA_SAZONAL?.() || "default";
     window.CAIXA_GARANTIR_CSS_TEMA?.(temaDepoisCache);
     popularSelectsDeCategoria();
     renderAll();
-    if (temaAntesCache !== temaDepoisCache) {
-      atualizarCamadasTemas();
-      renderVisaoGeral();
-    }
+    atualizarCamadasTemas();
+    renderVisaoGeral();
   } else {
     renderSkeletons();
   }
@@ -1144,21 +1145,21 @@ async function carregarDados() {
     renderMesAtual();
     setCache(pessoaRequisitada, data);
 
-    // Depois que as regras reais do Firebase chegaram, decide primeiro se há
-    // um tema sazonal para aplicar ou remover. Só então atualizamos a interface.
-    const temaAntes = window.CAIXA_TEMA_ATIVO?.() || "default";
-    const temaDepois = window.CAIXA_SINCRONIZAR_TEMA_SAZONAL?.() || temaAntes;
+    // Depois que as regras reais do Firebase chegaram, decide o tema.
+    // Aplique a camada visual somente depois de o conteúdo ter sido renderizado.
+    // Isso é importante no primeiro carregamento: o Hero pode ainda não existir
+    // quando a decisão do tema acontece.
+    const temaDepois = window.CAIXA_SINCRONIZAR_TEMA_SAZONAL?.() || "default";
     window.CAIXA_GARANTIR_CSS_TEMA?.(temaDepois);
-    if (temaAntes !== temaDepois) {
-      window.CAIXA_ATUALIZAR_CAMADAS_TEMAS?.();
-      window.CAIXA_RENDER_TEMAS?.();
-      renderVisaoGeral();
-    }
 
     setSyncState("idle");
     if (Object.values(mudancas).some(Boolean)) {
       renderIncremental(mudancas);
+    } else {
+      renderAll();
     }
+    atualizarCamadasTemas();
+    renderVisaoGeral();
     prefetchOutrasPessoas(pessoaRequisitada);
   } catch (err) {
     if (state.pessoaAtual !== pessoaRequisitada) return;
@@ -9045,15 +9046,17 @@ if (document.readyState === "loading") {
     if (viewAtual === "admin" && state.pessoaAtual !== "davi") mostrarView("home");
   });
 
-  renderTemas();
+  // O tema sazonal inicial só é decidido depois de carregar cache/Firebase.
+  // Isso evita o efeito de "Padrão -> neve -> tema final" durante a abertura.
   // Verifica a virada de período sem exigir que o usuário recarregue a página.
   window.setInterval(() => {
     const antes = caixaTemaAtivoGlobal();
     const depois = sincronizarTemaSazonal();
     if (antes !== depois) {
-      atualizarCamadasTemas();
+      garantirCssTema(depois);
       renderTemas();
     }
+    atualizarCamadasTemas();
   }, 60 * 1000);
 
   // O forçamento é uma configuração global. O Firebase usado pelo projeto
@@ -9075,10 +9078,13 @@ if (document.readyState === "loading") {
       const depois = sincronizarTemaSazonal();
       garantirCssTema(depois);
       if (antes !== depois) {
-        atualizarCamadasTemas();
         renderTemas();
-        renderVisaoGeral();
       }
+      // Mesmo que o ID do tema não tenha mudado, a camada pode não existir
+      // após um reload. Reaplicar aqui garante cenário + terreno + neve.
+      garantirCssTema(depois);
+      atualizarCamadasTemas();
+      renderVisaoGeral();
     } catch (_) {
       // Uma falha pontual de rede não altera o tema atual.
     } finally {
