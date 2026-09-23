@@ -966,6 +966,52 @@ window.addEventListener("popstate", () => {
 
 const FECHADORES_MODAL = {};
 
+function caixaTemaAtivoGlobal() {
+  try { return localStorage.getItem("caixa-tema-estilo-v1") || "default"; } catch (_) { return "default"; }
+}
+
+function caixaTemaPodeSerUsadoGlobal(id) {
+  if (id === "default") return true;
+  const cfg = state.temasConfig || {};
+  const regra = cfg[id];
+  // Sem configuração do Admin, o tema não é sazonal e não assume o sistema.
+  if (!regra) return false;
+  if (regra.permanente === true) return true;
+  if (regra.permanente !== false) return false;
+  const hoje = new Date();
+  const inicio = regra.inicio ? new Date(`${regra.inicio}T00:00:00`) : null;
+  const fim = regra.fim ? new Date(`${regra.fim}T23:59:59`) : null;
+  if (!inicio || !fim || Number.isNaN(inicio.getTime()) || Number.isNaN(fim.getTime())) return false;
+  return hoje >= inicio && hoje <= fim;
+}
+
+function caixaGarantirCssTemaGlobal(id) {
+  if (id !== "halloween") return;
+  const href = new URL("themes/halloween.css", document.baseURI).href;
+  if ([...document.querySelectorAll('link[data-caixa-theme-css="halloween"]')].some(link => link.href === href)) return;
+  const link = document.createElement("link");
+  link.rel = "stylesheet"; link.href = href; link.dataset.caixaThemeCss = "halloween";
+  document.head.appendChild(link);
+}
+
+function caixaSincronizarTemaSazonalGlobal() {
+  const sazonais = ["christmas", "halloween"];
+  const disponiveis = sazonais.filter(id => {
+    const regra = (state.temasConfig || {})[id];
+    return regra && regra.permanente === false && caixaTemaPodeSerUsadoGlobal(id);
+  });
+  let ativo = caixaTemaAtivoGlobal();
+  if (ativo !== "default" && !caixaTemaPodeSerUsadoGlobal(ativo)) ativo = "default";
+  else if (ativo === "default" && disponiveis.length) ativo = disponiveis[0];
+  try { localStorage.setItem("caixa-tema-estilo-v1", ativo); } catch (_) {}
+  document.documentElement.dataset.caixaTheme = ativo;
+  return ativo;
+}
+
+window.CAIXA_TEMA_ATIVO = caixaTemaAtivoGlobal;
+window.CAIXA_SINCRONIZAR_TEMA_SAZONAL = caixaSincronizarTemaSazonalGlobal;
+window.CAIXA_GARANTIR_CSS_TEMA = caixaGarantirCssTemaGlobal;
+
 async function carregarDados() {
   if (window.CAIXA_FIREBASE_READY) await window.CAIXA_FIREBASE_READY.catch(() => null);
   if (!temBackendDados()) {
@@ -1003,9 +1049,9 @@ async function carregarDados() {
       renderMesAtual();
     }
     state.loaded = true;
-    const temaAntesCache = temaAtivo();
-    const temaDepoisCache = sincronizarTemaSazonal();
-    garantirCssTema(temaDepoisCache);
+    const temaAntesCache = window.CAIXA_TEMA_ATIVO?.() || "default";
+    const temaDepoisCache = window.CAIXA_SINCRONIZAR_TEMA_SAZONAL?.() || temaAntesCache;
+    window.CAIXA_GARANTIR_CSS_TEMA?.(temaDepoisCache);
     popularSelectsDeCategoria();
     renderAll();
     if (temaAntesCache !== temaDepoisCache) {
@@ -1081,12 +1127,12 @@ async function carregarDados() {
 
     // Depois que as regras reais do Firebase chegaram, decide primeiro se há
     // um tema sazonal para aplicar ou remover. Só então atualizamos a interface.
-    const temaAntes = temaAtivo();
-    const temaDepois = sincronizarTemaSazonal();
-    garantirCssTema(temaDepois);
+    const temaAntes = window.CAIXA_TEMA_ATIVO?.() || "default";
+    const temaDepois = window.CAIXA_SINCRONIZAR_TEMA_SAZONAL?.() || temaAntes;
+    window.CAIXA_GARANTIR_CSS_TEMA?.(temaDepois);
     if (temaAntes !== temaDepois) {
-      atualizarCamadasTemas();
-      renderTemas();
+      window.CAIXA_ATUALIZAR_CAMADAS_TEMAS?.();
+      window.CAIXA_RENDER_TEMAS?.();
       renderVisaoGeral();
     }
 
@@ -8460,7 +8506,7 @@ if (document.readyState === "loading") {
     style.id = id;
     style.textContent = `
       html[data-caixa-theme="christmas"] .caixa-christmas-scenery{
-        position:absolute;left:0;right:0;bottom:0;height:86px;z-index:40;
+        position:absolute;left:0;right:0;bottom:0;height:86px;z-index:70;
         pointer-events:none;overflow:visible;
       }
       html[data-caixa-theme="christmas"] .christmas-scenery-item{
@@ -8469,16 +8515,16 @@ if (document.readyState === "loading") {
         transform-origin:50% 100%;
         font-family:"Segoe UI Emoji","Apple Color Emoji","Noto Color Emoji",sans-serif;
         user-select:none;filter:drop-shadow(0 3px 5px rgba(42,52,68,.18));
-        z-index:41;
+        z-index:71;
       }
       html[data-caixa-theme="christmas"] .christmas-scenery-item.tree{font-size:52px}
       html[data-caixa-theme="christmas"] .christmas-scenery-item.pine{font-size:45px;opacity:.90}
-      html[data-caixa-theme="christmas"] .christmas-scenery-item.snowman{font-size:36px;z-index:42}
+      html[data-caixa-theme="christmas"] .christmas-scenery-item.snowman{font-size:36px;z-index:72}
       html[data-caixa-theme="christmas"] .hero-stats-toggle,
       html[data-caixa-theme="christmas"] .hero .collapse-toggle,
       html[data-caixa-theme="christmas"] .hero .btn-expandir,
       html[data-caixa-theme="christmas"] .hero .btn-recolher{
-        position:relative !important;z-index:30 !important;
+        position:relative !important;z-index:90 !important;
       }
       html[data-caixa-theme="christmas"] .caixa-christmas-snow-cap{
         position:absolute;left:-1px;right:-1px;top:-1px;height:20px;
@@ -8513,11 +8559,11 @@ if (document.readyState === "loading") {
     // Composição fixa para manter o centro livre para o botão de recolher.
     // Exatamente: 1 🎄, 3 🌲 e 1 ⛄.
     const itens = [
-      { cls: "tree", x: 11, s: .92, emoji: "🎄" },
-      { cls: "pine pine-one", x: 28, s: .68, emoji: "🌲" },
-      { cls: "snowman", x: 70, s: .70, emoji: "⛄" },
-      { cls: "pine pine-two", x: 78, s: .58, emoji: "🌲" },
-      { cls: "pine pine-three", x: 90, s: .64, emoji: "🌲" }
+      { cls: "tree", x: 9,  s: .94, emoji: "🎄" },
+      { cls: "pine pine-one", x: 24, s: .56, emoji: "🌲" },
+      { cls: "snowman", x: 62, s: .70, emoji: "⛄" },
+      { cls: "pine pine-two", x: 76, s: .78, emoji: "🌲" },
+      { cls: "pine pine-three", x: 91, s: .50, emoji: "🌲" }
     ];
 
     wrap.innerHTML = "";
@@ -8526,7 +8572,7 @@ if (document.readyState === "loading") {
       el.className = `christmas-scenery-item ${item.cls}`;
       el.textContent = item.emoji;
       el.style.left = `${item.x}%`;
-      el.style.bottom = item.cls === "snowman" ? "2px" : "0px";
+      el.style.bottom = item.cls === "snowman" ? "2px" : `${2 + (idx % 3) * 3}px`;
       el.style.setProperty("--scene-scale", String(item.s));
       el.style.setProperty("--scene-delay", `${idx * -1.1}s`);
       wrap.appendChild(el);
@@ -8617,6 +8663,8 @@ if (document.readyState === "loading") {
     if(!ativo){document.querySelectorAll(".caixa-halloween-scenery").forEach(el=>el.remove());document.querySelectorAll("[data-slime-profile]").forEach(el=>{el.style.removeProperty("--slime-image");delete el.dataset.slimeProfile}); document.querySelectorAll(".caixa-halloween-terrain").forEach(el=>el.remove()); document.querySelectorAll("[data-halloween-terrain]").forEach(el=>{el.style.removeProperty("--halloween-terrain-image");delete el.dataset.halloweenTerrain})}
   }
   function atualizarCamadasTemas(){atualizarCamadaTemaNatal();atualizarCamadaTemaHalloween()}
+  window.CAIXA_ATUALIZAR_CAMADAS_TEMAS = atualizarCamadasTemas;
+  window.CAIXA_RENDER_TEMAS = () => renderTemas();
   function atualizarCamadaTemaNatal() {
     const natal = document.documentElement.dataset.caixaTheme === "christmas";
     const layer = document.getElementById("caixaChristmasSnow");
