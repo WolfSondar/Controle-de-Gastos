@@ -8329,8 +8329,8 @@ if (document.readyState === "loading") {
   }
 
   const ADMIN_TEMA_PADRAO = {
-    christmas: { nome: "Natal", icone: "🎄", descricao: "Tema natalino", inicio: "2026-12-01", fim: "2026-12-31" },
-    halloween: { nome: "Halloween", icone: "🎃", descricao: "Abóboras, morcegos e slime encantado.", inicio: "2026-10-01", fim: "2026-10-31" },
+    christmas: { nome: "Natal", icone: "🎄", descricao: "Tema natalino", inicio: "2026-12-01", fim: "2026-12-31", permanente: false },
+    halloween: { nome: "Halloween", icone: "🎃", descricao: "Abóboras, morcegos e slime encantado.", inicio: "2026-10-01", fim: "2026-10-31", permanente: false },
   };
 
   function idsDeTemasConfiguraveis() {
@@ -8708,19 +8708,25 @@ if (document.readyState === "loading") {
   function limparSazonalidadeForaDoAdmin() {
     const admin = document.getElementById("caixaConfigAdmin");
 
-    // Remove shells antigos criados fora do Admin.
-    document.querySelectorAll("#caixaAdminTemasSazonais, #caixaAdminHalloweenTema").forEach(el => {
+    // Remove qualquer card legado que tenha sido criado fora do Admin.
+    document.querySelectorAll("#caixaAdminTemasSazonais, #caixaAdminHalloweenTema, .caixa-admin-seasonal-shell").forEach(el => {
       if (!admin?.contains(el)) el.remove();
     });
 
-    // Uma versão anterior podia deixar dois cards de sazonalidade no Admin.
-    // Mantemos apenas um shell oficial.
     if (admin) {
-      const shells = [...admin.querySelectorAll("#caixaAdminTemasSazonais, .caixa-admin-seasonal-shell")];
-      shells.slice(1).forEach(el => el.remove());
+      // Versões antigas podiam criar cards com classes diferentes, mas com o
+      // mesmo título. Mantenha somente um card oficial de sazonalidade.
+      const candidatos = [...admin.querySelectorAll("section, .caixa-config-card, .caixa-settings-card, .settings-card, .config-card, .card")];
+      const sazonalidade = candidatos.filter(card => {
+        if (card.id === "caixaAdminTemasSazonais" || card.classList.contains("caixa-admin-seasonal-shell")) return true;
+        const titulo = card.querySelector(":scope > h2, :scope > h3, :scope > h4, :scope > .caixa-config-section-title, :scope > .caixa-section-title, :scope > .section-title, .caixa-admin-seasonal-head h3");
+        return String(titulo?.textContent || "").trim().toLowerCase() === "sazonalidade dos temas";
+      });
+      sazonalidade.slice(1).forEach(el => el.remove());
     }
 
-    // Versões anteriores usavam estes IDs diretamente. Remova o card legado.
+    // Versões anteriores usavam estes IDs diretamente. Remova o card legado
+    // somente quando ele estiver fora do Admin oficial.
     const idsLegados = [
       "temaNatalInicio", "temaNatalFim", "temaNatalPermanente",
       "temaHalloweenInicio", "temaHalloweenFim", "temaHalloweenPermanente"
