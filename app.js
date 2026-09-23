@@ -4069,10 +4069,10 @@ function renderVisaoGeral() {
   const corte1 = pctGuardado;
   const corte2 = pctGuardado + pctGastos;
 
-  const temaEspecial = ["christmas", "halloween"].includes(document.documentElement.dataset.caixaTheme);
-  const corGuardado = temaEspecial ? "var(--theme-summary-saved)" : "var(--gold)";
-  const corGastos = temaEspecial ? "var(--theme-summary-expense)" : "var(--expense)";
-  const corLivre = temaEspecial ? "var(--theme-summary-free)" : "var(--income)";
+  const temaNatal = document.documentElement.dataset.caixaTheme === "christmas";
+  const corGuardado = temaNatal ? "var(--christmas-summary-saved)" : "var(--gold)";
+  const corGastos = temaNatal ? "var(--christmas-summary-expense)" : "var(--expense)";
+  const corLivre = temaNatal ? "var(--christmas-summary-free)" : "var(--income)";
   if (donut) {
     donut.style.background = `conic-gradient(${corGuardado} 0% ${corte1}%, ${corGastos} ${corte1}% ${corte2}%, ${corLivre} ${corte2}% 100%)`;
   }
@@ -4125,10 +4125,10 @@ function renderSplit() {
   const corte2 = pctDavi + pctGabriel;
 
   const donut = document.getElementById("splitDonut");
-  const temaEspecial = ["christmas", "halloween"].includes(document.documentElement.dataset.caixaTheme);
-  const corPessoaA = temaEspecial ? "var(--theme-summary-free)" : "var(--income)";
-  const corPessoaB = temaEspecial ? "var(--theme-summary-expense)" : "var(--expense)";
-  const corRestante = temaEspecial ? "var(--theme-summary-rest)" : "var(--line-soft)";
+  const temaNatal = document.documentElement.dataset.caixaTheme === "christmas";
+  const corPessoaA = temaNatal ? "var(--christmas-summary-free)" : "var(--income)";
+  const corPessoaB = temaNatal ? "var(--christmas-summary-expense)" : "var(--expense)";
+  const corRestante = temaNatal ? "var(--christmas-summary-rest)" : "var(--line-soft)";
   if (donut) {
     donut.style.background = `conic-gradient(${corPessoaA} 0% ${corte1}%, ${corPessoaB} ${corte1}% ${corte2}%, ${corRestante} ${corte2}% 100%)`;
   }
@@ -8328,64 +8328,10 @@ if (document.readyState === "loading") {
     });
   }
 
-  const ADMIN_TEMA_PADRAO = {
-    christmas: { nome: "Natal", icone: "🎄", descricao: "Tema natalino", inicio: "2026-12-01", fim: "2026-12-31", permanente: false },
-    halloween: { nome: "Halloween", icone: "🎃", descricao: "Abóboras, morcegos e slime encantado.", inicio: "2026-10-01", fim: "2026-10-31", permanente: false },
-  };
-
-  function idsDeTemasConfiguraveis() {
-    const ids = new Set();
-    const view = document.getElementById("caixaConfigTema");
-    const container = view ? encontrarContainerTemas() : null;
-    (container ? container.querySelectorAll("[data-caixa-theme]") : []).forEach(btn => {
-      const id = String(btn.dataset.caixaTheme || "").trim();
-      if (id && id !== "default") ids.add(id);
-    });
-    Object.keys(state.temasConfig || {}).forEach(id => {
-      if (id && id !== "default") ids.add(id);
-    });
-    ["christmas", "halloween"].forEach(id => ids.add(id));
-    return [...ids];
-  }
-
-  function infoAdminTema(id) {
-    const padrao = ADMIN_TEMA_PADRAO[id] || {};
-    const view = document.getElementById("caixaConfigTema");
-    const container = view ? encontrarContainerTemas() : null;
-    const btn = [...(container?.querySelectorAll("[data-caixa-theme]") || [])].find(el => String(el.dataset.caixaTheme || "") === String(id));
-    const titulo = btn?.querySelector("strong")?.textContent?.trim() || btn?.textContent?.trim() || id;
-    const descricao = btn?.querySelector("small")?.textContent?.trim() || padrao.descricao || "Tema especial do Caixa.";
-    return {
-      nome: padrao.nome || titulo || id,
-      icone: padrao.icone || (id === "christmas" ? "🎄" : id === "halloween" ? "🎃" : "✨"),
-      descricao: padrao.descricao || descricao,
-      inicio: padrao.inicio || "",
-      fim: padrao.fim || ""
-    };
-  }
-
-  function regraTema(id) {
-    const padrao = ADMIN_TEMA_PADRAO[id] || {};
-    const salvo = (state.temasConfig || {})[id] || {};
-    // O Admin é a fonte absoluta das regras. Sem uma regra salva, o tema
-    // especial não é considerado permanente nem disponível por padrão.
-    const permanente = Object.prototype.hasOwnProperty.call(salvo, "permanente")
-      ? salvo.permanente === true
-      : Object.prototype.hasOwnProperty.call(salvo, "sempreDisponivel")
-        ? salvo.sempreDisponivel === true
-        : false;
-    return {
-      inicio: Object.prototype.hasOwnProperty.call(salvo, "inicio") ? salvo.inicio : (padrao.inicio || ""),
-      fim: Object.prototype.hasOwnProperty.call(salvo, "fim") ? salvo.fim : (padrao.fim || ""),
-      permanente
-    };
-  }
-
   function temaPodeSerUsado(id) {
     if (id === "default") return true;
-    const regra = regraTema(id);
-    // Tema marcado como "Sempre disponível" aparece sempre na lista,
-    // independentemente das datas preenchidas.
+    const cfg = state.temasConfig || {};
+    const regra = cfg[id] || (id === "christmas" ? { permanente: true, inicio: "2026-12-01", fim: "2026-12-31" } : {});
     if (regra.permanente) return true;
     const hoje = new Date();
     const inicio = regra.inicio ? new Date(`${regra.inicio}T00:00:00`) : null;
@@ -8393,141 +8339,23 @@ if (document.readyState === "loading") {
     if (!inicio || !fim || Number.isNaN(inicio.getTime()) || Number.isNaN(fim.getTime())) return false;
     return hoje >= inicio && hoje <= fim;
   }
-  function garantirCssTema(id) {
-    if (id !== "halloween") return;
-    const href = new URL("themes/halloween.css", document.baseURI).href;
-    if ([...document.querySelectorAll('link[data-caixa-theme-css="halloween"]')].some(link => link.href === href)) return;
-    const link = document.createElement("link");
-    link.rel = "stylesheet"; link.href = href; link.dataset.caixaThemeCss = "halloween";
-    document.head.appendChild(link);
-  }
-
   function temaAtivo() {
-    try {
-      const id = localStorage.getItem("caixa-tema-estilo-v1");
-      return id || "default";
-    } catch (_) {
-      return document.documentElement.dataset.caixaTheme || "default";
-    }
-  }
-
-  function garantirEstilosTemasEspeciais() {
-    if (document.getElementById("caixa-special-themes-style")) return;
-    const style = document.createElement("style");
-    style.id = "caixa-special-themes-style";
-    style.textContent = `
-      #caixaSpecialThemesSection{margin-top:22px;padding-top:4px;}
-      #caixaSpecialThemesSection .caixa-special-themes-head{margin:0 0 10px;}
-      #caixaSpecialThemesSection .caixa-special-themes-head h3{margin:0 0 4px;font-family:Fraunces,serif;font-size:19px;color:var(--ink-text);}
-      #caixaSpecialThemesSection .caixa-special-themes-head p{margin:0;font-size:11px;line-height:1.45;color:var(--muted);}
-      #caixaSpecialThemeOptions{display:flex;flex-direction:column;gap:9px;}
-      #caixaSpecialThemeOptions .caixa-theme-option{box-sizing:border-box;}
-      html[data-caixa-theme="christmas"]{
-        --theme-summary-saved:#9ee9ff;
-        --theme-summary-expense:#5b8fe8;
-        --theme-summary-free:#d9f6ff;
-        --theme-summary-rest:#274f75;
-      }
-      html[data-caixa-theme="christmas"] .visao-geral-bar,
-      html[data-caixa-theme="christmas"] .overview-bar,
-      html[data-caixa-theme="christmas"] .chart-bar,
-      html[data-caixa-theme="christmas"] .bar-fill,
-      html[data-caixa-theme="christmas"] .grafico-barra-fill{
-        background:linear-gradient(180deg,#c8f5ff 0%,#78c9ee 52%,#315eaa 100%) !important;
-        background-color:#78c9ee !important;
-      }
-      .caixa-theme-preview-halloween{position:relative;overflow:hidden;background:linear-gradient(160deg,#24112f 0%,#171020 62%,#553078 100%)!important;border-color:rgba(255,138,36,.38)!important;}
-      .caixa-theme-preview-halloween .preview-moon{position:absolute;right:7px;top:5px;color:#ffe7a8;font-size:12px;line-height:1;}
-      .caixa-theme-preview-halloween .preview-pumpkin{position:absolute;left:8px;bottom:3px;font-size:19px;line-height:1;filter:drop-shadow(0 2px 3px rgba(0,0,0,.3));}
-      .caixa-theme-preview-halloween .preview-bat{position:absolute;left:31px;top:12px;font-size:12px;line-height:1;filter:brightness(.35);}
-      .caixa-theme-preview-halloween .preview-slime{position:absolute;left:0;right:0;bottom:0;height:6px;background:linear-gradient(90deg,#62e8ff,#7b39c7);border-radius:8px 8px 3px 3px;}
-      .caixa-theme-preview-christmas{position:relative;overflow:hidden;background:linear-gradient(180deg,#172c35 0 62%,#4f7690 62% 100%)!important;border-color:rgba(185,218,229,.5)!important;}
-      .caixa-theme-preview-christmas::before{content:"🎄";position:absolute;left:9px;bottom:1px;font-size:22px;line-height:1;}
-      .caixa-theme-preview-christmas::after{content:"❄";position:absolute;right:9px;top:5px;color:#fff;font-size:11px;}
-      .caixa-theme-preview-default{background:#faf5e9!important;}
-      .caixa-theme-preview-default::before{content:"";position:absolute;left:7px;right:7px;top:8px;height:5px;border-radius:4px;background:#16332c;}
-      .caixa-theme-preview-default::after{content:"";position:absolute;left:7px;bottom:7px;width:27px;height:10px;border-radius:3px;background:#e8dfc7;box-shadow:29px 0 0 #b9862f;}
-      html[data-theme="dark"] #caixaSpecialThemesSection .caixa-theme-option{background:linear-gradient(180deg,#1b1226,#140d1d);border-color:rgba(118,226,255,.15);}
-      html[data-theme="dark"] #caixaSpecialThemesSection .caixa-theme-option.is-active{background:linear-gradient(135deg,#281a35,#1b2234);border-color:#ff9b2f;}
-    `;
-    document.head.appendChild(style);
-  }
-
-  function encontrarContainerTemas() {
-    const view = document.getElementById("caixaConfigTema");
-    if (!view) return null;
-    garantirEstilosTemasEspeciais();
-    const secoes = [...view.querySelectorAll("section, .caixa-config-card, .caixa-settings-card, .settings-card, .config-card, .caixa-config-section, .caixa-theme-section")];
-    const secaoTemas = secoes.find(sec => {
-      const titulo = sec.querySelector(":scope > h2, :scope > h3, :scope > h4, :scope > .caixa-config-section-title, :scope > .caixa-section-title, :scope > .section-title");
-      return String(titulo?.textContent || "").trim().toLowerCase() === "temas";
-    });
-    if (secaoTemas) {
-      const container = secaoTemas.querySelector(":scope > .caixa-themes-grid, :scope > .caixa-temas-grid, :scope > .caixa-theme-options, .caixa-themes-grid, .caixa-temas-grid, .caixa-theme-options") || secaoTemas;
-      container.dataset.caixaThemeNativeContainer = "1";
-      return container;
-    }
-    const marked = view.querySelector("[data-caixa-themes-section='1'], [data-caixa-theme-section='1']");
-    if (marked) {
-      const container = marked.querySelector(".caixa-themes-grid, .caixa-temas-grid, .caixa-theme-options") || marked;
-      container.dataset.caixaThemeNativeContainer = "1";
-      return container;
-    }
-    return null;
-  }
-
-  function limparTemasForaDoContainer(container) {
-    if (!container) return;
-    const view = document.getElementById("caixaConfigTema");
-    if (!view) return;
-    const especiais = new Set(["christmas", "halloween"]);
-    view.querySelectorAll("[data-caixa-theme]").forEach(btn => {
-      if (container.contains(btn)) return;
-      const id = String(btn.dataset.caixaTheme || "").trim();
-      if (especiais.has(id)) btn.remove();
-    });
-  }
-
-  function criarBotaoTemaEspecial(id, info) {
-    const btn = document.createElement("button");
-    btn.type = "button";
-    btn.className = "caixa-theme-option" + (id === "halloween" ? " caixa-tema-halloween" : "");
-    btn.dataset.caixaTheme = id;
-    btn.dataset.caixaThemeSpecial = "1";
-    btn.setAttribute("aria-pressed", "false");
-    let preview = "<span class=\"caixa-theme-preview caixa-theme-preview-default\" aria-hidden=\"true\"></span>";
-    if (id === "christmas") preview = "<span class=\"caixa-theme-preview caixa-theme-preview-christmas\" aria-hidden=\"true\"></span>";
-    if (id === "halloween") preview = `<span class="caixa-theme-preview caixa-theme-preview-halloween" aria-hidden="true"><span class="preview-moon">●</span><span class="preview-pumpkin">🎃</span><span class="preview-bat">🦇</span><span class="preview-slime"></span></span>`;
-    btn.innerHTML = `${preview}<span><strong>${escapeHtml(info.nome)}</strong><small>${escapeHtml(info.descricao)}</small></span><span class="caixa-theme-check" aria-hidden="true">✓</span>`;
-    return btn;
-  }
-
-  function garantirCardsTemasEspeciais() {
-    const container = encontrarContainerTemas();
-    if (!container) return;
-    limparTemasForaDoContainer(container);
-    const existentes = new Map([...container.querySelectorAll("[data-caixa-theme]")].map(btn => [String(btn.dataset.caixaTheme || ""), btn]));
-    const temas = [
-      { id:"default", nome:"Padrão", descricao:"O visual original do Caixa. Sempre disponível." },
-      { id:"christmas", nome:"Natal", descricao:"Neve, luzinhas e clima natalino." },
-      { id:"halloween", nome:"Halloween", descricao:"Abóboras, morcegos e slime encantado." }
-    ];
-    temas.forEach(info => { if (!existentes.has(info.id)) container.appendChild(criarBotaoTemaEspecial(info.id, info)); });
+    try { return localStorage.getItem("caixa-tema-estilo-v1") || "default"; } catch (_) { return "default"; }
   }
 
   // Temas sazonais entram e saem automaticamente de acordo com o período
   // configurado no Admin. O Padrão continua sendo o fallback permanente.
   function sincronizarTemaSazonal() {
-    const sazonais = idsDeTemasConfiguraveis();
+    const sazonais = ["christmas"];
     // Apenas temas marcados como sazonais (Sempre disponível = manual)
     // podem assumir o Caixa automaticamente.
     const disponiveis = sazonais.filter(id => {
-      const regra = regraTema(id);
+      const regra = (state.temasConfig || {})[id] || {};
       return regra.permanente === false && temaPodeSerUsado(id);
     });
     let ativo = temaAtivo();
 
-    if (ativo !== "default" && !temaPodeSerUsado(ativo)) {
+    if (ativo === "christmas" && !temaPodeSerUsado("christmas")) {
       ativo = "default";
     } else if (ativo === "default" && disponiveis.length) {
       // Ao entrar em um período sazonal, o tema correspondente assume
@@ -8537,7 +8365,6 @@ if (document.readyState === "loading") {
 
     try { localStorage.setItem("caixa-tema-estilo-v1", ativo); } catch (_) {}
     document.documentElement.dataset.caixaTheme = ativo;
-    document.documentElement.classList.toggle("caixa-theme-active", ativo !== "default");
     return ativo;
   }
   function prepararCenarioNatal() {
@@ -8591,55 +8418,6 @@ if (document.readyState === "loading") {
     }
     layer.appendChild(fragment);
   }
-  function prepararCenarioHalloween() {
-    const hero = document.querySelector(".hero");
-    if (!hero || hero.querySelector(".caixa-halloween-scenery")) return;
-    const wrap = document.createElement("div");
-    wrap.className = "caixa-halloween-scenery";
-    wrap.setAttribute("aria-hidden", "true");
-
-    const itens = [
-      { emoji:"🎃", cls:"pumpkin", x:22, s:.92 },
-      { emoji:"🎃", cls:"pumpkin mini", x:78, s:.62 },
-      { emoji:"🦇", cls:"bat", x:38, y:10, s:.72 },
-      { emoji:"🦇", cls:"bat bat-two", x:63, y:16, s:.52 },
-      { emoji:"🦇", cls:"bat bat-three", x:88, y:8, s:.46 }
-    ];
-    itens.sort(() => Math.random() - .5);
-    itens.forEach((item, idx) => {
-      const el = document.createElement("span");
-      el.className = `halloween-scenery-item ${item.cls}`;
-      el.textContent = item.emoji;
-      el.style.left = `${item.x + (Math.random() * 6 - 3)}%`;
-      if (item.y != null) el.style.top = `${item.y + Math.random() * 7}px`;
-      else el.style.bottom = `${2 + Math.random() * 2}px`;
-      el.style.setProperty("--scene-scale", String(item.s + (Math.random() * .08 - .04)));
-      el.style.setProperty("--scene-delay", `${idx * -1.7}s`);
-      wrap.appendChild(el);
-    });
-    hero.appendChild(wrap);
-  }
-
-  function gerarPerfilSlime(tipo="card") {
-    const largura=1000, altura=tipo==="hero"?32:18, qtd=tipo==="hero"?10:9, pontos=[];
-    for(let i=0;i<=qtd;i++){const x=i/qtd*largura; const y=4+Math.random()*(tipo==="hero"?6:4)+(Math.random()<.2?5+Math.random()*8:0); pontos.push({x,y});}
-    const curva=(p0,p1,p2,p3)=>{const c1x=p1.x+(p2.x-p0.x)/6,c1y=p1.y+(p2.y-p0.y)/6,c2x=p2.x-(p3.x-p1.x)/6,c2y=p2.y-(p3.y-p1.y)/6;return `C ${c1x.toFixed(1)} ${c1y.toFixed(1)}, ${c2x.toFixed(1)} ${c2y.toFixed(1)}, ${p2.x.toFixed(1)} ${p2.y.toFixed(1)}`};
-    let path=`M 0 ${pontos[0].y.toFixed(1)}`; for(let i=0;i<pontos.length-1;i++){const p0=pontos[Math.max(0,i-1)],p1=pontos[i],p2=pontos[i+1],p3=pontos[Math.min(pontos.length-1,i+2)];path+=` ${curva(p0,p1,p2,p3)}`} path+=` L ${largura} ${altura} L 0 ${altura} Z`;
-    const svg=`<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 ${largura} ${altura}" preserveAspectRatio="none"><defs><linearGradient id="g" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#72efff"/><stop offset=".48" stop-color="#5f8fff"/><stop offset="1" stop-color="#7b39c7"/></linearGradient></defs><path d="${path}" fill="url(#g)"/></svg>`;
-    return `url("data:image/svg+xml;base64,${btoa(svg)}")`;
-  }
-  function aplicarSlimeHalloween(root=document){
-    if(document.documentElement.dataset.caixaTheme!=="halloween") return;
-    root.querySelectorAll(".item-list-row, .goal-card.caixinha-card").forEach(el=>{if(el.dataset.slimeProfile)return;el.style.setProperty("--slime-image",gerarPerfilSlime("card"));el.dataset.slimeProfile="1"});
-    const hero=document.querySelector(".hero"); if(hero&&!hero.dataset.slimeProfile){hero.style.setProperty("--slime-image",gerarPerfilSlime("hero"));hero.dataset.slimeProfile="1"}
-  }
-  function atualizarCamadaTemaHalloween(){
-    const ativo=document.documentElement.dataset.caixaTheme==="halloween"; garantirCssTema("halloween");
-    if(ativo){prepararCenarioHalloween();aplicarSlimeHalloween()}
-    document.querySelectorAll(".caixa-halloween-scenery").forEach(el=>el.setAttribute("aria-hidden",ativo?"false":"true"));
-    if(!ativo){document.querySelectorAll(".caixa-halloween-scenery").forEach(el=>el.remove());document.querySelectorAll("[data-slime-profile]").forEach(el=>{el.style.removeProperty("--slime-image");delete el.dataset.slimeProfile})}
-  }
-  function atualizarCamadasTemas(){atualizarCamadaTemaNatal();atualizarCamadaTemaHalloween()}
   function atualizarCamadaTemaNatal() {
     const natal = document.documentElement.dataset.caixaTheme === "christmas";
     const layer = document.getElementById("caixaChristmasSnow");
@@ -8662,215 +8440,65 @@ if (document.readyState === "loading") {
     if (lights) lights.setAttribute("aria-hidden", natal ? "false" : "true");
   }
   function temaSazonalAutomaticoAtivo() {
-    return idsDeTemasConfiguraveis().some(id => {
-      const regra = regraTema(id);
-      return regra.permanente === false && temaPodeSerUsado(id);
+    const sazonais = ["christmas"];
+    return sazonais.some(id => {
+      const regra = (state.temasConfig || {})[id] || {};
+      // "Sempre disponível" é sempre um tema manual: mesmo com datas preenchidas,
+      // ele nunca deve travar a seleção nem assumir o Caixa automaticamente.
+      if (regra.permanente !== false) return false;
+      return temaPodeSerUsado(id);
     });
   }
-
   function aplicarTemaCaixa(id) {
-    try {
-      id = String(id || "default").trim();
-      if (temaSazonalAutomaticoAtivo()) { showToast("Um tema sazonal está ativo automaticamente neste período."); return; }
-      if (id !== "default" && !temaPodeSerUsado(id)) { showToast("Esse tema ainda não está disponível."); return; }
-      try { localStorage.setItem("caixa-tema-estilo-v1", id); } catch (_) {}
-      document.documentElement.dataset.caixaTheme = id;
-      document.documentElement.classList.toggle("caixa-theme-active", id !== "default");
-      garantirCssTema(id); atualizarCamadasTemas(); renderTemas();
-    } catch (err) { console.error("[Caixa] erro ao aplicar tema", id, err); showToast("Não foi possível aplicar esse tema agora."); }
+    if (temaSazonalAutomaticoAtivo()) {
+      showToast("Um tema sazonal está ativo automaticamente neste período.");
+      return;
+    }
+    if (id !== "default" && !temaPodeSerUsado(id)) { showToast("Esse tema ainda não está disponível."); return; }
+    try { localStorage.setItem("caixa-tema-estilo-v1", id); } catch (_) {}
+    document.documentElement.dataset.caixaTheme = id;
+    atualizarCamadaTemaNatal();
+    renderTemas();
   }
   function renderTemas() {
-    garantirCardsTemasEspeciais();
-    const ativo = sincronizarTemaSazonal();
-    garantirCssTema(ativo); atualizarCamadasTemas();
+    let ativo = sincronizarTemaSazonal();
+    atualizarCamadaTemaNatal();
     const automatico = temaSazonalAutomaticoAtivo();
-    const temasContainer = encontrarContainerTemas(); if (!temasContainer) return;
-    temasContainer.querySelectorAll("[data-caixa-theme]").forEach(btn => {
-      const id = String(btn.dataset.caixaTheme || "");
-      const disponivel = temaPodeSerUsado(id), selecionado = id === ativo;
-      btn.classList.toggle("is-active", selecionado); btn.classList.toggle("is-unavailable", !disponivel); btn.classList.toggle("is-hidden", !disponivel); btn.classList.toggle("is-seasonal-locked", automatico);
-      btn.setAttribute("aria-pressed", selecionado ? "true" : "false"); btn.disabled = !disponivel || automatico;
-      if (automatico) { btn.setAttribute("aria-disabled", "true"); btn.title = "Tema sazonal ativo automaticamente neste período"; btn.dataset.themeAuto = "true"; }
-      else { btn.removeAttribute("aria-disabled"); btn.removeAttribute("title"); delete btn.dataset.themeAuto; }
+    document.querySelectorAll("[data-caixa-theme]").forEach(btn => {
+      const id = btn.dataset.caixaTheme;
+      const disponivel = temaPodeSerUsado(id);
+      btn.classList.toggle("is-active", id === ativo);
+      btn.classList.toggle("is-unavailable", !disponivel);
+      btn.classList.toggle("is-hidden", !disponivel);
+      btn.classList.toggle("is-seasonal-locked", automatico);
+      btn.setAttribute("aria-pressed", id === ativo ? "true" : "false");
+      btn.disabled = !disponivel || automatico;
+      if (automatico) {
+        btn.setAttribute("aria-disabled", "true");
+        btn.title = "Tema sazonal ativo automaticamente neste período";
+        btn.dataset.themeAuto = "true";
+      } else {
+        btn.removeAttribute("aria-disabled");
+        btn.removeAttribute("title");
+        delete btn.dataset.themeAuto;
+      }
     });
-  }
-
-  function garantirCssAdminSazonalidade() {
-    const href = new URL("themes/admin-seasonal.css", document.baseURI).href;
-    if ([...document.querySelectorAll('link[data-caixa-admin-seasonal-css="1"]')].some(link => link.href === href)) return;
-    const link = document.createElement("link");
-    link.rel = "stylesheet";
-    link.href = href;
-    link.dataset.caixaAdminSeasonalCss = "1";
-    document.head.appendChild(link);
-  }
-
-  function limparSazonalidadeForaDoAdmin() {
-    const admin = document.getElementById("caixaConfigAdmin");
-
-    // Remove qualquer implementação antiga fora do Admin.
-    document.querySelectorAll("#caixaAdminTemasSazonais, #caixaAdminHalloweenTema, .caixa-admin-seasonal-shell").forEach(el => {
-      if (!admin || !admin.contains(el)) el.remove();
-    });
-
-    if (!admin) return;
-
-    // O painel antigo era específico do Natal. Não o mantemos mais como uma
-    // segunda fonte de configuração. O Admin atual é o único painel oficial
-    // e contém todos os temas especiais (Natal, Halloween e futuros temas).
-    // Procuramos pelos próprios títulos, inclusive quando a estrutura antiga
-    // não usa as classes/IDs atuais.
-    const removerCartao = el => {
-      if (!el || el === admin) return;
-      const card = el.closest(
-        ".caixa-config-card, .caixa-settings-card, .settings-card, .config-card, .card, section, article, [data-config-card], [data-admin-card]"
-      );
-      if (card && card !== admin) { card.remove(); return; }
-      const parent = el.parentElement;
-      if (parent && parent !== admin) parent.remove();
-    };
-
-    // Remove todos os painéis com o ID oficial duplicado, preservando nenhum:
-    // renderAdminSazonalidade() criará exatamente um novo depois.
-    admin.querySelectorAll("#caixaAdminTemasSazonais, .caixa-admin-seasonal-shell, #caixaAdminHalloweenTema").forEach(el => el.remove());
-
-    // Remove qualquer cartão cujo título seja exatamente "Sazonalidade dos temas".
-    // Isto cobre versões antigas que possuíam HTML/classes diferentes.
-    [...admin.querySelectorAll("h1, h2, h3, h4, h5, .caixa-config-section-title, .caixa-section-title, .section-title")].forEach(title => {
-      const texto = String(title.textContent || "").trim().toLowerCase();
-      if (texto === "sazonalidade dos temas") removerCartao(title);
-    });
-
-    // IDs usados pelas primeiras versões (Natal e a primeira implementação de Halloween).
-    const idsLegados = [
-      "temaNatalInicio", "temaNatalFim", "temaNatalPermanente",
-      "temaHalloweenInicio", "temaHalloweenFim", "temaHalloweenPermanente"
-    ];
-    idsLegados.forEach(id => {
-      const el = admin.querySelector(`#${id}`);
-      if (el) removerCartao(el);
-    });
-  }
-
-  function renderAdminSazonalidade() {
-    if (state.pessoaAtual !== "davi") return;
-    const admin = document.getElementById("caixaConfigAdmin");
-    if (!admin) return;
-    garantirCssAdminSazonalidade();
-    limparSazonalidadeForaDoAdmin();
-
-    let shell = admin.querySelector("#caixaAdminTemasSazonais");
-    if (!shell) {
-      shell = document.createElement("section");
-      shell.id = "caixaAdminTemasSazonais";
-      shell.className = "caixa-config-card caixa-admin-seasonal-shell";
-      admin.appendChild(shell);
-    }
-
-    const ids = idsDeTemasConfiguraveis();
-    // Garantia final: nunca renderizar uma segunda sazonalidade.
-    admin.querySelectorAll("#caixaAdminTemasSazonais").forEach((el, index) => {
-      if (index > 0) el.remove();
-    });
-    shell.innerHTML = `
-      <div class="caixa-admin-seasonal-head">
-        <div>
-          <div class="caixa-admin-seasonal-kicker">ADMINISTRAÇÃO</div>
-          <h3>Sazonalidade dos temas</h3>
-          <p>Defina quando cada tema especial fica disponível para seleção.</p>
-        </div>
-      </div>
-      <div class="caixa-admin-seasonal-list" id="caixaAdminTemasSazonaisLista"></div>
-      <button type="button" class="caixa-admin-seasonal-save" id="btnSalvarAdminTemas">Salvar regras</button>
-    `;
-
-    const lista = shell.querySelector("#caixaAdminTemasSazonaisLista");
-    if (!ids.length) {
-      lista.innerHTML = `<div class="caixa-config-empty">Nenhum tema especial cadastrado.</div>`;
-    } else {
-      lista.innerHTML = ids.map(id => {
-        const info = infoAdminTema(id);
-        const regra = regraTema(id);
-        const inicio = regra.inicio ?? info.inicio;
-        const fim = regra.fim ?? info.fim;
-        const permanente = regra.permanente === true;
-        const safe = id.replace(/[^a-zA-Z0-9_-]/g, "_");
-        return `
-          <article class="caixa-admin-seasonal-theme" data-admin-theme-id="${escapeHtml(id)}">
-            <div class="caixa-admin-seasonal-theme-top">
-              <div class="caixa-admin-seasonal-theme-icon" aria-hidden="true">${escapeHtml(info.icone)}</div>
-              <div class="caixa-admin-seasonal-theme-name">
-                <strong>${escapeHtml(info.nome)}</strong>
-                <span>${escapeHtml(info.descricao)}</span>
-              </div>
-            </div>
-            <div class="caixa-admin-seasonal-fields">
-              <label>
-                <span>Disponível a partir de</span>
-                <input type="date" id="temaAdmin_${safe}_inicio" value="${escapeHtml(inicio || "")}">
-              </label>
-              <label>
-                <span>Disponível até</span>
-                <input type="date" id="temaAdmin_${safe}_fim" value="${escapeHtml(fim || "")}">
-              </label>
-            </div>
-            <label class="caixa-admin-seasonal-toggle">
-              <input type="checkbox" id="temaAdmin_${safe}_permanente" ${permanente ? "checked" : ""}>
-              <span class="caixa-admin-seasonal-switch" aria-hidden="true"><i></i></span>
-              <span>Sempre disponível</span>
-            </label>
-          </article>`;
-      }).join("");
-    }
-    shell.querySelector("#btnSalvarAdminTemas")?.addEventListener("click", salvarAdminTemas);
-  }
-
-  function garantirEstruturaAdmin() {
-    const admin = document.getElementById("caixaConfigAdmin");
-    if (!admin) return;
-
-    // Restaura os cards administrativos caso uma versão anterior tenha
-    // substituído o conteúdo do Admin pelo card de sazonalidade.
-    if (!admin.querySelector("#listaCategoriasIcones") || !admin.querySelector("#listaNomesIcones")) {
-      const card = document.createElement("section");
-      card.className = "caixa-config-card caixa-admin-icons-card";
-      card.id = "caixaAdminIcones";
-      card.innerHTML = `
-        <div class="caixa-config-section-head">
-          <div><h3>Ícones das caixinhas</h3><p>Organize categorias e nomes dos ícones usados nas suas caixinhas.</p></div>
-        </div>
-        <div class="caixa-admin-icon-block">
-          <div class="caixa-config-section-head caixa-admin-subhead">
-            <div><h4>Categorias</h4><p>Defina quais ícones pertencem a cada categoria.</p></div>
-            <button type="button" class="btn btn-gold btn-config-small" id="btnNovaCategoriaIcone">+ Nova</button>
-          </div>
-          <div class="caixa-config-list" id="listaCategoriasIcones"></div>
-        </div>
-        <div class="caixa-admin-icon-block">
-          <div class="caixa-config-section-head caixa-admin-subhead">
-            <div><h4>Nomes dos ícones</h4><p>Edite o nome exibido e a categoria de cada ícone.</p></div>
-          </div>
-          <div class="caixa-config-list" id="listaNomesIcones"></div>
-        </div>
-      `;
-      admin.insertBefore(card, admin.querySelector("#caixaAdminTemasSazonais") || admin.firstElementChild);
-    }
-
-    // O botão pode ter sido criado agora, então ligamos o listener uma única vez.
-    const novo = document.getElementById("btnNovaCategoriaIcone");
-    if (novo && !novo.dataset.listenerAttached) {
-      novo.dataset.listenerAttached = "1";
-      novo.addEventListener("click", novaCategoriaIcone);
+    const container = document.querySelector(".caixa-themes-grid, .caixa-temas-grid, .caixa-theme-options");
+    if (container) {
+      container.classList.toggle("is-seasonal-locked", automatico);
+      container.dataset.seasonalMessage = automatico ? "Tema sazonal ativo automaticamente durante este período." : "";
     }
   }
-
   function renderAdmin() {
     if (state.pessoaAtual !== "davi") return;
-    garantirEstruturaAdmin();
     renderAdminIcones();
-    renderAdminSazonalidade();
+    const cfg = state.temasConfig || {};
+    const natal = cfg.christmas || {};
+    const ini = document.getElementById("temaNatalInicio"); const fim = document.getElementById("temaNatalFim"); const perm = document.getElementById("temaNatalPermanente");
+    if (ini) ini.value = natal.inicio || "2026-12-01";
+    if (fim) fim.value = natal.fim || "2026-12-31";
+    if (perm) perm.checked = natal.permanente !== false;
   }
-
   function renderAdminIcones() {
     const catsWrap = document.getElementById("listaCategoriasIcones");
     const nomesWrap = document.getElementById("listaNomesIcones");
@@ -8919,25 +8547,9 @@ if (document.readyState === "loading") {
     lista.push({categoria:nome.trim(),padroes:[]}); state.iconCategorias = lista; await salvarConfig({iconCategorias:lista}, "Categoria de ícone criada."); renderAdminIcones();
   }
   async function salvarAdminTemas() {
-    const ids = idsDeTemasConfiguraveis();
-    const atuais = {...(state.temasConfig || {})};
-    ids.forEach(id => {
-      const safe = id.replace(/[^a-zA-Z0-9_-]/g, "_");
-      const info = infoAdminTema(id);
-      const shell = document.getElementById("caixaAdminTemasSazonais");
-      atuais[id] = {
-        inicio: shell?.querySelector(`#temaAdmin_${safe}_inicio`)?.value || info.inicio || "",
-        fim: shell?.querySelector(`#temaAdmin_${safe}_fim`)?.value || info.fim || "",
-        permanente: !!shell?.querySelector(`#temaAdmin_${safe}_permanente`)?.checked
-      };
-    });
-    state.temasConfig = atuais;
-    await salvarConfig({temasConfig:state.temasConfig}, "Regras de temas salvas.");
-    const ativo = sincronizarTemaSazonal();
-    garantirCssTema(ativo);
-    atualizarCamadasTemas();
-    renderAdminSazonalidade();
-    if (viewAtual === "tema") renderTemas();
+    const inicio = document.getElementById("temaNatalInicio")?.value || "2026-12-01"; const fim = document.getElementById("temaNatalFim")?.value || "2026-12-31"; const permanente = !!document.getElementById("temaNatalPermanente")?.checked;
+    state.temasConfig = {...(state.temasConfig||{}), christmas:{inicio,fim,permanente}};
+    await salvarConfig({temasConfig:state.temasConfig}, "Regras de temas salvas."); renderTemas();
   }
 
   // Neve decorativa procedural: cada card recebe um perfil diferente para que
@@ -9021,15 +8633,9 @@ if (document.readyState === "loading") {
   document.getElementById("btnNovaImersao")?.addEventListener("click", novaImersao);
   document.getElementById("btnSalvarConfigIA")?.addEventListener("click", salvarIA);
   document.getElementById("btnNovaFatura")?.addEventListener("click", novaFatura);
+  document.getElementById("btnNovaCategoriaIcone")?.addEventListener("click", novaCategoriaIcone);
   document.getElementById("btnSalvarAdminTemas")?.addEventListener("click", salvarAdminTemas);
-  document.addEventListener("click", e => {
-    const btn = e.target.closest("[data-caixa-theme]");
-    if (!btn || btn.disabled) return;
-    const view = document.getElementById("caixaConfigTema");
-    const container = view ? encontrarContainerTemas() : null;
-    if (!container || !container.contains(btn)) return;
-    aplicarTemaCaixa(btn.dataset.caixaTheme);
-  });
+  document.querySelectorAll("[data-caixa-theme]").forEach(btn => btn.addEventListener("click", () => aplicarTemaCaixa(btn.dataset.caixaTheme)));
   faturaModal.salvar?.addEventListener("click", salvarFaturaModal);
   faturaModal.cancelar?.addEventListener("click", fecharModalFatura);
   faturaModal.fechar?.addEventListener("click", fecharModalFatura);
@@ -9044,27 +8650,22 @@ if (document.readyState === "loading") {
     if (viewAtual === "admin" && state.pessoaAtual !== "davi") mostrarView("home");
   });
 
-  limparSazonalidadeForaDoAdmin();
-  sincronizarTemaSazonal();
-  atualizarCamadasTemas();
+  renderTemas();
   // Verifica a virada de período sem exigir que o usuário recarregue a página.
   window.setInterval(() => {
     const antes = temaAtivo();
     const depois = sincronizarTemaSazonal();
     if (antes !== depois) {
-      atualizarCamadasTemas();
-      if (viewAtual === "tema") renderTemas();
+      atualizarCamadaTemaNatal();
+      renderTemas();
     }
   }, 60 * 1000);
   aplicarNeveProcedural();
   const caixaSnowObserver = new MutationObserver((mutacoes) => {
-    const tema = document.documentElement.dataset.caixaTheme;
-    if (tema !== "christmas" && tema !== "halloween") return;
+    if (document.documentElement.dataset.caixaTheme !== "christmas") return;
     for (const mutacao of mutacoes) {
       mutacao.addedNodes?.forEach((node) => {
-        if (node.nodeType !== 1) return;
-        if (tema === "christmas") aplicarNeveProcedural(node);
-        if (tema === "halloween") aplicarSlimeHalloween(node);
+        if (node.nodeType === 1) aplicarNeveProcedural(node);
       });
     }
   });
