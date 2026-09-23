@@ -4074,7 +4074,10 @@ function renderVisaoGeral() {
   const corGastos = temaEspecial ? "var(--theme-summary-expense)" : "var(--expense)";
   const corLivre = temaEspecial ? "var(--theme-summary-free)" : "var(--income)";
   if (donut) {
-    donut.style.background = `conic-gradient(${corGuardado} 0% ${corte1}%, ${corGastos} ${corte1}% ${corte2}%, ${corLivre} ${corte2}% 100%)`;
+    const donutBackground = `conic-gradient(${corGuardado} 0% ${corte1}%, ${corGastos} ${corte1}% ${corte2}%, ${corLivre} ${corte2}% 100%)`;
+    // O CSS dos temas sazonais pode definir o fundo do donut com !important.
+    // A Visão geral precisa sempre mostrar os três segmentos calculados.
+    donut.style.setProperty("background", donutBackground, "important");
   }
   if (centro) {
     // Texto alterado para exibir apenas o valor e a palavra "GANHO"
@@ -8351,8 +8354,25 @@ if (document.readyState === "loading") {
     document.head.appendChild(link);
   }
 
+  function encontrarContainerTemasSazonais() {
+    // Halloween pertence à área "Temas", nunca à área "Aparência".
+    // Primeiro tentamos localizar o mesmo container que já contém o Natal;
+    // isso também funciona caso as classes da área de Temas tenham mudado.
+    const natal = document.querySelector('[data-caixa-theme="christmas"]');
+    if (natal?.parentElement) return natal.parentElement;
+
+    const candidatos = document.querySelectorAll(".caixa-themes-grid, .caixa-temas-grid");
+    if (candidatos.length) return candidatos[0];
+
+    // Último recurso: um container que tenha explicitamente um título de Temas.
+    return [...document.querySelectorAll(".caixa-config-view, section, div")].find(el => {
+      const titulo = el.querySelector(":scope > .caixa-config-section-head h3, :scope > h3, :scope > .section-title");
+      return titulo && /\btemas?\b/i.test(titulo.textContent || "");
+    })?.querySelector(".caixa-theme-options, .caixa-themes-grid, .caixa-temas-grid") || null;
+  }
+
   function garantirCardTemaHalloween() {
-    const container = document.querySelector(".caixa-themes-grid, .caixa-temas-grid, .caixa-theme-options");
+    const container = encontrarContainerTemasSazonais();
     if (!container || container.querySelector('[data-caixa-theme="halloween"]')) return;
     const btn = document.createElement("button");
     btn.type = "button"; btn.className = "caixa-theme-option caixa-tema-halloween";
@@ -8374,7 +8394,7 @@ if (document.readyState === "loading") {
     });
     let ativo = temaAtivo();
 
-    if (ativo === "christmas" && !temaPodeSerUsado("christmas")) {
+    if (ativo !== "default" && !temaPodeSerUsado(ativo)) {
       ativo = "default";
     } else if (ativo === "default" && disponiveis.length) {
       // Ao entrar em um período sazonal, o tema correspondente assume
@@ -8555,31 +8575,37 @@ if (document.readyState === "loading") {
     if (state.pessoaAtual !== "davi") return;
     if (document.getElementById("caixaAdminHalloweenTema")) return;
     const natalInput = document.getElementById("temaNatalInicio");
-    const natalCard = natalInput?.closest(".caixa-config-card, .caixa-settings-card, .settings-card, .config-card, .card, section");
-    if (!natalCard || !natalCard.parentElement) return;
+    if (!natalInput) return;
 
-    const card = document.createElement("section");
-    card.id = "caixaAdminHalloweenTema";
-    card.className = natalCard.className || "caixa-config-card";
-    card.innerHTML = `
+    // O Halloween fica dentro da mesma área de "Sazonalidade dos temas"
+    // usada pelo Natal, em vez de virar um segundo card fora dela.
+    const natalBody = natalInput.closest(".caixa-config-card-body");
+    const natalCard = natalInput.closest(".caixa-config-card, .caixa-settings-card, .settings-card, .config-card, .card, section");
+    const destino = natalBody || natalCard;
+    if (!destino) return;
+
+    const bloco = document.createElement("div");
+    bloco.id = "caixaAdminHalloweenTema";
+    bloco.className = "caixa-admin-theme-seasonal caixa-config-card-body";
+    bloco.innerHTML = `
       <div class="caixa-config-card-head">
         <div>
           <div class="caixa-config-card-title">🎃 Halloween</div>
           <div class="caixa-config-card-subtitle">Defina quando o tema Halloween pode ficar disponível automaticamente.</div>
         </div>
       </div>
-      <div class="caixa-config-card-body">
-        <div class="caixa-config-row">
-          <div class="caixa-config-row-main"><div class="caixa-config-row-title">Disponibilidade</div><div class="caixa-config-row-sub">Escolha se o tema pode ser usado livremente ou só na temporada.</div></div>
-          <label class="caixa-toggle"><input type="checkbox" id="temaHalloweenPermanente"><span></span></label>
-        </div>
-        <div class="caixa-config-grid-2">
-          <label class="caixa-field"><span>Início</span><input type="date" id="temaHalloweenInicio"></label>
-          <label class="caixa-field"><span>Fim</span><input type="date" id="temaHalloweenFim"></label>
-        </div>
-        <button type="button" class="caixa-config-primary" id="btnSalvarAdminHalloween">Salvar Halloween</button>
-      </div>`;
-    natalCard.parentElement.appendChild(card);
+      <div class="caixa-config-row">
+        <div class="caixa-config-row-main"><div class="caixa-config-row-title">Disponibilidade</div><div class="caixa-config-row-sub">Escolha se o tema pode ser usado livremente ou só na temporada.</div></div>
+        <label class="caixa-toggle"><input type="checkbox" id="temaHalloweenPermanente"><span></span></label>
+      </div>
+      <div class="caixa-config-grid-2">
+        <label class="caixa-field"><span>Início</span><input type="date" id="temaHalloweenInicio"></label>
+        <label class="caixa-field"><span>Fim</span><input type="date" id="temaHalloweenFim"></label>
+      </div>
+      <button type="button" class="caixa-config-primary" id="btnSalvarAdminHalloween">Salvar Halloween</button>`;
+
+    // Dentro do corpo do card, após os controles do Natal.
+    destino.appendChild(bloco);
     document.getElementById("btnSalvarAdminHalloween")?.addEventListener("click", salvarAdminHalloween);
   }
 
