@@ -9211,3 +9211,18 @@ html[data-caixa-theme="christmas"] .caixa-tema-natal .caixa-tema-preview u{right
   #caixaConfigAdmin .caixa-season-toggle{grid-column:auto}
   #caixaConfigAdmin .caixa-season-theme{padding-bottom:2px}
 }
+
+/* Tema sazonal: os gráficos podem receber uma camada visual própria sem
+   alterar a estrutura do resumo. */
+html[data-caixa-theme="christmas"] .split-chart-wrap {
+  position: relative;
+}
+html[data-caixa-theme="christmas"] .split-chart-wrap::after {
+  content: "";
+  position: absolute;
+  inset: -4px;
+  border-radius: 22px;
+  pointer-events: none;
+  background: radial-gradient(circle at 8% 12%, rgba(255,255,255,.16) 0 1px, transparent 1.7px), radial-gradient(circle at 92% 88%, rgba(255,255,255,.12) 0 1px, transparent 1.7px);
+  opacity: .55;
+}

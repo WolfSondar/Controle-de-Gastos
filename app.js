@@ -29,6 +29,14 @@ function corDaCategoria(nome, idxFallback) {
     const achado = state.categoriasConfig.find((c) => c.nome === nome);
     if (achado && achado.cor) return achado.cor;
   }
+  const tema = document.documentElement?.dataset?.caixaTheme;
+  if (tema === "christmas") {
+    const paletaNatal = [
+      "#d8b45b", "#3f805b", "#b84b4f", "#78a98a", "#c98d4a",
+      "#5f9077", "#d06d68", "#a6b99b", "#d9bf76", "#6c8e83"
+    ];
+    return paletaNatal[idxFallback % paletaNatal.length];
+  }
   return PALETA_CATEGORIAS[idxFallback % PALETA_CATEGORIAS.length];
 }
 
