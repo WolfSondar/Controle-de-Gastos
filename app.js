@@ -970,19 +970,36 @@ function caixaTemaAtivoGlobal() {
   try { return localStorage.getItem("caixa-tema-estilo-v1") || "default"; } catch (_) { return "default"; }
 }
 
+function regraTemaSazonalGlobal(id) {
+  const cfg = state.temasConfig || {};
+  return cfg[id] || null;
+}
+
+function lerDiaTema(regra, campo, fallback) {
+  const direto = Number(regra?.[campo]);
+  if (Number.isFinite(direto) && direto >= 1 && direto <= 31) return direto;
+  const legado = regra?.[campo === "inicioDia" ? "inicio" : "fim"];
+  const m = String(legado || "").match(/(?:^|-)\d{2}-(\d{2})(?:T|$)/);
+  const dia = m ? Number(m[1]) : NaN;
+  return Number.isFinite(dia) ? dia : fallback;
+}
+
+function mesTemaSazonal(id) {
+  return id === "christmas" ? 12 : id === "halloween" ? 10 : null;
+}
+
 function caixaTemaPodeSerUsadoGlobal(id) {
   if (id === "default") return true;
-  const cfg = state.temasConfig || {};
-  const regra = cfg[id];
-  // Sem configuração do Admin, o tema não é sazonal e não assume o sistema.
+  const regra = regraTemaSazonalGlobal(id);
   if (!regra) return false;
-  if (regra.permanente === true) return true;
-  if (regra.permanente !== false) return false;
+  const mes = mesTemaSazonal(id);
+  if (!mes) return false;
+  const inicioDia = lerDiaTema(regra, "inicioDia", 1);
+  const fimDia = lerDiaTema(regra, "fimDia", mes === 2 ? 28 : [4,6,9,11].includes(mes) ? 30 : 31);
   const hoje = new Date();
-  const inicio = regra.inicio ? new Date(`${regra.inicio}T00:00:00`) : null;
-  const fim = regra.fim ? new Date(`${regra.fim}T23:59:59`) : null;
-  if (!inicio || !fim || Number.isNaN(inicio.getTime()) || Number.isNaN(fim.getTime())) return false;
-  return hoje >= inicio && hoje <= fim;
+  if (hoje.getMonth() + 1 !== mes) return false;
+  const dia = hoje.getDate();
+  return dia >= Math.min(inicioDia, fimDia) && dia <= Math.max(inicioDia, fimDia);
 }
 
 function caixaGarantirCssTemaGlobal(id) {
@@ -996,13 +1013,10 @@ function caixaGarantirCssTemaGlobal(id) {
 
 function caixaSincronizarTemaSazonalGlobal() {
   const sazonais = ["christmas", "halloween"];
-  const disponiveis = sazonais.filter(id => {
-    const regra = (state.temasConfig || {})[id];
-    return regra && regra.permanente === false && caixaTemaPodeSerUsadoGlobal(id);
-  });
-  let ativo = caixaTemaAtivoGlobal();
-  if (ativo !== "default" && !caixaTemaPodeSerUsadoGlobal(ativo)) ativo = "default";
-  else if (ativo === "default" && disponiveis.length) ativo = disponiveis[0];
+  const disponiveis = sazonais.filter(id => caixaTemaPodeSerUsadoGlobal(id));
+  // A escolha manual dos temas sazonais deixou de existir: o sistema sempre
+  // decide sozinho entre um sazonal válido e Padrão.
+  const ativo = disponiveis[0] || "default";
   try { localStorage.setItem("caixa-tema-estilo-v1", ativo); } catch (_) {}
   document.documentElement.dataset.caixaTheme = ativo;
   return ativo;
@@ -4141,32 +4155,52 @@ function renderVisaoGeral() {
   const corGastos = temaEspecial ? "var(--theme-summary-expense)" : "var(--expense)";
   const corLivre = temaEspecial ? "var(--theme-summary-free)" : "var(--income)";
   if (donut) {
-    // Separadores visíveis: no Natal o branco se perde sobre o fundo creme,
-    // então usamos um dourado discreto no claro e um branco translúcido no escuro.
+    // O Natal chegou a receber um background sólido por regras de tema,
+    // então o gráfico passa a ser desenhado com SVG. Assim os 3 segmentos
+    // ficam independentes do background/shorthand do CSS e nunca somem.
     const temaAtual = document.documentElement.dataset.caixaTheme || "default";
     const modoEscuro = document.documentElement.dataset.theme === "dark";
-    const separador = temaAtual === "christmas"
-      ? (modoEscuro ? "rgba(255,255,255,.68)" : "rgba(132,100,48,.58)")
-      : "#ffffff";
-    const gap = temaAtual === "halloween" ? 0 : temaAtual === "christmas" ? 1.05 : 0.9;
-    const g = gap / 2;
-    const usaSeparadores = temaAtual !== "halloween";
-    const stops = usaSeparadores
-      ? `${corGuardado} 0% ${Math.max(corte1-g,0)}%, ${separador} ${Math.max(corte1-g,0)}% ${Math.min(corte1+g,100)}%, ${corGastos} ${Math.min(corte1+g,100)}% ${Math.max(corte2-g,0)}%, ${separador} ${Math.max(corte2-g,0)}% ${Math.min(corte2+g,100)}%, ${corLivre} ${Math.min(corte2+g,100)}% 100%`
-      : `${corGuardado} 0% ${corte1}%, ${corGastos} ${corte1}% ${corte2}%, ${corLivre} ${corte2}% 100%`;
-    const donutBackground = `conic-gradient(${stops})`;
-    // Alguns estilos do tema Natal usam o shorthand `background` com !important.
-    // Aplicamos o gradiente também no shorthand para garantir que os segmentos
-    // coloridos nunca sejam escondidos pelo CSS do tema.
-    donut.style.setProperty("background", donutBackground, "important");
-    donut.style.setProperty("background-image", donutBackground, "important");
-    donut.style.setProperty("background-color", "transparent", "important");
-    const sombraDonut = temaAtual === "halloween"
+    const rootStyle = getComputedStyle(document.documentElement);
+    const resolverCor = (valor, fallback) => {
+      const bruto = rootStyle.getPropertyValue(valor).trim();
+      return bruto || fallback;
+    };
+    const cor1 = resolverCor(temaEspecial ? "--theme-summary-saved" : "--gold", corGuardado);
+    const cor2 = resolverCor(temaEspecial ? "--theme-summary-expense" : "--expense", corGastos);
+    const cor3 = resolverCor(temaEspecial ? "--theme-summary-free" : "--income", corLivre);
+    let svg = donut.querySelector(":scope > .caixa-visao-geral-svg");
+    if (!svg) {
+      svg = document.createElementNS("http://www.w3.org/2000/svg", "svg");
+      svg.classList.add("caixa-visao-geral-svg");
+      svg.setAttribute("viewBox", "0 0 128 128");
+      svg.setAttribute("aria-hidden", "true");
+      svg.innerHTML = `<g transform="rotate(-90 64 64)"><circle class="seg seg-1" cx="64" cy="64" r="50"></circle><circle class="seg seg-2" cx="64" cy="64" r="50"></circle><circle class="seg seg-3" cx="64" cy="64" r="50"></circle></g>`;
+      donut.insertBefore(svg, donut.firstChild);
+    }
+    const circ = 2 * Math.PI * 50;
+    const gapPx = temaAtual === "halloween" ? 0 : 2.1;
+    const valores = [pctGuardado, pctGastos, pctLivre];
+    const cores = [cor1, cor2, cor3];
+    let acumulado = 0;
+    svg.querySelectorAll(".seg").forEach((seg, idx) => {
+      const pct = Math.max(0, valores[idx]);
+      const comprimento = circ * pct / 100;
+      const desenho = Math.max(0, comprimento - (pct > 0 ? gapPx : 0));
+      seg.setAttribute("stroke", cores[idx]);
+      seg.setAttribute("stroke-width", "30");
+      seg.setAttribute("fill", "none");
+      seg.setAttribute("stroke-linecap", "butt");
+      seg.setAttribute("stroke-dasharray", `${desenho} ${circ}`);
+      seg.setAttribute("stroke-dashoffset", `${-circ * acumulado / 100}`);
+      acumulado += pct;
+    });
+    svg.style.cssText = "position:absolute;inset:0;width:100%;height:100%;display:block;pointer-events:none;z-index:0;overflow:visible";
+    donut.style.setProperty("background", "transparent", "important");
+    donut.style.setProperty("background-image", "none", "important");
+    donut.style.setProperty("box-shadow", temaAtual === "halloween"
       ? "0 0 0 1px rgba(85,223,255,.24), 0 8px 24px rgba(61,31,78,.14)"
-      : temaAtual === "christmas"
-        ? "0 8px 24px rgba(35,52,78,.12)"
-        : "0 8px 24px rgba(35,27,15,.10)";
-    donut.style.setProperty("box-shadow", sombraDonut, "important");
+      : "0 8px 24px rgba(35,52,78,.12)", "important");
+    if (centro) centro.style.zIndex = "2";
   }
   if (centro) {
     // Texto alterado para exibir apenas o valor e a palavra "GANHO"
@@ -8422,18 +8456,16 @@ if (document.readyState === "loading") {
 
   function temaPodeSerUsado(id) {
     if (id === "default") return true;
-    const cfg = state.temasConfig || {};
-    const regra = cfg[id] || (id === "christmas"
-      ? { permanente: true, inicio: "2026-12-01", fim: "2026-12-31" }
-      : id === "halloween"
-        ? { permanente: false, inicio: "", fim: "" }
-        : {});
-    if (regra.permanente) return true;
+    const regra = (state.temasConfig || {})[id];
+    if (!regra) return false;
+    const mes = mesTemaSazonal(id);
+    if (!mes) return false;
+    const inicioDia = lerDiaTema(regra, "inicioDia", 1);
+    const fimDia = lerDiaTema(regra, "fimDia", [4,6,9,11].includes(mes) ? 30 : 31);
     const hoje = new Date();
-    const inicio = regra.inicio ? new Date(`${regra.inicio}T00:00:00`) : null;
-    const fim = regra.fim ? new Date(`${regra.fim}T23:59:59`) : null;
-    if (!inicio || !fim || Number.isNaN(inicio.getTime()) || Number.isNaN(fim.getTime())) return false;
-    return hoje >= inicio && hoje <= fim;
+    if (hoje.getMonth() + 1 !== mes) return false;
+    const dia = hoje.getDate();
+    return dia >= Math.min(inicioDia, fimDia) && dia <= Math.max(inicioDia, fimDia);
   }
   function temaAtivo() {
     try { return localStorage.getItem("caixa-tema-estilo-v1") || "default"; } catch (_) { return "default"; }
@@ -8447,64 +8479,27 @@ if (document.readyState === "loading") {
     document.head.appendChild(link);
   }
 
-  function encontrarContainerTemasSazonais() {
-    // Halloween pertence à área "Temas", nunca à área "Aparência".
-    // Primeiro tentamos localizar o mesmo container que já contém o Natal;
-    // isso também funciona caso as classes da área de Temas tenham mudado.
-    const natal = document.querySelector('[data-caixa-theme="christmas"]');
-    if (natal?.parentElement) return natal.parentElement;
-
-    const candidatos = document.querySelectorAll(".caixa-themes-grid, .caixa-temas-grid");
-    if (candidatos.length) return candidatos[0];
-
-    // Último recurso: um container que tenha explicitamente um título de Temas.
-    return [...document.querySelectorAll(".caixa-config-view, section, div")].find(el => {
-      const titulo = el.querySelector(":scope > .caixa-config-section-head h3, :scope > h3, :scope > .section-title");
-      return titulo && /\btemas?\b/i.test(titulo.textContent || "");
-    })?.querySelector(".caixa-theme-options, .caixa-themes-grid, .caixa-temas-grid") || null;
-  }
-
-  function garantirCardTemaHalloween() {
-    const container = encontrarContainerTemasSazonais();
-    if (!container || container.querySelector('[data-caixa-theme="halloween"]')) return;
-    const btn = document.createElement("button");
-    btn.type = "button"; btn.className = "caixa-theme-option caixa-tema-halloween";
-    btn.dataset.caixaTheme = "halloween"; btn.setAttribute("aria-pressed", "false");
-    btn.innerHTML = `<span class="caixa-theme-preview caixa-theme-preview-halloween" aria-hidden="true"><i></i><b></b><em></em><strong></strong><u></u></span><span><strong>Halloween</strong><small>Abóboras, morcegos e slime encantado.</small></span><span class="caixa-theme-check" aria-hidden="true">✓</span>`;
-    container.appendChild(btn);
-    btn.addEventListener("click", () => aplicarTemaCaixa("halloween"));
-  }
-
   // Temas sazonais entram e saem automaticamente de acordo com o período
   // configurado no Admin. O Padrão continua sendo o fallback permanente.
+  // O tema sazonal é sempre automático. Se nenhum evento estiver dentro do
+  // período configurado pelo Admin, o Caixa volta simplesmente para Padrão.
   function sincronizarTemaSazonal() {
     const sazonais = ["christmas", "halloween"];
-    // Apenas temas marcados como sazonais (Sempre disponível = manual)
-    // podem assumir o Caixa automaticamente.
-    const disponiveis = sazonais.filter(id => {
-      const regra = (state.temasConfig || {})[id] || {};
-      return regra.permanente === false && temaPodeSerUsado(id);
-    });
-    let ativo = temaAtivo();
-
-    if (ativo !== "default" && !temaPodeSerUsado(ativo)) {
-      ativo = "default";
-    } else if (ativo === "default" && disponiveis.length) {
-      // Ao entrar em um período sazonal, o tema correspondente assume
-      // automaticamente a aparência do Caixa.
-      ativo = disponiveis[0];
-    }
-
+    const disponiveis = sazonais.filter(id => temaPodeSerUsado(id));
+    const ativo = disponiveis[0] || "default";
     try { localStorage.setItem("caixa-tema-estilo-v1", ativo); } catch (_) {}
     document.documentElement.dataset.caixaTheme = ativo;
     return ativo;
   }
   function garantirEstiloNatalRefinado() {
+
     const id = "caixaChristmasRefinamentoV2";
     if (document.getElementById(id)) return;
     const style = document.createElement("style");
     style.id = id;
     style.textContent = `
+      .split-donut{overflow:visible}
+      .split-donut > .caixa-visao-geral-svg{position:absolute;inset:0;width:100%;height:100%;pointer-events:none}
       html[data-caixa-theme="christmas"] .caixa-christmas-scenery{
         position:absolute;left:0;right:0;bottom:0;height:86px;z-index:70;
         pointer-events:none;overflow:visible;
@@ -8688,96 +8683,158 @@ if (document.readyState === "loading") {
     if (layer) layer.setAttribute("aria-hidden", natal ? "false" : "true");
     if (lights) lights.setAttribute("aria-hidden", natal ? "false" : "true");
   }
-  function temaSazonalAutomaticoAtivo() {
-    const sazonais = ["christmas", "halloween"];
-    return sazonais.some(id => {
-      const regra = (state.temasConfig || {})[id] || {};
-      // "Sempre disponível" é sempre um tema manual: mesmo com datas preenchidas,
-      // ele nunca deve travar a seleção nem assumir o Caixa automaticamente.
-      if (regra.permanente !== false) return false;
-      return temaPodeSerUsado(id);
-    });
-  }
   function aplicarTemaCaixa(id) {
-    if (temaSazonalAutomaticoAtivo()) {
-      showToast("Um tema sazonal está ativo automaticamente neste período.");
-      return;
-    }
-    if (id !== "default" && !temaPodeSerUsado(id)) { showToast("Esse tema ainda não está disponível."); return; }
-    try { localStorage.setItem("caixa-tema-estilo-v1", id); } catch (_) {}
-    document.documentElement.dataset.caixaTheme = id;
-    garantirCssTema(id);
-    atualizarCamadasTemas();
-    renderVisaoGeral();
-    renderTemas();
-  }
-  function renderTemas() {
-    garantirCardTemaHalloween();
-    let ativo = sincronizarTemaSazonal();
+    // Temas sazonais não são escolhidos pelo usuário. Esta função permanece
+    // apenas como compatibilidade com versões anteriores.
+    const ativo = sincronizarTemaSazonal();
     garantirCssTema(ativo);
     atualizarCamadasTemas();
-    const automatico = temaSazonalAutomaticoAtivo();
-    document.querySelectorAll("[data-caixa-theme]").forEach(btn => {
-      const id = btn.dataset.caixaTheme;
-      const disponivel = temaPodeSerUsado(id);
-      btn.classList.toggle("is-active", id === ativo);
-      btn.classList.toggle("is-unavailable", !disponivel);
-      btn.classList.toggle("is-hidden", !disponivel);
-      btn.classList.toggle("is-seasonal-locked", automatico);
-      btn.setAttribute("aria-pressed", id === ativo ? "true" : "false");
-      btn.disabled = !disponivel || automatico;
-      if (automatico) {
-        btn.setAttribute("aria-disabled", "true");
-        btn.title = "Tema sazonal ativo automaticamente neste período";
-        btn.dataset.themeAuto = "true";
-      } else {
-        btn.removeAttribute("aria-disabled");
-        btn.removeAttribute("title");
-        delete btn.dataset.themeAuto;
-      }
-    });
-    const container = document.querySelector(".caixa-themes-grid, .caixa-temas-grid, .caixa-theme-options");
-    if (container) {
-      container.classList.toggle("is-seasonal-locked", automatico);
-      container.dataset.seasonalMessage = automatico ? "Tema sazonal ativo automaticamente durante este período." : "";
-    }
+    renderVisaoGeral();
   }
+  function renderTemas() {
+    const ativo = sincronizarTemaSazonal();
+    garantirCssTema(ativo);
+    atualizarCamadasTemas();
+    // Remove qualquer seletor sazonal legado que exista no HTML de uma versão
+    // anterior. Claro/Escuro/Dispositivo continuam pertencendo à Aparência.
+    document.querySelectorAll('.caixa-theme-option[data-caixa-theme]').forEach(btn => btn.remove());
+    return ativo;
+  }
+  function garantirEstiloAdminSazonalidade() {
+    if (document.getElementById("caixaAdminSazonalidadeStyle")) return;
+    const style = document.createElement("style");
+    style.id = "caixaAdminSazonalidadeStyle";
+    style.textContent = `
+      #caixaAdminHalloweenTema,
+      .caixa-admin-seasonal-card{
+        width:100%;box-sizing:border-box;margin:16px 0 0;padding:18px 16px;
+        border:1px solid rgba(60,110,79,.18);border-radius:18px;
+        background:rgba(255,255,255,.42);box-shadow:0 8px 22px rgba(22,51,44,.06);
+      }
+      html[data-theme="dark"] #caixaAdminHalloweenTema,
+      html[data-theme="dark"] .caixa-admin-seasonal-card{
+        border-color:rgba(111,187,140,.18);background:rgba(255,255,255,.035);
+      }
+      #caixaAdminHalloweenTema .caixa-admin-seasonal-head,
+      .caixa-admin-seasonal-card .caixa-admin-seasonal-head{
+        display:flex;align-items:flex-start;gap:12px;margin-bottom:14px;
+      }
+      .caixa-admin-seasonal-emoji{font-size:26px;line-height:1;flex:0 0 auto}
+      .caixa-admin-seasonal-title{font-size:15px;font-weight:800;line-height:1.2}
+      .caixa-admin-seasonal-sub{font-size:11px;line-height:1.45;opacity:.58;margin-top:4px}
+      .caixa-admin-seasonal-fields{
+        display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1fr);gap:12px;width:100%;
+      }
+      .caixa-admin-seasonal-field{min-width:0;display:flex;flex-direction:column;gap:7px}
+      .caixa-admin-seasonal-field > span{font-size:10px;font-weight:800;letter-spacing:.04em;text-transform:uppercase;opacity:.62}
+      .caixa-admin-seasonal-field input,
+      #temaNatalInicio,#temaNatalFim{
+        width:100% !important;min-width:0 !important;max-width:100% !important;box-sizing:border-box !important;
+        height:42px;padding:0 12px;border-radius:12px;
+      }
+      #temaNatalInicio,#temaNatalFim{font:inherit}
+      #caixaAdminHalloweenTema button{width:100%;margin-top:14px}
+      #caixaAdminHalloweenTema .caixa-config-row,
+      #caixaAdminHalloweenTema .caixa-config-primary{display:none !important}
+      #caixaAdminHalloweenTema + .caixa-config-primary{margin-top:16px}
+      @media(max-width:560px){
+        .caixa-admin-seasonal-fields{grid-template-columns:1fr;gap:10px}
+      }
+    `;
+    document.head.appendChild(style);
+  }
+
+  function encontrarRaizAdminSazonalidade() {
+    const natalInput = document.getElementById("temaNatalInicio");
+    if (!natalInput) return null;
+    let atual = natalInput.parentElement;
+    for (let i = 0; atual && i < 10; i++, atual = atual.parentElement) {
+      const texto = String(atual.textContent || "");
+      if (/Sazonalidade\s+dos\s+temas/i.test(texto) && atual.contains(natalInput)) return atual;
+    }
+    return natalInput.closest(".caixa-config-card-body, .caixa-config-card, .caixa-settings-card, .settings-card, .config-card, section") || natalInput.parentElement;
+  }
+
+  function prepararCampoDiaTema(id, diaPadrao, rotulo) {
+    const input = document.getElementById(id);
+    if (!input) return;
+    let dia = Number(input.dataset.temaDia);
+    if (!Number.isFinite(dia)) {
+      const raw = String(input.value || "");
+      const match = raw.match(/(?:^|-)\d{2}-(\d{2})(?:T|$)/);
+      dia = match ? Number(match[1]) : diaPadrao;
+    }
+    input.type = "number";
+    input.min = "1";
+    input.max = "31";
+    input.step = "1";
+    input.inputMode = "numeric";
+    input.value = String(Math.min(31, Math.max(1, dia)));
+    input.dataset.temaDia = String(dia);
+    const field = input.closest("label") || input.parentElement;
+    const span = field?.querySelector("span");
+    if (span) span.textContent = rotulo;
+  }
+
+  function prepararCardAdminNatal() {
+    const input = document.getElementById("temaNatalInicio");
+    if (!input) return;
+    const row = document.getElementById("temaNatalPermanente")?.closest(".caixa-config-row");
+    row?.remove();
+    prepararCampoDiaTema("temaNatalInicio", 1, "Disponível a partir do dia");
+    prepararCampoDiaTema("temaNatalFim", 31, "Disponível até o dia");
+    const card = input.closest(".caixa-config-card, .caixa-settings-card, .settings-card, .config-card, section");
+    if (card) card.classList.add("caixa-admin-seasonal-card");
+  }
+
   function garantirCardAdminHalloween() {
     if (state.pessoaAtual !== "davi") return;
-    if (document.getElementById("caixaAdminHalloweenTema")) return;
+    garantirEstiloAdminSazonalidade();
     const natalInput = document.getElementById("temaNatalInicio");
     if (!natalInput) return;
+    prepararCardAdminNatal();
 
-    // O Halloween fica dentro da mesma área de "Sazonalidade dos temas"
-    // usada pelo Natal, em vez de virar um segundo card fora dela.
-    const natalBody = natalInput.closest(".caixa-config-card-body");
-    const natalCard = natalInput.closest(".caixa-config-card, .caixa-settings-card, .settings-card, .config-card, .card, section");
-    const destino = natalBody || natalCard;
+    const existente = document.getElementById("caixaAdminHalloweenTema");
+    if (existente) existente.remove();
+
+    const natalCard = natalInput.closest(".caixa-admin-seasonal-card, .caixa-config-card, .caixa-settings-card, .settings-card, .config-card, section");
+    const destino = natalCard?.parentElement || encontrarRaizAdminSazonalidade();
     if (!destino) return;
 
     const bloco = document.createElement("div");
     bloco.id = "caixaAdminHalloweenTema";
-    bloco.className = "caixa-admin-theme-seasonal caixa-config-card-body";
+    bloco.className = "caixa-admin-seasonal-card";
     bloco.innerHTML = `
-      <div class="caixa-config-card-head">
-        <div>
-          <div class="caixa-config-card-title">🎃 Halloween</div>
-          <div class="caixa-config-card-subtitle">Defina quando o tema Halloween pode ficar disponível automaticamente.</div>
-        </div>
+      <div class="caixa-admin-seasonal-head">
+        <span class="caixa-admin-seasonal-emoji" aria-hidden="true">🎃</span>
+        <div><div class="caixa-admin-seasonal-title">Halloween</div><div class="caixa-admin-seasonal-sub">O tema será aplicado automaticamente apenas durante o período configurado.</div></div>
       </div>
-      <div class="caixa-config-row">
-        <div class="caixa-config-row-main"><div class="caixa-config-row-title">Disponibilidade</div><div class="caixa-config-row-sub">Escolha se o tema pode ser usado livremente ou só na temporada.</div></div>
-        <label class="caixa-toggle"><input type="checkbox" id="temaHalloweenPermanente"><span></span></label>
-      </div>
-      <div class="caixa-config-grid-2">
-        <label class="caixa-field"><span>Início</span><input type="date" id="temaHalloweenInicio"></label>
-        <label class="caixa-field"><span>Fim</span><input type="date" id="temaHalloweenFim"></label>
-      </div>
-      <button type="button" class="caixa-config-primary" id="btnSalvarAdminHalloween">Salvar Halloween</button>`;
-
-    // Dentro do corpo do card, após os controles do Natal.
+      <div class="caixa-admin-seasonal-fields">
+        <label class="caixa-admin-seasonal-field"><span>Disponível a partir do dia</span><input type="number" id="temaHalloweenInicio" min="1" max="31" step="1" inputmode="numeric"></label>
+        <label class="caixa-admin-seasonal-field"><span>Disponível até o dia</span><input type="number" id="temaHalloweenFim" min="1" max="31" step="1" inputmode="numeric"></label>
+      </div>`;
     destino.appendChild(bloco);
-    document.getElementById("btnSalvarAdminHalloween")?.addEventListener("click", salvarAdminHalloween);
+
+    // Uma única ação salva as duas temporadas.
+    let salvar = document.getElementById("btnSalvarAdminTemas");
+    if (!salvar) {
+      salvar = document.createElement("button");
+      salvar.type = "button";
+      salvar.id = "btnSalvarAdminTemas";
+      salvar.className = "caixa-config-primary";
+      salvar.textContent = "Salvar regras";
+      destino.appendChild(salvar);
+      salvar.addEventListener("click", salvarAdminTemas);
+    }
+    const oldHalloweenSave = document.getElementById("btnSalvarAdminHalloween");
+    oldHalloweenSave?.remove();
+    const saveAtual = document.getElementById("btnSalvarAdminTemas");
+    if (saveAtual) {
+      saveAtual.textContent = "Salvar regras";
+      saveAtual.className = "caixa-config-primary";
+      saveAtual.style.cssText = "width:100%;margin-top:16px;box-sizing:border-box";
+      destino.appendChild(saveAtual);
+    }
   }
 
   function renderAdmin() {
@@ -8787,14 +8844,12 @@ if (document.readyState === "loading") {
     const cfg = state.temasConfig || {};
     const natal = cfg.christmas || {};
     const halloween = cfg.halloween || {};
-    const ini = document.getElementById("temaNatalInicio"); const fim = document.getElementById("temaNatalFim"); const perm = document.getElementById("temaNatalPermanente");
-    if (ini) ini.value = natal.inicio || "2026-12-01";
-    if (fim) fim.value = natal.fim || "2026-12-31";
-    if (perm) perm.checked = natal.permanente !== false;
-    const hIni = document.getElementById("temaHalloweenInicio"); const hFim = document.getElementById("temaHalloweenFim"); const hPerm = document.getElementById("temaHalloweenPermanente");
-    if (hIni) hIni.value = halloween.inicio || "";
-    if (hFim) hFim.value = halloween.fim || "";
-    if (hPerm) hPerm.checked = halloween.permanente === true;
+    prepararCampoDiaTema("temaNatalInicio", lerDiaTema(natal, "inicioDia", 1), "Disponível a partir do dia");
+    prepararCampoDiaTema("temaNatalFim", lerDiaTema(natal, "fimDia", 31), "Disponível até o dia");
+    prepararCampoDiaTema("temaHalloweenInicio", lerDiaTema(halloween, "inicioDia", 1), "Disponível a partir do dia");
+    prepararCampoDiaTema("temaHalloweenFim", lerDiaTema(halloween, "fimDia", 31), "Disponível até o dia");
+    document.getElementById("temaNatalPermanente")?.closest(".caixa-config-row")?.remove();
+    document.getElementById("temaHalloweenPermanente")?.closest(".caixa-config-row")?.remove();
   }
   function renderAdminIcones() {
     const catsWrap = document.getElementById("listaCategoriasIcones");
@@ -8844,14 +8899,21 @@ if (document.readyState === "loading") {
     lista.push({categoria:nome.trim(),padroes:[]}); state.iconCategorias = lista; await salvarConfig({iconCategorias:lista}, "Categoria de ícone criada."); renderAdminIcones();
   }
   async function salvarAdminTemas() {
-    const inicio = document.getElementById("temaNatalInicio")?.value || "2026-12-01"; const fim = document.getElementById("temaNatalFim")?.value || "2026-12-31"; const permanente = !!document.getElementById("temaNatalPermanente")?.checked;
-    state.temasConfig = {...(state.temasConfig||{}), christmas:{inicio,fim,permanente}};
-    await salvarConfig({temasConfig:state.temasConfig}, "Regras de temas salvas."); renderTemas();
-  }
-  async function salvarAdminHalloween() {
-    const inicio = document.getElementById("temaHalloweenInicio")?.value || ""; const fim = document.getElementById("temaHalloweenFim")?.value || ""; const permanente = !!document.getElementById("temaHalloweenPermanente")?.checked;
-    state.temasConfig = {...(state.temasConfig||{}), halloween:{inicio,fim,permanente}};
-    await salvarConfig({temasConfig:state.temasConfig}, "Regras do tema Halloween salvas."); renderTemas();
+    const diaNatalInicio = Math.min(31, Math.max(1, Number(document.getElementById("temaNatalInicio")?.value) || 1));
+    const diaNatalFim = Math.min(31, Math.max(1, Number(document.getElementById("temaNatalFim")?.value) || 31));
+    const diaHalloweenInicio = Math.min(31, Math.max(1, Number(document.getElementById("temaHalloweenInicio")?.value) || 1));
+    const diaHalloweenFim = Math.min(31, Math.max(1, Number(document.getElementById("temaHalloweenFim")?.value) || 31));
+    state.temasConfig = {
+      ...(state.temasConfig || {}),
+      christmas: { mes: 12, inicioDia: Math.min(diaNatalInicio, diaNatalFim), fimDia: Math.max(diaNatalInicio, diaNatalFim) },
+      halloween: { mes: 10, inicioDia: Math.min(diaHalloweenInicio, diaHalloweenFim), fimDia: Math.max(diaHalloweenInicio, diaHalloweenFim) }
+    };
+    await salvarConfig({temasConfig:state.temasConfig}, "Regras de temas sazonais salvas.");
+    const ativo = sincronizarTemaSazonal();
+    garantirCssTema(ativo);
+    atualizarCamadasTemas();
+    renderVisaoGeral();
+    renderAdmin();
   }
 
   // Neve decorativa procedural: cada card recebe um perfil diferente para que
