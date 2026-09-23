@@ -1149,3 +1149,58 @@ html[data-caixa-theme="christmas"] .caixa-christmas-lights i:nth-of-type(n) {
 html[data-caixa-theme="christmas"] .fab-criar::before {
   content: none !important;
 }
+
+/* ==========================================================
+   NEVE — acabamento orgânico
+   As silhuetas são geradas proceduralmente no app.js e apenas
+   recebem aqui o tratamento visual. Nada de picos geométricos.
+   ========================================================== */
+html[data-caixa-theme="christmas"] #tab-ganhos .item-list-row::before,
+html[data-caixa-theme="christmas"] #tab-fixos .item-list-row::before,
+html[data-caixa-theme="christmas"] #tab-variaveis .item-list-row::before,
+html[data-caixa-theme="christmas"] #tab-ganhos .btn::before,
+html[data-caixa-theme="christmas"] #tab-fixos .btn::before,
+html[data-caixa-theme="christmas"] #tab-variaveis .btn::before {
+  clip-path: none !important;
+  background: var(--snow-image, linear-gradient(#fff,#f1f8fb)) !important;
+  background-size: 100% 100% !important;
+  background-repeat: no-repeat !important;
+  height: 15px !important;
+  top: -2px !important;
+  left: 3px !important;
+  right: 3px !important;
+  border-radius: 0 0 16px 16px / 0 0 9px 9px;
+  filter: drop-shadow(0 2px 2px rgba(65,88,96,.20));
+}
+
+/* O + não recebe neve. */
+html[data-caixa-theme="christmas"] .fab-criar::before,
+html[data-caixa-theme="christmas"] .fab-criar::after { content: none !important; }
+
+/* A grande capa sob o saldo: longa, macia e irregular como neve acumulada. */
+html[data-caixa-theme="christmas"] .hero::after {
+  content: "" !important;
+  left: 0 !important;
+  right: 0 !important;
+  bottom: -1px !important;
+  height: 25px !important;
+  background: var(--snow-image, linear-gradient(#fff,#edf7fa)) !important;
+  background-size: 100% 100% !important;
+  background-repeat: no-repeat !important;
+  clip-path: none !important;
+  border-radius: 0 0 30px 30px / 0 0 14px 14px;
+  opacity: .98 !important;
+  filter: drop-shadow(0 2px 3px rgba(35,59,56,.20));
+}
+
+/* Remove qualquer vestígio dos antigos riscos/galhos geométricos no hero. */
+html[data-caixa-theme="christmas"] .hero::before {
+  display: none !important;
+}
+
+/* Neve dos cards: borda mais suave e arredondada. */
+html[data-caixa-theme="christmas"] #tab-ganhos .item-list-row,
+html[data-caixa-theme="christmas"] #tab-fixos .item-list-row,
+html[data-caixa-theme="christmas"] #tab-variaveis .item-list-row {
+  overflow: hidden;
+}

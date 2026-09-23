@@ -8452,35 +8452,53 @@ if (document.readyState === "loading") {
   // Neve decorativa procedural: cada card recebe um perfil diferente para que
   // o acabamento não pareça uma imagem repetida. O perfil é mantido até o card
   // ser recriado pelo próprio render da lista.
-  function gerarPerfilNeve() {
-    const pontos = ["0% 0", "100% 0"];
-    const qtd = 13;
-    for (let i = qtd; i >= 0; i--) {
-      const x = (i / qtd) * 100;
-      let profundidade = 6 + Math.random() * 7;
-      if (Math.random() < 0.18) profundidade += 7 + Math.random() * 9;
-      if (Math.random() < 0.08) profundidade += 6 + Math.random() * 7;
-      pontos.push(`${x.toFixed(1)}% ${profundidade.toFixed(1)}px`);
+  function gerarPerfilNeve(tipo = "card") {
+    // Neve procedural com curvas suaves: cada elemento recebe uma silhueta única,
+    // evitando o aspecto pontiagudo dos polígonos e a repetição visual.
+    const largura = 1000;
+    const altura = tipo === "hero" ? 44 : 30;
+    const quantidade = tipo === "hero" ? 9 : 8;
+    const pontos = [];
+    for (let i = 0; i <= quantidade; i++) {
+      const x = (i / quantidade) * largura;
+      let y = 5 + Math.random() * (tipo === "hero" ? 15 : 10);
+      if (Math.random() < .24) y += 5 + Math.random() * 8;
+      pontos.push({x, y});
     }
-    return pontos.join(", ");
+
+    function curvaCatmull(p0, p1, p2, p3) {
+      const c1x = p1.x + (p2.x - p0.x) / 6;
+      const c1y = p1.y + (p2.y - p0.y) / 6;
+      const c2x = p2.x - (p3.x - p1.x) / 6;
+      const c2y = p2.y - (p3.y - p1.y) / 6;
+      return `C ${c1x.toFixed(1)} ${c1y.toFixed(1)}, ${c2x.toFixed(1)} ${c2y.toFixed(1)}, ${p2.x.toFixed(1)} ${p2.y.toFixed(1)}`;
+    }
+
+    let path = `M 0 0 H ${largura} V ${pontos[pontos.length - 1].y.toFixed(1)}`;
+    for (let i = pontos.length - 2; i >= 0; i--) {
+      const p0 = pontos[Math.max(0, i - 1)];
+      const p1 = pontos[i];
+      const p2 = pontos[i + 1];
+      const p3 = pontos[Math.min(pontos.length - 1, i + 2)];
+      path += ` ${curvaCatmull(p3, p2, p1, p0)}`;
+    }
+    path += ` L 0 0 Z`;
+
+    const svg = `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 ${largura} ${altura}" preserveAspectRatio="none"><defs><linearGradient id="g" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#ffffff"/><stop offset="0.7" stop-color="#f9fdff"/><stop offset="1" stop-color="#e8f3f7"/></linearGradient></defs><path d="${path}" fill="url(#g)"/></svg>`;
+    return `url("data:image/svg+xml;base64,${btoa(svg)}")`;
   }
 
   function aplicarNeveProcedural(root = document) {
     if (document.documentElement.dataset.caixaTheme !== "christmas") return;
-    const seletores = [
-      ".item-list-row",
-      ".caixa-christmas-lights",
-      ".goal-card.caixinha-card"
-    ];
-    root.querySelectorAll(seletores.join(",")).forEach((el) => {
+    root.querySelectorAll(".item-list-row, .caixa-christmas-lights, .goal-card.caixinha-card").forEach((el) => {
       if (el.dataset.snowProfile) return;
-      el.style.setProperty("--snow-clip", gerarPerfilNeve());
+      el.style.setProperty("--snow-image", gerarPerfilNeve("card"));
       el.dataset.snowProfile = "1";
     });
 
     const hero = document.querySelector(".hero");
     if (hero && !hero.dataset.snowProfile) {
-      hero.style.setProperty("--snow-clip", gerarPerfilNeve());
+      hero.style.setProperty("--snow-image", gerarPerfilNeve("hero"));
       hero.dataset.snowProfile = "1";
     }
   }
