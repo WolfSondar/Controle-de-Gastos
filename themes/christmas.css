@@ -1334,3 +1334,69 @@ html[data-caixa-theme="christmas"] .status-list-title-row + .item-list-row {
 html[data-caixa-theme="christmas"] .hero .caixa-christmas-lights {
   filter: none !important;
 }
+
+
+/* ==========================================================
+   NATAL 6.0 — luzes alinhadas à linha da neve + neve mais espessa
+   ========================================================== */
+
+/* A capa de neve ocupa mais altura, mas começa exatamente na linha
+   inferior do hero e permanece presa ao cartão durante expandir/recolher. */
+html[data-caixa-theme="christmas"] .hero {
+  overflow: hidden !important;
+}
+html[data-caixa-theme="christmas"] .hero::after {
+  bottom: 0 !important;
+  height: 24px !important;
+  border-radius: 0 0 30px 30px !important;
+  background: linear-gradient(180deg,#ffffff 0%,#fbfdfe 58%,#e7f2f5 100%) !important;
+  opacity: .99 !important;
+  filter: drop-shadow(0 -1px 1px rgba(255,255,255,.34)) drop-shadow(0 1px 2px rgba(28,54,49,.16));
+  mask-image: none !important;
+  -webkit-mask-image: none !important;
+}
+
+/* Fio de fada: mais baixo, fino e com cada pontinho exatamente sobre a linha
+   superior da neve. A luz não troca de cor; apenas respira em intensidade. */
+html[data-caixa-theme="christmas"] .caixa-christmas-lights,
+html[data-caixa-theme="christmas"] .hero .caixa-christmas-lights {
+  top: auto !important;
+  bottom: 24px !important;
+  left: 30px !important;
+  right: 30px !important;
+  height: 8px !important;
+  margin: 0 !important;
+  overflow: visible !important;
+  z-index: 13 !important;
+}
+html[data-caixa-theme="christmas"] .caixa-christmas-lights .christmas-wire {
+  top: 0 !important;
+  height: 8px !important;
+  border-top: 1px solid rgba(247,231,184,.48) !important;
+  border-radius: 50% 50% 0 0 / 100% 100% 0 0 !important;
+  transform: none !important;
+  opacity: .76 !important;
+}
+html[data-caixa-theme="christmas"] .caixa-christmas-lights i,
+html[data-theme="dark"][data-caixa-theme="christmas"] .caixa-christmas-lights i {
+  top: -2px !important;
+  width: 4px !important;
+  height: 4px !important;
+  border-radius: 50% !important;
+  background: #f6df9c !important;
+  color: #f6df9c !important;
+  box-shadow: 0 0 3px rgba(246,223,156,.88),0 0 7px rgba(246,223,156,.42) !important;
+  animation: christmasFairyGlowClean 5.6s ease-in-out infinite !important;
+}
+@keyframes christmasFairyGlowClean {
+  0%,100% { opacity:.42; transform:scale(.78); }
+  45% { opacity:.78; transform:scale(.92); }
+  55% { opacity:1; transform:scale(1); }
+  68% { opacity:.58; transform:scale(.84); }
+}
+
+/* Menos interferência visual dos flocos que caem. */
+html[data-caixa-theme="christmas"] .caixa-snowflake {
+  opacity: .26 !important;
+  filter: drop-shadow(0 1px 1px rgba(50,80,90,.12)) !important;
+}
