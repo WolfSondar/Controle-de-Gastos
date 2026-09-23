@@ -754,3 +754,155 @@ html[data-theme="dark"][data-caixa-theme="christmas"] #tab-fixos .btn::before,
 html[data-theme="dark"][data-caixa-theme="christmas"] #tab-variaveis .btn::before {
   background: linear-gradient(180deg,#f9ffff 0%,#dcebed 68%,rgba(220,235,237,0) 100%);
 }
+
+/* ==========================================================
+   NATAL — refinamento final da decoração do topo
+   ========================================================== */
+
+/* Remover completamente os galhos/riscos diagonais antigos do hero. */
+html[data-caixa-theme="christmas"] .hero::before {
+  display: none !important;
+  content: none !important;
+}
+
+/* A neve do topo fica orgânica e discreta, sem criar a antiga faixa branca. */
+html[data-caixa-theme="christmas"] .hero::after {
+  left: 0;
+  right: 0;
+  bottom: -2px;
+  height: 11px;
+  background:
+    radial-gradient(19px 7px at 8px 2px, rgba(255,255,255,.98) 0 68%, transparent 71%) repeat-x;
+  background-size: 42px 10px;
+  opacity: .92;
+  filter: drop-shadow(0 2px 3px rgba(20,55,45,.18));
+}
+
+/* Pisca-pisca: clean, fino e luminoso, mais próximo do saldo disponível. */
+html[data-caixa-theme="christmas"] .hero .caixa-christmas-lights,
+html[data-caixa-theme="christmas"] .caixa-christmas-lights {
+  position: absolute;
+  left: 22px;
+  right: 22px;
+  top: 104px;
+  height: 25px;
+  margin: 0;
+  overflow: visible;
+  z-index: 12;
+  pointer-events: none;
+}
+
+html[data-caixa-theme="christmas"] .caixa-christmas-lights .christmas-wire {
+  left: 0;
+  right: 0;
+  top: 7px;
+  height: 12px;
+  border-top: 1px solid rgba(244,226,181,.48);
+  border-radius: 50% 50% 0 0 / 100% 100% 0 0;
+  transform: rotate(.4deg);
+  opacity: .72;
+  box-shadow: 0 -1px 0 rgba(255,255,255,.08);
+}
+
+html[data-caixa-theme="christmas"] .caixa-christmas-lights i {
+  top: 6px;
+  width: 5px;
+  height: 7px;
+  border-radius: 50% 50% 48% 48%;
+  box-shadow:
+    0 0 4px currentColor,
+    0 0 9px currentColor,
+    0 0 15px color-mix(in srgb, currentColor 55%, transparent);
+  opacity: .72;
+  animation: christmasCleanBlink 3.8s ease-in-out infinite;
+}
+
+@keyframes christmasCleanBlink {
+  0%, 100% { opacity: .34; transform: scale(.78); filter: brightness(.82) saturate(.82); }
+  22%, 38% { opacity: .96; transform: scale(1); filter: brightness(1.28) saturate(1.08); }
+  52% { opacity: .55; transform: scale(.86); filter: brightness(.92); }
+}
+
+html[data-theme="dark"][data-caixa-theme="christmas"] .caixa-christmas-lights .christmas-wire {
+  border-color: rgba(244,226,181,.36);
+}
+html[data-theme="dark"][data-caixa-theme="christmas"] .caixa-christmas-lights i {
+  box-shadow:
+    0 0 5px currentColor,
+    0 0 11px currentColor,
+    0 0 19px color-mix(in srgb, currentColor 48%, transparent);
+}
+
+/* A neve depositada volta aos elementos natalinos, mas sem tocar no FAB. */
+html[data-caixa-theme="christmas"] #tab-ganhos .btn:not(.fab-criar),
+html[data-caixa-theme="christmas"] #tab-fixos .btn:not(.fab-criar),
+html[data-caixa-theme="christmas"] #tab-variaveis .btn:not(.fab-criar),
+html[data-caixa-theme="christmas"] .goal-card.caixinha-card {
+  position: relative;
+  overflow: visible;
+}
+
+html[data-caixa-theme="christmas"] #tab-ganhos .btn:not(.fab-criar)::before,
+html[data-caixa-theme="christmas"] #tab-fixos .btn:not(.fab-criar)::before,
+html[data-caixa-theme="christmas"] #tab-variaveis .btn:not(.fab-criar)::before,
+html[data-caixa-theme="christmas"] .goal-card.caixinha-card::before {
+  content: "";
+  position: absolute;
+  left: 7px;
+  right: 7px;
+  top: -5px;
+  height: 9px;
+  border-radius: 9px 10px 4px 4px;
+  background:
+    radial-gradient(13px 6px at 7px 3px, #fff 0 70%, transparent 73%) repeat-x,
+    linear-gradient(180deg,#ffffff 0%,#f3faf9 72%,rgba(243,250,249,0) 100%);
+  background-size: 25px 8px, 100% 100%;
+  clip-path: polygon(0 0,100% 0,99% 55%,94% 42%,89% 72%,83% 45%,77% 68%,70% 43%,64% 73%,57% 47%,50% 69%,43% 42%,36% 71%,29% 46%,22% 68%,15% 43%,8% 72%,2% 47%);
+  filter: drop-shadow(0 1px 2px rgba(64,90,88,.22));
+  pointer-events: none;
+  z-index: 5;
+}
+
+/* O FAB não recebe mais neve pulsante/decorativa. */
+html[data-caixa-theme="christmas"] .fab-criar::before {
+  display: none !important;
+  content: none !important;
+}
+
+/* Progresso das caixinhas: verde-pinho → esmeralda → dourado, com transição suave. */
+html[data-caixa-theme="christmas"] .goal-bar-fill {
+  background: linear-gradient(90deg,
+    #1f6045 0%,
+    #2f8660 42%,
+    #66aa72 70%,
+    #d8b85e 100%) !important;
+  box-shadow:
+    inset 0 1px 0 rgba(255,255,255,.30),
+    0 1px 7px rgba(72,137,94,.22);
+}
+html[data-caixa-theme="christmas"] .goal-bar-fill.completo {
+  background: linear-gradient(90deg,
+    #246b4b 0%,
+    #4d9a63 48%,
+    #e1c36b 100%) !important;
+}
+html[data-caixa-theme="christmas"] .goal-bar-track {
+  background: linear-gradient(180deg,rgba(19,59,45,.18),rgba(255,255,255,.14));
+}
+
+/* Na caixinha, a neve continua sendo a referência visual principal. */
+html[data-theme="dark"][data-caixa-theme="christmas"] .goal-card.caixinha-card::before {
+  background:
+    radial-gradient(13px 6px at 7px 3px,#fbffff 0 70%,transparent 73%) repeat-x,
+    linear-gradient(180deg,#fbffff 0%,#dfeeed 72%,rgba(223,238,237,0) 100%);
+  filter: drop-shadow(0 1px 2px rgba(0,0,0,.30));
+}
+
+@media (max-width: 640px) {
+  html[data-caixa-theme="christmas"] .caixa-christmas-lights,
+  html[data-caixa-theme="christmas"] .hero .caixa-christmas-lights {
+    left: 16px;
+    right: 16px;
+    top: 98px;
+  }
+}
