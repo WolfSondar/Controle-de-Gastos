@@ -8426,6 +8426,15 @@ if (document.readyState === "loading") {
       prepararNeveNatal();
       prepararCenarioNatal();
       aplicarNeveProcedural();
+    } else {
+      // Toda a decoração criada exclusivamente pelo tema Natal deve ser
+      // removida ao trocar para outro tema. Isso evita que árvores/pinheiros
+      // permaneçam espalhados pela tela inicial.
+      document.querySelectorAll(".caixa-christmas-scenery").forEach(el => el.remove());
+      document.querySelectorAll("[data-snow-profile]").forEach(el => {
+        el.style.removeProperty("--snow-image");
+        delete el.dataset.snowProfile;
+      });
     }
     if (layer) layer.setAttribute("aria-hidden", natal ? "false" : "true");
     if (lights) lights.setAttribute("aria-hidden", natal ? "false" : "true");
