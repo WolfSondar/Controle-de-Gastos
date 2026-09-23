@@ -1,0 +1,169 @@
+/* Painel genérico de sazonalidade do Admin. O mesmo componente serve para
+   Natal, Halloween e qualquer novo tema cadastrado no seletor de temas. */
+.caixa-admin-seasonal-shell{
+  display:block !important;
+  width:100%;
+  box-sizing:border-box;
+  margin:0 0 12px;
+  padding:16px !important;
+  border:1px solid rgba(30,48,40,.10) !important;
+  border-radius:18px !important;
+  background:rgba(255,255,255,.62) !important;
+  color:inherit;
+  box-shadow:0 5px 18px rgba(26,45,36,.035);
+}
+.caixa-admin-seasonal-head{margin:0 2px 14px;}
+.caixa-admin-seasonal-kicker{
+  margin-bottom:3px;
+  font-size:9px;
+  line-height:1;
+  letter-spacing:.16em;
+  font-weight:800;
+  opacity:.48;
+}
+.caixa-admin-seasonal-head h3{
+  margin:0 0 4px;
+  font-family:Fraunces,serif;
+  font-size:20px;
+  line-height:1.1;
+  font-weight:600;
+}
+.caixa-admin-seasonal-head p{
+  margin:0;
+  max-width:360px;
+  font-size:11px;
+  line-height:1.45;
+  opacity:.62;
+}
+.caixa-admin-seasonal-list{display:flex;flex-direction:column;gap:10px;}
+.caixa-admin-seasonal-theme{
+  box-sizing:border-box;
+  padding:13px;
+  border:1px solid rgba(30,48,40,.10);
+  border-radius:15px;
+  background:rgba(255,255,255,.52);
+}
+.caixa-admin-seasonal-theme-top{display:flex;align-items:center;gap:10px;min-width:0;}
+.caixa-admin-seasonal-theme-icon{
+  width:42px;height:42px;flex:0 0 42px;
+  display:grid;place-items:center;
+  border-radius:12px;
+  background:rgba(60,110,79,.09);
+  font-size:22px;
+}
+.caixa-admin-seasonal-theme-name{min-width:0;}
+.caixa-admin-seasonal-theme-name strong{
+  display:block;
+  margin:0 0 2px;
+  font-size:14px;
+  line-height:1.15;
+}
+.caixa-admin-seasonal-theme-name span{
+  display:block;
+  font-size:10px;
+  line-height:1.35;
+  opacity:.58;
+}
+.caixa-admin-seasonal-fields{
+  display:grid;
+  grid-template-columns:1fr 1fr;
+  gap:8px;
+  margin-top:12px;
+}
+.caixa-admin-seasonal-fields label{min-width:0;}
+.caixa-admin-seasonal-fields label>span{
+  display:block;
+  margin:0 0 5px 2px;
+  font-size:9px;
+  line-height:1.2;
+  font-weight:800;
+  text-transform:uppercase;
+  letter-spacing:.05em;
+  opacity:.55;
+}
+.caixa-admin-seasonal-fields input[type="date"]{
+  box-sizing:border-box;
+  width:100%;
+  min-width:0;
+  height:38px;
+  padding:0 9px;
+  border:1px solid rgba(30,48,40,.13);
+  border-radius:10px;
+  background:rgba(255,255,255,.82);
+  color:inherit;
+  font:inherit;
+  font-size:12px;
+  outline:none;
+}
+.caixa-admin-seasonal-fields input[type="date"]:focus{
+  border-color:rgba(60,110,79,.48);
+  box-shadow:0 0 0 3px rgba(60,110,79,.08);
+}
+.caixa-admin-seasonal-toggle{
+  display:flex;
+  align-items:center;
+  gap:8px;
+  margin-top:10px;
+  min-height:24px;
+  cursor:pointer;
+  user-select:none;
+  font-size:11px;
+  opacity:.82;
+}
+.caixa-admin-seasonal-toggle input{position:absolute;opacity:0;pointer-events:none;}
+.caixa-admin-seasonal-switch{
+  width:34px;height:20px;flex:0 0 34px;
+  position:relative;
+  border-radius:999px;
+  background:#b9c1bd;
+  transition:background .18s ease;
+}
+.caixa-admin-seasonal-switch i{
+  position:absolute;
+  width:16px;height:16px;
+  left:2px;top:2px;
+  border-radius:50%;
+  background:#fff;
+  box-shadow:0 1px 3px rgba(0,0,0,.18);
+  transition:transform .18s ease;
+}
+.caixa-admin-seasonal-toggle input:checked + .caixa-admin-seasonal-switch{background:#78a487;}
+.caixa-admin-seasonal-toggle input:checked + .caixa-admin-seasonal-switch i{transform:translateX(14px);}
+.caixa-admin-seasonal-save{
+  display:block;
+  width:100%;
+  margin-top:13px;
+  min-height:40px;
+  border:0;
+  border-radius:10px;
+  background:var(--gold,#d9ab5c);
+  color:#fff;
+  font:inherit;
+  font-size:12px;
+  font-weight:800;
+  cursor:pointer;
+  transition:filter .16s ease,transform .16s ease;
+}
+.caixa-admin-seasonal-save:hover{filter:brightness(1.04);transform:translateY(-1px);}
+.caixa-admin-seasonal-save:active{transform:translateY(0);}
+
+html[data-theme="dark"] .caixa-admin-seasonal-shell{
+  background:rgba(20,35,29,.84) !important;
+  border-color:rgba(255,255,255,.07) !important;
+}
+html[data-theme="dark"] .caixa-admin-seasonal-theme{
+  background:rgba(20,35,29,.72);
+  border-color:rgba(255,255,255,.07);
+}
+html[data-theme="dark"] .caixa-admin-seasonal-theme-icon{background:rgba(111,187,140,.10);}
+html[data-theme="dark"] .caixa-admin-seasonal-fields input[type="date"]{
+  background:#16281f;
+  color:var(--ink-text,#f2eee5);
+  border-color:#2a4438;
+  color-scheme:dark;
+}
+
+@media (max-width:520px){
+  .caixa-admin-seasonal-shell{padding:13px !important;border-radius:16px !important;}
+  .caixa-admin-seasonal-fields{grid-template-columns:1fr;}
+}
