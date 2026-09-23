@@ -4069,10 +4069,10 @@ function renderVisaoGeral() {
   const corte1 = pctGuardado;
   const corte2 = pctGuardado + pctGastos;
 
-  const temaNatal = document.documentElement.dataset.caixaTheme === "christmas";
-  const corGuardado = temaNatal ? "var(--christmas-summary-saved)" : "var(--gold)";
-  const corGastos = temaNatal ? "var(--christmas-summary-expense)" : "var(--expense)";
-  const corLivre = temaNatal ? "var(--christmas-summary-free)" : "var(--income)";
+  const temaEspecial = ["christmas", "halloween"].includes(document.documentElement.dataset.caixaTheme);
+  const corGuardado = temaEspecial ? "var(--theme-summary-saved)" : "var(--gold)";
+  const corGastos = temaEspecial ? "var(--theme-summary-expense)" : "var(--expense)";
+  const corLivre = temaEspecial ? "var(--theme-summary-free)" : "var(--income)";
   if (donut) {
     donut.style.background = `conic-gradient(${corGuardado} 0% ${corte1}%, ${corGastos} ${corte1}% ${corte2}%, ${corLivre} ${corte2}% 100%)`;
   }
@@ -4125,10 +4125,10 @@ function renderSplit() {
   const corte2 = pctDavi + pctGabriel;
 
   const donut = document.getElementById("splitDonut");
-  const temaNatal = document.documentElement.dataset.caixaTheme === "christmas";
-  const corPessoaA = temaNatal ? "var(--christmas-summary-free)" : "var(--income)";
-  const corPessoaB = temaNatal ? "var(--christmas-summary-expense)" : "var(--expense)";
-  const corRestante = temaNatal ? "var(--christmas-summary-rest)" : "var(--line-soft)";
+  const temaEspecial = ["christmas", "halloween"].includes(document.documentElement.dataset.caixaTheme);
+  const corPessoaA = temaEspecial ? "var(--theme-summary-free)" : "var(--income)";
+  const corPessoaB = temaEspecial ? "var(--theme-summary-expense)" : "var(--expense)";
+  const corRestante = temaEspecial ? "var(--theme-summary-rest)" : "var(--line-soft)";
   if (donut) {
     donut.style.background = `conic-gradient(${corPessoaA} 0% ${corte1}%, ${corPessoaB} ${corte1}% ${corte2}%, ${corRestante} ${corte2}% 100%)`;
   }
@@ -8331,7 +8331,7 @@ if (document.readyState === "loading") {
   function temaPodeSerUsado(id) {
     if (id === "default") return true;
     const cfg = state.temasConfig || {};
-    const regra = cfg[id] || (id === "christmas" ? { permanente: true, inicio: "2026-12-01", fim: "2026-12-31" } : {});
+    const regra = cfg[id] || (id === "christmas" ? { permanente: true, inicio: "2026-12-01", fim: "2026-12-31" } : id === "halloween" ? { permanente: true, inicio: "2026-10-01", fim: "2026-10-31" } : {});
     if (regra.permanente) return true;
     const hoje = new Date();
     const inicio = regra.inicio ? new Date(`${regra.inicio}T00:00:00`) : null;
@@ -8342,11 +8342,30 @@ if (document.readyState === "loading") {
   function temaAtivo() {
     try { return localStorage.getItem("caixa-tema-estilo-v1") || "default"; } catch (_) { return "default"; }
   }
+  function garantirCssTema(id) {
+    if (id !== "halloween") return;
+    const href = new URL("themes/halloween.css", document.baseURI).href;
+    if ([...document.querySelectorAll('link[data-caixa-theme-css="halloween"]')].some(link => link.href === href)) return;
+    const link = document.createElement("link");
+    link.rel = "stylesheet"; link.href = href; link.dataset.caixaThemeCss = "halloween";
+    document.head.appendChild(link);
+  }
+
+  function garantirCardTemaHalloween() {
+    const container = document.querySelector(".caixa-themes-grid, .caixa-temas-grid, .caixa-theme-options");
+    if (!container || container.querySelector('[data-caixa-theme="halloween"]')) return;
+    const btn = document.createElement("button");
+    btn.type = "button"; btn.className = "caixa-theme-option caixa-tema-halloween";
+    btn.dataset.caixaTheme = "halloween"; btn.setAttribute("aria-pressed", "false");
+    btn.innerHTML = `<span class="caixa-theme-preview caixa-theme-preview-halloween" aria-hidden="true"><i></i><b></b><em></em><strong></strong><u></u></span><span><strong>Halloween</strong><small>Abóboras, morcegos e slime encantado.</small></span><span class="caixa-theme-check" aria-hidden="true">✓</span>`;
+    container.appendChild(btn);
+    btn.addEventListener("click", () => aplicarTemaCaixa("halloween"));
+  }
 
   // Temas sazonais entram e saem automaticamente de acordo com o período
   // configurado no Admin. O Padrão continua sendo o fallback permanente.
   function sincronizarTemaSazonal() {
-    const sazonais = ["christmas"];
+    const sazonais = ["christmas", "halloween"];
     // Apenas temas marcados como sazonais (Sempre disponível = manual)
     // podem assumir o Caixa automaticamente.
     const disponiveis = sazonais.filter(id => {
@@ -8418,6 +8437,46 @@ if (document.readyState === "loading") {
     }
     layer.appendChild(fragment);
   }
+  function prepararCenarioHalloween() {
+    const hero = document.querySelector(".hero");
+    if (!hero || hero.querySelector(".caixa-halloween-scenery")) return;
+    const wrap = document.createElement("div"); wrap.className = "caixa-halloween-scenery"; wrap.setAttribute("aria-hidden", "true");
+    const itens = [
+      { cls:"pumpkin", x:22, s:.92 }, { cls:"pumpkin mini", x:78, s:.62 },
+      { cls:"bat", x:38, y:10, s:.72 }, { cls:"bat bat-two", x:63, y:16, s:.52 }, { cls:"bat bat-three", x:88, y:8, s:.46 }
+    ];
+    itens.sort(() => Math.random() - .5);
+    itens.forEach((item, idx) => {
+      const el=document.createElement("span"); el.className=`halloween-scenery-item ${item.cls}`;
+      el.style.left=`${item.x + (Math.random()*6-3)}%`;
+      if(item.y!=null) el.style.top=`${item.y + Math.random()*7}px`; else el.style.bottom=`${2+Math.random()*2}px`;
+      el.style.setProperty("--scene-scale", String(item.s+(Math.random()*.1-.05))); el.style.setProperty("--scene-delay", `${idx*-1.7}s`);
+      if(item.cls.includes("pumpkin")) el.innerHTML=`<svg viewBox="0 0 80 68" role="presentation"><path d="M40 13c-4-6-2-10 3-12 4 3 5 7 2 12" fill="none" stroke="currentColor" stroke-width="5" stroke-linecap="round"/><path d="M40 15C27 8 10 19 10 39c0 17 14 26 30 26s30-9 30-26C70 19 53 8 40 15Z" fill="currentColor"/><path d="M24 34 32 28 30 40 22 38ZM56 34 48 28 50 40 58 38ZM28 48c8 6 16 6 24 0-7 2-17 2-24 0Z" fill="#21172b"/></svg>`;
+      else el.innerHTML=`<svg viewBox="0 0 90 50" role="presentation"><path d="M45 25c-9-12-21-18-36-18 5 7 6 12 2 18-5-1-8-1-11 1 10 5 19 9 29 8 6 0 10-2 16-9 6 7 10 9 16 9 10 1 19-3 29-8-3-2-6-2-11-1-4-6-3-11 2-18-15 0-27 6-36 18Z" fill="currentColor"/></svg>`;
+      wrap.appendChild(el);
+    });
+    hero.appendChild(wrap);
+  }
+  function gerarPerfilSlime(tipo="card") {
+    const largura=1000, altura=tipo==="hero"?54:38, qtd=tipo==="hero"?10:9, pontos=[];
+    for(let i=0;i<=qtd;i++){const x=i/qtd*largura; const y=4+Math.random()*(tipo==="hero"?10:9)+(Math.random()<.2?5+Math.random()*8:0); pontos.push({x,y});}
+    const curva=(p0,p1,p2,p3)=>{const c1x=p1.x+(p2.x-p0.x)/6,c1y=p1.y+(p2.y-p0.y)/6,c2x=p2.x-(p3.x-p1.x)/6,c2y=p2.y-(p3.y-p1.y)/6;return `C ${c1x.toFixed(1)} ${c1y.toFixed(1)}, ${c2x.toFixed(1)} ${c2y.toFixed(1)}, ${p2.x.toFixed(1)} ${p2.y.toFixed(1)}`};
+    let path=`M 0 ${pontos[0].y.toFixed(1)}`; for(let i=0;i<pontos.length-1;i++){const p0=pontos[Math.max(0,i-1)],p1=pontos[i],p2=pontos[i+1],p3=pontos[Math.min(pontos.length-1,i+2)];path+=` ${curva(p0,p1,p2,p3)}`} path+=` L ${largura} ${altura} L 0 ${altura} Z`;
+    const svg=`<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 ${largura} ${altura}" preserveAspectRatio="none"><defs><linearGradient id="g" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#72efff"/><stop offset=".48" stop-color="#5f8fff"/><stop offset="1" stop-color="#7b39c7"/></linearGradient></defs><path d="${path}" fill="url(#g)"/></svg>`;
+    return `url("data:image/svg+xml;base64,${btoa(svg)}")`;
+  }
+  function aplicarSlimeHalloween(root=document){
+    if(document.documentElement.dataset.caixaTheme!=="halloween") return;
+    root.querySelectorAll(".item-list-row, .goal-card.caixinha-card").forEach(el=>{if(el.dataset.slimeProfile)return;el.style.setProperty("--slime-image",gerarPerfilSlime("card"));el.dataset.slimeProfile="1"});
+    const hero=document.querySelector(".hero"); if(hero&&!hero.dataset.slimeProfile){hero.style.setProperty("--slime-image",gerarPerfilSlime("hero"));hero.dataset.slimeProfile="1"}
+  }
+  function atualizarCamadaTemaHalloween(){
+    const ativo=document.documentElement.dataset.caixaTheme==="halloween"; garantirCssTema("halloween");
+    if(ativo){prepararCenarioHalloween();aplicarSlimeHalloween()}
+    document.querySelectorAll(".caixa-halloween-scenery").forEach(el=>el.setAttribute("aria-hidden",ativo?"false":"true"));
+    if(!ativo){document.querySelectorAll(".caixa-halloween-scenery").forEach(el=>el.remove());document.querySelectorAll("[data-slime-profile]").forEach(el=>{el.style.removeProperty("--slime-image");delete el.dataset.slimeProfile})}
+  }
+  function atualizarCamadasTemas(){atualizarCamadaTemaNatal();atualizarCamadaTemaHalloween()}
   function atualizarCamadaTemaNatal() {
     const natal = document.documentElement.dataset.caixaTheme === "christmas";
     const layer = document.getElementById("caixaChristmasSnow");
@@ -8440,7 +8499,7 @@ if (document.readyState === "loading") {
     if (lights) lights.setAttribute("aria-hidden", natal ? "false" : "true");
   }
   function temaSazonalAutomaticoAtivo() {
-    const sazonais = ["christmas"];
+    const sazonais = ["christmas", "halloween"];
     return sazonais.some(id => {
       const regra = (state.temasConfig || {})[id] || {};
       // "Sempre disponível" é sempre um tema manual: mesmo com datas preenchidas,
@@ -8457,12 +8516,15 @@ if (document.readyState === "loading") {
     if (id !== "default" && !temaPodeSerUsado(id)) { showToast("Esse tema ainda não está disponível."); return; }
     try { localStorage.setItem("caixa-tema-estilo-v1", id); } catch (_) {}
     document.documentElement.dataset.caixaTheme = id;
-    atualizarCamadaTemaNatal();
+    garantirCssTema(id);
+    atualizarCamadasTemas();
     renderTemas();
   }
   function renderTemas() {
+    garantirCardTemaHalloween();
     let ativo = sincronizarTemaSazonal();
-    atualizarCamadaTemaNatal();
+    garantirCssTema(ativo);
+    atualizarCamadasTemas();
     const automatico = temaSazonalAutomaticoAtivo();
     document.querySelectorAll("[data-caixa-theme]").forEach(btn => {
       const id = btn.dataset.caixaTheme;
@@ -8489,15 +8551,53 @@ if (document.readyState === "loading") {
       container.dataset.seasonalMessage = automatico ? "Tema sazonal ativo automaticamente durante este período." : "";
     }
   }
+  function garantirCardAdminHalloween() {
+    if (state.pessoaAtual !== "davi") return;
+    if (document.getElementById("caixaAdminHalloweenTema")) return;
+    const natalInput = document.getElementById("temaNatalInicio");
+    const natalCard = natalInput?.closest(".caixa-config-card, .caixa-settings-card, .settings-card, .config-card, .card, section");
+    if (!natalCard || !natalCard.parentElement) return;
+
+    const card = document.createElement("section");
+    card.id = "caixaAdminHalloweenTema";
+    card.className = natalCard.className || "caixa-config-card";
+    card.innerHTML = `
+      <div class="caixa-config-card-head">
+        <div>
+          <div class="caixa-config-card-title">🎃 Halloween</div>
+          <div class="caixa-config-card-subtitle">Defina quando o tema Halloween pode ficar disponível automaticamente.</div>
+        </div>
+      </div>
+      <div class="caixa-config-card-body">
+        <div class="caixa-config-row">
+          <div class="caixa-config-row-main"><div class="caixa-config-row-title">Disponibilidade</div><div class="caixa-config-row-sub">Escolha se o tema pode ser usado livremente ou só na temporada.</div></div>
+          <label class="caixa-toggle"><input type="checkbox" id="temaHalloweenPermanente"><span></span></label>
+        </div>
+        <div class="caixa-config-grid-2">
+          <label class="caixa-field"><span>Início</span><input type="date" id="temaHalloweenInicio"></label>
+          <label class="caixa-field"><span>Fim</span><input type="date" id="temaHalloweenFim"></label>
+        </div>
+        <button type="button" class="caixa-config-primary" id="btnSalvarAdminHalloween">Salvar Halloween</button>
+      </div>`;
+    natalCard.parentElement.appendChild(card);
+    document.getElementById("btnSalvarAdminHalloween")?.addEventListener("click", salvarAdminHalloween);
+  }
+
   function renderAdmin() {
     if (state.pessoaAtual !== "davi") return;
     renderAdminIcones();
+    garantirCardAdminHalloween();
     const cfg = state.temasConfig || {};
     const natal = cfg.christmas || {};
+    const halloween = cfg.halloween || {};
     const ini = document.getElementById("temaNatalInicio"); const fim = document.getElementById("temaNatalFim"); const perm = document.getElementById("temaNatalPermanente");
     if (ini) ini.value = natal.inicio || "2026-12-01";
     if (fim) fim.value = natal.fim || "2026-12-31";
     if (perm) perm.checked = natal.permanente !== false;
+    const hIni = document.getElementById("temaHalloweenInicio"); const hFim = document.getElementById("temaHalloweenFim"); const hPerm = document.getElementById("temaHalloweenPermanente");
+    if (hIni) hIni.value = halloween.inicio || "2026-10-01";
+    if (hFim) hFim.value = halloween.fim || "2026-10-31";
+    if (hPerm) hPerm.checked = halloween.permanente !== false;
   }
   function renderAdminIcones() {
     const catsWrap = document.getElementById("listaCategoriasIcones");
@@ -8550,6 +8650,11 @@ if (document.readyState === "loading") {
     const inicio = document.getElementById("temaNatalInicio")?.value || "2026-12-01"; const fim = document.getElementById("temaNatalFim")?.value || "2026-12-31"; const permanente = !!document.getElementById("temaNatalPermanente")?.checked;
     state.temasConfig = {...(state.temasConfig||{}), christmas:{inicio,fim,permanente}};
     await salvarConfig({temasConfig:state.temasConfig}, "Regras de temas salvas."); renderTemas();
+  }
+  async function salvarAdminHalloween() {
+    const inicio = document.getElementById("temaHalloweenInicio")?.value || "2026-10-01"; const fim = document.getElementById("temaHalloweenFim")?.value || "2026-10-31"; const permanente = !!document.getElementById("temaHalloweenPermanente")?.checked;
+    state.temasConfig = {...(state.temasConfig||{}), halloween:{inicio,fim,permanente}};
+    await salvarConfig({temasConfig:state.temasConfig}, "Regras do tema Halloween salvas."); renderTemas();
   }
 
   // Neve decorativa procedural: cada card recebe um perfil diferente para que
@@ -8656,16 +8761,19 @@ if (document.readyState === "loading") {
     const antes = temaAtivo();
     const depois = sincronizarTemaSazonal();
     if (antes !== depois) {
-      atualizarCamadaTemaNatal();
+      atualizarCamadasTemas();
       renderTemas();
     }
   }, 60 * 1000);
   aplicarNeveProcedural();
   const caixaSnowObserver = new MutationObserver((mutacoes) => {
-    if (document.documentElement.dataset.caixaTheme !== "christmas") return;
+    const tema = document.documentElement.dataset.caixaTheme;
+    if (tema !== "christmas" && tema !== "halloween") return;
     for (const mutacao of mutacoes) {
       mutacao.addedNodes?.forEach((node) => {
-        if (node.nodeType === 1) aplicarNeveProcedural(node);
+        if (node.nodeType !== 1) return;
+        if (tema === "christmas") aplicarNeveProcedural(node);
+        if (tema === "halloween") aplicarSlimeHalloween(node);
       });
     }
   });
