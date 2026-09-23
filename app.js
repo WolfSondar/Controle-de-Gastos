@@ -8367,16 +8367,16 @@ if (document.readyState === "loading") {
   function regraTema(id) {
     const padrao = ADMIN_TEMA_PADRAO[id] || {};
     const salvo = (state.temasConfig || {})[id] || {};
-    // Compatibilidade com versões que salvaram a opção como
-    // "sempreDisponivel". O formato oficial continua sendo "permanente".
+    // O Admin é a fonte absoluta das regras. Sem uma regra salva, o tema
+    // especial não é considerado permanente nem disponível por padrão.
     const permanente = Object.prototype.hasOwnProperty.call(salvo, "permanente")
-      ? salvo.permanente !== false
-      : (Object.prototype.hasOwnProperty.call(salvo, "sempreDisponivel")
-          ? salvo.sempreDisponivel !== false
-          : true);
+      ? salvo.permanente === true
+      : Object.prototype.hasOwnProperty.call(salvo, "sempreDisponivel")
+        ? salvo.sempreDisponivel === true
+        : false;
     return {
-      inicio: salvo.inicio ?? padrao.inicio ?? "",
-      fim: salvo.fim ?? padrao.fim ?? "",
+      inicio: Object.prototype.hasOwnProperty.call(salvo, "inicio") ? salvo.inicio : (padrao.inicio || ""),
+      fim: Object.prototype.hasOwnProperty.call(salvo, "fim") ? salvo.fim : (padrao.fim || ""),
       permanente
     };
   }
@@ -8708,32 +8708,32 @@ if (document.readyState === "loading") {
   function limparSazonalidadeForaDoAdmin() {
     const admin = document.getElementById("caixaConfigAdmin");
 
-    // Remove qualquer card legado que tenha sido criado fora do Admin.
+    // Fora do Admin, nunca pode existir uma cópia do painel de sazonalidade.
     document.querySelectorAll("#caixaAdminTemasSazonais, #caixaAdminHalloweenTema, .caixa-admin-seasonal-shell").forEach(el => {
-      if (!admin?.contains(el)) el.remove();
+      if (!admin || !admin.contains(el)) el.remove();
     });
 
-    if (admin) {
-      // Versões antigas podiam criar cards com classes diferentes, mas com o
-      // mesmo título. Mantenha somente um card oficial de sazonalidade.
-      const candidatos = [...admin.querySelectorAll("section, .caixa-config-card, .caixa-settings-card, .settings-card, .config-card, .card")];
-      const sazonalidade = candidatos.filter(card => {
-        if (card.id === "caixaAdminTemasSazonais" || card.classList.contains("caixa-admin-seasonal-shell")) return true;
-        const titulo = card.querySelector(":scope > h2, :scope > h3, :scope > h4, :scope > .caixa-config-section-title, :scope > .caixa-section-title, :scope > .section-title, .caixa-admin-seasonal-head h3");
-        return String(titulo?.textContent || "").trim().toLowerCase() === "sazonalidade dos temas";
-      });
-      sazonalidade.slice(1).forEach(el => el.remove());
-    }
+    if (!admin) return;
 
-    // Versões anteriores usavam estes IDs diretamente. Remova o card legado
-    // somente quando ele estiver fora do Admin oficial.
+    // Há versões antigas que criaram a sazonalidade com IDs/classes diferentes.
+    // Em vez de tentar escolher qual delas é a "certa", removemos TODAS e o
+    // render atual cria exatamente uma única versão oficial.
+    const candidatos = [...admin.querySelectorAll("section, article, .caixa-config-card, .caixa-settings-card, .settings-card, .config-card, .card")];
+    candidatos.forEach(card => {
+      const titulo = card.querySelector(":scope > h2, :scope > h3, :scope > h4, :scope > .caixa-config-section-title, :scope > .caixa-section-title, :scope > .section-title, .caixa-admin-seasonal-head h3");
+      const texto = String(titulo?.textContent || "").trim().toLowerCase();
+      if (card.id === "caixaAdminTemasSazonais" || card.classList.contains("caixa-admin-seasonal-shell") || texto === "sazonalidade dos temas") {
+        card.remove();
+      }
+    });
+
     const idsLegados = [
       "temaNatalInicio", "temaNatalFim", "temaNatalPermanente",
       "temaHalloweenInicio", "temaHalloweenFim", "temaHalloweenPermanente"
     ];
     idsLegados.forEach(id => {
       const el = document.getElementById(id);
-      if (!el || admin?.contains(el)) return;
+      if (!el || admin.contains(el)) return;
       const card = el.closest("section, .caixa-config-card, .caixa-settings-card, .settings-card, .config-card, .card") || el.parentElement;
       if (card) card.remove(); else el.remove();
     });
@@ -8755,7 +8755,6 @@ if (document.readyState === "loading") {
     }
 
     const ids = idsDeTemasConfiguraveis();
-    const cfg = state.temasConfig || {};
     shell.innerHTML = `
       <div class="caixa-admin-seasonal-head">
         <div>
@@ -8774,10 +8773,10 @@ if (document.readyState === "loading") {
     } else {
       lista.innerHTML = ids.map(id => {
         const info = infoAdminTema(id);
-        const regra = cfg[id] || {};
+        const regra = regraTema(id);
         const inicio = regra.inicio ?? info.inicio;
         const fim = regra.fim ?? info.fim;
-        const permanente = regra.permanente !== false;
+        const permanente = regra.permanente === true;
         const safe = id.replace(/[^a-zA-Z0-9_-]/g, "_");
         return `
           <article class="caixa-admin-seasonal-theme" data-admin-theme-id="${escapeHtml(id)}">
@@ -8908,14 +8907,18 @@ if (document.readyState === "loading") {
     ids.forEach(id => {
       const safe = id.replace(/[^a-zA-Z0-9_-]/g, "_");
       const info = infoAdminTema(id);
+      const shell = document.getElementById("caixaAdminTemasSazonais");
       atuais[id] = {
-        inicio: document.getElementById(`temaAdmin_${safe}_inicio`)?.value || info.inicio || "",
-        fim: document.getElementById(`temaAdmin_${safe}_fim`)?.value || info.fim || "",
-        permanente: !!document.getElementById(`temaAdmin_${safe}_permanente`)?.checked
+        inicio: shell?.querySelector(`#temaAdmin_${safe}_inicio`)?.value || info.inicio || "",
+        fim: shell?.querySelector(`#temaAdmin_${safe}_fim`)?.value || info.fim || "",
+        permanente: !!shell?.querySelector(`#temaAdmin_${safe}_permanente`)?.checked
       };
     });
     state.temasConfig = atuais;
     await salvarConfig({temasConfig:state.temasConfig}, "Regras de temas salvas.");
+    const ativo = sincronizarTemaSazonal();
+    garantirCssTema(ativo);
+    atualizarCamadasTemas();
     renderAdminSazonalidade();
     if (viewAtual === "tema") renderTemas();
   }
