@@ -788,17 +788,27 @@
           <div><h3>Admin</h3><p>Configurações avançadas do Caixa.</p></div>
         </div>
         <div class="caixa-config-admin-panel">
-          <div class="caixa-config-admin-group">
+          <div class="caixa-config-admin-group caixa-admin-card-icons">
             <div class="caixa-config-section-head"><div><h3>Categorias dos ícones</h3><p>Organize os ícones das caixinhas por categoria.</p></div><button type="button" class="btn btn-gold btn-config-small" id="btnNovaCategoriaIcone">+ Nova</button></div>
             <div class="caixa-config-list" id="listaCategoriasIcones"></div>
           </div>
-          <div class="caixa-config-admin-group">
+          <div class="caixa-config-admin-group caixa-admin-card-icons-names">
             <div class="caixa-config-section-head"><div><h3>Nomes dos ícones</h3><p>Dê nomes mais bonitos aos arquivos exibidos no seletor.</p></div></div>
             <div class="caixa-config-list" id="listaNomesIcones"></div>
           </div>
-          <div class="caixa-config-admin-group">
-            <div class="caixa-config-section-head"><div><h3>Sazonalidade dos temas</h3><p>Defina quando um tema especial pode aparecer.</p></div></div>
-            <div class="caixa-config-season-row"><strong>Natal</strong><label>Início <input type="date" id="temaNatalInicio"></label><label>Fim <input type="date" id="temaNatalFim"></label><label class="caixa-config-checkline"><input type="checkbox" id="temaNatalPermanente"> Permanente</label></div>
+          <div class="caixa-config-admin-group caixa-admin-card-season">
+            <div class="caixa-config-section-head"><div><h3>Sazonalidade dos temas</h3><p>Defina quando cada tema especial fica disponível para seleção.</p></div></div>
+            <div class="caixa-season-card">
+              <div class="caixa-season-theme">
+                <span class="caixa-season-theme-icon" aria-hidden="true">🎄</span>
+                <div><strong>Natal</strong><small>Tema natalino</small></div>
+              </div>
+              <div class="caixa-season-fields">
+                <label><span>Disponível a partir de</span><input type="date" id="temaNatalInicio"></label>
+                <label><span>Disponível até</span><input type="date" id="temaNatalFim"></label>
+                <label class="caixa-season-toggle"><input type="checkbox" id="temaNatalPermanente"><span class="caixa-season-switch"></span><span>Sempre disponível</span></label>
+              </div>
+            </div>
             <button type="button" class="btn btn-gold caixa-config-save-wide" id="btnSalvarAdminTemas">Salvar regras</button>
           </div>
         </div>
@@ -837,5 +847,6 @@
   </div>
 </div>
 
+<div id="caixaChristmasSnow" class="caixa-christmas-snow" aria-hidden="true"></div>
 </body>
 </html>

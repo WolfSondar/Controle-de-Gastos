@@ -8326,16 +8326,43 @@ if (document.readyState === "loading") {
   function temaAtivo() {
     try { return localStorage.getItem("caixa-tema-estilo-v1") || "default"; } catch (_) { return "default"; }
   }
+  function prepararNeveNatal() {
+    const layer = document.getElementById("caixaChristmasSnow");
+    if (!layer || layer.childElementCount) return;
+    const fragment = document.createDocumentFragment();
+    const simbolos = ["•", "❄", "✦", "·"];
+    for (let i = 0; i < 46; i++) {
+      const floco = document.createElement("span");
+      floco.className = "caixa-snowflake";
+      floco.textContent = simbolos[i % simbolos.length];
+      floco.style.left = `${Math.random() * 100}%`;
+      floco.style.setProperty("--s", `${5 + Math.random() * 8}px`);
+      floco.style.setProperty("--o", `${0.38 + Math.random() * 0.52}`);
+      floco.style.setProperty("--d", `${7 + Math.random() * 9}s`);
+      floco.style.setProperty("--delay", `${-Math.random() * 14}s`);
+      floco.style.setProperty("--x", `${-30 + Math.random() * 60}px`);
+      fragment.appendChild(floco);
+    }
+    layer.appendChild(fragment);
+  }
+  function atualizarCamadaTemaNatal() {
+    const layer = document.getElementById("caixaChristmasSnow");
+    const natal = document.documentElement.dataset.caixaTheme === "christmas";
+    if (natal) prepararNeveNatal();
+    if (layer) layer.setAttribute("aria-hidden", natal ? "false" : "true");
+  }
   function aplicarTemaCaixa(id) {
     if (id !== "default" && !temaPodeSerUsado(id)) { showToast("Esse tema ainda não está disponível."); return; }
     try { localStorage.setItem("caixa-tema-estilo-v1", id); } catch (_) {}
     document.documentElement.dataset.caixaTheme = id;
+    atualizarCamadaTemaNatal();
     renderTemas();
   }
   function renderTemas() {
     let ativo = temaAtivo();
     if (ativo !== "default" && !temaPodeSerUsado(ativo)) { ativo = "default"; try { localStorage.setItem("caixa-tema-estilo-v1", ativo); } catch (_) {} }
     document.documentElement.dataset.caixaTheme = ativo;
+    atualizarCamadaTemaNatal();
     document.querySelectorAll("[data-caixa-theme]").forEach(btn => {
       const id = btn.dataset.caixaTheme;
       const disponivel = temaPodeSerUsado(id);
