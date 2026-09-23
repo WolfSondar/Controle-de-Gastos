@@ -8334,6 +8334,26 @@ if (document.readyState === "loading") {
   function temaAtivo() {
     try { return localStorage.getItem("caixa-tema-estilo-v1") || "default"; } catch (_) { return "default"; }
   }
+
+  // Temas sazonais entram e saem automaticamente de acordo com o período
+  // configurado no Admin. O Padrão continua sendo o fallback permanente.
+  function sincronizarTemaSazonal() {
+    const sazonais = ["christmas"];
+    const disponiveis = sazonais.filter(id => temaPodeSerUsado(id));
+    let ativo = temaAtivo();
+
+    if (ativo === "christmas" && !disponiveis.includes("christmas")) {
+      ativo = "default";
+    } else if (ativo === "default" && disponiveis.length) {
+      // Ao entrar em um período sazonal, o tema correspondente assume
+      // automaticamente a aparência do Caixa.
+      ativo = disponiveis[0];
+    }
+
+    try { localStorage.setItem("caixa-tema-estilo-v1", ativo); } catch (_) {}
+    document.documentElement.dataset.caixaTheme = ativo;
+    return ativo;
+  }
   function prepararNeveNatal() {
     const layer = document.getElementById("caixaChristmasSnow");
     if (!layer || layer.childElementCount) return;
@@ -8372,9 +8392,7 @@ if (document.readyState === "loading") {
     renderTemas();
   }
   function renderTemas() {
-    let ativo = temaAtivo();
-    if (ativo !== "default" && !temaPodeSerUsado(ativo)) { ativo = "default"; try { localStorage.setItem("caixa-tema-estilo-v1", ativo); } catch (_) {} }
-    document.documentElement.dataset.caixaTheme = ativo;
+    let ativo = sincronizarTemaSazonal();
     atualizarCamadaTemaNatal();
     document.querySelectorAll("[data-caixa-theme]").forEach(btn => {
       const id = btn.dataset.caixaTheme;
@@ -8546,6 +8564,15 @@ if (document.readyState === "loading") {
   });
 
   renderTemas();
+  // Verifica a virada de período sem exigir que o usuário recarregue a página.
+  window.setInterval(() => {
+    const antes = temaAtivo();
+    const depois = sincronizarTemaSazonal();
+    if (antes !== depois) {
+      atualizarCamadaTemaNatal();
+      renderTemas();
+    }
+  }, 60 * 1000);
   aplicarNeveProcedural();
   const caixaSnowObserver = new MutationObserver((mutacoes) => {
     if (document.documentElement.dataset.caixaTheme !== "christmas") return;
