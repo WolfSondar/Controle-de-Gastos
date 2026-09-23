@@ -1510,3 +1510,108 @@ html[data-theme="dark"][data-caixa-theme="christmas"] [data-caixa-theme][data-th
     right: 18px !important;
   }
 }
+
+/* ==========================================================
+   NATAL 4.0 — cenário, neve e paleta de gelo
+   ========================================================== */
+html[data-caixa-theme="christmas"] {
+  --christmas-summary-saved: #b9e7d0;
+  --christmas-summary-expense: #a9d9ee;
+  --christmas-summary-free: #e7f5ff;
+  --christmas-summary-rest: #5f8490;
+}
+
+/* Cenário delicado sobre a neve do saldo: a posição é sorteada pelo JS
+   para que a composição não fique sempre idêntica. */
+html[data-caixa-theme="christmas"] .caixa-christmas-scenery {
+  position: absolute;
+  left: 0;
+  right: 0;
+  bottom: 2px;
+  height: 52px;
+  z-index: 16;
+  pointer-events: none;
+  overflow: visible;
+}
+html[data-caixa-theme="christmas"] .christmas-scenery-item {
+  position: absolute;
+  bottom: 0;
+  display: block;
+  width: 48px;
+  height: 52px;
+  transform: translateY(2px) scale(var(--scene-scale,1));
+  transform-origin: 50% 100%;
+  color: #8eb7a4;
+  filter: drop-shadow(0 2px 2px rgba(4,24,18,.22));
+  opacity: .92;
+}
+html[data-caixa-theme="christmas"] .christmas-scenery-item svg {
+  width: 100%;
+  height: 100%;
+  display: block;
+}
+html[data-caixa-theme="christmas"] .christmas-scenery-item.tree { color:#3e7d5e; }
+html[data-caixa-theme="christmas"] .christmas-scenery-item.pine { color:#5c9276; }
+html[data-caixa-theme="christmas"] .christmas-scenery-item.deer { color:#caa866; width:60px; height:42px; }
+html[data-caixa-theme="christmas"] .christmas-scenery-item::after {
+  content:"";
+  position:absolute;
+  left:8%; right:8%; bottom:-1px;
+  height:8px;
+  border-radius:50%;
+  background:radial-gradient(ellipse at center, rgba(255,255,255,.95), rgba(255,255,255,0) 72%);
+  filter:blur(.4px);
+}
+html[data-theme="dark"][data-caixa-theme="christmas"] .christmas-scenery-item {
+  filter: drop-shadow(0 3px 3px rgba(0,0,0,.35));
+}
+html[data-theme="dark"][data-caixa-theme="christmas"] .christmas-scenery-item.tree { color:#6fa58a; }
+html[data-theme="dark"][data-caixa-theme="christmas"] .christmas-scenery-item.pine { color:#79a995; }
+html[data-theme="dark"][data-caixa-theme="christmas"] .christmas-scenery-item.deer { color:#d7bc78; }
+
+/* Barra das caixinhas: azul-gelo / água congelada, com uma ponta dourada
+   bem discreta para preservar a identidade natalina. */
+html[data-caixa-theme="christmas"] .goal-bar-track {
+  background: linear-gradient(180deg, rgba(220,242,248,.48), rgba(104,157,169,.16)) !important;
+  border-color: rgba(145,202,216,.30) !important;
+  box-shadow: inset 0 1px 3px rgba(36,75,83,.16), 0 1px 0 rgba(255,255,255,.50) !important;
+}
+html[data-caixa-theme="christmas"] .goal-bar-fill {
+  background: linear-gradient(90deg, #83c6d6 0%, #b9e8ef 48%, #dff7fb 78%, #c9b878 100%) !important;
+  box-shadow: inset 0 1px 0 rgba(255,255,255,.62), 0 1px 8px rgba(131,198,214,.30) !important;
+}
+html[data-caixa-theme="christmas"] .goal-bar-fill.completo {
+  background: linear-gradient(90deg, #75bdcf 0%, #b8e9ef 58%, #f0df9a 100%) !important;
+}
+html[data-caixa-theme="christmas"] .goal-icon-ring {
+  background: conic-gradient(#bcebf1 var(--pct,0%), #416d79 0) !important;
+  box-shadow: 0 0 0 2px rgba(188,235,241,.13), 0 4px 14px rgba(92,160,176,.18) !important;
+}
+html[data-theme="dark"][data-caixa-theme="christmas"] .goal-bar-track {
+  background: linear-gradient(180deg, rgba(108,166,181,.22), rgba(18,47,54,.72)) !important;
+  border-color: rgba(146,211,225,.24) !important;
+  box-shadow: inset 0 1px 4px rgba(0,0,0,.28), 0 1px 0 rgba(255,255,255,.05) !important;
+}
+html[data-theme="dark"][data-caixa-theme="christmas"] .goal-bar-fill {
+  background: linear-gradient(90deg, #5ba7bd 0%, #8fd4df 52%, #d8f3f5 82%, #d4bd78 100%) !important;
+  box-shadow: inset 0 1px 0 rgba(255,255,255,.48), 0 1px 9px rgba(93,178,199,.30) !important;
+}
+html[data-theme="dark"][data-caixa-theme="christmas"] .goal-bar-fill.completo {
+  background: linear-gradient(90deg, #62b3c5 0%, #a7e1e8 60%, #ead48b 100%) !important;
+}
+html[data-theme="dark"][data-caixa-theme="christmas"] .goal-icon-ring {
+  background: conic-gradient(#a9e3eb var(--pct,0%), #294f5a 0) !important;
+}
+
+/* Resumo: os donuts deixam o vermelho/verde pesado de lado e passam para
+   uma paleta de gelo, neve e água congelada. */
+html[data-caixa-theme="christmas"] .split-donut {
+  box-shadow: 0 0 0 1px rgba(170,220,231,.22), 0 8px 24px rgba(75,129,143,.14) !important;
+}
+html[data-theme="dark"][data-caixa-theme="christmas"] .split-donut {
+  box-shadow: 0 0 0 1px rgba(171,225,235,.16), 0 8px 24px rgba(0,0,0,.26) !important;
+}
+html[data-theme="dark"][data-caixa-theme="christmas"] .split-card,
+html[data-theme="dark"][data-caixa-theme="christmas"] .resumo-status-card {
+  border-color: rgba(155,213,225,.17) !important;
+}
