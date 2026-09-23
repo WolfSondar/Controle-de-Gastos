@@ -8772,8 +8772,9 @@ if (document.readyState === "loading") {
     raiz.classList.add("caixa-admin-seasonal-root");
     raiz.id = "caixaAdminSazonalidadeRoot";
 
-    // Remove a interface antiga de datas/cards e qualquer bloco Halloween que
-    // uma versão anterior tenha colocado fora da seção.
+    // A partir daqui, a sazonalidade é controlada apenas pelos dois testes
+    // globais. As datas ficam no app.js e a antiga UI de calendário não deve
+    // permanecer visível no Admin.
     document.getElementById("caixaAdminHalloweenTema")?.remove();
     document.getElementById("btnSalvarAdminTemas")?.remove();
     document.getElementById("btnSalvarAdminHalloween")?.remove();
@@ -8789,35 +8790,51 @@ if (document.readyState === "loading") {
       document.getElementById(id)?.closest("label, .caixa-config-row")?.remove();
     });
 
+    // Atualiza o subtítulo legado da seção para refletir a nova função dela.
+    [...raiz.querySelectorAll("p, .caixa-config-card-sub, .caixa-config-section-sub")].forEach(el => {
+      const txt = String(el.textContent || "").trim();
+      if (/Defina quando cada tema especial fica dispon[ií]vel para sele[cç][aã]o/i.test(txt)) {
+        el.textContent = "Ative um tema imediatamente para todos os usuários apenas para teste.";
+      }
+    });
+
+    const temasForcaveis = [
+      { id: "christmas", emoji: "🎄", titulo: "Natal", subtitulo: "Ativa o tema imediatamente para todos os usuários." },
+      { id: "halloween", emoji: "🎃", titulo: "Halloween", subtitulo: "Ativa o tema imediatamente para todos os usuários." }
+    ];
+
     let wrap = document.getElementById("caixaAdminSazonalForcar");
     if (!wrap) {
       wrap = document.createElement("div");
       wrap.id = "caixaAdminSazonalForcar";
       wrap.className = "caixa-admin-seasonal-force-wrap";
-      wrap.innerHTML = `
-        <div class="caixa-admin-seasonal-card">
-          <div class="caixa-admin-seasonal-head">
-            <span class="caixa-admin-seasonal-emoji" aria-hidden="true">🎄</span>
-            <div><div class="caixa-admin-seasonal-title">Natal</div><div class="caixa-admin-seasonal-sub">Ativa o tema imediatamente para todos os usuários.</div></div>
-          </div>
-          <label class="caixa-admin-seasonal-force">
-            <input type="checkbox" id="temaNatalForcar">
-            <span class="caixa-admin-seasonal-force-text"><span class="caixa-admin-seasonal-force-title">Forçar Natal agora</span><span class="caixa-admin-seasonal-force-sub">Use apenas para teste.</span></span>
-          </label>
-        </div>
-        <div class="caixa-admin-seasonal-card">
-          <div class="caixa-admin-seasonal-head">
-            <span class="caixa-admin-seasonal-emoji" aria-hidden="true">🎃</span>
-            <div><div class="caixa-admin-seasonal-title">Halloween</div><div class="caixa-admin-seasonal-sub">Ativa o tema imediatamente para todos os usuários.</div></div>
-          </div>
-          <label class="caixa-admin-seasonal-force">
-            <input type="checkbox" id="temaHalloweenForcar">
-            <span class="caixa-admin-seasonal-force-text"><span class="caixa-admin-seasonal-force-title">Forçar Halloween agora</span><span class="caixa-admin-seasonal-force-sub">Use apenas para teste.</span></span>
-          </label>
-        </div>`;
     }
-    wrap.remove();
-    raiz.appendChild(wrap);
+
+    // Mantém a ordem e o layout em grade em um único ponto da seção. Se um
+    // novo tema for adicionado depois, basta entrar nesta lista e o card
+    // seguirá automaticamente o mesmo desenho.
+    wrap.innerHTML = temasForcaveis.map(t => `
+      <div class="caixa-admin-seasonal-card" data-caixa-seasonal-force-card="${t.id}">
+        <div class="caixa-admin-seasonal-head">
+          <span class="caixa-admin-seasonal-emoji" aria-hidden="true">${t.emoji}</span>
+          <div><div class="caixa-admin-seasonal-title">${t.titulo}</div><div class="caixa-admin-seasonal-sub">${t.subtitulo}</div></div>
+        </div>
+        <label class="caixa-admin-seasonal-force">
+          <input type="checkbox" id="tema${t.id === "christmas" ? "Natal" : "Halloween"}Forcar">
+          <span class="caixa-admin-seasonal-force-text"><span class="caixa-admin-seasonal-force-title">Forçar ${t.titulo} agora</span><span class="caixa-admin-seasonal-force-sub">Use apenas para teste.</span></span>
+        </label>
+      </div>`).join("");
+
+    // Remove o card Natal legado e coloca a grade exatamente no lugar dele.
+    const marcadorNatal = document.getElementById("temaNatalInicio") || document.getElementById("temaNatalFim");
+    const cardNatalLegado = marcadorNatal?.closest(".caixa-config-card, .caixa-settings-card, .settings-card, .config-card");
+    if (cardNatalLegado && cardNatalLegado !== raiz) {
+      cardNatalLegado.replaceWith(wrap);
+    } else {
+      const primeiroBloco = raiz.querySelector(".caixa-config-card-body, .caixa-config-body, .caixa-config-row");
+      if (primeiroBloco && primeiroBloco !== wrap) primeiroBloco.before(wrap);
+      else if (!wrap.parentElement) raiz.appendChild(wrap);
+    }
 
     ["temaNatalForcar", "temaHalloweenForcar"].forEach(id => {
       const cb = document.getElementById(id);
@@ -9031,13 +9048,43 @@ if (document.readyState === "loading") {
   renderTemas();
   // Verifica a virada de período sem exigir que o usuário recarregue a página.
   window.setInterval(() => {
-    const antes = temaAtivo();
+    const antes = caixaTemaAtivoGlobal();
     const depois = sincronizarTemaSazonal();
     if (antes !== depois) {
       atualizarCamadasTemas();
       renderTemas();
     }
   }, 60 * 1000);
+
+  // O forçamento é uma configuração global. O Firebase usado pelo projeto
+  // expõe GET/POST, não um listener realtime; por isso fazemos uma consulta
+  // leve e frequente somente para detectar mudança em temasConfig. Assim um
+  // usuário que já está com o app aberto recebe o tema sem precisar recarregar.
+  let caixaTemaRemotoBusy = false;
+  window.setInterval(async () => {
+    if (caixaTemaRemotoBusy || document.hidden || !navigator.onLine || !temBackendDados()) return;
+    caixaTemaRemotoBusy = true;
+    try {
+      const res = await fetchApiGet({ pessoa: state.pessoaAtual });
+      const data = await res.json();
+      if (data?.ok === false || !data) return;
+      const remoto = data.temasConfig || null;
+      if (JSON.stringify(remoto) === JSON.stringify(state.temasConfig || null)) return;
+      state.temasConfig = remoto;
+      const antes = caixaTemaAtivoGlobal();
+      const depois = sincronizarTemaSazonal();
+      garantirCssTema(depois);
+      if (antes !== depois) {
+        atualizarCamadasTemas();
+        renderTemas();
+        renderVisaoGeral();
+      }
+    } catch (_) {
+      // Uma falha pontual de rede não altera o tema atual.
+    } finally {
+      caixaTemaRemotoBusy = false;
+    }
+  }, 3000);
   aplicarNeveProcedural();
   const caixaSnowObserver = new MutationObserver((mutacoes) => {
     const tema = document.documentElement.dataset.caixaTheme;
