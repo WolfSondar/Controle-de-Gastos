@@ -7813,9 +7813,995 @@ html[data-theme="dark"] .chat-comparacao-pendentes strong {
  color: #f1e9d8; 
 }
 
+
+/* ==========================================================
+   V22 — REFINO VISUAL DA CERIMÔNIA
+   Mais editorial, menos "dashboard": o fechamento deve parecer
+   uma página especial do livro-caixa.
+   ========================================================== */
+.fechamento-mes-cena {
+  background:
+    radial-gradient(ellipse at 50% 18%, rgba(217,174,97,.14), transparent 34%),
+    radial-gradient(circle at 15% 85%, rgba(83,132,107,.10), transparent 30%),
+    linear-gradient(180deg, #071711 0%, #0d241c 52%, #091a14 100%);
+}
+.fechamento-mes-cena::after {
+  content: "";
+  position: absolute;
+  inset: 18px;
+  border: 1px solid rgba(217,174,97,.09);
+  border-radius: 28px;
+  pointer-events: none;
+}
+.fechamento-mes-card {
+  width: min(100%, 520px);
+  min-height: 410px;
+  padding: 48px 38px 34px;
+  border-radius: 28px;
+  border-color: rgba(217,174,97,.18);
+  background:
+    linear-gradient(160deg, rgba(255,250,237,.095), rgba(255,255,255,.025) 42%, rgba(217,174,97,.045)),
+    rgba(10,29,22,.82);
+  box-shadow:
+    0 38px 100px rgba(0,0,0,.52),
+    0 12px 40px rgba(4,16,11,.45),
+    inset 0 1px 0 rgba(255,255,255,.09),
+    inset 0 -1px 0 rgba(217,174,97,.07);
+}
+.fechamento-mes-orb {
+  width: 74px;
+  height: 74px;
+  top: -37px;
+  box-shadow: 0 0 0 9px rgba(217,174,97,.07), 0 15px 42px rgba(217,174,97,.32);
+}
+.fechamento-mes-kicker {
+  margin-bottom: 12px;
+  font-size: 9px;
+  letter-spacing: .24em;
+  color: rgba(244,210,139,.78);
+}
+.fechamento-mes-etapa h2 {
+  max-width: 430px;
+  font-size: clamp(29px, 5vw, 38px);
+  line-height: 1.02;
+  text-wrap: balance;
+  text-shadow: 0 2px 24px rgba(0,0,0,.22);
+}
+.fechamento-mes-etapa p {
+  max-width: 390px;
+  margin-top: 14px;
+  font-size: 12.5px;
+  line-height: 1.65;
+  color: rgba(248,242,229,.60);
+}
+.fechamento-mes-resumo {
+  min-height: 150px;
+  margin-top: 9px;
+}
+.fechamento-mes-metricas {
+  gap: 10px;
+}
+.fechamento-mes-metrica {
+  padding: 16px 10px 14px;
+  border-radius: 15px;
+  border-color: rgba(255,255,255,.075);
+  background: linear-gradient(180deg, rgba(255,255,255,.045), rgba(255,255,255,.018));
+  box-shadow: inset 0 1px 0 rgba(255,255,255,.035);
+}
+.fechamento-mes-metrica.destaque {
+  border-color: rgba(217,174,97,.28);
+  background: linear-gradient(180deg, rgba(217,174,97,.105), rgba(217,174,97,.035));
+}
+.fechamento-mes-metrica span,
+.fechamento-mes-saldo span {
+  font-size: 9px;
+  letter-spacing: .11em;
+}
+.fechamento-mes-metrica strong {
+  margin-top: 3px;
+  font-size: clamp(13px, 3.3vw, 17px);
+}
+.fechamento-mes-saldo {
+  margin-top: 11px;
+  padding: 13px 15px;
+  border: 1px solid rgba(255,255,255,.06);
+  border-radius: 14px;
+  background: rgba(255,255,255,.025);
+}
+.fechamento-mes-meta,
+.fechamento-mes-categoria,
+.fechamento-mes-proximo,
+.fechamento-mes-comparacao,
+.fechamento-mes-final {
+  animation: fechamentoConteudoEntrar .6s cubic-bezier(.16,1,.3,1) both;
+}
+@keyframes fechamentoConteudoEntrar {
+  from { opacity: 0; transform: translateY(10px) scale(.985); }
+  to { opacity: 1; transform: translateY(0) scale(1); }
+}
+.fechamento-mes-meta {
+  width: min(100%, 390px);
+  margin: 12px auto 0;
+  padding: 15px 16px;
+  border: 1px solid rgba(217,174,97,.12);
+  border-radius: 16px;
+  background: linear-gradient(135deg, rgba(217,174,97,.075), rgba(255,255,255,.025));
+}
+.fechamento-mes-meta > span {
+  color: #f2ce84;
+}
+.fechamento-mes-meta p {
+  font-size: 12px;
+  line-height: 1.55;
+}
+.fechamento-mes-destaque-valor {
+  display: block;
+  margin-top: 5px;
+  font: 700 clamp(21px, 5vw, 28px)/1.05 var(--font-mono, monospace) !important;
+  color: #f5d58e !important;
+}
+.fechamento-mes-categoria {
+  position: relative;
+  width: min(100%, 390px);
+  display: grid;
+  grid-template-columns: 38px 1fr;
+  grid-template-rows: auto auto auto;
+  align-items: center;
+  column-gap: 13px;
+  margin: 14px auto 0;
+  padding: 18px 18px 16px;
+  text-align: left;
+  border: 1px solid rgba(217,174,97,.16);
+  border-radius: 18px;
+  background: linear-gradient(145deg, rgba(217,174,97,.085), rgba(255,255,255,.025));
+  box-shadow: inset 0 1px 0 rgba(255,255,255,.04);
+}
+.fechamento-mes-categoria > span {
+  grid-row: 1 / 4;
+  display: grid;
+  place-items: center;
+  width: 38px;
+  height: 38px;
+  border-radius: 12px;
+  background: rgba(217,174,97,.11);
+  color: #f1cf8b;
+  font: 700 18px/1 var(--font-mono, monospace);
+}
+.fechamento-mes-categoria strong {
+  font: 600 20px/1.15 var(--font-display, Fraunces), serif;
+  color: #fff5df;
+}
+.fechamento-mes-categoria b {
+  margin-top: 4px;
+  font: 700 17px/1 var(--font-mono, monospace);
+  color: #f2cf8a;
+}
+.fechamento-mes-categoria small {
+  margin-top: 5px;
+  color: rgba(248,242,229,.48);
+  font: 500 9.5px/1.3 Inter, sans-serif;
+}
+.fechamento-mes-gasto-destaque > span {
+  color: #e8a18d;
+  background: rgba(232,161,141,.09);
+}
+.fechamento-mes-gasto-destaque b {
+  color: #f0b29f;
+}
+.fechamento-mes-proximo {
+  flex-direction: column;
+  align-items: center;
+  gap: 5px;
+  width: min(100%, 390px);
+  margin: 14px auto 0;
+  padding: 20px 22px;
+  border-radius: 18px;
+  border-color: rgba(157,213,173,.16);
+  background: linear-gradient(145deg, rgba(157,213,173,.075), rgba(255,255,255,.022));
+}
+.fechamento-mes-proximo span {
+  font: 700 clamp(23px, 6vw, 31px)/1 var(--font-mono, monospace);
+  color: #d0ecd5;
+}
+.fechamento-mes-proximo strong {
+  font-size: 12px;
+  line-height: 1.35;
+  text-align: center;
+  color: rgba(224,241,226,.68);
+}
+.fechamento-mes-comparacao {
+  width: min(100%, 300px);
+  margin: 14px auto 0;
+  padding: 18px;
+  border: 1px solid rgba(157,213,173,.13);
+  border-radius: 18px;
+  background: rgba(157,213,173,.045);
+}
+.fechamento-mes-comparacao strong {
+  display: block;
+  font: 700 28px/1 var(--font-mono, monospace);
+  color: #cde7d1;
+}
+.fechamento-mes-comparacao span {
+  display: block;
+  margin-top: 7px;
+  font: 600 10px/1 Inter, sans-serif;
+  text-transform: uppercase;
+  letter-spacing: .12em;
+  color: rgba(224,241,226,.48);
+}
+.fechamento-mes-final {
+  width: min(100%, 400px);
+  margin: 10px auto 0;
+  padding: 21px 22px;
+  border-top: 1px solid rgba(217,174,97,.18);
+  border-bottom: 1px solid rgba(217,174,97,.10);
+}
+.fechamento-mes-final p {
+  margin: 0;
+  color: rgba(248,242,229,.76);
+  font: 400 14px/1.8 var(--font-display, Fraunces), serif;
+  letter-spacing: .005em;
+}
+.fechamento-mes-progresso {
+  left: 38px;
+  right: 38px;
+  bottom: 20px;
+  height: 2px;
+  background: rgba(255,255,255,.055);
+}
+
+@media (max-width: 560px) {
+  .fechamento-mes-cena { padding: 15px; }
+  .fechamento-mes-cena::after { inset: 10px; border-radius: 23px; }
+  .fechamento-mes-card { min-height: 380px; padding: 43px 18px 31px; border-radius: 23px; }
+  .fechamento-mes-etapa h2 { font-size: 29px; }
+  .fechamento-mes-etapa p { font-size: 12px; }
+  .fechamento-mes-categoria { grid-template-columns: 34px 1fr; column-gap: 10px; padding: 15px; }
+  .fechamento-mes-categoria > span { width: 34px; height: 34px; border-radius: 10px; }
+  .fechamento-mes-categoria strong { font-size: 18px; }
+  .fechamento-mes-categoria b { font-size: 15px; }
+  .fechamento-mes-progresso { left: 23px; right: 23px; }
+}
+
+/* ==========================================================
+   V24 — CERIMÔNIA MAIS LENTA + REVELAÇÃO DA CATEGORIA
+   ========================================================== */
+.fechamento-mes-suspense-card {
+  min-height: 185px;
+  display: grid;
+  place-items: center;
+  align-content: center;
+  gap: 16px;
+  padding: 22px;
+  border: 1px solid rgba(217,174,97,.16);
+  border-radius: 22px;
+  background:
+    radial-gradient(circle at 50% 42%, rgba(217,174,97,.12), transparent 34%),
+    linear-gradient(145deg, rgba(255,255,255,.045), rgba(217,174,97,.025));
+  box-shadow: inset 0 1px 0 rgba(255,255,255,.055), 0 18px 45px rgba(0,0,0,.16);
+  overflow: hidden;
+  position: relative;
+}
+.fechamento-mes-suspense-card::before {
+  content: "";
+  position: absolute;
+  width: 180px;
+  height: 180px;
+  border-radius: 50%;
+  border: 1px solid rgba(217,174,97,.08);
+  box-shadow: 0 0 0 28px rgba(217,174,97,.025), 0 0 0 56px rgba(217,174,97,.018);
+  animation: fechamentoSuspensePulse 3.8s ease-in-out infinite;
+}
+.fechamento-mes-suspense-orbita {
+  position: relative;
+  z-index: 1;
+  width: 58px;
+  height: 58px;
+  display: grid;
+  place-items: center;
+  border-radius: 50%;
+  border: 1px solid rgba(244,210,139,.34);
+  background: rgba(217,174,97,.08);
+  color: #f4d28b;
+  box-shadow: 0 0 30px rgba(217,174,97,.14), inset 0 1px 0 rgba(255,255,255,.08);
+}
+.fechamento-mes-suspense-orbita span {
+  font: 600 24px/1 var(--font-display, Fraunces), serif;
+}
+.fechamento-mes-suspense-linha {
+  position: relative;
+  z-index: 1;
+  display: flex;
+  align-items: center;
+  gap: 9px;
+  color: rgba(248,242,229,.42);
+  font: 600 8px/1 var(--font-mono, monospace);
+  letter-spacing: .16em;
+  text-transform: uppercase;
+}
+.fechamento-mes-suspense-linha i {
+  width: 26px;
+  height: 1px;
+  background: linear-gradient(90deg, transparent, rgba(217,174,97,.32));
+}
+.fechamento-mes-suspense-linha i:last-child {
+  background: linear-gradient(90deg, rgba(217,174,97,.32), transparent);
+}
+.fechamento-mes-suspense-card > strong {
+  position: relative;
+  z-index: 1;
+  font: 600 18px/1.2 var(--font-display, Fraunces), serif;
+  color: rgba(248,242,229,.88);
+}
+
+.fechamento-mes-categoria-revelacao {
+  min-height: 215px;
+  position: relative;
+  display: flex !important;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  padding: 24px 20px !important;
+  border-radius: 22px !important;
+  border: 1px solid rgba(217,174,97,.18) !important;
+  background:
+    radial-gradient(circle at 50% 22%, rgba(217,174,97,.13), transparent 38%),
+    linear-gradient(160deg, rgba(255,255,255,.055), rgba(255,255,255,.015));
+  box-shadow: inset 0 1px 0 rgba(255,255,255,.06), 0 18px 50px rgba(0,0,0,.16);
+}
+.fechamento-mes-categoria-icone {
+  width: 48px;
+  height: 48px;
+  display: grid;
+  place-items: center;
+  margin-bottom: 3px;
+  border-radius: 15px;
+  border: 1px solid rgba(217,174,97,.22);
+  background: rgba(217,174,97,.075);
+  color: #f0ca7d;
+  box-shadow: 0 8px 24px rgba(0,0,0,.16);
+}
+.fechamento-mes-categoria-icone span { font-size: 20px; }
+.fechamento-mes-categoria-label {
+  font: 700 8px/1 var(--font-mono, monospace) !important;
+  letter-spacing: .16em;
+  color: rgba(244,210,139,.62) !important;
+}
+.fechamento-mes-categoria-revelacao > strong {
+  font: 600 clamp(25px, 5vw, 34px)/1.05 var(--font-display, Fraunces), serif !important;
+  color: #f8f2e5 !important;
+  text-align: center;
+}
+.fechamento-mes-categoria-revelacao > b {
+  font: 700 clamp(21px, 4vw, 28px)/1 var(--font-mono, monospace) !important;
+  color: #f0ca7d !important;
+  letter-spacing: -.03em;
+}
+.fechamento-mes-categoria-revelacao > em {
+  margin-top: 4px;
+  font: normal 11px/1.45 var(--font-body, Inter), sans-serif !important;
+  color: rgba(248,242,229,.48) !important;
+}
+
+@keyframes fechamentoSuspensePulse {
+  0%, 100% { transform: scale(.88); opacity: .55; }
+  50% { transform: scale(1.05); opacity: 1; }
+}
+
+@media (max-width: 560px) {
+  .fechamento-mes-suspense-card { min-height: 170px; padding: 18px; }
+  .fechamento-mes-suspense-linha { font-size: 7px; }
+  .fechamento-mes-categoria-revelacao { min-height: 205px; }
+}
+
+/* v26 — ajustes de narrativa dos cards da cerimônia */
+.fechamento-mes-comparacao-simples {
+  display: grid;
+  grid-template-columns: auto 1fr;
+  align-items: center;
+  gap: 14px;
+  text-align: left;
+}
+.fechamento-mes-comparacao-simples > span {
+  width: 46px;
+  height: 46px;
+  display: grid;
+  place-items: center;
+  border-radius: 14px;
+  border: 1px solid color-mix(in srgb, currentColor 18%, transparent);
+  font-size: 1.35rem;
+  font-weight: 800;
+}
+.fechamento-mes-comparacao-simples > strong {
+  font-size: clamp(1.15rem, 2vw, 1.45rem);
+  line-height: 1.15;
+}
+
+
+/* v28 — ícone da caixinha e comparação de gastos com leitura visual correta */
+.fechamento-mes-caixinha-icone {
+  width: 46px;
+  height: 46px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  margin-bottom: 8px;
+  border-radius: 14px;
+  border: 1px solid rgba(217,174,97,.18);
+  background: rgba(217,174,97,.07);
+  color: #f2ce84;
+  font-size: 20px;
+  overflow: hidden;
+}
+.fechamento-mes-caixinha-icone img {
+  width: 27px;
+  height: 27px;
+  object-fit: contain;
+}
+.fechamento-mes-caixinha-icone-fallback {
+  display: none;
+  align-items: center;
+  justify-content: center;
+}
+.fechamento-mes-comparacao-simples.gastos-maiores > span {
+  color: #ef6b6b;
+  border-color: rgba(239,107,107,.25);
+  background: rgba(239,107,107,.08);
+}
+.fechamento-mes-comparacao-simples.gastos-maiores > strong {
+  color: #ef8a8a;
+}
+.fechamento-mes-comparacao-simples.gastos-menores > span {
+  color: #82c89b;
+  border-color: rgba(130,200,155,.22);
+  background: rgba(130,200,155,.07);
+}
+.fechamento-mes-comparacao-simples.gastos-menores > strong {
+  color: #9bd5ad;
+}
+
+/* Firebase login */
+#caixaFirebaseLogin {
+  position: fixed;
+  inset: 0;
+  z-index: 99999;
+  display: grid;
+  place-items: center;
+  padding: 24px;
+  background: rgba(22, 30, 25, .78);
+  backdrop-filter: blur(10px);
+}
+.caixa-firebase-login-card {
+  width: min(440px, 100%);
+  padding: 34px 30px;
+  border: 1px solid color-mix(in srgb, #b9862f 28%, transparent);
+  border-radius: 24px;
+  background: var(--paper, #faf5e9);
+  box-shadow: 0 24px 80px rgba(0,0,0,.28);
+  text-align: center;
+}
+.caixa-firebase-login-mark {
+  font-size: 2rem;
+  margin-bottom: 8px;
+}
+.caixa-firebase-login-card h2 {
+  margin: 0 0 8px;
+  font-family: Fraunces, Georgia, serif;
+}
+.caixa-firebase-login-card p {
+  margin: 0 auto 22px;
+  max-width: 36ch;
+  line-height: 1.55;
+  opacity: .78;
+}
+.caixa-firebase-login-card button {
+  width: 100%;
+  min-height: 48px;
+}
+.caixa-firebase-login-card small {
+  display: block;
+  margin-top: 14px;
+  line-height: 1.45;
+  opacity: .62;
+}
+.caixa-firebase-login-erro {
+  display: block;
+  min-height: 1.3em;
+  margin-top: 10px;
+  color: #9f3b35;
+  font-size: .86rem;
+}
+
+/* Ajustes visuais — mês atual e login */
+.mes-atual-badge[disabled] { cursor: default; pointer-events: none; }
+.mes-atual-badge[hidden] { display: none; }
+
+.fechar-mes-titulo { display: flex; align-items: center; gap: 13px; margin-bottom: 16px; }
+.fechar-mes-titulo h3 { margin: 0 0 4px; }
+.fechar-mes-titulo .section-hint { margin: 0; }
+.fechar-mes-icone { width: 40px; height: 40px; border-radius: 13px; display: inline-flex; align-items: center; justify-content: center; flex: 0 0 auto; background: var(--income-bg); color: var(--income); font-size: 18px; font-weight: 700; }
+.fechar-mes-periodo { margin: 4px 0 22px; padding: 15px 18px; border: 1px solid rgba(185,134,47,.28); border-radius: 16px; background: linear-gradient(135deg, rgba(185,134,47,.13), rgba(185,134,47,.05)); color: var(--ink-text); font-family: var(--font-display); font-size: 21px; font-weight: 700; text-align: center; letter-spacing: .01em; }
+
+.caixa-firebase-login-card { padding: 42px 34px 36px; border-radius: 28px; box-shadow: 0 30px 90px rgba(0,0,0,.32), 0 4px 18px rgba(0,0,0,.08); }
+.caixa-firebase-login-mark { width: 62px; height: 62px; margin: 0 auto 16px; display: flex; align-items: center; justify-content: center; border-radius: 19px; background: var(--ink); color: var(--gold); font-family: Fraunces, Georgia, serif; font-size: 31px; font-weight: 700; box-shadow: 0 12px 28px rgba(22,51,44,.18); }
+.caixa-firebase-login-kicker { margin-bottom: 7px; color: var(--gold-deep, #93691f); font-family: var(--font-mono); font-size: 10px; font-weight: 700; letter-spacing: .16em; }
+.caixa-firebase-login-card h2 { font-size: 29px; letter-spacing: -.02em; }
+.caixa-firebase-login-card p { margin-bottom: 24px; font-size: 14px; opacity: .68; }
+.caixa-firebase-google { position: relative; display: flex !important; align-items: center; justify-content: center; gap: 11px; border-radius: 14px !important; box-shadow: 0 10px 22px rgba(22,51,44,.14); }
+.google-g { width: 24px; height: 24px; display: inline-flex; align-items: center; justify-content: center; border-radius: 50%; background: #fff; color: #4285f4; font-family: Arial, sans-serif; font-size: 16px; font-weight: 700; }
+.caixa-firebase-login-erro { margin-top: 12px; }
+@media (max-width: 560px) {
+  .mes-atual-badge { max-width: 250px; overflow: hidden; text-overflow: ellipsis; }
+  .fechar-mes-titulo { align-items: flex-start; }
+  .caixa-firebase-login-card { padding: 34px 22px 28px; }
+}
+
+/* ==========================================================
+   FECHAR O MÊS — modal redesenhado
+   ========================================================== */
+#fecharMesBackdrop {
+  background: rgba(17, 31, 25, .52) !important;
+  backdrop-filter: blur(8px) saturate(.88) !important;
+}
+
+#fecharMesBackdrop .fechar-mes-modal {
+  width: min(100%, 500px) !important;
+  padding: 30px 28px 24px !important;
+  border-radius: 22px !important;
+  border: 1px solid rgba(185, 134, 47, .18) !important;
+  background: var(--paper) !important;
+  box-shadow: 0 28px 80px rgba(20, 31, 25, .30), 0 8px 24px rgba(20, 31, 25, .10) !important;
+  transform: none !important;
+  overflow: hidden;
+}
+
+#fecharMesBackdrop .fechar-mes-modal::before {
+  content: "";
+  position: absolute;
+  inset: 0 0 auto;
+  width: 100%;
+  height: 4px;
+  background: linear-gradient(90deg, var(--gold-deep), var(--gold), #d9b46b);
+  border: 0;
+  box-shadow: none;
+  transform: none;
+}
+
+#fecharMesBackdrop .fechar-mes-modal::after {
+  display: none;
+}
+
+#fecharMesBackdrop .fechar-mes-cabecalho {
+  display: flex;
+  align-items: center;
+  gap: 15px;
+  margin-bottom: 24px;
+}
+
+#fecharMesBackdrop .fechar-mes-icone {
+  width: 50px;
+  height: 50px;
+  flex: 0 0 50px;
+  display: grid;
+  place-items: center;
+  border-radius: 15px;
+  background: #e9f1e8;
+  color: #4d8061;
+  box-shadow: inset 0 0 0 1px rgba(77, 128, 97, .08);
+}
+
+#fecharMesBackdrop .fechar-mes-icone svg {
+  width: 24px;
+  height: 24px;
+}
+
+#fecharMesBackdrop .fechar-mes-cabecalho-texto {
+  min-width: 0;
+}
+
+#fecharMesBackdrop .fechar-mes-kicker {
+  display: block;
+  margin-bottom: 4px;
+  color: var(--gold-deep, #93691f);
+  font-family: var(--font-mono, monospace);
+  font-size: 9px;
+  font-weight: 800;
+  letter-spacing: .16em;
+}
+
+#fecharMesBackdrop .fechar-mes-cabecalho h3 {
+  margin: 0 !important;
+  padding: 0 !important;
+  font-size: 25px !important;
+  line-height: 1.08;
+  letter-spacing: -.025em;
+}
+
+#fecharMesBackdrop .fechar-mes-cabecalho h3::before {
+  display: none;
+}
+
+#fecharMesBackdrop .fechar-mes-cabecalho p {
+  margin: 5px 0 0;
+  color: var(--muted);
+  font-size: 13px;
+  line-height: 1.4;
+}
+
+#fecharMesBackdrop .fechar-mes-periodo {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  margin: 0 0 24px;
+  padding: 17px 19px;
+  border: 1px solid rgba(185, 134, 47, .20);
+  border-radius: 15px;
+  background: linear-gradient(135deg, rgba(185,134,47,.095), rgba(185,134,47,.035));
+  color: var(--ink-text);
+  text-align: left;
+  font-family: inherit;
+  font-size: inherit;
+  font-weight: inherit;
+  letter-spacing: normal;
+}
+
+#fecharMesBackdrop .fechar-mes-periodo span {
+  color: var(--muted);
+  font-family: var(--font-mono, monospace);
+  font-size: 9px;
+  font-weight: 800;
+  letter-spacing: .12em;
+}
+
+#fecharMesBackdrop .fechar-mes-periodo strong {
+  color: var(--ink-text);
+  font-family: var(--font-display, Georgia, serif);
+  font-size: 21px;
+  line-height: 1.1;
+  font-weight: 700;
+}
+
+#fecharMesBackdrop .modal-actions {
+  gap: 10px;
+}
+
+#fecharMesBackdrop .modal-actions .btn {
+  min-height: 48px;
+  border-radius: 12px !important;
+  font-size: 13px;
+  font-weight: 700;
+}
+
+#fecharMesBackdrop #fecharMesCancelar {
+  background: transparent;
+  border: 1px solid rgba(122,111,88,.28);
+  color: var(--muted);
+}
+
+#fecharMesBackdrop #fecharMesSubmit {
+  box-shadow: 0 7px 16px rgba(185,134,47,.22);
+}
+
+@media (max-width: 560px) {
+  #fecharMesBackdrop .fechar-mes-modal {
+    padding: 27px 20px 20px !important;
+    border-radius: 20px !important;
+  }
+  #fecharMesBackdrop .fechar-mes-cabecalho {
+    gap: 12px;
+    margin-bottom: 20px;
+  }
+  #fecharMesBackdrop .fechar-mes-icone {
+    width: 46px;
+    height: 46px;
+    flex-basis: 46px;
+  }
+  #fecharMesBackdrop .fechar-mes-cabecalho h3 {
+    font-size: 23px !important;
+  }
+  #fecharMesBackdrop .fechar-mes-periodo {
+    padding: 16px;
+  }
+  #fecharMesBackdrop .fechar-mes-periodo strong {
+    font-size: 19px;
+  }
+}
+
+/* ==========================================================
+   LOGIN — tela limpa e acolhedora
+   ========================================================== */
+#caixaFirebaseLogin {
+  isolation: isolate;
+  overflow: hidden;
+  padding: 24px;
+  background:
+    radial-gradient(circle at 18% 12%, rgba(185,134,47,.16), transparent 30%),
+    radial-gradient(circle at 84% 88%, rgba(60,110,79,.22), transparent 34%),
+    linear-gradient(145deg, #102b24 0%, #173b31 48%, #10261f 100%);
+}
+#caixaFirebaseLogin::before,
+#caixaFirebaseLogin::after {
+  content: "";
+  position: absolute;
+  z-index: -1;
+  border-radius: 50%;
+  pointer-events: none;
+  filter: blur(2px);
+}
+#caixaFirebaseLogin::before {
+  width: 360px;
+  height: 360px;
+  left: -180px;
+  top: -180px;
+  border: 1px solid rgba(255,255,255,.08);
+  box-shadow: 0 0 0 38px rgba(255,255,255,.018), 0 0 0 78px rgba(255,255,255,.012);
+}
+#caixaFirebaseLogin::after {
+  width: 280px;
+  height: 280px;
+  right: -140px;
+  bottom: -140px;
+  border: 1px solid rgba(185,134,47,.14);
+  box-shadow: 0 0 0 34px rgba(185,134,47,.018), 0 0 0 70px rgba(185,134,47,.01);
+}
+.caixa-firebase-login-card {
+  position: relative;
+  overflow: hidden;
+  width: min(420px, 100%);
+  padding: 42px 38px 30px;
+  border: 1px solid rgba(255,255,255,.58);
+  border-radius: 30px;
+  background: rgba(251,247,237,.96);
+  box-shadow: 0 34px 90px rgba(0,0,0,.34), 0 8px 24px rgba(0,0,0,.12);
+  color: var(--ink, #16332c);
+  text-align: center;
+  animation: caixaLoginIn .42s ease-out both;
+}
+.caixa-firebase-login-card::before {
+  content: "";
+  position: absolute;
+  width: 170px;
+  height: 170px;
+  right: -95px;
+  top: -105px;
+  border-radius: 50%;
+  background: rgba(185,134,47,.09);
+}
+.caixa-firebase-login-mark {
+  position: relative;
+  width: 72px;
+  height: 72px;
+  margin: 0 auto 19px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border: 1px solid rgba(185,134,47,.28);
+  border-radius: 22px;
+  background: var(--ink, #16332c);
+  color: #f0d28e;
+  box-shadow: 0 15px 30px rgba(22,51,44,.2);
+}
+.caixa-firebase-login-mark span {
+  font-family: Fraunces, Georgia, serif;
+  font-size: 21px;
+  font-weight: 700;
+  letter-spacing: -.04em;
+}
+.caixa-firebase-login-kicker {
+  margin-bottom: 8px;
+  color: #9a7029;
+  font-family: var(--font-mono, monospace);
+  font-size: 9px;
+  font-weight: 700;
+  letter-spacing: .18em;
+}
+.caixa-firebase-login-card h2 {
+  position: relative;
+  margin: 0;
+  color: var(--ink, #16332c);
+  font-family: Fraunces, Georgia, serif;
+  font-size: clamp(28px, 7vw, 34px);
+  line-height: 1.05;
+  letter-spacing: -.035em;
+}
+.caixa-firebase-login-card .caixa-firebase-login-lead {
+  margin: 11px auto 27px;
+  color: #6e695d;
+  font-size: 14px;
+  line-height: 1.5;
+}
+.caixa-firebase-google {
+  position: relative;
+  display: flex !important;
+  align-items: center;
+  justify-content: center;
+  gap: 12px;
+  width: 100%;
+  min-height: 54px;
+  padding: 0 20px;
+  border: 1px solid #ddd7c9 !important;
+  border-radius: 15px !important;
+  background: #fff !important;
+  color: #2b302e !important;
+  font-family: Inter, sans-serif;
+  font-size: 14px;
+  font-weight: 700;
+  box-shadow: 0 8px 20px rgba(35,42,38,.08) !important;
+  transition: transform .18s ease, box-shadow .18s ease, border-color .18s ease;
+}
+.caixa-firebase-google:hover:not(:disabled) {
+  transform: translateY(-1px);
+  border-color: #c9c1af !important;
+  box-shadow: 0 12px 26px rgba(35,42,38,.12) !important;
+}
+.caixa-firebase-google:active:not(:disabled) {
+  transform: translateY(0);
+}
+.caixa-firebase-google:focus-visible {
+  outline: 3px solid rgba(185,134,47,.28);
+  outline-offset: 3px;
+}
+.caixa-google-icon {
+  width: 21px;
+  height: 21px;
+  flex: 0 0 21px;
+}
+.caixa-firebase-login-foot {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 7px;
+  margin-top: 19px;
+  color: #858073;
+  font-size: 11px;
+  line-height: 1.45;
+}
+.caixa-login-lock {
+  width: 19px;
+  height: 19px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 50%;
+  background: rgba(60,110,79,.09);
+  color: #3c6e4f;
+  font-size: 14px;
+  font-weight: 700;
+}
+.caixa-firebase-login-erro {
+  display: block;
+  min-height: 0;
+  margin-top: 13px;
+  color: #9f3b35;
+  font-size: 12px;
+  line-height: 1.4;
+}
+.caixa-firebase-login-google-loading {
+  opacity: .75;
+}
+@keyframes caixaLoginIn {
+  from { opacity: 0; transform: translateY(10px) scale(.985); }
+  to { opacity: 1; transform: translateY(0) scale(1); }
+}
+@media (max-width: 560px) {
+  #caixaFirebaseLogin { padding: 16px; }
+  .caixa-firebase-login-card { padding: 34px 22px 26px; border-radius: 25px; }
+  .caixa-firebase-login-mark { width: 64px; height: 64px; border-radius: 19px; }
+  .caixa-firebase-login-mark span { font-size: 19px; }
+  .caixa-firebase-login-card .caixa-firebase-login-lead { margin-bottom: 23px; }
+  .caixa-firebase-login-foot { max-width: 270px; margin-left: auto; margin-right: auto; }
+}
+
 /* ============================================================
-   AJUSTES — configurações, tema e faturas
+   CONFIGURAÇÕES DO USUÁRIO — painel lateral
    ============================================================ */
+.caixa-config-trigger{
+  width:38px;height:38px;border:0;border-radius:12px;background:transparent;
+  color:inherit;display:inline-flex;align-items:center;justify-content:center;
+  cursor:pointer;transition:background .18s ease,transform .18s ease;
+  flex:0 0 auto;
+}
+.caixa-config-trigger:hover{background:rgba(255,255,255,.08);transform:translateY(-1px)}
+.caixa-config-trigger svg{width:21px;height:21px}
+.caixa-config-overlay{
+  position:fixed;inset:0;z-index:5000;background:rgba(8,20,17,.42);
+  opacity:1;transition:opacity .22s ease;backdrop-filter:blur(2px);
+}
+.caixa-config-overlay.is-hidden{display:none;opacity:0}
+.caixa-config-drawer{
+  position:absolute;top:0;right:0;width:min(470px,94vw);height:100%;
+  background:var(--surface,#faf7ef);color:var(--ink,#1b2923);
+  box-shadow:-20px 0 60px rgba(0,0,0,.18);display:flex;flex-direction:column;
+  transform:translateX(0);transition:transform .26s cubic-bezier(.2,.8,.2,1);
+  overflow:hidden;
+}
+.caixa-config-overlay.is-opening .caixa-config-drawer{transform:translateX(100%)}
+.caixa-config-head{
+  min-height:82px;padding:18px 18px 14px;display:grid;grid-template-columns:42px 1fr 42px;
+  align-items:center;border-bottom:1px solid rgba(30,48,40,.09);background:inherit;
+}
+.caixa-config-head .icon-btn{width:40px;height:40px}
+.caixa-config-kicker{display:block;font-size:10px;letter-spacing:.16em;font-weight:700;opacity:.55;margin-bottom:2px}
+.caixa-config-head h2{margin:0;font-family:Fraunces,serif;font-size:27px;font-weight:600}
+.caixa-config-body{overflow:auto;flex:1;padding:18px 18px 30px}
+.caixa-config-view{animation:caixaConfigIn .2s ease}
+@keyframes caixaConfigIn{from{opacity:0;transform:translateY(4px)}to{opacity:1;transform:none}}
+.caixa-config-intro{margin:2px 2px 18px;color:rgba(27,41,35,.64);font-size:13px;line-height:1.55}
+.caixa-config-card{
+  width:100%;border:1px solid rgba(30,48,40,.10);background:rgba(255,255,255,.62);
+  border-radius:16px;padding:15px 13px;display:grid;grid-template-columns:44px 1fr 20px;
+  gap:11px;align-items:center;text-align:left;color:inherit;cursor:pointer;margin-bottom:10px;
+  box-shadow:0 3px 12px rgba(26,45,36,.035);transition:transform .16s ease,border-color .16s ease,background .16s ease;
+}
+.caixa-config-card:hover{transform:translateY(-1px);border-color:rgba(60,110,79,.28);background:#fff}
+.caixa-config-card-icon{width:42px;height:42px;border-radius:13px;display:grid;place-items:center;background:rgba(60,110,79,.09);color:#3c6e4f}
+.caixa-config-card-icon svg{width:22px;height:22px}
+.caixa-config-card strong{display:block;font-size:14px;margin-bottom:3px}
+.caixa-config-card small{display:block;font-size:11px;line-height:1.4;opacity:.6}
+.caixa-config-card b{font-size:25px;font-weight:400;opacity:.38}
+.caixa-config-section-head{display:flex;justify-content:space-between;gap:12px;align-items:flex-start;margin:2px 0 14px}
+.caixa-config-section-head h3{margin:0 0 4px;font-size:18px;font-family:Fraunces,serif}
+.caixa-config-section-head p{margin:0;font-size:11px;line-height:1.45;opacity:.62;max-width:310px}
+.btn-config-small{padding:9px 12px;border-radius:11px;font-size:11px;white-space:nowrap}
+.caixa-config-list{display:flex;flex-direction:column;gap:8px}
+.caixa-config-row{
+  border:1px solid rgba(30,48,40,.10);background:rgba(255,255,255,.66);border-radius:14px;
+  padding:11px;display:flex;gap:10px;align-items:center;
+}
+.caixa-config-row-main{min-width:0;flex:1}
+.caixa-config-row-title{font-size:13px;font-weight:600;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.caixa-config-row-sub{font-size:10px;opacity:.55;margin-top:3px}
+.caixa-config-row-actions{display:flex;gap:5px;flex:0 0 auto}
+.caixa-config-mini-btn{
+  width:32px;height:32px;border:1px solid rgba(30,48,40,.10);border-radius:9px;background:transparent;
+  color:inherit;cursor:pointer;display:grid;place-items:center;
+}
+.caixa-config-mini-btn:hover{background:rgba(60,110,79,.08)}
+.caixa-config-mini-btn.danger{color:#a8482e}
+.caixa-config-mini-btn svg{width:16px;height:16px}
+.caixa-config-color{width:32px;height:32px;padding:2px;border:1px solid rgba(30,48,40,.12);border-radius:9px;background:transparent;cursor:pointer}
+.caixa-config-edit{
+  display:grid;grid-template-columns:1fr 42px auto;gap:7px;width:100%;align-items:center;
+}
+.caixa-config-edit input[type="text"],.caixa-config-edit input[type="color"],
+.caixa-config-edit input[type="number"],.caixa-config-edit select,
+.caixa-config-fatura-edit input,.caixa-config-fatura-edit select{
+  box-sizing:border-box;width:100%;border:1px solid rgba(30,48,40,.13);border-radius:10px;
+  background:#fff;padding:9px 10px;color:inherit;font:inherit;font-size:12px;outline:none;
+}
+.caixa-config-edit input[type="color"]{height:38px;padding:3px}
+.caixa-config-label{display:block;font-size:11px;font-weight:700;opacity:.65;margin:16px 2px 7px}
+.caixa-config-textarea{
+  width:100%;box-sizing:border-box;resize:vertical;min-height:130px;border:1px solid rgba(30,48,40,.13);
+  border-radius:13px;background:#fff;padding:12px;font:inherit;font-size:12px;line-height:1.55;color:inherit;outline:none;
+}
+.caixa-config-textarea:focus,.caixa-config-edit input:focus,.caixa-config-fatura-edit input:focus{border-color:rgba(60,110,79,.5);box-shadow:0 0 0 3px rgba(60,110,79,.08)}
+.caixa-config-person-switch{display:flex;background:rgba(30,48,40,.06);border-radius:11px;padding:3px;gap:3px;margin-bottom:14px}
+.caixa-config-person-switch button{
+  flex:1;border:0;background:transparent;border-radius:8px;padding:8px 6px;font:inherit;font-size:11px;
+  color:inherit;cursor:pointer;opacity:.62;
+}
+.caixa-config-person-switch button.is-active{background:#fff;opacity:1;box-shadow:0 2px 7px rgba(0,0,0,.07);font-weight:700}
+.caixa-config-subhead{margin-top:20px;align-items:center}
+.caixa-config-immersion-row{display:flex;align-items:flex-start;gap:9px}
+.caixa-config-immersion-row textarea{
+  flex:1;min-height:68px;resize:vertical;box-sizing:border-box;border:1px solid rgba(30,48,40,.11);
+  border-radius:11px;background:#fff;padding:9px;font:inherit;font-size:11px;line-height:1.45;color:inherit;
+}
+.caixa-config-save-wide{width:100%;margin-top:14px;padding:11px}
+.caixa-config-fatura-edit{display:grid;grid-template-columns:1fr 80px;gap:7px;width:100%}
+.caixa-config-fatura-meta{display:flex;align-items:center;gap:7px;margin-top:5px;font-size:10px;opacity:.58}
+.caixa-config-fatura-owner{font-weight:700;opacity:.85}
+.caixa-config-empty{padding:25px 12px;text-align:center;font-size:12px;opacity:.5;border:1px dashed rgba(30,48,40,.15);border-radius:13px}
+.caixa-config-loading{padding:30px;text-align:center;font-size:12px;opacity:.55}
+@media (max-width:600px){
+  .caixa-config-drawer{width:100%;max-width:none}
+  .caixa-config-body{padding-left:14px;padding-right:14px}
+}
+
 .caixa-config-drawer{left:0;right:auto;box-shadow:20px 0 60px rgba(0,0,0,.18);}
 .caixa-config-overlay.is-opening .caixa-config-drawer{transform:translateX(-100%)}
 .caixa-config-head{grid-template-columns:1fr 42px;}
@@ -7889,7 +8875,6 @@ html[data-theme="dark"] .caixa-config-person-switch{background:rgba(255,255,255,
 html[data-theme="dark"] .caixa-config-person-switch button.is-active{background:#243a30;color:var(--ink-text);}
 html[data-theme="dark"] .caixa-theme-option.is-active{background:#1d3027;border-color:#d9ab5c;}
 html[data-theme="dark"] .caixa-config-head{border-bottom-color:rgba(255,255,255,.08);}
-
 
 /* ============================================================
    V3 — painel de configurações refinado
@@ -8037,4 +9022,86 @@ html[data-theme="dark"] .caixa-config-ia-context{
 @media(max-width:600px){
   .caixa-config-head{padding-left:14px;padding-right:14px;}
   .caixa-config-head h2{font-size:23px;}
+}
+
+
+/* ============================================================
+   V4 — correções de estabilidade visual
+   ============================================================ */
+.caixa-config-trigger{
+  appearance:none;
+  -webkit-appearance:none;
+  width:38px;
+  height:38px;
+  padding:0;
+  margin:0;
+  border:1px solid rgba(250,245,233,.14);
+  border-radius:12px;
+  background:rgba(250,245,233,.035);
+  color:var(--on-ink,#faf5e9);
+  display:inline-flex;
+  align-items:center;
+  justify-content:center;
+  cursor:pointer;
+  flex:0 0 auto;
+  box-shadow:none;
+  font:inherit;
+  line-height:1;
+  transition:background .18s ease,border-color .18s ease,transform .18s ease;
+}
+.caixa-config-trigger:hover{
+  background:rgba(250,245,233,.09);
+  border-color:rgba(250,245,233,.22);
+  transform:translateY(-1px);
+}
+.caixa-config-trigger:active{transform:translateY(0) scale(.97);}
+.caixa-config-trigger:focus-visible{outline:2px solid rgba(217,171,92,.75);outline-offset:3px;}
+.caixa-config-trigger svg{width:21px;height:21px;display:block;}
+
+/* O drawer é realmente lateral e começa fechado fora da tela. */
+.caixa-config-overlay{
+  position:fixed;
+  inset:0;
+  z-index:5000;
+  background:rgba(8,20,17,.42);
+  opacity:1;
+  transition:opacity .22s ease;
+  backdrop-filter:blur(2px);
+}
+.caixa-config-overlay.is-hidden{display:none;opacity:0;}
+.caixa-config-drawer{
+  position:absolute;
+  top:0;
+  left:0;
+  right:auto;
+  width:min(470px,94vw);
+  height:100%;
+  background:var(--paper,#faf5e9);
+  color:var(--ink-text,#241c12);
+  box-shadow:20px 0 60px rgba(0,0,0,.18);
+  display:flex;
+  flex-direction:column;
+  transform:translateX(0);
+  transition:transform .26s cubic-bezier(.2,.8,.2,1);
+  overflow:hidden;
+}
+.caixa-config-overlay.is-opening .caixa-config-drawer{transform:translateX(-100%);}
+
+/* O modal de fechar o mês usa as regras restauradas acima; estes reforços
+   garantem que o backdrop fique acima do conteúdo, sem afetar a cerimônia. */
+#fecharMesBackdrop{z-index:5200;}
+#fecharMesBackdrop .fechar-mes-modal{position:relative;}
+
+html[data-theme="dark"] .caixa-config-drawer{
+  background:var(--paper,#101f1a);
+  color:var(--ink-text,#f1e9d8);
+}
+html[data-theme="dark"] .caixa-config-trigger{
+  color:var(--ink-text,#f1e9d8);
+  border-color:rgba(241,233,216,.12);
+  background:rgba(241,233,216,.035);
+}
+html[data-theme="dark"] .caixa-config-trigger:hover{background:rgba(241,233,216,.08);}
+@media(max-width:600px){
+  .caixa-config-drawer{width:100%;max-width:none;}
 }
