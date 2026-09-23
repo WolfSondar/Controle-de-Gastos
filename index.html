@@ -712,7 +712,13 @@
           <span class="caixa-config-card-icon">
             <svg viewBox="0 0 24 24" fill="none"><path d="M12 3v2M12 19v2M3 12h2M19 12h2M5.64 5.64l1.41 1.41M16.95 16.95l1.41 1.41M18.36 5.64l-1.41 1.41M7.05 16.95l-1.41 1.41" stroke="currentColor" stroke-width="1.7" stroke-linecap="round"/><circle cx="12" cy="12" r="4" stroke="currentColor" stroke-width="1.8"/></svg>
           </span>
-          <span><strong>Tema</strong><small>Escolha claro, escuro ou o tema do dispositivo.</small></span><b>›</b>
+          <span><strong>Aparência</strong><small>Escolha entre claro, escuro ou dispositivo.</small></span><b>›</b>
+        </button>
+        <button type="button" class="caixa-config-card" data-config-view="temas">
+          <span class="caixa-config-card-icon">
+            <svg viewBox="0 0 24 24" fill="none"><rect x="4" y="4" width="16" height="16" rx="5" stroke="currentColor" stroke-width="1.7"/><path d="M8 14.5c1.3-2.7 2.9-4 4.6-4 1.4 0 2.5.8 3.4 2.4" stroke="currentColor" stroke-width="1.7" stroke-linecap="round"/><circle cx="9" cy="9" r="1.1" fill="currentColor"/><path d="M7 17h10" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/></svg>
+          </span>
+          <span><strong>Temas</strong><small>Escolha o estilo temático do Caixa.</small></span><b>›</b>
         </button>
       </section>
 
@@ -758,6 +764,21 @@
             <span class="caixa-theme-preview caixa-theme-preview-device" aria-hidden="true"><i></i><b></b><em></em></span>
             <span><strong>Dispositivo</strong><small>Acompanha a preferência do sistema.</small></span>
             <span class="caixa-theme-check" aria-hidden="true">✓</span>
+          </button>
+        </div>
+      </section>
+
+      <section class="caixa-config-view is-hidden" id="caixaConfigTemas">
+        <div class="caixa-config-section-head">
+          <div><h3>Temas</h3><p>Escolha um tema especial para dar um toque diferente ao Caixa.</p></div>
+        </div>
+        <div class="caixa-theme-options" id="caixaTemasOptions">
+          <button type="button" class="caixa-theme-option caixa-tema-option" data-caixa-theme="default" aria-pressed="true">
+            <span class="caixa-tema-preview" aria-hidden="true">
+              <i></i><b></b><em></em><strong></strong>
+            </span>
+            <span><strong>Padrão</strong><small>O visual original do Caixa.</small></span>
+            <span class="caixa-theme-check">✓</span>
           </button>
         </div>
       </section>

@@ -9106,3 +9106,37 @@ html[data-theme="dark"] .caixa-config-trigger:hover{background:rgba(241,233,216,
 @media(max-width:600px){
   .caixa-config-drawer{width:100%;max-width:none;}
 }
+
+/* V5 — refinamentos de aparência e camadas */
+.caixa-config-row{position:relative;}
+.caixa-config-row .caixa-config-color{order:-1;flex:0 0 auto;}
+
+/* O preview escuro usa exatamente a mesma composição do claro; só mudam as cores. */
+.caixa-theme-preview-dark{background:#101f1a;border-color:rgba(241,233,216,.14);}
+.caixa-theme-preview-dark i{left:7px;top:7px;width:42px;height:5px;border-radius:3px;background:#f1e9d8;box-shadow:none;}
+.caixa-theme-preview-dark b{left:7px;top:18px;width:25px;height:12px;border-radius:3px;background:#20372d;}
+.caixa-theme-preview-dark em{right:7px;left:auto;top:18px;width:12px;height:12px;border-radius:3px;background:#d9ab5c;}
+
+/* O preview do dispositivo é literalmente dividido ao meio. */
+.caixa-theme-preview-device{background:linear-gradient(90deg,#faf5e9 0 50%,#101f1a 50% 100%);}
+.caixa-theme-preview-device i{left:7px;top:7px;width:42px;height:5px;background:linear-gradient(90deg,#16332c 0 50%,#f1e9d8 50% 100%);}
+.caixa-theme-preview-device b{left:7px;top:18px;width:25px;height:12px;background:linear-gradient(90deg,#e8dfc7 0 50%,#20372d 50% 100%);}
+.caixa-theme-preview-device em{right:7px;top:18px;width:12px;height:12px;background:linear-gradient(90deg,#b9862f 0 50%,#d9ab5c 50% 100%);}
+
+/* Primeiro tema temático: Padrão. */
+.caixa-tema-preview{height:38px;border-radius:10px;border:1px solid rgba(30,48,40,.12);position:relative;overflow:hidden;display:block;background:#faf5e9;}
+.caixa-tema-preview i,.caixa-tema-preview b,.caixa-tema-preview em,.caixa-tema-preview strong{position:absolute;display:block;}
+.caixa-tema-preview i{left:7px;top:7px;width:42px;height:5px;border-radius:3px;background:#16332c;}
+.caixa-tema-preview b{left:7px;top:18px;width:25px;height:12px;border-radius:3px;background:#e8dfc7;}
+.caixa-tema-preview em{right:7px;top:18px;width:12px;height:12px;border-radius:4px;background:#b9862f;}
+.caixa-tema-preview strong{right:8px;top:7px;width:6px;height:6px;border-radius:50%;background:#6fbb8c;box-shadow:-3px 3px 0 -1px #6fbb8c, -6px 0 0 -1px #6fbb8c;}
+html[data-theme="dark"] .caixa-tema-preview{background:#101f1a;border-color:rgba(241,233,216,.14);}
+html[data-theme="dark"] .caixa-tema-preview i{background:#f1e9d8;}
+html[data-theme="dark"] .caixa-tema-preview b{background:#20372d;}
+html[data-theme="dark"] .caixa-tema-preview em{background:#d9ab5c;}
+html[data-theme="dark"] .caixa-tema-preview strong{background:#6fbb8c;box-shadow:-3px 3px 0 -1px #6fbb8c, -6px 0 0 -1px #6fbb8c;}
+
+/* Confirmação deve ficar acima da barra lateral e de qualquer conteúdo aberto. */
+#confirmBackdrop{z-index:6000 !important;}
+#confirmBackdrop .modal{position:relative;z-index:6001;}
+#configFaturaBackdrop{z-index:5900 !important;}

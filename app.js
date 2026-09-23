@@ -7880,13 +7880,15 @@ if (document.readyState === "loading") {
     ia: document.getElementById("caixaConfigIA"),
     faturas: document.getElementById("caixaConfigFaturas"),
     tema: document.getElementById("caixaConfigTema"),
+    temas: document.getElementById("caixaConfigTemas"),
   };
   const titles = {
     home: "Configurações",
     categorias: "Categorias",
     ia: "Assistente IA",
     faturas: "Faturas",
-    tema: "Tema",
+    tema: "Aparência",
+    temas: "Temas",
   };
 
   let viewAtual = "home";
@@ -7961,6 +7963,7 @@ if (document.readyState === "loading") {
     if (nome === "ia") renderIA();
     if (nome === "faturas") renderFaturas();
     if (nome === "tema") renderTema();
+    if (nome === "temas") renderTemas();
   }
 
   function renderCategorias() {
@@ -7973,11 +7976,11 @@ if (document.readyState === "loading") {
     }
     wrap.innerHTML = lista.map((cat, idx) => `
       <div class="caixa-config-row" data-cat-index="${idx}">
+        <input class="caixa-config-color" type="color" value="${cat.cor}" aria-label="Cor de ${escapeHtml(cat.nome)}" data-cat-color="${idx}" title="Alterar cor">
         <div class="caixa-config-row-main">
           <div class="caixa-config-row-title">${escapeHtml(cat.nome)}</div>
-          <div class="caixa-config-row-sub">Cor da categoria</div>
+          <div class="caixa-config-row-sub">Clique na cor para alterar</div>
         </div>
-        <input class="caixa-config-color" type="color" value="${cat.cor}" aria-label="Cor de ${escapeHtml(cat.nome)}" data-cat-color="${idx}">
         <div class="caixa-config-row-actions">
           <button type="button" class="caixa-config-mini-btn" data-cat-edit="${idx}" aria-label="Editar ${escapeHtml(cat.nome)}">
             <svg viewBox="0 0 24 24" fill="none"><path d="m4 16.5-.7 3.2 3.2-.7L18.8 6.7a2 2 0 0 0 0-2.8l-.7-.7a2 2 0 0 0-2.8 0L4 16.5Z" stroke="currentColor" stroke-width="1.7" stroke-linejoin="round"/><path d="m14 5 5 5" stroke="currentColor" stroke-width="1.7"/></svg>
@@ -8314,11 +8317,20 @@ if (document.readyState === "loading") {
     });
   }
 
+  function renderTemas() {
+    document.querySelectorAll("[data-caixa-theme]").forEach(btn => {
+      const ativo = btn.dataset.caixaTheme === "default";
+      btn.classList.toggle("is-active", ativo);
+      btn.setAttribute("aria-pressed", ativo ? "true" : "false");
+    });
+  }
+
   function renderTudo() {
     if (viewAtual === "categorias") renderCategorias();
     if (viewAtual === "ia") renderIA();
     if (viewAtual === "faturas") renderFaturas();
     if (viewAtual === "tema") renderTema();
+    if (viewAtual === "temas") renderTemas();
   }
 
   document.getElementById("btnAbrirConfiguracoes")?.addEventListener("click", abrir);
@@ -8355,6 +8367,7 @@ if (document.readyState === "loading") {
     mostrarView,
     renderCategorias,
     renderIA,
-    renderFaturas
+    renderFaturas,
+    renderTemas
   };
 })();
