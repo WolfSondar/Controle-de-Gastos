@@ -8359,14 +8359,14 @@ if (document.readyState === "loading") {
     if (!layer || layer.childElementCount) return;
     const fragment = document.createDocumentFragment();
     const simbolos = ["•", "❄", "✦", "·"];
-    for (let i = 0; i < 46; i++) {
+    for (let i = 0; i < 22; i++) {
       const floco = document.createElement("span");
       floco.className = "caixa-snowflake";
       floco.textContent = simbolos[i % simbolos.length];
       floco.style.left = `${Math.random() * 100}%`;
-      floco.style.setProperty("--s", `${5 + Math.random() * 8}px`);
-      floco.style.setProperty("--o", `${0.38 + Math.random() * 0.52}`);
-      floco.style.setProperty("--d", `${7 + Math.random() * 9}s`);
+      floco.style.setProperty("--s", `${4 + Math.random() * 5}px`);
+      floco.style.setProperty("--o", `${0.20 + Math.random() * 0.30}`);
+      floco.style.setProperty("--d", `${10 + Math.random() * 10}s`);
       floco.style.setProperty("--delay", `${-Math.random() * 14}s`);
       floco.style.setProperty("--x", `${-30 + Math.random() * 60}px`);
       fragment.appendChild(floco);
