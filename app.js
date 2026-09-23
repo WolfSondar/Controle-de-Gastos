@@ -8708,34 +8708,47 @@ if (document.readyState === "loading") {
   function limparSazonalidadeForaDoAdmin() {
     const admin = document.getElementById("caixaConfigAdmin");
 
-    // Fora do Admin, nunca pode existir uma cópia do painel de sazonalidade.
+    // Remove qualquer implementação antiga fora do Admin.
     document.querySelectorAll("#caixaAdminTemasSazonais, #caixaAdminHalloweenTema, .caixa-admin-seasonal-shell").forEach(el => {
       if (!admin || !admin.contains(el)) el.remove();
     });
 
     if (!admin) return;
 
-    // Há versões antigas que criaram a sazonalidade com IDs/classes diferentes.
-    // Em vez de tentar escolher qual delas é a "certa", removemos TODAS e o
-    // render atual cria exatamente uma única versão oficial.
-    const candidatos = [...admin.querySelectorAll("section, article, .caixa-config-card, .caixa-settings-card, .settings-card, .config-card, .card")];
-    candidatos.forEach(card => {
-      const titulo = card.querySelector(":scope > h2, :scope > h3, :scope > h4, :scope > .caixa-config-section-title, :scope > .caixa-section-title, :scope > .section-title, .caixa-admin-seasonal-head h3");
-      const texto = String(titulo?.textContent || "").trim().toLowerCase();
-      if (card.id === "caixaAdminTemasSazonais" || card.classList.contains("caixa-admin-seasonal-shell") || texto === "sazonalidade dos temas") {
-        card.remove();
-      }
+    // O painel antigo era específico do Natal. Não o mantemos mais como uma
+    // segunda fonte de configuração. O Admin atual é o único painel oficial
+    // e contém todos os temas especiais (Natal, Halloween e futuros temas).
+    // Procuramos pelos próprios títulos, inclusive quando a estrutura antiga
+    // não usa as classes/IDs atuais.
+    const removerCartao = el => {
+      if (!el || el === admin) return;
+      const card = el.closest(
+        ".caixa-config-card, .caixa-settings-card, .settings-card, .config-card, .card, section, article, [data-config-card], [data-admin-card]"
+      );
+      if (card && card !== admin) { card.remove(); return; }
+      const parent = el.parentElement;
+      if (parent && parent !== admin) parent.remove();
+    };
+
+    // Remove todos os painéis com o ID oficial duplicado, preservando nenhum:
+    // renderAdminSazonalidade() criará exatamente um novo depois.
+    admin.querySelectorAll("#caixaAdminTemasSazonais, .caixa-admin-seasonal-shell, #caixaAdminHalloweenTema").forEach(el => el.remove());
+
+    // Remove qualquer cartão cujo título seja exatamente "Sazonalidade dos temas".
+    // Isto cobre versões antigas que possuíam HTML/classes diferentes.
+    [...admin.querySelectorAll("h1, h2, h3, h4, h5, .caixa-config-section-title, .caixa-section-title, .section-title")].forEach(title => {
+      const texto = String(title.textContent || "").trim().toLowerCase();
+      if (texto === "sazonalidade dos temas") removerCartao(title);
     });
 
+    // IDs usados pelas primeiras versões (Natal e a primeira implementação de Halloween).
     const idsLegados = [
       "temaNatalInicio", "temaNatalFim", "temaNatalPermanente",
       "temaHalloweenInicio", "temaHalloweenFim", "temaHalloweenPermanente"
     ];
     idsLegados.forEach(id => {
-      const el = document.getElementById(id);
-      if (!el || admin.contains(el)) return;
-      const card = el.closest("section, .caixa-config-card, .caixa-settings-card, .settings-card, .config-card, .card") || el.parentElement;
-      if (card) card.remove(); else el.remove();
+      const el = admin.querySelector(`#${id}`);
+      if (el) removerCartao(el);
     });
   }
 
@@ -8755,6 +8768,10 @@ if (document.readyState === "loading") {
     }
 
     const ids = idsDeTemasConfiguraveis();
+    // Garantia final: nunca renderizar uma segunda sazonalidade.
+    admin.querySelectorAll("#caixaAdminTemasSazonais").forEach((el, index) => {
+      if (index > 0) el.remove();
+    });
     shell.innerHTML = `
       <div class="caixa-admin-seasonal-head">
         <div>
