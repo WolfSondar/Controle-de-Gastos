@@ -7812,6 +7812,57 @@ if (document.readyState === "loading") {
 
 
 /* ============================================================
+   TEMA — preferência local do dispositivo
+   Não é salva no Firebase.
+   ============================================================ */
+(function inicializarTemaLocal() {
+  const KEY = "caixa-tema-v1";
+  const preferencias = new Set(["light", "dark", "device"]);
+  const root = document.documentElement;
+  const metaTheme = document.querySelectorAll('meta[name="theme-color"]');
+
+  function lerPreferencia() {
+    try {
+      const valor = localStorage.getItem(KEY);
+      return preferencias.has(valor) ? valor : "device";
+    } catch (_) { return "device"; }
+  }
+  function ehEscuroDoDispositivo() {
+    return !!window.matchMedia && window.matchMedia("(prefers-color-scheme: dark)").matches;
+  }
+  function aplicar(preferencia) {
+    const escuro = preferencia === "dark" || (preferencia === "device" && ehEscuroDoDispositivo());
+    root.setAttribute("data-theme", escuro ? "dark" : "light");
+    root.dataset.themePreference = preferencia;
+    metaTheme.forEach(meta => {
+      meta.media = "";
+      meta.setAttribute("content", escuro ? "#0d1e19" : "#16332c");
+    });
+    document.querySelectorAll("[data-theme-choice]").forEach(btn => {
+      const ativo = btn.dataset.themeChoice === preferencia;
+      btn.classList.toggle("is-active", ativo);
+      btn.setAttribute("aria-pressed", ativo ? "true" : "false");
+    });
+  }
+  function salvar(preferencia) {
+    if (!preferencias.has(preferencia)) preferencia = "device";
+    try { localStorage.setItem(KEY, preferencia); } catch (_) {}
+    aplicar(preferencia);
+  }
+
+  aplicar(lerPreferencia());
+  document.addEventListener("click", e => {
+    const btn = e.target.closest("[data-theme-choice]");
+    if (btn) salvar(btn.dataset.themeChoice);
+  });
+  const media = window.matchMedia ? window.matchMedia("(prefers-color-scheme: dark)") : null;
+  media?.addEventListener?.("change", () => {
+    if (lerPreferencia() === "device") aplicar("device");
+  });
+  window.CAIXA_TEMA = { aplicar, salvar, lerPreferencia };
+})();
+
+/* ============================================================
    CONFIGURAÇÕES DO USUÁRIO
    Painel único para categorias, IA e faturas.
    ============================================================ */
@@ -7828,16 +7879,18 @@ if (document.readyState === "loading") {
     categorias: document.getElementById("caixaConfigCategorias"),
     ia: document.getElementById("caixaConfigIA"),
     faturas: document.getElementById("caixaConfigFaturas"),
+    tema: document.getElementById("caixaConfigTema"),
   };
   const titles = {
     home: "Configurações",
     categorias: "Categorias",
     ia: "Assistente IA",
     faturas: "Faturas",
+    tema: "Tema",
   };
 
   let viewAtual = "home";
-  let iaPessoa = "davi";
+  let iaPessoa = state.pessoaAtual === "ambos" ? "ambos" : (state.pessoaAtual === "gabriel" ? "gabriel" : "davi");
   let faturaPessoa = state.pessoaAtual === "gabriel" ? "gabriel" : "davi";
 
   const clone = value => {
@@ -7897,11 +7950,17 @@ if (document.readyState === "loading") {
     viewAtual = nome;
     home.classList.toggle("is-hidden", nome !== "home");
     Object.entries(views).forEach(([key, el]) => el?.classList.toggle("is-hidden", key !== nome));
-    back.classList.toggle("is-hidden", nome === "home");
-    title.textContent = titles[nome] || titles.home;
+    const tituloView = titles[nome] || titles.home;
+    const cabecalho = drawer.querySelector(".caixa-config-head");
+    const interna = nome !== "home";
+    back.classList.toggle("is-hidden", !interna);
+    title.textContent = tituloView;
+    cabecalho?.classList.toggle("caixa-config-inner", interna);
+    cabecalho?.setAttribute("data-view-title", tituloView);
     if (nome === "categorias") renderCategorias();
     if (nome === "ia") renderIA();
     if (nome === "faturas") renderFaturas();
+    if (nome === "tema") renderTema();
   }
 
   function renderCategorias() {
@@ -8051,9 +8110,18 @@ if (document.readyState === "loading") {
     return cfg;
   }
   function renderIA() {
+    if (state.pessoaAtual === "ambos") iaPessoa = "ambos";
+    else if (state.pessoaAtual === "gabriel") iaPessoa = "gabriel";
+    else iaPessoa = "davi";
     const cfg = iaConfigAtual();
     const tom = iaPessoa === "gabriel" ? cfg.tomGabriel : iaPessoa === "ambos" ? cfg.tomAmbos : cfg.tomDavi;
-    document.querySelectorAll("[data-ia-pessoa]").forEach(btn => btn.classList.toggle("is-active", btn.dataset.iaPessoa === iaPessoa));
+    document.querySelectorAll("[data-ia-pessoa]").forEach(btn => {
+      const permitido = btn.dataset.iaPessoa === iaPessoa;
+      btn.classList.toggle("is-active", permitido);
+      btn.hidden = !permitido;
+    });
+    const pessoaLabel = document.getElementById("configIAPessoaLabel");
+    if (pessoaLabel) pessoaLabel.textContent = iaPessoa === "ambos" ? "Juntos" : (iaPessoa === "gabriel" ? "Gabriel" : "Davi");
     const textarea = document.getElementById("configIATom");
     textarea.value = tom;
     textarea.disabled = false;
@@ -8158,44 +8226,65 @@ if (document.readyState === "loading") {
     } catch (_) { return false; }
   }
 
-  async function novaFatura() {
-    const nome = prompt(`Nome da nova fatura de ${faturaPessoa === "davi" ? "Davi" : "Gabriel"}:`, "Novo cartão");
-    if (!nome?.trim()) return;
-    const dia = Number(prompt("Dia do vencimento (1 a 31):", "10"));
-    if (!(dia >= 1 && dia <= 31)) { showToast("Informe um dia entre 1 e 31."); return; }
-    const lista = garantirFaturas().slice();
-    lista.push({
-      id: `${faturaPessoa}-${Date.now().toString(36)}`,
-      nome: nome.trim(),
-      dia,
-      pessoa: faturaPessoa
-    });
-    if (await salvarFaturas(lista)) renderFaturas();
-  }
+  const faturaModal = {
+    backdrop: document.getElementById("configFaturaBackdrop"),
+    title: document.getElementById("configFaturaTitle"),
+    hint: document.getElementById("configFaturaHint"),
+    nome: document.getElementById("configFaturaNome"),
+    pessoa: document.getElementById("configFaturaPessoa"),
+    dia: document.getElementById("configFaturaDia"),
+    salvar: document.getElementById("configFaturaSalvar"),
+    cancelar: document.getElementById("configFaturaCancelar"),
+    fechar: document.getElementById("configFaturaClose"),
+  };
+  let faturaEditandoId = null;
 
-  async function editarFatura(id) {
+  function preencherDiasFatura() {
+    if (!faturaModal.dia) return;
+    faturaModal.dia.innerHTML = Array.from({length:31}, (_,i) => `<option value="${i+1}">Dia ${i+1}</option>`).join("");
+  }
+  function fecharModalFatura() {
+    faturaModal.backdrop?.classList.add("is-hidden");
+    faturaEditandoId = null;
+  }
+  function abrirModalFatura(fatura = null) {
+    preencherDiasFatura();
+    faturaEditandoId = fatura ? String(fatura.id) : null;
+    const pessoaInicial = fatura?.pessoa || faturaPessoa || (state.pessoaAtual === "gabriel" ? "gabriel" : "davi");
+    faturaModal.title.textContent = fatura ? "Editar fatura" : "Nova fatura";
+    faturaModal.hint.textContent = fatura ? "Altere o nome ou o dia em que esta fatura vence." : "Cadastre o cartão e o dia em que a fatura vence.";
+    faturaModal.nome.value = fatura?.nome || "";
+    faturaModal.pessoa.value = pessoaInicial;
+    faturaModal.dia.value = String(Number(fatura?.dia) || 10);
+    faturaModal.salvar.textContent = fatura ? "Salvar alterações" : "Salvar fatura";
+    faturaModal.backdrop.classList.remove("is-hidden");
+    setTimeout(() => { faturaModal.nome.focus(); faturaModal.nome.select(); }, 30);
+  }
+  async function salvarFaturaModal() {
+    const nome = String(faturaModal.nome.value || "").trim();
+    const pessoa = faturaModal.pessoa.value === "gabriel" ? "gabriel" : "davi";
+    const dia = Number(faturaModal.dia.value);
+    if (!nome) { showToast("Digite o nome da fatura."); faturaModal.nome.focus(); return; }
+    if (!(dia >= 1 && dia <= 31)) { showToast("Escolha um dia entre 1 e 31."); faturaModal.dia.focus(); return; }
     const lista = garantirFaturas().slice();
-    const idx = lista.findIndex(f => String(f.id) === id);
-    if (idx < 0) return;
-    const atual = lista[idx];
-    const row = document.querySelector(`[data-fatura-id="${CSS.escape(id)}"]`);
-    if (!row) return;
-    row.innerHTML = `
-      <div class="caixa-config-fatura-edit">
-        <input type="text" maxlength="50" value="${escapeHtml(String(atual.nome || ""))}" aria-label="Nome da fatura">
-        <input type="number" min="1" max="31" value="${Number(atual.dia) || 1}" aria-label="Dia de vencimento">
-        <button type="button" class="btn btn-gold btn-config-small">Salvar</button>
-      </div>`;
-    const inputs = row.querySelectorAll("input");
-    row.querySelector("button").addEventListener("click", async () => {
-      const nome = inputs[0].value.trim();
-      const dia = Number(inputs[1].value);
-      if (!nome || dia < 1 || dia > 31) { showToast("Preencha nome e dia de vencimento."); return; }
-      lista[idx] = {...atual,nome,dia};
-      if (await salvarFaturas(lista)) renderFaturas();
-    });
-    inputs[0].focus();
-    inputs[0].select();
+    if (faturaEditandoId) {
+      const idx = lista.findIndex(f => String(f.id) === faturaEditandoId);
+      if (idx < 0) { fecharModalFatura(); return; }
+      lista[idx] = {...lista[idx], nome, dia, pessoa};
+    } else {
+      lista.push({ id: `${pessoa}-${Date.now().toString(36)}`, nome, dia, pessoa });
+    }
+    const ok = await salvarFaturas(lista);
+    if (ok) {
+      faturaPessoa = pessoa;
+      fecharModalFatura();
+      renderFaturas();
+    }
+  }
+  function novaFatura() { abrirModalFatura(null); }
+  function editarFatura(id) {
+    const atual = garantirFaturas().find(f => String(f.id) === String(id));
+    if (atual) abrirModalFatura(atual);
   }
 
   async function excluirFatura(id) {
@@ -8209,6 +8298,15 @@ if (document.readyState === "loading") {
     if (!confirm(`Excluir a fatura "${lista[idx].nome}"?`)) return;
     lista.splice(idx,1);
     if (await salvarFaturas(lista)) renderFaturas();
+  }
+
+  function renderTema() {
+    const preferencia = window.CAIXA_TEMA?.lerPreferencia?.() || document.documentElement.dataset.themePreference || "device";
+    document.querySelectorAll("[data-theme-choice]").forEach(btn => {
+      const ativo = btn.dataset.themeChoice === preferencia;
+      btn.classList.toggle("is-active", ativo);
+      btn.setAttribute("aria-pressed", ativo ? "true" : "false");
+    });
   }
 
   function renderTudo() {
@@ -8228,7 +8326,7 @@ if (document.readyState === "loading") {
   });
   document.getElementById("btnNovaCategoria")?.addEventListener("click", novaCategoria);
   document.querySelectorAll("[data-ia-pessoa]").forEach(btn => btn.addEventListener("click", () => {
-    iaPessoa = btn.dataset.iaPessoa || "davi";
+    iaPessoa = state.pessoaAtual === "ambos" ? "ambos" : (state.pessoaAtual === "gabriel" ? "gabriel" : "davi");
     renderIA();
   }));
   document.getElementById("btnNovaImersao")?.addEventListener("click", novaImersao);
@@ -8238,6 +8336,17 @@ if (document.readyState === "loading") {
     renderFaturas();
   }));
   document.getElementById("btnNovaFatura")?.addEventListener("click", novaFatura);
+  faturaModal.salvar?.addEventListener("click", salvarFaturaModal);
+  faturaModal.cancelar?.addEventListener("click", fecharModalFatura);
+  faturaModal.fechar?.addEventListener("click", fecharModalFatura);
+  faturaModal.backdrop?.addEventListener("click", e => { if (e.target === faturaModal.backdrop) fecharModalFatura(); });
+  document.addEventListener("keydown", e => { if (e.key === "Escape" && faturaModal.backdrop && !faturaModal.backdrop.classList.contains("is-hidden")) fecharModalFatura(); });
+  document.addEventListener("caixa:perfil-trocado", () => {
+    iaPessoa = state.pessoaAtual === "ambos" ? "ambos" : (state.pessoaAtual === "gabriel" ? "gabriel" : "davi");
+    faturaPessoa = state.pessoaAtual === "gabriel" ? "gabriel" : "davi";
+    if (viewAtual === "ia") renderIA();
+    if (viewAtual === "faturas") renderFaturas();
+  });
 
   window.CAIXA_CONFIG = {
     abrir,
