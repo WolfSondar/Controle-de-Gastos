@@ -5504,7 +5504,7 @@ function criarCenaFechamentoMes() {
   document.body.appendChild(cena);
 
   const linhas = cena.querySelector(".fechamento-mes-linhas");
-  for (let i = 0; i < 22; i++) {
+  for (let i = 0; i < 12; i++) {
     const linha = document.createElement("span");
     linha.style.setProperty("--x", `${2 + Math.random() * 96}%`);
     linha.style.setProperty("--dur", `${3.2 + Math.random() * 3.8}s`);
@@ -8364,9 +8364,9 @@ if (document.readyState === "loading") {
       floco.className = "caixa-snowflake";
       floco.textContent = simbolos[i % simbolos.length];
       floco.style.left = `${Math.random() * 100}%`;
-      floco.style.setProperty("--s", `${4 + Math.random() * 5}px`);
-      floco.style.setProperty("--o", `${0.20 + Math.random() * 0.30}`);
-      floco.style.setProperty("--d", `${10 + Math.random() * 10}s`);
+      floco.style.setProperty("--s", `${3 + Math.random() * 3}px`);
+      floco.style.setProperty("--o", `${0.14 + Math.random() * 0.20}`);
+      floco.style.setProperty("--d", `${16 + Math.random() * 12}s`);
       floco.style.setProperty("--delay", `${-Math.random() * 14}s`);
       floco.style.setProperty("--x", `${-30 + Math.random() * 60}px`);
       fragment.appendChild(floco);
@@ -8384,7 +8384,18 @@ if (document.readyState === "loading") {
     if (layer) layer.setAttribute("aria-hidden", natal ? "false" : "true");
     if (lights) lights.setAttribute("aria-hidden", natal ? "false" : "true");
   }
+  function temaSazonalAutomaticoAtivo() {
+    const sazonais = ["christmas"];
+    return sazonais.some(id => {
+      const regra = (state.temasConfig || {})[id] || {};
+      return regra.permanente === false && temaPodeSerUsado(id);
+    });
+  }
   function aplicarTemaCaixa(id) {
+    if (temaSazonalAutomaticoAtivo()) {
+      showToast("Um tema sazonal está ativo automaticamente neste período.");
+      return;
+    }
     if (id !== "default" && !temaPodeSerUsado(id)) { showToast("Esse tema ainda não está disponível."); return; }
     try { localStorage.setItem("caixa-tema-estilo-v1", id); } catch (_) {}
     document.documentElement.dataset.caixaTheme = id;
@@ -8394,15 +8405,31 @@ if (document.readyState === "loading") {
   function renderTemas() {
     let ativo = sincronizarTemaSazonal();
     atualizarCamadaTemaNatal();
+    const automatico = temaSazonalAutomaticoAtivo();
     document.querySelectorAll("[data-caixa-theme]").forEach(btn => {
       const id = btn.dataset.caixaTheme;
       const disponivel = temaPodeSerUsado(id);
       btn.classList.toggle("is-active", id === ativo);
       btn.classList.toggle("is-unavailable", !disponivel);
       btn.classList.toggle("is-hidden", !disponivel);
+      btn.classList.toggle("is-seasonal-locked", automatico);
       btn.setAttribute("aria-pressed", id === ativo ? "true" : "false");
-      btn.disabled = !disponivel;
+      btn.disabled = !disponivel || automatico;
+      if (automatico) {
+        btn.setAttribute("aria-disabled", "true");
+        btn.title = "Tema sazonal ativo automaticamente neste período";
+        btn.dataset.themeAuto = "true";
+      } else {
+        btn.removeAttribute("aria-disabled");
+        btn.removeAttribute("title");
+        delete btn.dataset.themeAuto;
+      }
     });
+    const container = document.querySelector(".caixa-themes-grid, .caixa-temas-grid, .caixa-theme-options");
+    if (container) {
+      container.classList.toggle("is-seasonal-locked", automatico);
+      container.dataset.seasonalMessage = automatico ? "Tema sazonal ativo automaticamente durante este período." : "";
+    }
   }
   function renderAdmin() {
     if (state.pessoaAtual !== "davi") return;
@@ -8492,15 +8519,17 @@ if (document.readyState === "loading") {
       return `C ${c1x.toFixed(1)} ${c1y.toFixed(1)}, ${c2x.toFixed(1)} ${c2y.toFixed(1)}, ${p2.x.toFixed(1)} ${p2.y.toFixed(1)}`;
     }
 
-    let path = `M 0 0 H ${largura} V ${pontos[pontos.length - 1].y.toFixed(1)}`;
-    for (let i = pontos.length - 2; i >= 0; i--) {
+    // A neve é a massa ABAIXO da silhueta ondulada. Assim ela começa
+    // exatamente na linha de apoio do hero, em vez de virar uma faixa branca.
+    let path = `M 0 ${pontos[0].y.toFixed(1)}`;
+    for (let i = 0; i < pontos.length - 1; i++) {
       const p0 = pontos[Math.max(0, i - 1)];
       const p1 = pontos[i];
       const p2 = pontos[i + 1];
       const p3 = pontos[Math.min(pontos.length - 1, i + 2)];
-      path += ` ${curvaCatmull(p3, p2, p1, p0)}`;
+      path += ` ${curvaCatmull(p0, p1, p2, p3)}`;
     }
-    path += ` L 0 0 Z`;
+    path += ` L ${largura} ${altura} L 0 ${altura} Z`;
 
     const svg = `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 ${largura} ${altura}" preserveAspectRatio="none"><defs><linearGradient id="g" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#ffffff"/><stop offset="0.7" stop-color="#f9fdff"/><stop offset="1" stop-color="#e8f3f7"/></linearGradient></defs><path d="${path}" fill="url(#g)"/></svg>`;
     return `url("data:image/svg+xml;base64,${btoa(svg)}")`;
