@@ -434,3 +434,62 @@ html[data-theme="dark"][data-caixa-theme="halloween"] .modal select{
   html[data-caixa-theme="halloween"] .halloween-scenery-item.bat-two{font-size:19px;}
   html[data-caixa-theme="halloween"] .halloween-scenery-item.bat-three{font-size:16px;}
 }
+/* ============================================================
+   HALLOWEEN — refinamento v6
+   ============================================================ */
+html[data-caixa-theme="halloween"] .hero::after{
+  bottom:0;
+  height:34px;
+  background-image:var(--slime-image) !important;
+  background-size:100% 100%;
+  background-repeat:no-repeat;
+  opacity:.98;
+}
+
+/* O detalhe dos cards usa a mesma silhueta orgânica do slime do app,
+   em vez de uma faixa reta/multicolorida. */
+html[data-caixa-theme="halloween"] .item-list-row .swipe-content::before,
+html[data-caixa-theme="halloween"] .goal-card::before{
+  top:-1px;
+  left:0;right:0;
+  height:22px;
+  background-image:var(--slime-image) !important;
+  background-size:100% 100% !important;
+  background-repeat:no-repeat !important;
+  background-color:transparent !important;
+  opacity:.94;
+  filter:drop-shadow(0 2px 3px rgba(56,28,77,.12));
+}
+html[data-caixa-theme="halloween"] .goal-card::before{height:22px;}
+html[data-caixa-theme="halloween"] .item-list-row .swipe-content::after,
+html[data-caixa-theme="halloween"] .goal-card .goal-head::after{
+  left:8%;top:4px;width:20%;height:3px;
+  background:rgba(255,255,255,.40);
+  filter:blur(1px);
+  opacity:.42;
+}
+
+/* Abóboras e morcegos em emoji, com movimento discreto. */
+html[data-caixa-theme="halloween"] .halloween-scenery-item.pumpkin,
+html[data-caixa-theme="halloween"] .halloween-scenery-item.bat{
+  display:block;
+  width:auto;height:auto;
+  transform-origin:center bottom;
+  will-change:transform;
+}
+html[data-caixa-theme="halloween"] .halloween-scenery-item.pumpkin{
+  animation:halloweenPumpkinFloat 5.8s ease-in-out infinite;
+}
+html[data-caixa-theme="halloween"] .halloween-scenery-item.bat{
+  animation:halloweenBatFloat 5.2s ease-in-out infinite;
+}
+html[data-caixa-theme="halloween"] .halloween-scenery-item.bat-two{animation-duration:6.4s;}
+html[data-caixa-theme="halloween"] .halloween-scenery-item.bat-three{animation-duration:5.8s;}
+@keyframes halloweenBatFloat{
+  0%,100%{transform:translate3d(0,0,0) rotate(-2deg);}
+  50%{transform:translate3d(5px,-7px,0) rotate(2deg);}
+}
+@keyframes halloweenPumpkinFloat{
+  0%,100%{transform:translate3d(0,0,0) rotate(-1deg);}
+  50%{transform:translate3d(0,-2px,0) rotate(1deg);}
+}

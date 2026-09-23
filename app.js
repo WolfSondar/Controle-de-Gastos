@@ -4077,7 +4077,8 @@ function renderVisaoGeral() {
     const donutBackground = `conic-gradient(${corGuardado} 0% ${corte1}%, ${corGastos} ${corte1}% ${corte2}%, ${corLivre} ${corte2}% 100%)`;
     // O CSS dos temas sazonais pode definir o fundo do donut com !important.
     // A Visão geral precisa sempre mostrar os três segmentos calculados.
-    donut.style.setProperty("background", donutBackground, "important");
+    donut.style.setProperty("background-image", donutBackground, "important");
+    donut.style.setProperty("background-color", "transparent", "important");
   }
   if (centro) {
     // Texto alterado para exibir apenas o valor e a palavra "GANHO"
@@ -8471,20 +8472,29 @@ if (document.readyState === "loading") {
       el.style.left=`${item.x + (Math.random()*6-3)}%`;
       if(item.y!=null) el.style.top=`${item.y + Math.random()*7}px`; else el.style.bottom=`${2+Math.random()*2}px`;
       el.style.setProperty("--scene-scale", String(item.s+(Math.random()*.1-.05))); el.style.setProperty("--scene-delay", `${idx*-1.7}s`);
-      if(item.cls.includes("pumpkin")) el.innerHTML=`<svg viewBox="0 0 80 68" role="presentation"><path d="M40 13c-4-6-2-10 3-12 4 3 5 7 2 12" fill="none" stroke="currentColor" stroke-width="5" stroke-linecap="round"/><path d="M40 15C27 8 10 19 10 39c0 17 14 26 30 26s30-9 30-26C70 19 53 8 40 15Z" fill="currentColor"/><path d="M24 34 32 28 30 40 22 38ZM56 34 48 28 50 40 58 38ZM28 48c8 6 16 6 24 0-7 2-17 2-24 0Z" fill="#21172b"/></svg>`;
-      else el.innerHTML=`<svg viewBox="0 0 90 50" role="presentation"><path d="M45 25c-9-12-21-18-36-18 5 7 6 12 2 18-5-1-8-1-11 1 10 5 19 9 29 8 6 0 10-2 16-9 6 7 10 9 16 9 10 1 19-3 29-8-3-2-6-2-11-1-4-6-3-11 2-18-15 0-27 6-36 18Z" fill="currentColor"/></svg>`;
+      if(item.cls.includes("pumpkin")) el.innerHTML=`🎃`;
+      else el.innerHTML=`🦇`;
       wrap.appendChild(el);
     });
     hero.appendChild(wrap);
   }
   function gerarPerfilSlime(tipo="card") {
-    const largura=1000, altura=tipo==="hero"?54:38, qtd=tipo==="hero"?10:9, pontos=[];
-    for(let i=0;i<=qtd;i++){const x=i/qtd*largura; const y=4+Math.random()*(tipo==="hero"?10:9)+(Math.random()<.2?5+Math.random()*8:0); pontos.push({x,y});}
+    const largura=1000, altura=tipo==="hero"?32:22, qtd=tipo==="hero"?13:11, pontos=[];
+    for(let i=0;i<=qtd;i++){
+      const x=i/qtd*largura;
+      const onda=Math.sin((i/qtd)*Math.PI*2.4+.45)*2.2;
+      const variacao=(Math.random()-.5)*(tipo==="hero"?3.4:2.5);
+      const bolha=Math.random()<.18 ? 2+Math.random()*3 : 0;
+      pontos.push({x,y:Math.max(3.5,6+onda+variacao+bolha)});
+    }
     const curva=(p0,p1,p2,p3)=>{const c1x=p1.x+(p2.x-p0.x)/6,c1y=p1.y+(p2.y-p0.y)/6,c2x=p2.x-(p3.x-p1.x)/6,c2y=p2.y-(p3.y-p1.y)/6;return `C ${c1x.toFixed(1)} ${c1y.toFixed(1)}, ${c2x.toFixed(1)} ${c2y.toFixed(1)}, ${p2.x.toFixed(1)} ${p2.y.toFixed(1)}`};
-    let path=`M 0 ${pontos[0].y.toFixed(1)}`; for(let i=0;i<pontos.length-1;i++){const p0=pontos[Math.max(0,i-1)],p1=pontos[i],p2=pontos[i+1],p3=pontos[Math.min(pontos.length-1,i+2)];path+=` ${curva(p0,p1,p2,p3)}`} path+=` L ${largura} ${altura} L 0 ${altura} Z`;
-    const svg=`<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 ${largura} ${altura}" preserveAspectRatio="none"><defs><linearGradient id="g" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#72efff"/><stop offset=".48" stop-color="#5f8fff"/><stop offset="1" stop-color="#7b39c7"/></linearGradient></defs><path d="${path}" fill="url(#g)"/></svg>`;
+    let path=`M 0 ${pontos[0].y.toFixed(1)}`;
+    for(let i=0;i<pontos.length-1;i++){const p0=pontos[Math.max(0,i-1)],p1=pontos[i],p2=pontos[i+1],p3=pontos[Math.min(pontos.length-1,i+2)];path+=` ${curva(p0,p1,p2,p3)}`}
+    path+=` L ${largura} ${altura} L 0 ${altura} Z`;
+    const svg=`<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 ${largura} ${altura}" preserveAspectRatio="none"><defs><linearGradient id="g" x1="0" y1="0" x2="1" y2="0"><stop offset="0" stop-color="#69eaff"/><stop offset=".55" stop-color="#6598ff"/><stop offset="1" stop-color="#7a43c5"/></linearGradient></defs><path d="${path}" fill="url(#g)"/></svg>`;
     return `url("data:image/svg+xml;base64,${btoa(svg)}")`;
   }
+
   function aplicarSlimeHalloween(root=document){
     if(document.documentElement.dataset.caixaTheme!=="halloween") return;
     root.querySelectorAll(".item-list-row, .goal-card.caixinha-card").forEach(el=>{if(el.dataset.slimeProfile)return;el.style.setProperty("--slime-image",gerarPerfilSlime("card"));el.dataset.slimeProfile="1"});
@@ -8687,17 +8697,19 @@ if (document.readyState === "loading") {
   // o acabamento não pareça uma imagem repetida. O perfil é mantido até o card
   // ser recriado pelo próprio render da lista.
   function gerarPerfilNeve(tipo = "card") {
-    // Neve procedural com curvas suaves: cada elemento recebe uma silhueta única,
-    // evitando o aspecto pontiagudo dos polígonos e a repetição visual.
+    // Neve suave e arredondada: uma camada fina, com pequenas ondulações,
+    // sempre fechada até a base do elemento para não parecer uma faixa solta.
     const largura = 1000;
-    const altura = tipo === "hero" ? 44 : 30;
-    const quantidade = tipo === "hero" ? 9 : 8;
+    const altura = tipo === "hero" ? 34 : 24;
+    const quantidade = tipo === "hero" ? 12 : 10;
     const pontos = [];
     for (let i = 0; i <= quantidade; i++) {
       const x = (i / quantidade) * largura;
-      let y = 5 + Math.random() * (tipo === "hero" ? 15 : 10);
-      if (Math.random() < .24) y += 5 + Math.random() * 8;
-      pontos.push({x, y});
+      const onda = Math.sin((i / quantidade) * Math.PI * 2.15 + .7) * 2.2;
+      const variacao = (Math.random() - .5) * (tipo === "hero" ? 3.2 : 2.4);
+      const montinho = Math.random() < .20 ? 2 + Math.random() * 3.5 : 0;
+      const y = 5.5 + onda + variacao + montinho;
+      pontos.push({x, y: Math.max(3.5, y)});
     }
 
     function curvaCatmull(p0, p1, p2, p3) {
@@ -8708,8 +8720,6 @@ if (document.readyState === "loading") {
       return `C ${c1x.toFixed(1)} ${c1y.toFixed(1)}, ${c2x.toFixed(1)} ${c2y.toFixed(1)}, ${p2.x.toFixed(1)} ${p2.y.toFixed(1)}`;
     }
 
-    // A neve é a massa ABAIXO da silhueta ondulada. Assim ela começa
-    // exatamente na linha de apoio do hero, em vez de virar uma faixa branca.
     let path = `M 0 ${pontos[0].y.toFixed(1)}`;
     for (let i = 0; i < pontos.length - 1; i++) {
       const p0 = pontos[Math.max(0, i - 1)];
@@ -8720,7 +8730,7 @@ if (document.readyState === "loading") {
     }
     path += ` L ${largura} ${altura} L 0 ${altura} Z`;
 
-    const svg = `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 ${largura} ${altura}" preserveAspectRatio="none"><defs><linearGradient id="g" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#ffffff"/><stop offset="0.7" stop-color="#f9fdff"/><stop offset="1" stop-color="#e8f3f7"/></linearGradient></defs><path d="${path}" fill="url(#g)"/></svg>`;
+    const svg = `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 ${largura} ${altura}" preserveAspectRatio="none"><defs><linearGradient id="g" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#ffffff"/><stop offset="0.62" stop-color="#fbfeff"/><stop offset="1" stop-color="#e9f3f7"/></linearGradient></defs><path d="${path}" fill="url(#g)"/></svg>`;
     return `url("data:image/svg+xml;base64,${btoa(svg)}")`;
   }
 
