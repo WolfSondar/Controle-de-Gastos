@@ -1552,7 +1552,6 @@ html[data-caixa-theme="christmas"] .christmas-scenery-item svg {
 }
 html[data-caixa-theme="christmas"] .christmas-scenery-item.tree { color:#3e7d5e; }
 html[data-caixa-theme="christmas"] .christmas-scenery-item.pine { color:#5c9276; }
-html[data-caixa-theme="christmas"] .christmas-scenery-item.deer { color:#caa866; width:60px; height:42px; }
 html[data-caixa-theme="christmas"] .christmas-scenery-item::after {
   content:"";
   position:absolute;
@@ -1567,7 +1566,6 @@ html[data-theme="dark"][data-caixa-theme="christmas"] .christmas-scenery-item {
 }
 html[data-theme="dark"][data-caixa-theme="christmas"] .christmas-scenery-item.tree { color:#6fa58a; }
 html[data-theme="dark"][data-caixa-theme="christmas"] .christmas-scenery-item.pine { color:#79a995; }
-html[data-theme="dark"][data-caixa-theme="christmas"] .christmas-scenery-item.deer { color:#d7bc78; }
 
 /* Barra das caixinhas: azul-gelo / água congelada, com uma ponta dourada
    bem discreta para preservar a identidade natalina. */
@@ -1577,11 +1575,11 @@ html[data-caixa-theme="christmas"] .goal-bar-track {
   box-shadow: inset 0 1px 3px rgba(36,75,83,.16), 0 1px 0 rgba(255,255,255,.50) !important;
 }
 html[data-caixa-theme="christmas"] .goal-bar-fill {
-  background: linear-gradient(90deg, #83c6d6 0%, #b9e8ef 48%, #dff7fb 78%, #c9b878 100%) !important;
-  box-shadow: inset 0 1px 0 rgba(255,255,255,.62), 0 1px 8px rgba(131,198,214,.30) !important;
+  background: linear-gradient(90deg, #83c6d6 0%, #a9dce8 42%, #78b8cf 72%, #163f5b 100%) !important;
+  box-shadow: inset 0 1px 0 rgba(255,255,255,.62), 0 1px 8px rgba(80,157,184,.30) !important;
 }
 html[data-caixa-theme="christmas"] .goal-bar-fill.completo {
-  background: linear-gradient(90deg, #75bdcf 0%, #b8e9ef 58%, #f0df9a 100%) !important;
+  background: linear-gradient(90deg, #75bdcf 0%, #a9dce8 52%, #245878 76%, #102f49 100%) !important;
 }
 html[data-caixa-theme="christmas"] .goal-icon-ring {
   background: conic-gradient(#bcebf1 var(--pct,0%), #416d79 0) !important;
@@ -1593,11 +1591,11 @@ html[data-theme="dark"][data-caixa-theme="christmas"] .goal-bar-track {
   box-shadow: inset 0 1px 4px rgba(0,0,0,.28), 0 1px 0 rgba(255,255,255,.05) !important;
 }
 html[data-theme="dark"][data-caixa-theme="christmas"] .goal-bar-fill {
-  background: linear-gradient(90deg, #5ba7bd 0%, #8fd4df 52%, #d8f3f5 82%, #d4bd78 100%) !important;
-  box-shadow: inset 0 1px 0 rgba(255,255,255,.48), 0 1px 9px rgba(93,178,199,.30) !important;
+  background: linear-gradient(90deg, #4f9fb8 0%, #7bc7d8 48%, #397d9a 74%, #0a2941 100%) !important;
+  box-shadow: inset 0 1px 0 rgba(255,255,255,.48), 0 1px 9px rgba(67,160,190,.30) !important;
 }
 html[data-theme="dark"][data-caixa-theme="christmas"] .goal-bar-fill.completo {
-  background: linear-gradient(90deg, #62b3c5 0%, #a7e1e8 60%, #ead48b 100%) !important;
+  background: linear-gradient(90deg, #58abc1 0%, #8fd4df 52%, #2f6e8b 76%, #071f35 100%) !important;
 }
 html[data-theme="dark"][data-caixa-theme="christmas"] .goal-icon-ring {
   background: conic-gradient(#a9e3eb var(--pct,0%), #294f5a 0) !important;
