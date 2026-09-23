@@ -1400,3 +1400,113 @@ html[data-caixa-theme="christmas"] .caixa-snowflake {
   opacity: .26 !important;
   filter: drop-shadow(0 1px 1px rgba(50,80,90,.12)) !important;
 }
+
+/* ==========================================================
+   NATAL 7.0 — ajustes finais de posicionamento e sazonalidade
+   ========================================================== */
+
+/* A navegação inferior nunca deve ficar atrás dos cards durante a rolagem. */
+html[data-caixa-theme="christmas"] .tabbar {
+  position: fixed !important;
+  z-index: 10000 !important;
+  isolation: isolate;
+}
+html[data-caixa-theme="christmas"] .tab-panel,
+html[data-caixa-theme="christmas"] .item-list-row,
+html[data-caixa-theme="christmas"] .status-list-title-row {
+  z-index: auto !important;
+}
+html[data-caixa-theme="christmas"] .item-list-row .swipe-actions,
+html[data-caixa-theme="christmas"] .item-list-row .swipe-content {
+  z-index: 1 !important;
+}
+
+/* A capa do saldo é uma massa de neve com a silhueta na linha superior.
+   O SVG procedural fica transparente acima da ondulação e branco abaixo. */
+html[data-caixa-theme="christmas"] .hero {
+  overflow: hidden !important;
+}
+html[data-caixa-theme="christmas"] .hero::after {
+  left: 0 !important;
+  right: 0 !important;
+  bottom: 0 !important;
+  height: 27px !important;
+  background: var(--snow-image, linear-gradient(180deg,#fff,#edf7fa)) !important;
+  background-repeat: no-repeat !important;
+  background-size: 100% 100% !important;
+  clip-path: none !important;
+  border-radius: 0 0 30px 30px / 0 0 15px 15px !important;
+  opacity: .99 !important;
+  filter: drop-shadow(0 1px 2px rgba(28,54,49,.18));
+  z-index: 9 !important;
+}
+
+/* O fio fica imediatamente abaixo do seletor Davi/Gabriel/Juntos,
+   antes do bloco de saldo. As lâmpadas ficam sobre o próprio fio. */
+html[data-caixa-theme="christmas"] .hero .caixa-christmas-lights,
+html[data-caixa-theme="christmas"] .caixa-christmas-lights {
+  top: 103px !important;
+  bottom: auto !important;
+  left: 22px !important;
+  right: 22px !important;
+  height: 11px !important;
+  margin: 0 !important;
+  z-index: 13 !important;
+  overflow: visible !important;
+}
+html[data-caixa-theme="christmas"] .caixa-christmas-lights .christmas-wire {
+  top: 5px !important;
+  height: 5px !important;
+  border-top: 1px solid rgba(247,231,184,.55) !important;
+  border-radius: 50% !important;
+  transform: none !important;
+}
+html[data-caixa-theme="christmas"] .caixa-christmas-lights i,
+html[data-theme="dark"][data-caixa-theme="christmas"] .caixa-christmas-lights i {
+  top: 2px !important;
+  width: 3px !important;
+  height: 3px !important;
+  border-radius: 50% !important;
+  background: #f6df9c !important;
+  color: #f6df9c !important;
+  box-shadow: 0 0 3px rgba(246,223,156,.85), 0 0 7px rgba(246,223,156,.30) !important;
+}
+
+/* Quando o tema está sendo aplicado automaticamente por sazonalidade,
+   a seleção explica visualmente por que os temas não podem ser trocados. */
+html[data-caixa-theme="christmas"] .caixa-theme-option[data-theme-auto="true"],
+html[data-caixa-theme="christmas"] [data-caixa-theme][data-theme-auto="true"] {
+  position: relative !important;
+  cursor: not-allowed !important;
+  opacity: .96;
+}
+html[data-caixa-theme="christmas"] .caixa-theme-option[data-theme-auto="true"]::after,
+html[data-caixa-theme="christmas"] [data-caixa-theme][data-theme-auto="true"]::after {
+  content: "ATIVO AUTOMATICAMENTE";
+  position: absolute;
+  right: 12px;
+  bottom: 10px;
+  padding: 4px 7px;
+  border-radius: 999px;
+  font: 700 9px/1 Arial,sans-serif;
+  letter-spacing: .06em;
+  color: #315f49;
+  background: rgba(216,180,91,.18);
+  border: 1px solid rgba(216,180,91,.35);
+  pointer-events: none;
+}
+html[data-theme="dark"][data-caixa-theme="christmas"] .caixa-theme-option[data-theme-auto="true"]::after,
+html[data-theme="dark"][data-caixa-theme="christmas"] [data-caixa-theme][data-theme-auto="true"]::after {
+  color: #f3dfae;
+  background: rgba(216,180,91,.12);
+  border-color: rgba(216,180,91,.30);
+}
+
+@media (max-width:640px) {
+  html[data-caixa-theme="christmas"] .hero .caixa-christmas-lights,
+  html[data-caixa-theme="christmas"] .caixa-christmas-lights {
+    top: 103px !important;
+    left: 18px !important;
+    right: 18px !important;
+  }
+}
