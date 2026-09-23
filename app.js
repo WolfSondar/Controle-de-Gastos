@@ -4085,9 +4085,13 @@ function renderVisaoGeral() {
     const donutBackground = `conic-gradient(${stops})`;
     donut.style.setProperty("background-image", donutBackground, "important");
     donut.style.setProperty("background-color", "transparent", "important");
-    donut.style.setProperty("box-shadow", temaEspecial
+    const temaAtual = document.documentElement.dataset.caixaTheme || "default";
+    const sombraDonut = temaAtual === "halloween"
       ? "0 0 0 1px rgba(85,223,255,.24), 0 8px 24px rgba(61,31,78,.14)"
-      : "0 0 0 2px rgba(117,92,43,.20), 0 0 0 4px rgba(255,255,255,.82), 0 8px 24px rgba(35,27,15,.10)", "important");
+      : temaAtual === "christmas"
+        ? "0 8px 24px rgba(35,52,78,.12)"
+        : "0 8px 24px rgba(35,27,15,.10)";
+    donut.style.setProperty("box-shadow", sombraDonut, "important");
   }
   if (centro) {
     // Texto alterado para exibir apenas o valor e a palavra "GANHO"
@@ -8573,6 +8577,7 @@ if (document.readyState === "loading") {
     document.documentElement.dataset.caixaTheme = id;
     garantirCssTema(id);
     atualizarCamadasTemas();
+    renderVisaoGeral();
     renderTemas();
   }
   function renderTemas() {

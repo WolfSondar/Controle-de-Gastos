@@ -609,7 +609,13 @@ html[data-caixa-theme="halloween"] .caixa-halloween-terrain{
   background-size:100% 100%;
   background-position:center bottom;
   pointer-events:none;
-  z-index:5;
+  z-index:1;
+}
+
+/* O botão de expandir/recolher precisa permanecer acima do terreno. */
+html[data-caixa-theme="halloween"] .hero-stats-toggle.collapse-toggle{
+  position:relative;
+  z-index:20 !important;
 }
 html[data-theme="dark"][data-caixa-theme="halloween"] .caixa-halloween-terrain{
   filter:drop-shadow(0 -1px 0 rgba(255,177,70,.10));
