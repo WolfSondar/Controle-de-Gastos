@@ -8374,10 +8374,10 @@ if (document.readyState === "loading") {
     wrap.className = "caixa-christmas-scenery";
     wrap.setAttribute("aria-hidden", "true");
     const itens = [
-      { cls: "tree", x: 18, y: 8, s: .82 },
-      { cls: "pine", x: 48, y: 6, s: .68 },
-      { cls: "pine", x: 68, y: 5, s: .72 },
-      { cls: "pine", x: 84, y: 4, s: .62 },
+      { cls: "tree", x: 15, y: 8, s: .82 },
+      { cls: "pine", x: 32, y: 6, s: .68 },
+      { cls: "pine", x: 72, y: 5, s: .72 },
+      { cls: "pine", x: 88, y: 4, s: .62 },
     ];
     itens.sort(() => Math.random() - 0.5);
     itens.forEach((item, idx) => {
