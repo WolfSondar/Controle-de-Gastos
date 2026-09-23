@@ -1003,8 +1003,15 @@ async function carregarDados() {
       renderMesAtual();
     }
     state.loaded = true;
+    const temaAntesCache = temaAtivo();
+    const temaDepoisCache = sincronizarTemaSazonal();
+    garantirCssTema(temaDepoisCache);
     popularSelectsDeCategoria();
     renderAll();
+    if (temaAntesCache !== temaDepoisCache) {
+      atualizarCamadasTemas();
+      renderVisaoGeral();
+    }
   } else {
     renderSkeletons();
   }
@@ -1040,6 +1047,7 @@ async function carregarDados() {
       caixinhas: colecaoMudou(state.caixinhas, data.caixinhas || []),
       categoriasConfig: colecaoMudou(state.categoriasConfig || [], data.categorias || []),
       iconCategorias: colecaoMudou(state.iconCategorias || [], data.iconCategorias || []),
+      temasConfig: JSON.stringify(state.temasConfig || null) !== JSON.stringify(data.temasConfig || null),
       iaConfig: JSON.stringify(state.iaConfig || null) !== JSON.stringify(data.iaConfig || null),
       faturas: JSON.stringify(state.faturas || []) !== JSON.stringify(Array.isArray(data.faturas) ? data.faturas : []),
     };
@@ -1051,6 +1059,7 @@ async function carregarDados() {
     state.saldoInicialBeneficio = Number(data.saldoInicialBeneficio) || 0;
     state.categoriasConfig = data.categorias || null;
     state.iconCategorias = data.iconCategorias || [];
+    state.temasConfig = data.temasConfig || null;
     state.iaConfig = data.iaConfig || null;
     state.faturas = Array.isArray(data.faturas) ? data.faturas : [];
     state.loaded = true;
@@ -1069,6 +1078,18 @@ async function carregarDados() {
     }
     renderMesAtual();
     setCache(pessoaRequisitada, data);
+
+    // Depois que as regras reais do Firebase chegaram, decide primeiro se há
+    // um tema sazonal para aplicar ou remover. Só então atualizamos a interface.
+    const temaAntes = temaAtivo();
+    const temaDepois = sincronizarTemaSazonal();
+    garantirCssTema(temaDepois);
+    if (temaAntes !== temaDepois) {
+      atualizarCamadasTemas();
+      renderTemas();
+      renderVisaoGeral();
+    }
+
     setSyncState("idle");
     if (Object.values(mudancas).some(Boolean)) {
       renderIncremental(mudancas);
@@ -4088,6 +4109,10 @@ function renderVisaoGeral() {
       ? `${corGuardado} 0% ${Math.max(corte1-g,0)}%, ${separador} ${Math.max(corte1-g,0)}% ${Math.min(corte1+g,100)}%, ${corGastos} ${Math.min(corte1+g,100)}% ${Math.max(corte2-g,0)}%, ${separador} ${Math.max(corte2-g,0)}% ${Math.min(corte2+g,100)}%, ${corLivre} ${Math.min(corte2+g,100)}% 100%`
       : `${corGuardado} 0% ${corte1}%, ${corGastos} ${corte1}% ${corte2}%, ${corLivre} ${corte2}% 100%`;
     const donutBackground = `conic-gradient(${stops})`;
+    // Alguns estilos do tema Natal usam o shorthand `background` com !important.
+    // Aplicamos o gradiente também no shorthand para garantir que os segmentos
+    // coloridos nunca sejam escondidos pelo CSS do tema.
+    donut.style.setProperty("background", donutBackground, "important");
     donut.style.setProperty("background-image", donutBackground, "important");
     donut.style.setProperty("background-color", "transparent", "important");
     const sombraDonut = temaAtual === "halloween"
@@ -8352,7 +8377,11 @@ if (document.readyState === "loading") {
   function temaPodeSerUsado(id) {
     if (id === "default") return true;
     const cfg = state.temasConfig || {};
-    const regra = cfg[id] || (id === "christmas" ? { permanente: true, inicio: "2026-12-01", fim: "2026-12-31" } : id === "halloween" ? { permanente: true, inicio: "2026-10-01", fim: "2026-10-31" } : {});
+    const regra = cfg[id] || (id === "christmas"
+      ? { permanente: true, inicio: "2026-12-01", fim: "2026-12-31" }
+      : id === "halloween"
+        ? { permanente: false, inicio: "", fim: "" }
+        : {});
     if (regra.permanente) return true;
     const hoje = new Date();
     const inicio = regra.inicio ? new Date(`${regra.inicio}T00:00:00`) : null;
@@ -8431,7 +8460,7 @@ if (document.readyState === "loading") {
     style.id = id;
     style.textContent = `
       html[data-caixa-theme="christmas"] .caixa-christmas-scenery{
-        position:absolute;left:0;right:0;bottom:0;height:86px;z-index:7;
+        position:absolute;left:0;right:0;bottom:0;height:86px;z-index:40;
         pointer-events:none;overflow:visible;
       }
       html[data-caixa-theme="christmas"] .christmas-scenery-item{
@@ -8440,11 +8469,11 @@ if (document.readyState === "loading") {
         transform-origin:50% 100%;
         font-family:"Segoe UI Emoji","Apple Color Emoji","Noto Color Emoji",sans-serif;
         user-select:none;filter:drop-shadow(0 3px 5px rgba(42,52,68,.18));
-        z-index:1;
+        z-index:41;
       }
       html[data-caixa-theme="christmas"] .christmas-scenery-item.tree{font-size:52px}
       html[data-caixa-theme="christmas"] .christmas-scenery-item.pine{font-size:45px;opacity:.90}
-      html[data-caixa-theme="christmas"] .christmas-scenery-item.snowman{font-size:36px;z-index:2}
+      html[data-caixa-theme="christmas"] .christmas-scenery-item.snowman{font-size:36px;z-index:42}
       html[data-caixa-theme="christmas"] .hero-stats-toggle,
       html[data-caixa-theme="christmas"] .hero .collapse-toggle,
       html[data-caixa-theme="christmas"] .hero .btn-expandir,
@@ -8715,9 +8744,9 @@ if (document.readyState === "loading") {
     if (fim) fim.value = natal.fim || "2026-12-31";
     if (perm) perm.checked = natal.permanente !== false;
     const hIni = document.getElementById("temaHalloweenInicio"); const hFim = document.getElementById("temaHalloweenFim"); const hPerm = document.getElementById("temaHalloweenPermanente");
-    if (hIni) hIni.value = halloween.inicio || "2026-10-01";
-    if (hFim) hFim.value = halloween.fim || "2026-10-31";
-    if (hPerm) hPerm.checked = halloween.permanente !== false;
+    if (hIni) hIni.value = halloween.inicio || "";
+    if (hFim) hFim.value = halloween.fim || "";
+    if (hPerm) hPerm.checked = halloween.permanente === true;
   }
   function renderAdminIcones() {
     const catsWrap = document.getElementById("listaCategoriasIcones");
@@ -8772,7 +8801,7 @@ if (document.readyState === "loading") {
     await salvarConfig({temasConfig:state.temasConfig}, "Regras de temas salvas."); renderTemas();
   }
   async function salvarAdminHalloween() {
-    const inicio = document.getElementById("temaHalloweenInicio")?.value || "2026-10-01"; const fim = document.getElementById("temaHalloweenFim")?.value || "2026-10-31"; const permanente = !!document.getElementById("temaHalloweenPermanente")?.checked;
+    const inicio = document.getElementById("temaHalloweenInicio")?.value || ""; const fim = document.getElementById("temaHalloweenFim")?.value || ""; const permanente = !!document.getElementById("temaHalloweenPermanente")?.checked;
     state.temasConfig = {...(state.temasConfig||{}), halloween:{inicio,fim,permanente}};
     await salvarConfig({temasConfig:state.temasConfig}, "Regras do tema Halloween salvas."); renderTemas();
   }
@@ -8804,15 +8833,30 @@ if (document.readyState === "loading") {
       return `C ${c1x.toFixed(1)} ${c1y.toFixed(1)}, ${c2x.toFixed(1)} ${c2y.toFixed(1)}, ${p2.x.toFixed(1)} ${p2.y.toFixed(1)}`;
     }
 
-    let path = `M 0 ${pontos[0].y.toFixed(1)}`;
-    for (let i = 0; i < pontos.length - 1; i++) {
-      const p0 = pontos[Math.max(0, i - 1)];
-      const p1 = pontos[i];
-      const p2 = pontos[i + 1];
-      const p3 = pontos[Math.min(pontos.length - 1, i + 2)];
-      path += ` ${curvaCatmull(p0, p1, p2, p3)}`;
+    let path;
+    if (tipo === "caixinha") {
+      // Para as caixinhas a neve fica pendurada para baixo: a parte lisa fica
+      // apoiada no topo do cartão e o recorte orgânico aparece na borda inferior.
+      path = `M 0 0 L ${largura} 0 L ${largura} ${pontos[pontos.length - 1].y.toFixed(1)}`;
+      for (let i = pontos.length - 1; i > 0; i--) {
+        const p0 = pontos[Math.min(pontos.length - 1, i + 1)];
+        const p1 = pontos[i];
+        const p2 = pontos[i - 1];
+        const p3 = pontos[Math.max(0, i - 2)];
+        path += ` ${curvaCatmull(p0, p1, p2, p3)}`;
+      }
+      path += ` L 0 ${pontos[0].y.toFixed(1)} Z`;
+    } else {
+      path = `M 0 ${pontos[0].y.toFixed(1)}`;
+      for (let i = 0; i < pontos.length - 1; i++) {
+        const p0 = pontos[Math.max(0, i - 1)];
+        const p1 = pontos[i];
+        const p2 = pontos[i + 1];
+        const p3 = pontos[Math.min(pontos.length - 1, i + 2)];
+        path += ` ${curvaCatmull(p0, p1, p2, p3)}`;
+      }
+      path += ` L ${largura} ${altura} L 0 ${altura} Z`;
     }
-    path += ` L ${largura} ${altura} L 0 ${altura} Z`;
 
     const svg = `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 ${largura} ${altura}" preserveAspectRatio="none"><defs><linearGradient id="g" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#ffffff"/><stop offset="0.62" stop-color="#fbfeff"/><stop offset="1" stop-color="#e9f3f7"/></linearGradient></defs><path d="${path}" fill="url(#g)"/></svg>`;
     return `url("data:image/svg+xml;base64,${btoa(svg)}")`;
