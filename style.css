@@ -9169,84 +9169,9 @@ html[data-caixa-theme="christmas"] .caixa-tema-natal .caixa-tema-preview u{right
 @media(max-width:640px){.caixa-config-season-row{grid-template-columns:1fr 1fr}.caixa-config-checkline{grid-column:1/-1;justify-content:flex-start;padding-bottom:0;}}
 .caixa-config-icon-category-select{min-width:112px;padding:7px 8px;border:1px solid var(--line);border-radius:9px;background:var(--paper-deep);color:var(--ink-text);font-size:11px;}
 
-/* ===== TEMA NATALINO — camada visual completa ===== */
-html[data-caixa-theme="christmas"] {
-  --gold:#d8b45b;
-  --paper:#fffaf3;
-  --paper-deep:#f3eadc;
-  --ink-text:#24352e;
-  --muted:#6c766f;
-  --line:rgba(52,77,65,.14);
-  --christmas-red:#b92f3b;
-  --christmas-green:#236447;
-  --christmas-ice:#eaf6ff;
-}
-html[data-caixa-theme="christmas"] body {
-  background:
-    radial-gradient(circle at 12% 8%,rgba(255,255,255,.98) 0 2px,transparent 2.5px),
-    radial-gradient(circle at 74% 18%,rgba(255,255,255,.92) 0 2px,transparent 2.6px),
-    linear-gradient(180deg,#eaf5f8 0%,#f8f4ed 38%,#fffaf3 100%);
-  background-size:150px 150px,190px 190px,100% 100%;
-}
-html[data-caixa-theme="christmas"] .topbar,
-html[data-caixa-theme="christmas"] .caixa-config-drawer,
-html[data-caixa-theme="christmas"] .modal,
-html[data-caixa-theme="christmas"] .card,
-html[data-caixa-theme="christmas"] .caixa-config-card,
-html[data-caixa-theme="christmas"] .caixa-theme-option {
-  border-color:rgba(35,100,71,.16);
-  box-shadow:0 12px 32px rgba(40,70,58,.10),0 2px 0 rgba(185,47,59,.06);
-}
-html[data-caixa-theme="christmas"] .topbar::after {
-  content:"";position:absolute;left:0;right:0;bottom:-5px;height:9px;
-  background:radial-gradient(18px 8px at 9px 2px,#fff 0 70%,transparent 72%) repeat-x;
-  background-size:34px 9px;pointer-events:none;
-}
-html[data-caixa-theme="christmas"] .btn-gold {
-  background:linear-gradient(135deg,#b92f3b,#8e2430);color:#fffaf3;border-color:#8e2430;
-  box-shadow:0 5px 14px rgba(185,47,59,.20);
-}
-html[data-caixa-theme="christmas"] .btn-gold:hover {filter:brightness(1.05);transform:translateY(-1px)}
-html[data-caixa-theme="christmas"] .caixa-config-card-icon {
-  color:var(--christmas-green);background:linear-gradient(135deg,#edf7f0,#fff1f1);border:1px solid rgba(185,47,59,.10);
-}
-html[data-caixa-theme="christmas"] .caixa-config-card-icon::before {
-  content:"";position:absolute;left:3px;right:3px;top:-7px;height:7px;
-  background:radial-gradient(circle,#d9b45a 0 2px,transparent 2.6px) 0 0/18px 7px repeat-x;
-}
-html[data-caixa-theme="christmas"] .modal-backdrop {backdrop-filter:blur(9px);background:rgba(20,50,40,.28)}
-html[data-caixa-theme="christmas"] .modal {background:linear-gradient(180deg,#fffdf9,#fff8ef);border-radius:24px;position:relative;overflow:hidden}
-html[data-caixa-theme="christmas"] .modal::before {
-  content:"";position:absolute;top:0;left:0;right:0;height:4px;
-  background:linear-gradient(90deg,#b92f3b 0 33%,#d9b45a 33% 66%,#236447 66%);
-}
-html[data-caixa-theme="christmas"] .modal::after {
-  content:"✦  •  ✦  •  ✦";position:absolute;top:9px;right:18px;color:#b92f3b;font-size:10px;letter-spacing:3px;opacity:.65;
-}
-html[data-caixa-theme="christmas"] .caixa-config-head {background:linear-gradient(180deg,#fffdf9,#fff8ef);}
-html[data-caixa-theme="christmas"] .caixa-config-kicker {color:#b92f3b;letter-spacing:.18em}
-html[data-caixa-theme="christmas"] .caixa-theme-option.is-active {border-color:#b92f3b;background:linear-gradient(135deg,#fff7ef,#eef8f1);box-shadow:0 8px 24px rgba(185,47,59,.10)}
-html[data-caixa-theme="christmas"] .caixa-theme-check {color:#b92f3b}
 
-/* Preview do Natal: pequeno retrato do tema real */
-.caixa-tema-natal .caixa-tema-preview {
-  background:linear-gradient(#dceef7 0 48%,#fff 48% 100%) !important;
-  border-color:#c8dbe4 !important;overflow:hidden;
-}
-.caixa-tema-natal .caixa-tema-preview::before {
-  content:"";position:absolute;left:3px;right:3px;top:2px;height:4px;
-  background:radial-gradient(circle,#d8b45b 0 1.7px,transparent 2px) 0 0/9px 4px repeat-x;
-  box-shadow:0 4px 0 -1px #b92f3b;transform:rotate(2deg);
-}
-.caixa-tema-natal .caixa-tema-preview i {
-  left:7px!important;top:9px!important;width:18px!important;height:20px!important;border-radius:45% 45% 8% 8%!important;
-  background:#236447!important;clip-path:polygon(50% 0,100% 36%,78% 36%,100% 67%,70% 67%,88% 100%,12% 100%,30% 67%,0 67%,22% 36%,0 36%);
-  box-shadow:none!important;
-}
-.caixa-tema-natal .caixa-tema-preview b {left:31px!important;top:22px!important;width:9px!important;height:9px!important;background:#b92f3b!important;border-radius:50%!important;box-shadow:7px -5px 0 #d8b45b,7px 6px 0 #236447!important}
-.caixa-tema-natal .caixa-tema-preview em {left:7px!important;bottom:3px!important;top:auto!important;width:48px!important;height:7px!important;border-radius:8px!important;background:#fff!important;box-shadow:0 -2px 0 #dceef7!important}
-.caixa-tema-natal .caixa-tema-preview strong {display:block!important;left:36px!important;top:8px!important;width:8px!important;height:8px!important;background:#b92f3b!important;border-radius:50%!important;box-shadow:0 12px 0 #236447,0 24px 0 #d8b45b!important}
-.caixa-tema-natal .caixa-tema-preview u {display:none!important}
+/* Pontos de extensão dos temas: o tema sazonal pode estilizar toda a interface. */
+.caixa-christmas-lights{display:none}
 
 /* Admin em cards independentes */
 .caixa-config-admin-panel{display:grid;grid-template-columns:1fr;gap:14px}
@@ -9261,18 +9186,28 @@ html[data-caixa-theme="christmas"] .caixa-theme-check {color:#b92f3b}
 .caixa-season-fields input[type=date]{width:100%;padding:10px 11px;border:1px solid var(--line);border-radius:11px;background:var(--paper);color:var(--ink-text)}
 .caixa-season-toggle{grid-column:1/-1;display:flex;align-items:center;gap:9px;font-size:11px;color:var(--muted);cursor:pointer}
 .caixa-season-toggle input{position:absolute;opacity:0;pointer-events:none}.caixa-season-switch{width:34px;height:20px;border-radius:20px;background:#aeb8b2;position:relative;transition:.2s}.caixa-season-switch::after{content:"";position:absolute;top:3px;left:3px;width:14px;height:14px;border-radius:50%;background:#fff;transition:.2s;box-shadow:0 1px 3px #0002}.caixa-season-toggle input:checked + .caixa-season-switch{background:#236447}.caixa-season-toggle input:checked + .caixa-season-switch::after{transform:translateX(14px)}
-html[data-theme="dark"] .caixa-config-admin-group{background:rgba(20,35,29,.78)}
-html[data-theme="dark"] .caixa-season-card{background:#172a22}
-html[data-theme="dark"][data-caixa-theme="christmas"] body{background:radial-gradient(circle at 12% 8%,rgba(255,255,255,.15) 0 2px,transparent 2.5px),linear-gradient(180deg,#102a25,#15231e 55%,#101916)}
-html[data-theme="dark"][data-caixa-theme="christmas"] .topbar,
-html[data-theme="dark"][data-caixa-theme="christmas"] .caixa-config-drawer,
-html[data-theme="dark"][data-caixa-theme="christmas"] .modal,
-html[data-theme="dark"][data-caixa-theme="christmas"] .card{background:linear-gradient(180deg,#182d25,#12221d);border-color:rgba(216,180,91,.18)}
-html[data-theme="dark"][data-caixa-theme="christmas"] .modal{color:#f4ead9}
-html[data-theme="dark"][data-caixa-theme="christmas"] .caixa-config-head{background:#14261f}
 
-.caixa-christmas-snow{display:none;position:fixed;inset:0;pointer-events:none;z-index:9998;overflow:hidden}
-html[data-caixa-theme="christmas"] .caixa-christmas-snow{display:block}
-.caixa-snowflake{position:absolute;top:-20px;color:#fff;font-size:var(--s,10px);opacity:var(--o,.8);animation:caixaSnowFall var(--d,10s) linear var(--delay,0s) infinite;filter:drop-shadow(0 1px 2px rgba(50,80,90,.18))}
-@keyframes caixaSnowFall{0%{transform:translate3d(0,-20px,0) rotate(0)}50%{transform:translate3d(var(--x,18px),50vh,0) rotate(180deg)}100%{transform:translate3d(calc(var(--x,18px) * -1),110vh,0) rotate(360deg)}}
-@media(max-width:640px){.caixa-season-card{grid-template-columns:1fr}.caixa-season-fields{grid-template-columns:1fr}.caixa-season-toggle{grid-column:auto}}
+/* ===== ADMIN — refinamento responsivo ===== */
+#caixaConfigAdmin{overflow-x:hidden}
+#caixaConfigAdmin .caixa-config-admin-panel,
+#caixaConfigAdmin .caixa-config-admin-group,
+#caixaConfigAdmin .caixa-season-card{min-width:0;box-sizing:border-box}
+#caixaConfigAdmin .caixa-config-admin-group{padding:20px;border-radius:20px}
+#caixaConfigAdmin .caixa-config-section-head{align-items:flex-start;gap:14px}
+#caixaConfigAdmin .caixa-config-section-head h3{margin:0 0 3px}
+#caixaConfigAdmin .caixa-config-section-head p{max-width:620px;line-height:1.45}
+#caixaConfigAdmin .caixa-config-list{min-width:0}
+#caixaConfigAdmin .caixa-config-row{min-width:0}
+#caixaConfigAdmin .caixa-config-row-main{min-width:0}
+#caixaConfigAdmin .caixa-config-row-title,#caixaConfigAdmin .caixa-config-row-sub{overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+@media(max-width:800px){
+  #caixaConfigAdmin .caixa-season-card{grid-template-columns:1fr;gap:14px}
+  #caixaConfigAdmin .caixa-season-fields{grid-template-columns:1fr 1fr}
+}
+@media(max-width:560px){
+  #caixaConfigAdmin .caixa-config-admin-group{padding:15px;border-radius:17px}
+  #caixaConfigAdmin .caixa-config-section-head{flex-wrap:wrap}
+  #caixaConfigAdmin .caixa-season-fields{grid-template-columns:1fr}
+  #caixaConfigAdmin .caixa-season-toggle{grid-column:auto}
+  #caixaConfigAdmin .caixa-season-theme{padding-bottom:2px}
+}

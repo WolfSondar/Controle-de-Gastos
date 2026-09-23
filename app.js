@@ -8346,10 +8346,12 @@ if (document.readyState === "loading") {
     layer.appendChild(fragment);
   }
   function atualizarCamadaTemaNatal() {
-    const layer = document.getElementById("caixaChristmasSnow");
     const natal = document.documentElement.dataset.caixaTheme === "christmas";
+    const layer = document.getElementById("caixaChristmasSnow");
+    const lights = document.getElementById("caixaChristmasLights");
     if (natal) prepararNeveNatal();
     if (layer) layer.setAttribute("aria-hidden", natal ? "false" : "true");
+    if (lights) lights.setAttribute("aria-hidden", natal ? "false" : "true");
   }
   function aplicarTemaCaixa(id) {
     if (id !== "default" && !temaPodeSerUsado(id)) { showToast("Esse tema ainda não está disponível."); return; }
