@@ -8422,42 +8422,38 @@ if (document.readyState === "loading") {
     if (!view) return null;
     garantirEstilosTemasEspeciais();
 
-    // Os três botões Claro/Escuro/Dispositivo pertencem exclusivamente à
-    // aparência base. Temas especiais têm um container próprio e nunca são
-    // misturados com esses botões.
-    let section = view.querySelector("#caixaSpecialThemesSection");
-    if (!section) {
-      section = document.createElement("section");
-      section.id = "caixaSpecialThemesSection";
-      section.className = "caixa-special-themes-section";
-      section.innerHTML = `
-        <div class="caixa-special-themes-head">
-          <h3>Temas</h3>
-          <p>Temas especiais aparecem somente quando estiverem disponíveis.</p>
-        </div>
-        <div id="caixaSpecialThemeOptions"></div>
-      `;
-      const base = view.querySelector("#caixaThemeOptions, [data-theme-choice]")?.closest("section") || view.firstElementChild;
-      if (base?.parentNode) base.parentNode.insertBefore(section, base.nextSibling);
-      else view.appendChild(section);
+    // IMPORTANTE: a tela de Aparência já possui uma seção nativa "Temas".
+    // Nunca criamos uma segunda seção aqui. As versões anteriores criavam um
+    // card novo e isso acabava deixando "Temas" duplicado/vazio.
+    view.querySelectorAll("#caixaSpecialThemesSection").forEach(el => el.remove());
+
+    // Primeiro tenta usar o grid/container original do projeto.
+    let container = view.querySelector(".caixa-themes-grid, .caixa-temas-grid, .caixa-theme-options");
+    if (container) return container;
+
+    // Compatibilidade com versões intermediárias que marcaram a seção original.
+    const marked = view.querySelector("[data-caixa-themes-section='1'], [data-caixa-theme-section='1']");
+    if (marked) {
+      container = marked.querySelector(".caixa-themes-grid, .caixa-temas-grid, .caixa-theme-options") || marked;
+      return container;
     }
-    const container = section.querySelector("#caixaSpecialThemeOptions");
-    if (!container) return null;
 
-    // Migra cartões especiais antigos para o container correto. Isso também
-    // corrige versões que colocaram Halloween dentro de Aparência ou criaram
-    // um segundo card "Temas".
-    document.querySelectorAll("[data-caixa-theme]").forEach(btn => {
-      if (!container.contains(btn)) container.appendChild(btn);
+    // Último recurso: localizar a seção que já contém o título "Temas" e usar
+    // seu conteúdo interno. Ainda assim, não criamos um card novo.
+    const secoes = [...view.querySelectorAll("section, .caixa-config-card, .caixa-settings-card, .settings-card, .config-card")];
+    const secaoTemas = secoes.find(sec => {
+      const titulo = sec.querySelector("h2,h3,h4,.caixa-config-section-title,.caixa-section-title");
+      return String(titulo?.textContent || "").trim().toLowerCase() === "temas";
     });
+    if (secaoTemas) {
+      container = secaoTemas.querySelector(".caixa-themes-grid, .caixa-temas-grid, .caixa-theme-options") || secaoTemas;
+      container.dataset.caixaThemeNativeContainer = "1";
+      return container;
+    }
 
-    // Remove containers antigos criados pelas versões anteriores, mas nunca
-    // remove a seção oficial acima.
-    view.querySelectorAll("[data-caixa-themes-section='1'], .caixa-themes-section").forEach(old => {
-      if (old !== section && !old.contains(section)) old.remove();
-    });
-
-    return container;
+    // Se a estrutura nativa ainda não existir, não inventamos uma nova seção.
+    // Isso evita a duplicação infinita e deixa a tela original intacta.
+    return null;
   }
 
   function criarBotaoTemaEspecial(id, info) {
@@ -8910,7 +8906,7 @@ if (document.readyState === "loading") {
     state.temasConfig = atuais;
     await salvarConfig({temasConfig:state.temasConfig}, "Regras de temas salvas.");
     renderAdminSazonalidade();
-    renderTemas();
+    if (viewAtual === "tema") renderTemas();
   }
 
   // Neve decorativa procedural: cada card recebe um perfil diferente para que
@@ -9015,14 +9011,15 @@ if (document.readyState === "loading") {
   });
 
   limparSazonalidadeForaDoAdmin();
-  renderTemas();
+  sincronizarTemaSazonal();
+  atualizarCamadasTemas();
   // Verifica a virada de período sem exigir que o usuário recarregue a página.
   window.setInterval(() => {
     const antes = temaAtivo();
     const depois = sincronizarTemaSazonal();
     if (antes !== depois) {
       atualizarCamadasTemas();
-      renderTemas();
+      if (viewAtual === "tema") renderTemas();
     }
   }, 60 * 1000);
   aplicarNeveProcedural();
