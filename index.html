@@ -20,18 +20,6 @@
 <link rel="preconnect" href="https://fonts.googleapis.com" />
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
 <link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,400;9..144,500;9..144,600;9..144,700&family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500;600;700&display=swap" rel="stylesheet" />
-<script>
-(function(){
-  try {
-    var key = "caixa-tema-v1";
-    var saved = localStorage.getItem(key) || "device";
-    if (!["light","dark","device"].includes(saved)) saved = "device";
-    var dark = saved === "dark" || (saved === "device" && window.matchMedia && window.matchMedia("(prefers-color-scheme: dark)").matches);
-    document.documentElement.setAttribute("data-theme", dark ? "dark" : "light");
-    document.documentElement.dataset.themePreference = saved;
-  } catch(e) { document.documentElement.setAttribute("data-theme", "light"); document.documentElement.dataset.themePreference = "device"; }
-})();
-</script>
 <link rel="stylesheet" href="style.css" />
 </head>
 <body>
@@ -47,6 +35,7 @@
             <path d="M4 7h16M4 12h16M4 17h16" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/>
           </svg>
         </button>
+        <span class="brand-mark">Caixa</span>
       </div>
       <div class="hero-top-actions">
         <button type="button" class="mes-atual-badge" id="mesAtualBadge" aria-label="Mês atual"></button>
@@ -672,9 +661,8 @@
 <div class="caixa-config-overlay is-hidden" id="caixaConfiguracoesOverlay" aria-hidden="true">
   <aside class="caixa-config-drawer" id="caixaConfiguracoes" aria-label="Configurações do Caixa">
     <div class="caixa-config-head">
-      <button type="button" class="caixa-config-back is-hidden" id="caixaConfigBack" aria-label="Voltar para configurações">
-        <svg viewBox="0 0 24 24" fill="none" aria-hidden="true"><path d="M15 18 9 12l6-6" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"/></svg>
-        <span>Configurações</span>
+      <button type="button" class="icon-btn caixa-config-back is-hidden" id="caixaConfigBack" aria-label="Voltar para configurações">
+        <svg viewBox="0 0 24 24" fill="none"><path d="M15 18 9 12l6-6" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"/></svg>
       </button>
       <div>
         <span class="caixa-config-kicker">PERSONALIZAÇÃO</span>
@@ -706,12 +694,6 @@
           </span>
           <span><strong>Faturas</strong><small>Adicione cartões e altere o dia de vencimento.</small></span><b>›</b>
         </button>
-        <button type="button" class="caixa-config-card" data-config-view="tema">
-          <span class="caixa-config-card-icon">
-            <svg viewBox="0 0 24 24" fill="none"><path d="M12 3v2M12 19v2M3 12h2M19 12h2M5.64 5.64l1.41 1.41M16.95 16.95l1.41 1.41M18.36 5.64l-1.41 1.41M7.05 16.95l-1.41 1.41" stroke="currentColor" stroke-width="1.7" stroke-linecap="round"/><circle cx="12" cy="12" r="4" stroke="currentColor" stroke-width="1.8"/></svg>
-          </span>
-          <span><strong>Tema</strong><small>Escolha claro, escuro ou o tema do dispositivo.</small></span><b>›</b>
-        </button>
       </section>
 
       <section class="caixa-config-view is-hidden" id="caixaConfigCategorias">
@@ -738,29 +720,6 @@
         <button type="button" class="btn btn-gold caixa-config-save-wide" id="btnSalvarConfigIA">Salvar alterações</button>
       </section>
 
-      <section class="caixa-config-view is-hidden" id="caixaConfigTema">
-        <div class="caixa-config-section-head">
-          <div><h3>Aparência</h3><p>Esta preferência fica salva somente neste dispositivo.</p></div>
-        </div>
-        <div class="caixa-theme-options" id="caixaThemeOptions">
-          <button type="button" class="caixa-theme-option" data-theme-choice="light">
-            <span class="caixa-theme-preview caixa-theme-preview-light" aria-hidden="true"><i></i><b></b><em></em></span>
-            <span><strong>Claro</strong><small>Use sempre o tema claro.</small></span>
-            <span class="caixa-theme-check" aria-hidden="true">✓</span>
-          </button>
-          <button type="button" class="caixa-theme-option" data-theme-choice="dark">
-            <span class="caixa-theme-preview caixa-theme-preview-dark" aria-hidden="true"><i></i><b></b><em></em></span>
-            <span><strong>Escuro</strong><small>Use sempre o tema escuro.</small></span>
-            <span class="caixa-theme-check" aria-hidden="true">✓</span>
-          </button>
-          <button type="button" class="caixa-theme-option" data-theme-choice="device">
-            <span class="caixa-theme-preview caixa-theme-preview-device" aria-hidden="true"><i></i><b></b><em></em></span>
-            <span><strong>Dispositivo</strong><small>Acompanha a preferência do sistema.</small></span>
-            <span class="caixa-theme-check" aria-hidden="true">✓</span>
-          </button>
-        </div>
-      </section>
-
       <section class="caixa-config-view is-hidden" id="caixaConfigFaturas">
         <div class="caixa-config-section-head">
           <div><h3>Suas faturas</h3><p>Cada fatura pode ter seu próprio vencimento. No cadastro de gasto, se houver mais de uma, o Caixa pergunta qual usar.</p></div>
@@ -774,35 +733,6 @@
       </section>
     </div>
   </aside>
-</div>
-
-<!-- MODAL DE FATURA — visual nativo do Caixa, sem prompt do navegador -->
-<div class="modal-backdrop is-hidden" id="configFaturaBackdrop">
-  <div class="modal modal-config-fatura" role="dialog" aria-modal="true" aria-labelledby="configFaturaTitle">
-    <button type="button" class="modal-fechar-x" id="configFaturaClose" aria-label="Fechar">×</button>
-    <span class="config-fatura-kicker">PERSONALIZAÇÃO</span>
-    <h3 id="configFaturaTitle">Nova fatura</h3>
-    <p class="modal-hint" id="configFaturaHint">Cadastre o cartão e o dia em que a fatura vence.</p>
-    <label class="config-fatura-field-label" for="configFaturaNome">Nome da fatura</label>
-    <input id="configFaturaNome" type="text" maxlength="50" autocomplete="off" placeholder="Ex.: Nubank" />
-    <div class="config-fatura-form-row">
-      <div>
-        <label class="config-fatura-field-label" for="configFaturaPessoa">Pessoa</label>
-        <select id="configFaturaPessoa">
-          <option value="davi">Davi</option>
-          <option value="gabriel">Gabriel</option>
-        </select>
-      </div>
-      <div>
-        <label class="config-fatura-field-label" for="configFaturaDia">Vencimento</label>
-        <select id="configFaturaDia"></select>
-      </div>
-    </div>
-    <div class="modal-actions">
-      <button type="button" class="btn btn-ghost" id="configFaturaCancelar">Cancelar</button>
-      <button type="button" class="btn btn-gold" id="configFaturaSalvar">Salvar fatura</button>
-    </div>
-  </div>
 </div>
 
 </body>
