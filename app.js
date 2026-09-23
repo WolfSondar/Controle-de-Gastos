@@ -4074,11 +4074,20 @@ function renderVisaoGeral() {
   const corGastos = temaEspecial ? "var(--theme-summary-expense)" : "var(--expense)";
   const corLivre = temaEspecial ? "var(--theme-summary-free)" : "var(--income)";
   if (donut) {
-    const donutBackground = `conic-gradient(${corGuardado} 0% ${corte1}%, ${corGastos} ${corte1}% ${corte2}%, ${corLivre} ${corte2}% 100%)`;
-    // O CSS dos temas sazonais pode definir o fundo do donut com !important.
-    // A Visão geral precisa sempre mostrar os três segmentos calculados.
+    // Pequenos separadores tornam as três fatias claramente visíveis no
+    // tema padrão e no Natal, sem alterar o cálculo dos percentuais.
+    const separador = temaEspecial ? "rgba(255,255,255,.82)" : "#ffffff";
+    const gap = temaEspecial ? 0 : 0.9;
+    const g = gap / 2;
+    const stops = temaEspecial
+      ? `${corGuardado} 0% ${corte1}%, ${corGastos} ${corte1}% ${corte2}%, ${corLivre} ${corte2}% 100%`
+      : `${corGuardado} 0% ${Math.max(corte1-g,0)}%, ${separador} ${Math.max(corte1-g,0)}% ${Math.min(corte1+g,100)}%, ${corGastos} ${Math.min(corte1+g,100)}% ${Math.max(corte2-g,0)}%, ${separador} ${Math.max(corte2-g,0)}% ${Math.min(corte2+g,100)}%, ${corLivre} ${Math.min(corte2+g,100)}% 100%`;
+    const donutBackground = `conic-gradient(${stops})`;
     donut.style.setProperty("background-image", donutBackground, "important");
     donut.style.setProperty("background-color", "transparent", "important");
+    donut.style.setProperty("box-shadow", temaEspecial
+      ? "0 0 0 1px rgba(85,223,255,.24), 0 8px 24px rgba(61,31,78,.14)"
+      : "0 0 0 2px rgba(117,92,43,.20), 0 0 0 4px rgba(255,255,255,.82), 0 8px 24px rgba(35,27,15,.10)", "important");
   }
   if (centro) {
     // Texto alterado para exibir apenas o valor e a palavra "GANHO"
@@ -8505,13 +8514,22 @@ if (document.readyState === "loading") {
   function aplicarTerrenoHalloween(){
     if(document.documentElement.dataset.caixaTheme!=="halloween") return;
     const hero=document.querySelector(".hero");
-    if(hero&&!hero.dataset.halloweenTerrain){hero.style.setProperty("--halloween-terrain-image",gerarPerfilTerrenoHalloween());hero.dataset.halloweenTerrain="1"}
+    if(!hero) return;
+    let terreno=hero.querySelector(".caixa-halloween-terrain");
+    if(!terreno){
+      terreno=document.createElement("div");
+      terreno.className="caixa-halloween-terrain";
+      terreno.setAttribute("aria-hidden","true");
+      hero.appendChild(terreno);
+    }
+    terreno.style.backgroundImage=gerarPerfilTerrenoHalloween();
+    hero.dataset.halloweenTerrain="1";
   }
   function atualizarCamadaTemaHalloween(){
     const ativo=document.documentElement.dataset.caixaTheme==="halloween"; garantirCssTema("halloween");
     if(ativo){prepararCenarioHalloween();aplicarTerrenoHalloween()}
     document.querySelectorAll(".caixa-halloween-scenery").forEach(el=>el.setAttribute("aria-hidden",ativo?"false":"true"));
-    if(!ativo){document.querySelectorAll(".caixa-halloween-scenery").forEach(el=>el.remove());document.querySelectorAll("[data-slime-profile]").forEach(el=>{el.style.removeProperty("--slime-image");delete el.dataset.slimeProfile}); document.querySelectorAll("[data-halloween-terrain]").forEach(el=>{el.style.removeProperty("--halloween-terrain-image");delete el.dataset.halloweenTerrain})}
+    if(!ativo){document.querySelectorAll(".caixa-halloween-scenery").forEach(el=>el.remove());document.querySelectorAll("[data-slime-profile]").forEach(el=>{el.style.removeProperty("--slime-image");delete el.dataset.slimeProfile}); document.querySelectorAll(".caixa-halloween-terrain").forEach(el=>el.remove()); document.querySelectorAll("[data-halloween-terrain]").forEach(el=>{el.style.removeProperty("--halloween-terrain-image");delete el.dataset.halloweenTerrain})}
   }
   function atualizarCamadasTemas(){atualizarCamadaTemaNatal();atualizarCamadaTemaHalloween()}
   function atualizarCamadaTemaNatal() {
