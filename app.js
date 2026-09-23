@@ -4069,8 +4069,12 @@ function renderVisaoGeral() {
   const corte1 = pctGuardado;
   const corte2 = pctGuardado + pctGastos;
 
+  const temaNatal = document.documentElement.dataset.caixaTheme === "christmas";
+  const corGuardado = temaNatal ? "var(--christmas-summary-saved)" : "var(--gold)";
+  const corGastos = temaNatal ? "var(--christmas-summary-expense)" : "var(--expense)";
+  const corLivre = temaNatal ? "var(--christmas-summary-free)" : "var(--income)";
   if (donut) {
-    donut.style.background = `conic-gradient(var(--gold) 0% ${corte1}%, var(--expense) ${corte1}% ${corte2}%, var(--income) ${corte2}% 100%)`;
+    donut.style.background = `conic-gradient(${corGuardado} 0% ${corte1}%, ${corGastos} ${corte1}% ${corte2}%, ${corLivre} ${corte2}% 100%)`;
   }
   if (centro) {
     // Texto alterado para exibir apenas o valor e a palavra "GANHO"
@@ -4079,15 +4083,15 @@ function renderVisaoGeral() {
   if (legend) {
     legend.innerHTML = `
       <div class="split-legend-item">
-        <span class="dot" style="background:var(--gold)"></span>
+        <span class="dot" style="background:${corGuardado}"></span>
         Guardado <strong>${pctGuardado.toFixed(0)}%</strong>
       </div>
       <div class="split-legend-item">
-        <span class="dot" style="background:var(--expense)"></span>
+        <span class="dot" style="background:${corGastos}"></span>
         Gastos <strong>${pctGastos.toFixed(0)}%</strong>
       </div>
       <div class="split-legend-item">
-        <span class="dot" style="background:var(--income)"></span>
+        <span class="dot" style="background:${corLivre}"></span>
         Livre <strong>${pctLivre.toFixed(0)}%</strong>
       </div>
     `;
@@ -4121,8 +4125,12 @@ function renderSplit() {
   const corte2 = pctDavi + pctGabriel;
 
   const donut = document.getElementById("splitDonut");
+  const temaNatal = document.documentElement.dataset.caixaTheme === "christmas";
+  const corPessoaA = temaNatal ? "var(--christmas-summary-free)" : "var(--income)";
+  const corPessoaB = temaNatal ? "var(--christmas-summary-expense)" : "var(--expense)";
+  const corRestante = temaNatal ? "var(--christmas-summary-rest)" : "var(--line-soft)";
   if (donut) {
-    donut.style.background = `conic-gradient(var(--income) 0% ${corte1}%, var(--expense) ${corte1}% ${corte2}%, var(--line-soft) ${corte2}% 100%)`;
+    donut.style.background = `conic-gradient(${corPessoaA} 0% ${corte1}%, ${corPessoaB} ${corte1}% ${corte2}%, ${corRestante} ${corte2}% 100%)`;
   }
   const centro = document.getElementById("splitDonutCenter");
   if (centro) {
@@ -4133,13 +4141,13 @@ function renderSplit() {
   if (legend) {
     legend.innerHTML = `
       <div class="split-legend-item">
-        <span class="dot" style="background:var(--income)"></span> Davi gastou <strong>${pctDavi.toFixed(0)}%</strong>
+        <span class="dot" style="background:${corPessoaA}"></span> Davi gastou <strong>${pctDavi.toFixed(0)}%</strong>
       </div>
       <div class="split-legend-item">
-        <span class="dot" style="background:var(--expense)"></span> Gabriel gastou <strong>${pctGabriel.toFixed(0)}%</strong>
+        <span class="dot" style="background:${corPessoaB}"></span> Gabriel gastou <strong>${pctGabriel.toFixed(0)}%</strong>
       </div>
       <div class="split-legend-item">
-        <span class="dot" style="background:var(--line-soft)"></span> Ainda sobrando <strong>${pctRestante.toFixed(0)}%</strong>
+        <span class="dot" style="background:${corRestante}"></span> Ainda sobrando <strong>${pctRestante.toFixed(0)}%</strong>
       </div>
     `;
   }
@@ -8339,10 +8347,15 @@ if (document.readyState === "loading") {
   // configurado no Admin. O Padrão continua sendo o fallback permanente.
   function sincronizarTemaSazonal() {
     const sazonais = ["christmas"];
-    const disponiveis = sazonais.filter(id => temaPodeSerUsado(id));
+    // Apenas temas marcados como sazonais (Sempre disponível = manual)
+    // podem assumir o Caixa automaticamente.
+    const disponiveis = sazonais.filter(id => {
+      const regra = (state.temasConfig || {})[id] || {};
+      return regra.permanente === false && temaPodeSerUsado(id);
+    });
     let ativo = temaAtivo();
 
-    if (ativo === "christmas" && !disponiveis.includes("christmas")) {
+    if (ativo === "christmas" && !temaPodeSerUsado("christmas")) {
       ativo = "default";
     } else if (ativo === "default" && disponiveis.length) {
       // Ao entrar em um período sazonal, o tema correspondente assume
@@ -8354,6 +8367,37 @@ if (document.readyState === "loading") {
     document.documentElement.dataset.caixaTheme = ativo;
     return ativo;
   }
+  function prepararCenarioNatal() {
+    const hero = document.querySelector(".hero");
+    if (!hero || hero.querySelector(".caixa-christmas-scenery")) return;
+    const wrap = document.createElement("div");
+    wrap.className = "caixa-christmas-scenery";
+    wrap.setAttribute("aria-hidden", "true");
+    const itens = [
+      { cls: "tree", x: 18, y: 8, s: .82 },
+      { cls: "pine", x: 63, y: 5, s: .72 },
+      { cls: "deer", x: 83, y: 3, s: .68 },
+    ];
+    itens.sort(() => Math.random() - 0.5);
+    itens.forEach((item, idx) => {
+      const el = document.createElement("span");
+      el.className = `christmas-scenery-item ${item.cls}`;
+      el.style.left = `${item.x + (Math.random() * 7 - 3.5)}%`;
+      el.style.bottom = `${2 + Math.random() * 2}px`;
+      el.style.setProperty("--scene-scale", String(item.s + (Math.random() * .08 - .04)));
+      el.style.setProperty("--scene-delay", `${idx * -1.4}s`);
+      if (item.cls === "tree") {
+        el.innerHTML = `<svg viewBox="0 0 64 72" role="presentation"><path d="M32 3 18 24h8L12 42h12L7 61h50L40 42h12L38 24h8Z" fill="currentColor"/><rect x="28" y="59" width="8" height="10" rx="2" fill="#a97843"/><circle cx="24" cy="31" r="2.1" fill="#f4d77f"/><circle cx="40" cy="44" r="2.1" fill="#d7eff4"/><circle cx="30" cy="51" r="2" fill="#e7b86c"/></svg>`;
+      } else if (item.cls === "pine") {
+        el.innerHTML = `<svg viewBox="0 0 64 72" role="presentation"><path d="M32 4 19 25h8L14 43h11L8 62h48L39 43h11L37 25h8Z" fill="currentColor" opacity=".82"/><path d="M31 61h6v8h-6z" fill="#9a7049"/></svg>`;
+      } else {
+        el.innerHTML = `<svg viewBox="0 0 90 62" role="presentation"><path d="M14 43c7-9 15-13 27-13 7 0 12 2 18 6l9-3 7 5-5 5-7-1-6 8H48l-5-8H29l-6 7h-9l4-7-7-2 3-4Z" fill="currentColor"/><path d="M71 30l5-15 6-5 3 2-6 6 4 2-5 6M77 16l-5-9 3-3 7 7" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"/></svg>`;
+      }
+      wrap.appendChild(el);
+    });
+    hero.appendChild(wrap);
+  }
+
   function prepararNeveNatal() {
     const layer = document.getElementById("caixaChristmasSnow");
     if (!layer || layer.childElementCount) return;
@@ -8379,6 +8423,7 @@ if (document.readyState === "loading") {
     const lights = document.getElementById("caixaChristmasLights");
     if (natal) {
       prepararNeveNatal();
+      prepararCenarioNatal();
       aplicarNeveProcedural();
     }
     if (layer) layer.setAttribute("aria-hidden", natal ? "false" : "true");
@@ -8388,7 +8433,10 @@ if (document.readyState === "loading") {
     const sazonais = ["christmas"];
     return sazonais.some(id => {
       const regra = (state.temasConfig || {})[id] || {};
-      return regra.permanente === false && temaPodeSerUsado(id);
+      // "Sempre disponível" é sempre um tema manual: mesmo com datas preenchidas,
+      // ele nunca deve travar a seleção nem assumir o Caixa automaticamente.
+      if (regra.permanente !== false) return false;
+      return temaPodeSerUsado(id);
     });
   }
   function aplicarTemaCaixa(id) {
