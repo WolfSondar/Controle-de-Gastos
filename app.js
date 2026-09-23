@@ -8364,11 +8364,28 @@ if (document.readyState === "loading") {
     };
   }
 
+  function regraTema(id) {
+    const padrao = ADMIN_TEMA_PADRAO[id] || {};
+    const salvo = (state.temasConfig || {})[id] || {};
+    // Compatibilidade com versões que salvaram a opção como
+    // "sempreDisponivel". O formato oficial continua sendo "permanente".
+    const permanente = Object.prototype.hasOwnProperty.call(salvo, "permanente")
+      ? salvo.permanente !== false
+      : (Object.prototype.hasOwnProperty.call(salvo, "sempreDisponivel")
+          ? salvo.sempreDisponivel !== false
+          : true);
+    return {
+      inicio: salvo.inicio ?? padrao.inicio ?? "",
+      fim: salvo.fim ?? padrao.fim ?? "",
+      permanente
+    };
+  }
+
   function temaPodeSerUsado(id) {
     if (id === "default") return true;
-    const cfg = state.temasConfig || {};
-    const padrao = ADMIN_TEMA_PADRAO[id] || {};
-    const regra = cfg[id] || { permanente: true, inicio: padrao.inicio || "", fim: padrao.fim || "" };
+    const regra = regraTema(id);
+    // Tema marcado como "Sempre disponível" aparece sempre na lista,
+    // independentemente das datas preenchidas.
     if (regra.permanente) return true;
     const hoje = new Date();
     const inicio = regra.inicio ? new Date(`${regra.inicio}T00:00:00`) : null;
@@ -8537,7 +8554,7 @@ if (document.readyState === "loading") {
     // Apenas temas marcados como sazonais (Sempre disponível = manual)
     // podem assumir o Caixa automaticamente.
     const disponiveis = sazonais.filter(id => {
-      const regra = (state.temasConfig || {})[id] || {};
+      const regra = regraTema(id);
       return regra.permanente === false && temaPodeSerUsado(id);
     });
     let ativo = temaAtivo();
