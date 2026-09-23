@@ -851,6 +851,7 @@ async function setCache(pessoa, data) {
     iconCategorias: data.iconCategorias || [],
     iconNomes: data.iconNomes || {},
     temasConfig: data.temasConfig || null,
+    temaAtivo: data.temaAtivo || (typeof caixaTemaAtivoGlobal === "function" ? caixaTemaAtivoGlobal() : "default"),
     iaConfig: data.iaConfig || null,
     faturas: Array.isArray(data.faturas) ? data.faturas : [],
     mesAtual: data.mesAtual || null,
@@ -1058,6 +1059,15 @@ async function carregarDados() {
     state.iconCategorias = cache.iconCategorias || [];
     state.iconNomes = cache.iconNomes || {};
     state.temasConfig = cache.temasConfig || null;
+    // O último tema visual fica em cache separado das regras sazonais.
+    // Assim a abertura nunca precisa passar visualmente por Padrão.
+    const temaCache = cache.temaAtivo || caixaTemaAtivoGlobal();
+    if (["default", "christmas", "halloween"].includes(temaCache)) {
+      try { localStorage.setItem("caixa-tema-estilo-v1", temaCache); } catch (_) {}
+      document.documentElement.dataset.caixaTheme = temaCache;
+      caixaGarantirCssTemaGlobal(temaCache);
+      if (temaCache === "christmas" && typeof garantirEstiloNatalRefinado === "function") garantirEstiloNatalRefinado();
+    }
     state.iaConfig = cache.iaConfig || state.iaConfig || null;
     state.faturas = Array.isArray(cache.faturas) ? cache.faturas : state.faturas;
     // Em modo offline, o cache pode fornecer o último mês conhecido.
@@ -1143,7 +1153,6 @@ async function carregarDados() {
       if (pessoaRequisitada === "gabriel") { state.mesAtualGabriel = Number(data.mesAtual) || null; state.anoAtualGabriel = Number(data.anoAtual) || null; }
     }
     renderMesAtual();
-    setCache(pessoaRequisitada, data);
 
     // Depois que as regras reais do Firebase chegaram, decide o tema.
     // Aplique a camada visual somente depois de o conteúdo ter sido renderizado.
@@ -1151,6 +1160,7 @@ async function carregarDados() {
     // quando a decisão do tema acontece.
     const temaDepois = window.CAIXA_SINCRONIZAR_TEMA_SAZONAL?.() || "default";
     window.CAIXA_GARANTIR_CSS_TEMA?.(temaDepois);
+    setCache(pessoaRequisitada, {...data, temaAtivo: temaDepois});
 
     setSyncState("idle");
     if (Object.values(mudancas).some(Boolean)) {
@@ -6277,6 +6287,17 @@ if (confirmBackdrop) {
 // ---------------------------------------------------------------------
 
 renderPessoaSwitch();
+// Bootstrap visual: usa imediatamente o último tema conhecido enquanto o Firebase é consultado.
+// O tema sazonal válido será recalculado assim que as regras em cache/Firebase chegarem.
+(function inicializarTemaVisualCache(){
+  const tema = caixaTemaAtivoGlobal();
+  if (["default", "christmas", "halloween"].includes(tema)) {
+    document.documentElement.dataset.caixaTheme = tema;
+    caixaGarantirCssTemaGlobal(tema);
+    if (tema === "christmas" && typeof garantirEstiloNatalRefinado === "function") garantirEstiloNatalRefinado();
+  }
+})();
+
 renderMesAtual();
 popularSelectsDeCategoria();
 preencherDatasComHoje();
