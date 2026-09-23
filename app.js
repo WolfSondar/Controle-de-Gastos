@@ -8357,7 +8357,10 @@ if (document.readyState === "loading") {
     const natal = document.documentElement.dataset.caixaTheme === "christmas";
     const layer = document.getElementById("caixaChristmasSnow");
     const lights = document.getElementById("caixaChristmasLights");
-    if (natal) prepararNeveNatal();
+    if (natal) {
+      prepararNeveNatal();
+      aplicarNeveProcedural();
+    }
     if (layer) layer.setAttribute("aria-hidden", natal ? "false" : "true");
     if (lights) lights.setAttribute("aria-hidden", natal ? "false" : "true");
   }
@@ -8446,6 +8449,42 @@ if (document.readyState === "loading") {
     await salvarConfig({temasConfig:state.temasConfig}, "Regras de temas salvas."); renderTemas();
   }
 
+  // Neve decorativa procedural: cada card recebe um perfil diferente para que
+  // o acabamento não pareça uma imagem repetida. O perfil é mantido até o card
+  // ser recriado pelo próprio render da lista.
+  function gerarPerfilNeve() {
+    const pontos = ["0% 0", "100% 0"];
+    const qtd = 13;
+    for (let i = qtd; i >= 0; i--) {
+      const x = (i / qtd) * 100;
+      let profundidade = 6 + Math.random() * 7;
+      if (Math.random() < 0.18) profundidade += 7 + Math.random() * 9;
+      if (Math.random() < 0.08) profundidade += 6 + Math.random() * 7;
+      pontos.push(`${x.toFixed(1)}% ${profundidade.toFixed(1)}px`);
+    }
+    return pontos.join(", ");
+  }
+
+  function aplicarNeveProcedural(root = document) {
+    if (document.documentElement.dataset.caixaTheme !== "christmas") return;
+    const seletores = [
+      ".item-list-row",
+      ".caixa-christmas-lights",
+      ".goal-card.caixinha-card"
+    ];
+    root.querySelectorAll(seletores.join(",")).forEach((el) => {
+      if (el.dataset.snowProfile) return;
+      el.style.setProperty("--snow-clip", gerarPerfilNeve());
+      el.dataset.snowProfile = "1";
+    });
+
+    const hero = document.querySelector(".hero");
+    if (hero && !hero.dataset.snowProfile) {
+      hero.style.setProperty("--snow-clip", gerarPerfilNeve());
+      hero.dataset.snowProfile = "1";
+    }
+  }
+
   function renderTudo() {
     if (viewAtual === "categorias") renderCategorias();
     if (viewAtual === "ia") renderIA();
@@ -8489,6 +8528,16 @@ if (document.readyState === "loading") {
   });
 
   renderTemas();
+  aplicarNeveProcedural();
+  const caixaSnowObserver = new MutationObserver((mutacoes) => {
+    if (document.documentElement.dataset.caixaTheme !== "christmas") return;
+    for (const mutacao of mutacoes) {
+      mutacao.addedNodes?.forEach((node) => {
+        if (node.nodeType === 1) aplicarNeveProcedural(node);
+      });
+    }
+  });
+  caixaSnowObserver.observe(document.body, { childList: true, subtree: true });
 
   window.CAIXA_CONFIG = {
     abrir,

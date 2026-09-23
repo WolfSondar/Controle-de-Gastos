@@ -1028,3 +1028,124 @@ html[data-caixa-theme="christmas"] .fab-criar::after {
     top: 100px;
   }
 }
+
+/* ==========================================================
+   NATAL 4.0 — neve procedural e cards limpos
+   ========================================================== */
+
+/* Os perfis são gerados pelo app.js, então cada lançamento pode ter
+   uma silhueta de neve diferente, com pequenas ondulações e pingentes. */
+html[data-caixa-theme="christmas"] #tab-ganhos .item-list-row,
+html[data-caixa-theme="christmas"] #tab-fixos .item-list-row,
+html[data-caixa-theme="christmas"] #tab-variaveis .item-list-row {
+  overflow: hidden;
+  isolation: isolate;
+  background: var(--paper-deep) !important;
+}
+
+html[data-caixa-theme="christmas"] #tab-ganhos .item-list-row::before,
+html[data-caixa-theme="christmas"] #tab-fixos .item-list-row::before,
+html[data-caixa-theme="christmas"] #tab-variaveis .item-list-row::before,
+html[data-caixa-theme="christmas"] #tab-ganhos .item-list-row::after,
+html[data-caixa-theme="christmas"] #tab-fixos .item-list-row::after,
+html[data-caixa-theme="christmas"] #tab-variaveis .item-list-row::after {
+  content: none !important;
+}
+
+/* A neve fica no conteúdo visível do card, como uma camada realmente
+   depositada sobre a borda superior. */
+html[data-caixa-theme="christmas"] #tab-ganhos .item-list-row .swipe-content,
+html[data-caixa-theme="christmas"] #tab-fixos .item-list-row .swipe-content,
+html[data-caixa-theme="christmas"] #tab-variaveis .item-list-row .swipe-content {
+  position: relative;
+  z-index: 2;
+  overflow: hidden;
+  background: var(--paper-deep) !important;
+}
+
+html[data-caixa-theme="christmas"] #tab-ganhos .item-list-row .swipe-content::before,
+html[data-caixa-theme="christmas"] #tab-fixos .item-list-row .swipe-content::before,
+html[data-caixa-theme="christmas"] #tab-variaveis .item-list-row .swipe-content::before {
+  content: "";
+  position: absolute;
+  z-index: 5;
+  left: 2px;
+  right: 2px;
+  top: 0;
+  height: 22px;
+  background:
+    linear-gradient(180deg, rgba(255,255,255,.99) 0%, rgba(249,253,255,.98) 52%, rgba(226,241,246,.86) 100%);
+  clip-path: polygon(var(--snow-clip, 0% 0, 100% 0, 100% 10px, 92% 8px, 84% 12px, 76% 7px, 68% 14px, 60% 8px, 52% 13px, 44% 7px, 36% 12px, 28% 8px, 20% 13px, 12% 7px, 0% 11px));
+  filter: drop-shadow(0 1px 1px rgba(62,87,94,.22));
+  pointer-events: none;
+}
+
+html[data-theme="dark"][data-caixa-theme="christmas"] #tab-ganhos .item-list-row .swipe-content,
+html[data-theme="dark"][data-caixa-theme="christmas"] #tab-fixos .item-list-row .swipe-content,
+html[data-theme="dark"][data-caixa-theme="christmas"] #tab-variaveis .item-list-row .swipe-content {
+  background: linear-gradient(145deg,#19362c,#142a22) !important;
+}
+
+/* O vermelho de Excluir fica totalmente escondido quando o card está
+   fechado; continua disponível normalmente durante o swipe. */
+html[data-caixa-theme="christmas"] #tab-ganhos .item-list-row .swipe-actions,
+html[data-caixa-theme="christmas"] #tab-fixos .item-list-row .swipe-actions,
+html[data-caixa-theme="christmas"] #tab-variaveis .item-list-row .swipe-actions {
+  z-index: 0;
+  overflow: hidden;
+  border-radius: 16px;
+}
+html[data-caixa-theme="christmas"] #tab-ganhos .item-list-row .swipe-content,
+html[data-caixa-theme="christmas"] #tab-fixos .item-list-row .swipe-content,
+html[data-caixa-theme="christmas"] #tab-variaveis .item-list-row .swipe-content {
+  box-shadow: 0 1px 0 rgba(255,255,255,.03);
+}
+
+/* Botões continuam com neve, mas agora recebem um perfil independente. */
+html[data-caixa-theme="christmas"] #tab-ganhos .btn::before,
+html[data-caixa-theme="christmas"] #tab-fixos .btn::before,
+html[data-caixa-theme="christmas"] #tab-variaveis .btn::before {
+  clip-path: polygon(var(--snow-clip, 0% 0, 100% 0, 100% 10px, 90% 7px, 80% 12px, 70% 8px, 60% 13px, 50% 7px, 40% 12px, 30% 8px, 20% 13px, 10% 7px, 0% 11px));
+}
+
+/* A camada de neve do hero também recebe um desenho diferente a cada abertura,
+   eliminando o aspecto de padrão repetido. */
+html[data-caixa-theme="christmas"] .hero::after {
+  height: 28px;
+  bottom: -1px;
+  left: 0;
+  right: 0;
+  background: linear-gradient(180deg,#fff 0%,#fbfdff 52%,#e8f2f5 100%);
+  clip-path: polygon(var(--snow-clip, 0% 0,100% 0,100% 13px,92% 10px,84% 17px,76% 9px,68% 19px,60% 11px,52% 16px,44% 9px,36% 18px,28% 11px,20% 16px,12% 9px,0% 14px));
+  filter: drop-shadow(0 2px 3px rgba(25,50,45,.25));
+  opacity: .98;
+}
+
+/* Nada de galhos/borrões artificiais no topo: o hero fica limpo e o destaque
+   passa a ser a luz de fada + neve. */
+html[data-caixa-theme="christmas"] .hero::before {
+  display: none !important;
+}
+
+/* A luz de fada fica delicada e monocromática: muda apenas a intensidade. */
+html[data-caixa-theme="christmas"] .caixa-christmas-lights .christmas-wire {
+  border-top: 1px solid rgba(247,231,184,.58);
+  filter: none;
+}
+html[data-caixa-theme="christmas"] .caixa-christmas-lights i,
+html[data-theme="dark"][data-caixa-theme="christmas"] .caixa-christmas-lights i {
+  width: 5px;
+  height: 7px;
+  border-radius: 50%;
+  background: #f6df9c;
+  color: #f6df9c;
+  box-shadow: 0 0 4px rgba(246,223,156,.85), 0 0 9px rgba(246,223,156,.50);
+}
+html[data-caixa-theme="christmas"] .caixa-christmas-lights i:nth-of-type(n) {
+  color: #f6df9c;
+}
+
+/* O FAB não recebe neve. */
+html[data-caixa-theme="christmas"] .fab-criar::before {
+  content: none !important;
+}
