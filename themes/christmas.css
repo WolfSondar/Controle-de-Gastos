@@ -906,3 +906,125 @@ html[data-theme="dark"][data-caixa-theme="christmas"] .goal-card.caixinha-card::
     top: 98px;
   }
 }
+
+/* ==========================================================
+   NATAL 4.0 — luz de fada + neve natural
+   ========================================================== */
+
+/* Topo limpo: remove totalmente os halos/borrões atrás do saldo. */
+html[data-caixa-theme="christmas"] .hero {
+  background: linear-gradient(155deg, #123d31 0%, #0d3027 52%, #0a241e 100%) !important;
+}
+html[data-theme="dark"][data-caixa-theme="christmas"] .hero {
+  background: linear-gradient(155deg, #0c3027 0%, #08271f 54%, #061d18 100%) !important;
+}
+
+/* Pisca-pisca de luz de fada: fio quase invisível + lâmpadas pequenas e quentes.
+   Não há alternância de cores; apenas intensidade luminosa. */
+html[data-caixa-theme="christmas"] .caixa-christmas-lights {
+  left: 30px;
+  right: 30px;
+  top: 106px;
+  height: 22px;
+  margin: 0;
+}
+html[data-caixa-theme="christmas"] .caixa-christmas-lights .christmas-wire {
+  top: 7px;
+  height: 10px;
+  border-top: 1px solid rgba(255,247,220,.32);
+  border-radius: 50% 50% 0 0 / 100% 100% 0 0;
+  transform: rotate(.35deg);
+  opacity: .72;
+  box-shadow: none;
+}
+html[data-caixa-theme="christmas"] .caixa-christmas-lights i,
+html[data-theme="dark"][data-caixa-theme="christmas"] .caixa-christmas-lights i {
+  top: 5px;
+  width: 4px;
+  height: 5px;
+  border-radius: 50%;
+  color: #f8e8b6 !important;
+  background: #f8e8b6;
+  box-shadow:
+    0 0 3px rgba(255,242,192,.95),
+    0 0 7px rgba(255,232,155,.55),
+    0 0 12px rgba(255,225,135,.20);
+  animation: christmasFairyGlow 4.8s ease-in-out infinite;
+}
+@keyframes christmasFairyGlow {
+  0%, 100% { opacity: .48; transform: scale(.78); }
+  35% { opacity: .82; transform: scale(.94); }
+  50% { opacity: 1; transform: scale(1.08); }
+  67% { opacity: .68; transform: scale(.88); }
+}
+
+/* A neve do rodapé do hero fica mais espessa, contínua e irregular,
+   como uma camada que realmente se acumulou sobre a borda. */
+html[data-caixa-theme="christmas"] .hero::after {
+  left: -1px;
+  right: -1px;
+  bottom: -3px;
+  height: 15px;
+  background:
+    radial-gradient(34px 10px at 18px 1px, #ffffff 0 70%, transparent 72%) repeat-x,
+    linear-gradient(180deg, #ffffff 0%, #f8fcfc 62%, #e7f2f2 100%);
+  background-size: 68px 14px, 100% 100%;
+  clip-path: polygon(
+    0 0, 100% 0,
+    100% 68%, 97% 73%, 94% 62%, 91% 78%, 87% 66%,
+    83% 82%, 79% 65%, 75% 76%, 71% 61%, 67% 80%,
+    63% 66%, 59% 77%, 55% 61%, 51% 81%, 47% 66%,
+    43% 76%, 39% 61%, 35% 80%, 31% 65%, 27% 77%,
+    23% 62%, 19% 80%, 15% 66%, 11% 76%, 7% 61%, 3% 79%, 0 68%
+  );
+  opacity: .98;
+  filter: drop-shadow(0 2px 3px rgba(22,53,45,.25));
+}
+
+/* Neve natural nos cards/lançamentos de Ganhos, Fixos e Variáveis.
+   A camada tem espessura irregular e pequenos volumes, sem parecer uma faixa. */
+html[data-caixa-theme="christmas"] #tab-ganhos .item-list-row,
+html[data-caixa-theme="christmas"] #tab-fixos .item-list-row,
+html[data-caixa-theme="christmas"] #tab-variaveis .item-list-row {
+  position: relative;
+  overflow: visible;
+}
+html[data-caixa-theme="christmas"] #tab-ganhos .item-list-row::before,
+html[data-caixa-theme="christmas"] #tab-fixos .item-list-row::before,
+html[data-caixa-theme="christmas"] #tab-variaveis .item-list-row::before {
+  display: block !important;
+  content: "";
+  position: absolute;
+  z-index: 5;
+  left: 10px;
+  right: 10px;
+  top: -4px;
+  height: 11px;
+  background:
+    radial-gradient(22px 7px at 10px 2px, #fff 0 68%, transparent 71%) repeat-x,
+    linear-gradient(180deg, #fff 0%, #f8fcfc 65%, rgba(231,242,242,.25) 100%);
+  background-size: 44px 10px, 100% 100%;
+  clip-path: polygon(
+    0 0,100% 0, 99% 64%,96% 54%,93% 78%,89% 57%,85% 71%,81% 48%,
+    77% 74%,73% 55%,69% 80%,65% 51%,61% 69%,57% 48%,53% 76%,
+    49% 57%,45% 72%,41% 49%,37% 79%,33% 55%,29% 70%,25% 47%,
+    21% 76%,17% 55%,13% 70%,9% 49%,5% 75%,2% 56%
+  );
+  filter: drop-shadow(0 2px 2px rgba(55,78,76,.20));
+  pointer-events: none;
+}
+
+/* No botão de adicionar não existe mais qualquer pseudo-elemento de neve. */
+html[data-caixa-theme="christmas"] .fab-criar::before,
+html[data-caixa-theme="christmas"] .fab-criar::after {
+  display: none !important;
+  content: none !important;
+}
+
+@media (max-width: 640px) {
+  html[data-caixa-theme="christmas"] .caixa-christmas-lights {
+    left: 22px;
+    right: 22px;
+    top: 100px;
+  }
+}
