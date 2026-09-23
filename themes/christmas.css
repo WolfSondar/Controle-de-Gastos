@@ -467,3 +467,290 @@ html[data-caixa-theme="christmas"] .caixa-snowflake {
   html[data-caixa-theme="christmas"] .goal-bar-fill::before,
   html[data-caixa-theme="christmas"] .goal-bar-fill::after { animation: none !important; }
 }
+
+/* ==========================================================
+   NATAL 3.0 — correção visual do modo escuro
+   O tema natalino escuro deve ser uma noite de Natal, e não
+   um cartão claro colocado sobre um fundo verde.
+   ========================================================== */
+html[data-theme="dark"][data-caixa-theme="christmas"] {
+  --paper: #12241e;
+  --paper-deep: #183129;
+  --ink-text: #f4ead8;
+  --muted: #a8b8ae;
+  --line: rgba(225, 199, 135, .16);
+  --line-soft: rgba(225, 199, 135, .09);
+  --tag-bg: rgba(227, 197, 109, .10);
+  --ink-soft: #17382e;
+  --on-ink: #f7eddc;
+  --gold: #e3bf61;
+  --gold-deep: #c69a43;
+  --income: #82c99a;
+  --income-bg: rgba(86, 155, 105, .16);
+  --expense: #e49a82;
+  --expense-bg: rgba(196, 91, 75, .15);
+  --benefit: #7fb5d3;
+  --yield: #d8b35c;
+}
+
+/* ---------- topo: neve elegante, sem a antiga "fileira de dentes" ---------- */
+html[data-caixa-theme="christmas"] .hero::before {
+  left: -28px;
+  bottom: 10px;
+  width: 190px;
+  height: 82px;
+  opacity: .58;
+  transform: rotate(-5deg);
+  background:
+    linear-gradient(19deg, transparent 0 48%, rgba(183,213,193,.50) 49% 50%, transparent 51%) 0 0/100% 18px,
+    linear-gradient(155deg, transparent 0 49%, rgba(111,160,130,.48) 50% 51%, transparent 52%) 10px 5px/100% 19px;
+  border-radius: 50%;
+}
+html[data-caixa-theme="christmas"] .hero::after {
+  left: 0;
+  right: 0;
+  bottom: -1px;
+  height: 7px;
+  background:
+    radial-gradient(18px 6px at 10px 2px, rgba(255,255,255,.96) 0 72%, transparent 74%) repeat-x;
+  background-size: 38px 7px;
+  opacity: .88;
+  filter: drop-shadow(0 2px 3px rgba(7,24,18,.22));
+}
+
+/* A corda fica discreta; as lâmpadas são o destaque. */
+html[data-caixa-theme="christmas"] .caixa-christmas-lights {
+  height: 20px;
+  margin: 1px 20px 0;
+}
+html[data-caixa-theme="christmas"] .caixa-christmas-lights .christmas-wire {
+  top: 4px;
+  border-top-width: 1px;
+  border-color: rgba(228,205,151,.42);
+  opacity: .85;
+}
+html[data-caixa-theme="christmas"] .caixa-christmas-lights i {
+  top: 3px;
+  width: 6px;
+  height: 8px;
+  box-shadow: 0 0 6px currentColor, 0 0 12px currentColor;
+}
+
+/* ---------- resumo / gráficos ---------- */
+html[data-theme="dark"][data-caixa-theme="christmas"] .graficos-carousel-wrap,
+html[data-theme="dark"][data-caixa-theme="christmas"] .graficos-carousel {
+  background: transparent;
+}
+html[data-theme="dark"][data-caixa-theme="christmas"] .split-card,
+html[data-theme="dark"][data-caixa-theme="christmas"] .resumo-status-card {
+  background:
+    radial-gradient(circle at 92% 5%, rgba(225,191,97,.08), transparent 30%),
+    linear-gradient(145deg, #18352b 0%, #12271f 100%) !important;
+  border: 1px solid rgba(225,191,97,.16) !important;
+  box-shadow: 0 14px 30px rgba(3,16,12,.28), inset 0 1px 0 rgba(255,255,255,.035) !important;
+}
+html[data-theme="dark"][data-caixa-theme="christmas"] .split-card .section-title,
+html[data-theme="dark"][data-caixa-theme="christmas"] .resumo-status-card .section-title {
+  color: #f5ead8 !important;
+}
+html[data-theme="dark"][data-caixa-theme="christmas"] .split-card .section-hint {
+  color: #aebdb4 !important;
+}
+html[data-theme="dark"][data-caixa-theme="christmas"] .split-donut {
+  box-shadow: 0 0 0 1px rgba(235,215,165,.12), 0 8px 24px rgba(0,0,0,.24);
+}
+html[data-theme="dark"][data-caixa-theme="christmas"] .split-donut-center {
+  background: #183129 !important;
+  box-shadow: inset 0 0 0 1px rgba(225,191,97,.10);
+}
+html[data-theme="dark"][data-caixa-theme="christmas"] .split-donut-center span {
+  color: #f4ead8 !important;
+}
+html[data-theme="dark"][data-caixa-theme="christmas"] .split-donut-center small,
+html[data-theme="dark"][data-caixa-theme="christmas"] .split-legend-item {
+  color: #b7c4bb !important;
+}
+html[data-theme="dark"][data-caixa-theme="christmas"] .split-legend-item strong {
+  color: #f3e6cf !important;
+}
+html[data-theme="dark"][data-caixa-theme="christmas"] .split-legend-item .dot {
+  box-shadow: 0 0 0 3px rgba(255,255,255,.025);
+}
+
+/* Paleta dos três donuts principais: pinheiro, vermelho suave e dourado. */
+html[data-theme="dark"][data-caixa-theme="christmas"] #visaoGeralDonut {
+  filter: drop-shadow(0 7px 12px rgba(0,0,0,.20));
+}
+html[data-theme="dark"][data-caixa-theme="christmas"] #splitDonut {
+  filter: drop-shadow(0 7px 12px rgba(0,0,0,.20));
+}
+
+/* ---------- lançamentos recentes: nunca mais o branco no Natal escuro ---------- */
+html[data-theme="dark"][data-caixa-theme="christmas"] .ledger {
+  background: #142a22 !important;
+  border-color: rgba(225,191,97,.14) !important;
+  box-shadow: 0 10px 25px rgba(2,15,11,.24), inset 0 1px 0 rgba(255,255,255,.025);
+}
+html[data-theme="dark"][data-caixa-theme="christmas"] .ledger-item {
+  background: linear-gradient(145deg, #19362c, #142a22) !important;
+  border-bottom-color: rgba(225,191,97,.11) !important;
+  color: #f2e9da;
+}
+html[data-theme="dark"][data-caixa-theme="christmas"] .ledger-item .item-nome,
+html[data-theme="dark"][data-caixa-theme="christmas"] .ledger-item .ledger-nome {
+  color: #f4ead8 !important;
+}
+html[data-theme="dark"][data-caixa-theme="christmas"] .ledger-item .ledger-meta,
+html[data-theme="dark"][data-caixa-theme="christmas"] .ledger-item .ledger-data,
+html[data-theme="dark"][data-caixa-theme="christmas"] .ledger-date-heading {
+  color: #aabbb1 !important;
+}
+html[data-theme="dark"][data-caixa-theme="christmas"] .mini-goal {
+  background: linear-gradient(145deg,#19372d,#142a22) !important;
+  border-color: rgba(225,191,97,.13) !important;
+  color: #f3eadb;
+}
+
+/* ---------- Assistente Caixa: painel, ações, diálogos e resultados ---------- */
+html[data-theme="dark"][data-caixa-theme="christmas"] .caixa-chat {
+  background:
+    radial-gradient(circle at 88% 0%, rgba(227,191,97,.09), transparent 30%),
+    linear-gradient(160deg,#10261f 0%,#0b1c17 100%) !important;
+  border-color: rgba(225,191,97,.20) !important;
+  box-shadow: 0 28px 80px rgba(0,0,0,.58), inset 0 1px 0 rgba(255,255,255,.03);
+}
+html[data-theme="dark"][data-caixa-theme="christmas"] .caixa-chat-header {
+  background: linear-gradient(180deg,#17362b,#122a22) !important;
+  border-bottom-color: rgba(225,191,97,.13) !important;
+}
+html[data-theme="dark"][data-caixa-theme="christmas"] .caixa-chat-body,
+html[data-theme="dark"][data-caixa-theme="christmas"] .caixa-chat-thinking {
+  background: #0f211a !important;
+  color: #f2eadb;
+}
+html[data-theme="dark"][data-caixa-theme="christmas"] .caixa-chat-action,
+html[data-theme="dark"][data-caixa-theme="christmas"] .caixa-chat-choice,
+html[data-theme="dark"][data-caixa-theme="christmas"] .caixa-chat-goal-choice {
+  background: linear-gradient(145deg,#19372d,#142a22) !important;
+  border-color: rgba(225,191,97,.15) !important;
+  color: #f4ead8 !important;
+  box-shadow: 0 6px 18px rgba(0,0,0,.20), inset 0 1px 0 rgba(255,255,255,.03) !important;
+}
+html[data-theme="dark"][data-caixa-theme="christmas"] .caixa-chat-action:hover,
+html[data-theme="dark"][data-caixa-theme="christmas"] .caixa-chat-choice:hover,
+html[data-theme="dark"][data-caixa-theme="christmas"] .caixa-chat-goal-choice:hover {
+  background: linear-gradient(145deg,#204238,#173329) !important;
+  border-color: rgba(227,191,97,.42) !important;
+}
+html[data-theme="dark"][data-caixa-theme="christmas"] .caixa-chat-action-text strong,
+html[data-theme="dark"][data-caixa-theme="christmas"] .caixa-chat-choice strong {
+  color: #f5ead8 !important;
+}
+html[data-theme="dark"][data-caixa-theme="christmas"] .caixa-chat-action-text small,
+html[data-theme="dark"][data-caixa-theme="christmas"] .caixa-chat-choice small,
+html[data-theme="dark"][data-caixa-theme="christmas"] .caixa-chat-action-arrow,
+html[data-theme="dark"][data-caixa-theme="christmas"] .caixa-chat-note,
+html[data-theme="dark"][data-caixa-theme="christmas"] .caixa-chat-thinking em {
+  color: #aabbb1 !important;
+}
+html[data-theme="dark"][data-caixa-theme="christmas"] .caixa-chat-bubble {
+  background: #19362c !important;
+  border-color: rgba(225,191,97,.13) !important;
+  color: #f4ead8 !important;
+}
+html[data-theme="dark"][data-caixa-theme="christmas"] .caixa-chat-message.user .caixa-chat-bubble {
+  background: linear-gradient(145deg,#2a5b42,#1c4935) !important;
+  border-color: rgba(227,191,97,.22) !important;
+  color: #fff6e5 !important;
+}
+html[data-theme="dark"][data-caixa-theme="christmas"] .caixa-chat-welcome {
+  background: linear-gradient(145deg,rgba(224,190,96,.09),rgba(71,130,95,.06)) !important;
+  border-color: rgba(225,191,97,.12) !important;
+}
+html[data-theme="dark"][data-caixa-theme="christmas"] .caixa-chat-welcome strong {
+  color: #f5ead8 !important;
+}
+html[data-theme="dark"][data-caixa-theme="christmas"] .caixa-chat-welcome p {
+  color: #aebdb4 !important;
+}
+
+/* ---------- Aparência / Temas no drawer ---------- */
+html[data-theme="dark"][data-caixa-theme="christmas"] .caixa-theme-option {
+  background: #152c24 !important;
+  border-color: rgba(225,191,97,.13) !important;
+  color: #f3eadb !important;
+}
+html[data-theme="dark"][data-caixa-theme="christmas"] .caixa-theme-option:hover {
+  background: #1b382e !important;
+}
+html[data-theme="dark"][data-caixa-theme="christmas"] .caixa-theme-option.is-active {
+  background: linear-gradient(145deg,#1d4335,#173429) !important;
+  border-color: rgba(227,191,97,.60) !important;
+  box-shadow: 0 0 0 2px rgba(227,191,97,.09), 0 8px 22px rgba(0,0,0,.20) !important;
+}
+html[data-theme="dark"][data-caixa-theme="christmas"] .caixa-theme-option strong {
+  color: #f5ead8 !important;
+}
+html[data-theme="dark"][data-caixa-theme="christmas"] .caixa-theme-option small {
+  color: #aabbb1 !important;
+}
+html[data-theme="dark"][data-caixa-theme="christmas"] .caixa-theme-option.is-active small {
+  color: #c4d0c8 !important;
+}
+html[data-theme="dark"][data-caixa-theme="christmas"] .caixa-theme-option.is-active .caixa-theme-check {
+  background: #dcb75c !important;
+  border-color: #dcb75c !important;
+  color: #173328 !important;
+}
+
+/* ---------- popups / diálogos ---------- */
+html[data-theme="dark"][data-caixa-theme="christmas"] .modal-backdrop {
+  background: rgba(2,12,9,.68) !important;
+  backdrop-filter: blur(9px) saturate(.82) !important;
+}
+html[data-theme="dark"][data-caixa-theme="christmas"] .modal {
+  background: linear-gradient(160deg,#1b392f,#132a22) !important;
+  border-color: rgba(225,191,97,.18) !important;
+  color: #f4ead8 !important;
+  box-shadow: 0 28px 70px rgba(0,0,0,.52), inset 0 1px 0 rgba(255,255,255,.035) !important;
+}
+html[data-theme="dark"][data-caixa-theme="christmas"] .modal h3,
+html[data-theme="dark"][data-caixa-theme="christmas"] .modal label,
+html[data-theme="dark"][data-caixa-theme="christmas"] .modal strong {
+  color: #f4ead8 !important;
+}
+html[data-theme="dark"][data-caixa-theme="christmas"] .modal-hint,
+html[data-theme="dark"][data-caixa-theme="christmas"] .confirm-text,
+html[data-theme="dark"][data-caixa-theme="christmas"] .modal .section-hint {
+  background: rgba(225,191,97,.055) !important;
+  color: #b3c0b7 !important;
+  border-left-color: rgba(227,191,97,.48) !important;
+}
+html[data-theme="dark"][data-caixa-theme="christmas"] .modal input,
+html[data-theme="dark"][data-caixa-theme="christmas"] .modal select,
+html[data-theme="dark"][data-caixa-theme="christmas"] .modal textarea {
+  background: #0e2019 !important;
+  color: #f4ead8 !important;
+  border-color: rgba(225,191,97,.17) !important;
+}
+
+/* ---------- botões de lançamentos: gelo bonito, não uma faixa branca ---------- */
+html[data-caixa-theme="christmas"] #tab-ganhos .item-list-row::before,
+html[data-caixa-theme="christmas"] #tab-fixos .item-list-row::before,
+html[data-caixa-theme="christmas"] #tab-variaveis .item-list-row::before {
+  display: none !important;
+}
+html[data-caixa-theme="christmas"] #tab-ganhos .btn::before,
+html[data-caixa-theme="christmas"] #tab-fixos .btn::before,
+html[data-caixa-theme="christmas"] #tab-variaveis .btn::before {
+  height: 7px;
+  top: -2px;
+  background: linear-gradient(180deg,#fff 0%,#f6fbfd 72%,rgba(246,251,253,0) 100%);
+  clip-path: polygon(0 0,100% 0,98% 54%,94% 42%,89% 70%,84% 45%,78% 66%,72% 43%,65% 71%,59% 46%,52% 67%,45% 42%,38% 72%,31% 45%,24% 66%,17% 43%,10% 70%,4% 45%);
+  filter: drop-shadow(0 1px 2px rgba(60,90,95,.24));
+}
+html[data-theme="dark"][data-caixa-theme="christmas"] #tab-ganhos .btn::before,
+html[data-theme="dark"][data-caixa-theme="christmas"] #tab-fixos .btn::before,
+html[data-theme="dark"][data-caixa-theme="christmas"] #tab-variaveis .btn::before {
+  background: linear-gradient(180deg,#f9ffff 0%,#dcebed 68%,rgba(220,235,237,0) 100%);
+}
