@@ -689,7 +689,7 @@
 
     <div class="caixa-config-body">
       <section class="caixa-config-view" id="caixaConfigHome">
-        <p class="caixa-config-intro">Deixe o Caixa com a sua cara. Tudo que você alterar aqui fica salvo na sua conta Firebase.</p>
+        <p class="caixa-config-intro"></p>
         <button type="button" class="caixa-config-card" data-config-view="categorias">
           <span class="caixa-config-card-icon">
             <svg viewBox="0 0 24 24" fill="none"><circle cx="7" cy="7" r="2.5" stroke="currentColor" stroke-width="1.8"/><circle cx="17" cy="17" r="2.5" stroke="currentColor" stroke-width="1.8"/><path d="m9 9 6 6M15 9l-6 6" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/></svg>
@@ -741,7 +741,7 @@
 
       <section class="caixa-config-view is-hidden" id="caixaConfigTema">
         <div class="caixa-config-section-head">
-          <div><h3>Aparência</h3><p>Esta preferência fica salva somente neste dispositivo.</p></div>
+          <div><h3>Aparência</h3><p>Escolha como o Caixa deve aparecer para você.</p></div>
         </div>
         <div class="caixa-theme-options" id="caixaThemeOptions">
           <button type="button" class="caixa-theme-option" data-theme-choice="light">
@@ -764,12 +764,8 @@
 
       <section class="caixa-config-view is-hidden" id="caixaConfigFaturas">
         <div class="caixa-config-section-head">
-          <div><h3>Suas faturas</h3><p>Cada fatura pode ter seu próprio vencimento. No cadastro de gasto, se houver mais de uma, o Caixa pergunta qual usar.</p></div>
+          <div><h3>Suas faturas</h3><p>Cadastre seus cartões e defina o dia de vencimento de cada fatura.</p></div>
           <button type="button" class="btn btn-gold btn-config-small" id="btnNovaFatura">+ Nova</button>
-        </div>
-        <div class="caixa-config-person-switch" id="configFaturaPessoa">
-          <button type="button" class="is-active" data-fatura-pessoa="davi">Davi</button>
-          <button type="button" data-fatura-pessoa="gabriel">Gabriel</button>
         </div>
         <div class="caixa-config-list" id="listaConfigFaturas"></div>
       </section>
@@ -786,14 +782,7 @@
     <p class="modal-hint" id="configFaturaHint">Cadastre o cartão e o dia em que a fatura vence.</p>
     <label class="config-fatura-field-label" for="configFaturaNome">Nome da fatura</label>
     <input id="configFaturaNome" type="text" maxlength="50" autocomplete="off" placeholder="Ex.: Nubank" />
-    <div class="config-fatura-form-row">
-      <div>
-        <label class="config-fatura-field-label" for="configFaturaPessoa">Pessoa</label>
-        <select id="configFaturaPessoa">
-          <option value="davi">Davi</option>
-          <option value="gabriel">Gabriel</option>
-        </select>
-      </div>
+    <div class="config-fatura-form-row config-fatura-form-row-single">
       <div>
         <label class="config-fatura-field-label" for="configFaturaDia">Vencimento</label>
         <select id="configFaturaDia"></select>

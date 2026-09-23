@@ -8176,8 +8176,8 @@ if (document.readyState === "loading") {
     return garantirFaturas().filter(f => String(f?.pessoa || "davi") === faturaPessoa);
   }
   function renderFaturas() {
+    faturaPessoa = state.pessoaAtual === "gabriel" ? "gabriel" : "davi";
     garantirFaturas();
-    document.querySelectorAll("[data-fatura-pessoa]").forEach(btn => btn.classList.toggle("is-active", btn.dataset.faturaPessoa === faturaPessoa));
     const wrap = document.getElementById("listaConfigFaturas");
     const lista = faturasPessoa();
     if (!lista.length) {
@@ -8226,7 +8226,6 @@ if (document.readyState === "loading") {
     title: document.getElementById("configFaturaTitle"),
     hint: document.getElementById("configFaturaHint"),
     nome: document.getElementById("configFaturaNome"),
-    pessoa: document.getElementById("configFaturaPessoa"),
     dia: document.getElementById("configFaturaDia"),
     salvar: document.getElementById("configFaturaSalvar"),
     cancelar: document.getElementById("configFaturaCancelar"),
@@ -8245,11 +8244,11 @@ if (document.readyState === "loading") {
   function abrirModalFatura(fatura = null) {
     preencherDiasFatura();
     faturaEditandoId = fatura ? String(fatura.id) : null;
-    const pessoaInicial = fatura?.pessoa || faturaPessoa || (state.pessoaAtual === "gabriel" ? "gabriel" : "davi");
+    const pessoaAtual = state.pessoaAtual === "gabriel" ? "gabriel" : "davi";
+    faturaPessoa = pessoaAtual;
     faturaModal.title.textContent = fatura ? "Editar fatura" : "Nova fatura";
     faturaModal.hint.textContent = fatura ? "Altere o nome ou o dia em que esta fatura vence." : "Cadastre o cartão e o dia em que a fatura vence.";
     faturaModal.nome.value = fatura?.nome || "";
-    faturaModal.pessoa.value = pessoaInicial;
     faturaModal.dia.value = String(Number(fatura?.dia) || 10);
     faturaModal.salvar.textContent = fatura ? "Salvar alterações" : "Salvar fatura";
     faturaModal.backdrop.classList.remove("is-hidden");
@@ -8257,7 +8256,7 @@ if (document.readyState === "loading") {
   }
   async function salvarFaturaModal() {
     const nome = String(faturaModal.nome.value || "").trim();
-    const pessoa = faturaModal.pessoa.value === "gabriel" ? "gabriel" : "davi";
+    const pessoa = state.pessoaAtual === "gabriel" ? "gabriel" : "davi";
     const dia = Number(faturaModal.dia.value);
     if (!nome) { showToast("Digite o nome da fatura."); faturaModal.nome.focus(); return; }
     if (!(dia >= 1 && dia <= 31)) { showToast("Escolha um dia entre 1 e 31."); faturaModal.dia.focus(); return; }
@@ -8290,9 +8289,20 @@ if (document.readyState === "loading") {
       showToast("Mantenha pelo menos uma fatura para essa pessoa.");
       return;
     }
-    if (!confirm(`Excluir a fatura "${lista[idx].nome}"?`)) return;
-    lista.splice(idx,1);
-    if (await salvarFaturas(lista)) renderFaturas();
+    const nomeFatura = lista[idx].nome;
+    const tituloEl = document.getElementById("confirmTitle");
+    if (tituloEl) tituloEl.textContent = "Excluir fatura?";
+    abrirConfirmacao(`A fatura "${nomeFatura}" será removida. Essa ação não pode ser desfeita.`, async () => {
+      const listaAtualizada = garantirFaturas().slice();
+      const idxAtual = listaAtualizada.findIndex(f => String(f.id) === String(id));
+      if (idxAtual < 0) return;
+      if (listaAtualizada.filter(f => String(f.pessoa || "davi") === faturaPessoa).length <= 1) {
+        showToast("Mantenha pelo menos uma fatura para essa pessoa.");
+        return;
+      }
+      listaAtualizada.splice(idxAtual, 1);
+      if (await salvarFaturas(listaAtualizada)) renderFaturas();
+    });
   }
 
   function renderTema() {
@@ -8312,7 +8322,10 @@ if (document.readyState === "loading") {
   }
 
   document.getElementById("btnAbrirConfiguracoes")?.addEventListener("click", abrir);
-  close.addEventListener("click", fechar);
+  close.addEventListener("click", () => {
+    if (viewAtual !== "home") mostrarView("home");
+    else fechar();
+  });
   overlay.addEventListener("click", e => { if (e.target === overlay) fechar(); });
   back.addEventListener("click", () => mostrarView("home"));
   document.addEventListener("keydown", e => { if (e.key === "Escape" && !overlay.classList.contains("is-hidden")) fechar(); });
@@ -8323,10 +8336,6 @@ if (document.readyState === "loading") {
   document.getElementById("btnNovaCategoria")?.addEventListener("click", novaCategoria);
   document.getElementById("btnNovaImersao")?.addEventListener("click", novaImersao);
   document.getElementById("btnSalvarConfigIA")?.addEventListener("click", salvarIA);
-  document.querySelectorAll("[data-fatura-pessoa]").forEach(btn => btn.addEventListener("click", () => {
-    faturaPessoa = btn.dataset.faturaPessoa || "davi";
-    renderFaturas();
-  }));
   document.getElementById("btnNovaFatura")?.addEventListener("click", novaFatura);
   faturaModal.salvar?.addEventListener("click", salvarFaturaModal);
   faturaModal.cancelar?.addEventListener("click", fecharModalFatura);
