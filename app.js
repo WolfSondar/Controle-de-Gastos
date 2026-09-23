@@ -8551,15 +8551,53 @@ if (document.readyState === "loading") {
       container.dataset.seasonalMessage = automatico ? "Tema sazonal ativo automaticamente durante este período." : "";
     }
   }
+  function garantirCardAdminHalloween() {
+    if (state.pessoaAtual !== "davi") return;
+    if (document.getElementById("caixaAdminHalloweenTema")) return;
+    const natalInput = document.getElementById("temaNatalInicio");
+    const natalCard = natalInput?.closest(".caixa-config-card, .caixa-settings-card, .settings-card, .config-card, .card, section");
+    if (!natalCard || !natalCard.parentElement) return;
+
+    const card = document.createElement("section");
+    card.id = "caixaAdminHalloweenTema";
+    card.className = natalCard.className || "caixa-config-card";
+    card.innerHTML = `
+      <div class="caixa-config-card-head">
+        <div>
+          <div class="caixa-config-card-title">🎃 Halloween</div>
+          <div class="caixa-config-card-subtitle">Defina quando o tema Halloween pode ficar disponível automaticamente.</div>
+        </div>
+      </div>
+      <div class="caixa-config-card-body">
+        <div class="caixa-config-row">
+          <div class="caixa-config-row-main"><div class="caixa-config-row-title">Disponibilidade</div><div class="caixa-config-row-sub">Escolha se o tema pode ser usado livremente ou só na temporada.</div></div>
+          <label class="caixa-toggle"><input type="checkbox" id="temaHalloweenPermanente"><span></span></label>
+        </div>
+        <div class="caixa-config-grid-2">
+          <label class="caixa-field"><span>Início</span><input type="date" id="temaHalloweenInicio"></label>
+          <label class="caixa-field"><span>Fim</span><input type="date" id="temaHalloweenFim"></label>
+        </div>
+        <button type="button" class="caixa-config-primary" id="btnSalvarAdminHalloween">Salvar Halloween</button>
+      </div>`;
+    natalCard.parentElement.appendChild(card);
+    document.getElementById("btnSalvarAdminHalloween")?.addEventListener("click", salvarAdminHalloween);
+  }
+
   function renderAdmin() {
     if (state.pessoaAtual !== "davi") return;
     renderAdminIcones();
+    garantirCardAdminHalloween();
     const cfg = state.temasConfig || {};
     const natal = cfg.christmas || {};
+    const halloween = cfg.halloween || {};
     const ini = document.getElementById("temaNatalInicio"); const fim = document.getElementById("temaNatalFim"); const perm = document.getElementById("temaNatalPermanente");
     if (ini) ini.value = natal.inicio || "2026-12-01";
     if (fim) fim.value = natal.fim || "2026-12-31";
     if (perm) perm.checked = natal.permanente !== false;
+    const hIni = document.getElementById("temaHalloweenInicio"); const hFim = document.getElementById("temaHalloweenFim"); const hPerm = document.getElementById("temaHalloweenPermanente");
+    if (hIni) hIni.value = halloween.inicio || "2026-10-01";
+    if (hFim) hFim.value = halloween.fim || "2026-10-31";
+    if (hPerm) hPerm.checked = halloween.permanente !== false;
   }
   function renderAdminIcones() {
     const catsWrap = document.getElementById("listaCategoriasIcones");
@@ -8612,6 +8650,11 @@ if (document.readyState === "loading") {
     const inicio = document.getElementById("temaNatalInicio")?.value || "2026-12-01"; const fim = document.getElementById("temaNatalFim")?.value || "2026-12-31"; const permanente = !!document.getElementById("temaNatalPermanente")?.checked;
     state.temasConfig = {...(state.temasConfig||{}), christmas:{inicio,fim,permanente}};
     await salvarConfig({temasConfig:state.temasConfig}, "Regras de temas salvas."); renderTemas();
+  }
+  async function salvarAdminHalloween() {
+    const inicio = document.getElementById("temaHalloweenInicio")?.value || "2026-10-01"; const fim = document.getElementById("temaHalloweenFim")?.value || "2026-10-31"; const permanente = !!document.getElementById("temaHalloweenPermanente")?.checked;
+    state.temasConfig = {...(state.temasConfig||{}), halloween:{inicio,fim,permanente}};
+    await salvarConfig({temasConfig:state.temasConfig}, "Regras do tema Halloween salvas."); renderTemas();
   }
 
   // Neve decorativa procedural: cada card recebe um perfil diferente para que
