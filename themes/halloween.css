@@ -493,3 +493,119 @@ html[data-caixa-theme="halloween"] .halloween-scenery-item.bat-three{animation-d
   0%,100%{transform:translate3d(0,0,0) rotate(-1deg);}
   50%{transform:translate3d(0,-2px,0) rotate(1deg);}
 }
+
+/* ============================================================
+   HALLOWEEN — refinamento v6
+   ============================================================ */
+
+/* Hero: terreno de Halloween, sem slime. A camada vai até a base do card. */
+html[data-caixa-theme="halloween"] .hero::after{
+  content:"";
+  position:absolute;
+  left:0;
+  right:0;
+  bottom:0;
+  height:58px;
+  background-image:var(--halloween-terrain-image);
+  background-size:100% 100%;
+  background-repeat:no-repeat;
+  opacity:1;
+  pointer-events:none;
+  z-index:12;
+}
+
+/* Cenário fixo: uma árvore morta, uma abóbora, três morcegos e um gato preto. */
+html[data-caixa-theme="halloween"] .caixa-halloween-scenery{bottom:0;height:96px}
+html[data-caixa-theme="halloween"] .halloween-scenery-item{z-index:16}
+html[data-caixa-theme="halloween"] .halloween-scenery-item.dead-tree{
+  font-size:58px;
+  bottom:6px;
+  filter:drop-shadow(0 3px 5px rgba(20,8,31,.32));
+}
+html[data-caixa-theme="halloween"] .halloween-scenery-item.pumpkin-static{
+  font-size:39px;
+  bottom:5px;
+  animation:none;
+}
+html[data-caixa-theme="halloween"] .halloween-scenery-item.bat{
+  font-size:31px;
+  animation:halloweenBatFloat 5.8s ease-in-out var(--scene-delay,0s) infinite;
+}
+html[data-caixa-theme="halloween"] .halloween-scenery-item.bat-two{font-size:23px}
+html[data-caixa-theme="halloween"] .halloween-scenery-item.bat-three{font-size:19px}
+html[data-caixa-theme="halloween"] .halloween-scenery-item.black-cat{
+  font-size:34px;
+  bottom:5px;
+  animation:none;
+}
+
+/* Nos lançamentos e caixinhas, Halloween não usa nenhuma "neve"/slime. */
+html[data-caixa-theme="halloween"] .item-list-row .swipe-content::before,
+html[data-caixa-theme="halloween"] .item-list-row .swipe-content::after,
+html[data-caixa-theme="halloween"] .goal-card::before,
+html[data-caixa-theme="halloween"] .goal-card .goal-head::after{
+  content:none !important;
+  display:none !important;
+}
+html[data-caixa-theme="halloween"] .item-list-row .swipe-content,
+html[data-caixa-theme="halloween"] .goal-card{
+  overflow:hidden;
+}
+
+/* Os dois FABs ganham pequenas asas de morcego, sem alterar a área clicável. */
+html[data-caixa-theme="halloween"] .fab-criar,
+html[data-caixa-theme="halloween"] .caixa-chat-fab{
+  isolation:isolate;
+}
+html[data-caixa-theme="halloween"] .fab-criar::before,
+html[data-caixa-theme="halloween"] .fab-criar::after,
+html[data-caixa-theme="halloween"] .caixa-chat-fab::before,
+html[data-caixa-theme="halloween"] .caixa-chat-fab::after{
+  content:"";
+  position:absolute;
+  top:50%;
+  width:28px;
+  height:24px;
+  pointer-events:none;
+  z-index:-1;
+  transform:translateY(-50%);
+  background:linear-gradient(145deg,#3b1e52 0%,#6e3c9c 48%,#26162f 100%);
+  filter:drop-shadow(0 3px 5px rgba(28,12,38,.24));
+  opacity:.96;
+}
+html[data-caixa-theme="halloween"] .fab-criar::before,
+html[data-caixa-theme="halloween"] .caixa-chat-fab::before{
+  left:-20px;
+  clip-path:polygon(100% 50%,76% 8%,58% 30%,38% 0,29% 37%,0 23%,18% 67%,4% 91%,48% 76%,68% 100%,74% 61%);
+  transform:translateY(-50%) scaleX(-1);
+}
+html[data-caixa-theme="halloween"] .fab-criar::after,
+html[data-caixa-theme="halloween"] .caixa-chat-fab::after{
+  right:-20px;
+  clip-path:polygon(0 50%,24% 8%,42% 30%,62% 0,71% 37%,100% 23%,82% 67%,96% 91%,52% 76%,32% 100%,26% 61%);
+}
+html[data-caixa-theme="halloween"] .fab-criar:hover::before,
+html[data-caixa-theme="halloween"] .fab-criar:hover::after,
+html[data-caixa-theme="halloween"] .caixa-chat-fab:hover::before,
+html[data-caixa-theme="halloween"] .caixa-chat-fab:hover::after{
+  filter:drop-shadow(0 4px 7px rgba(111,60,156,.32));
+  opacity:1;
+}
+html[data-theme="dark"][data-caixa-theme="halloween"] .fab-criar::before,
+html[data-theme="dark"][data-caixa-theme="halloween"] .fab-criar::after,
+html[data-theme="dark"][data-caixa-theme="halloween"] .caixa-chat-fab::before,
+html[data-theme="dark"][data-caixa-theme="halloween"] .caixa-chat-fab::after{
+  background:linear-gradient(145deg,#21122c 0%,#66358e 52%,#120a19 100%);
+  opacity:.98;
+}
+
+@media(max-width:640px){
+  html[data-caixa-theme="halloween"] .caixa-halloween-scenery{height:82px}
+  html[data-caixa-theme="halloween"] .halloween-scenery-item.dead-tree{font-size:47px}
+  html[data-caixa-theme="halloween"] .halloween-scenery-item.pumpkin-static{font-size:32px}
+  html[data-caixa-theme="halloween"] .halloween-scenery-item.black-cat{font-size:28px}
+  html[data-caixa-theme="halloween"] .fab-criar::before,
+  html[data-caixa-theme="halloween"] .fab-criar::after,
+  html[data-caixa-theme="halloween"] .caixa-chat-fab::before,
+  html[data-caixa-theme="halloween"] .caixa-chat-fab::after{width:23px;height:21px}
+}

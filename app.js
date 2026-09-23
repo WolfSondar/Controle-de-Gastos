@@ -8463,8 +8463,12 @@ if (document.readyState === "loading") {
     if (!hero || hero.querySelector(".caixa-halloween-scenery")) return;
     const wrap = document.createElement("div"); wrap.className = "caixa-halloween-scenery"; wrap.setAttribute("aria-hidden", "true");
     const itens = [
-      { cls:"pumpkin", x:22, s:.92 }, { cls:"pumpkin mini", x:78, s:.62 },
-      { cls:"bat", x:38, y:10, s:.72 }, { cls:"bat bat-two", x:63, y:16, s:.52 }, { cls:"bat bat-three", x:88, y:8, s:.46 }
+      { cls:"dead-tree", x:12, s:1.0 },
+      { cls:"pumpkin-static", x:25, s:.86 },
+      { cls:"bat", x:45, y:8, s:.66 },
+      { cls:"bat bat-two", x:63, y:17, s:.48 },
+      { cls:"bat bat-three", x:82, y:7, s:.42 },
+      { cls:"black-cat", x:91, s:.72 }
     ];
     itens.sort(() => Math.random() - .5);
     itens.forEach((item, idx) => {
@@ -8472,39 +8476,42 @@ if (document.readyState === "loading") {
       el.style.left=`${item.x + (Math.random()*6-3)}%`;
       if(item.y!=null) el.style.top=`${item.y + Math.random()*7}px`; else el.style.bottom=`${2+Math.random()*2}px`;
       el.style.setProperty("--scene-scale", String(item.s+(Math.random()*.1-.05))); el.style.setProperty("--scene-delay", `${idx*-1.7}s`);
-      if(item.cls.includes("pumpkin")) el.innerHTML=`🎃`;
-      else el.innerHTML=`🦇`;
+      if(item.cls === "dead-tree") el.innerHTML=`🪾`;
+      else if(item.cls === "pumpkin-static") el.innerHTML=`🎃`;
+      else if(item.cls.includes("bat")) el.innerHTML=`🦇`;
+      else el.innerHTML=`🐈‍⬛`;
       wrap.appendChild(el);
     });
     hero.appendChild(wrap);
   }
-  function gerarPerfilSlime(tipo="card") {
-    const largura=1000, altura=tipo==="hero"?32:22, qtd=tipo==="hero"?13:11, pontos=[];
+  function gerarPerfilTerrenoHalloween(){
+    const largura=1000, altura=58, qtd=18, pontos=[];
     for(let i=0;i<=qtd;i++){
       const x=i/qtd*largura;
-      const onda=Math.sin((i/qtd)*Math.PI*2.4+.45)*2.2;
-      const variacao=(Math.random()-.5)*(tipo==="hero"?3.4:2.5);
-      const bolha=Math.random()<.18 ? 2+Math.random()*3 : 0;
-      pontos.push({x,y:Math.max(3.5,6+onda+variacao+bolha)});
+      const onda=Math.sin((i/qtd)*Math.PI*2.7+.35)*4.8;
+      const onda2=Math.sin((i/qtd)*Math.PI*6.1+1.2)*1.7;
+      const variacao=(Math.random()-.5)*5.2;
+      const montinho=Math.random()<.22 ? 2+Math.random()*4 : 0;
+      pontos.push({x,y:Math.max(9,17+onda+onda2+variacao+montinho)});
     }
     const curva=(p0,p1,p2,p3)=>{const c1x=p1.x+(p2.x-p0.x)/6,c1y=p1.y+(p2.y-p0.y)/6,c2x=p2.x-(p3.x-p1.x)/6,c2y=p2.y-(p3.y-p1.y)/6;return `C ${c1x.toFixed(1)} ${c1y.toFixed(1)}, ${c2x.toFixed(1)} ${c2y.toFixed(1)}, ${p2.x.toFixed(1)} ${p2.y.toFixed(1)}`};
     let path=`M 0 ${pontos[0].y.toFixed(1)}`;
     for(let i=0;i<pontos.length-1;i++){const p0=pontos[Math.max(0,i-1)],p1=pontos[i],p2=pontos[i+1],p3=pontos[Math.min(pontos.length-1,i+2)];path+=` ${curva(p0,p1,p2,p3)}`}
     path+=` L ${largura} ${altura} L 0 ${altura} Z`;
-    const svg=`<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 ${largura} ${altura}" preserveAspectRatio="none"><defs><linearGradient id="g" x1="0" y1="0" x2="1" y2="0"><stop offset="0" stop-color="#69eaff"/><stop offset=".55" stop-color="#6598ff"/><stop offset="1" stop-color="#7a43c5"/></linearGradient></defs><path d="${path}" fill="url(#g)"/></svg>`;
+    const svg=`<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 ${largura} ${altura}" preserveAspectRatio="none"><defs><linearGradient id="ground" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#684b48"/><stop offset=".34" stop-color="#4a3340"/><stop offset="1" stop-color="#21152b"/></linearGradient><linearGradient id="rim" x1="0" y1="0" x2="1" y2="0"><stop offset="0" stop-color="#8c5a43"/><stop offset=".5" stop-color="#73514f"/><stop offset="1" stop-color="#53366a"/></linearGradient></defs><path d="${path}" fill="url(#ground)"/><path d="${pontos.map((p,i)=>`${i?'L':'M'} ${p.x.toFixed(1)} ${(p.y+.5).toFixed(1)}`).join(' ')}" fill="none" stroke="url(#rim)" stroke-width="2.2" stroke-linecap="round" opacity=".72"/></svg>`;
     return `url("data:image/svg+xml;base64,${btoa(svg)}")`;
   }
 
-  function aplicarSlimeHalloween(root=document){
+  function aplicarTerrenoHalloween(){
     if(document.documentElement.dataset.caixaTheme!=="halloween") return;
-    root.querySelectorAll(".item-list-row, .goal-card.caixinha-card").forEach(el=>{if(el.dataset.slimeProfile)return;el.style.setProperty("--slime-image",gerarPerfilSlime("card"));el.dataset.slimeProfile="1"});
-    const hero=document.querySelector(".hero"); if(hero&&!hero.dataset.slimeProfile){hero.style.setProperty("--slime-image",gerarPerfilSlime("hero"));hero.dataset.slimeProfile="1"}
+    const hero=document.querySelector(".hero");
+    if(hero&&!hero.dataset.halloweenTerrain){hero.style.setProperty("--halloween-terrain-image",gerarPerfilTerrenoHalloween());hero.dataset.halloweenTerrain="1"}
   }
   function atualizarCamadaTemaHalloween(){
     const ativo=document.documentElement.dataset.caixaTheme==="halloween"; garantirCssTema("halloween");
-    if(ativo){prepararCenarioHalloween();aplicarSlimeHalloween()}
+    if(ativo){prepararCenarioHalloween();aplicarTerrenoHalloween()}
     document.querySelectorAll(".caixa-halloween-scenery").forEach(el=>el.setAttribute("aria-hidden",ativo?"false":"true"));
-    if(!ativo){document.querySelectorAll(".caixa-halloween-scenery").forEach(el=>el.remove());document.querySelectorAll("[data-slime-profile]").forEach(el=>{el.style.removeProperty("--slime-image");delete el.dataset.slimeProfile})}
+    if(!ativo){document.querySelectorAll(".caixa-halloween-scenery").forEach(el=>el.remove());document.querySelectorAll("[data-slime-profile]").forEach(el=>{el.style.removeProperty("--slime-image");delete el.dataset.slimeProfile}); document.querySelectorAll("[data-halloween-terrain]").forEach(el=>{el.style.removeProperty("--halloween-terrain-image");delete el.dataset.halloweenTerrain})}
   }
   function atualizarCamadasTemas(){atualizarCamadaTemaNatal();atualizarCamadaTemaHalloween()}
   function atualizarCamadaTemaNatal() {
