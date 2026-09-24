@@ -1963,3 +1963,68 @@ html[data-theme="dark"][data-caixa-theme="christmas"] body .split-donut-center {
   background: var(--noite-cartao-2) !important;
   box-shadow: inset 0 0 0 1px var(--noite-borda-suave);
 }
+
+
+/* ============================================================
+   NATAL ESCURO — BARRA DE BAIXO E BOTÕES FLUTUANTES (noite azul)
+
+   Continuação do bloco acima: tira o verde da barra de navegação
+   (Resumo, Ganhos, Fixos, Variáveis, Caixinhas, Histórico) e dos
+   botões flutuantes "+" (Adicionar) e "Caixa" (chat).
+
+   Para trocar as cores, mexa nas variáveis --noite-* abaixo.
+   ============================================================ */
+html[data-theme="dark"][data-caixa-theme="christmas"] {
+  /* barra de navegação inferior */
+  --noite-barra-1: #102a42;
+  --noite-barra-2: #0a1d31;
+
+  /* botões flutuantes (+ e Caixa) e botão da aba ativa */
+  --noite-botao-1: #245a7d;
+  --noite-botao-2: #133a56;
+  --noite-botao-borda: rgba(139, 220, 240, .30);
+}
+
+/* Barra de navegação. */
+html[data-theme="dark"][data-caixa-theme="christmas"] body .tabbar {
+  background: linear-gradient(180deg, var(--noite-barra-1) 0%, var(--noite-barra-2) 100%) !important;
+  border-top: 1px solid var(--noite-borda) !important;
+  box-shadow: 0 -12px 30px rgba(0, 0, 0, .42) !important;
+}
+/* Recorte ondulado no topo da barra: precisa ter a mesma cor do topo dela. */
+html[data-theme="dark"][data-caixa-theme="christmas"] body .tabbar::before {
+  background-image:
+    linear-gradient(135deg, var(--noite-barra-1) 25%, transparent 25.5%),
+    linear-gradient(225deg, var(--noite-barra-1) 25%, transparent 25.5%) !important;
+  filter: drop-shadow(0 -2px 4px rgba(0, 0, 0, .25));
+}
+
+/* Botões da barra: passar o dedo/mouse e aba ativa. */
+html[data-theme="dark"][data-caixa-theme="christmas"] body .tab-btn:hover {
+  background: rgba(125, 199, 229, .09) !important;
+}
+html[data-theme="dark"][data-caixa-theme="christmas"] body .tab-btn.is-active {
+  background: linear-gradient(145deg, #1a4363 0%, #123350 100%) !important;
+  border-color: var(--noite-borda) !important;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, .28), inset 0 1px 0 rgba(224, 247, 253, .07) !important;
+}
+
+/* Botões flutuantes: "+" (Adicionar) e "Caixa" (chat). */
+html[data-theme="dark"][data-caixa-theme="christmas"] body .fab-criar,
+html[data-theme="dark"][data-caixa-theme="christmas"] body .caixa-chat-fab {
+  background: linear-gradient(145deg, var(--noite-botao-1) 0%, var(--noite-botao-2) 100%) !important;
+  border-color: var(--noite-botao-borda) !important;
+  color: #e7f9fd !important;
+  box-shadow: 0 14px 34px rgba(0, 0, 0, .40), 0 2px 8px rgba(0, 0, 0, .22), inset 0 1px 0 rgba(224, 247, 253, .10) !important;
+}
+html[data-theme="dark"][data-caixa-theme="christmas"] body .fab-criar:hover,
+html[data-theme="dark"][data-caixa-theme="christmas"] body .caixa-chat-fab:hover {
+  box-shadow: 0 16px 34px rgba(0, 0, 0, .45), 0 3px 10px rgba(0, 0, 0, .25), inset 0 1px 0 rgba(224, 247, 253, .12) !important;
+}
+html[data-theme="dark"][data-caixa-theme="christmas"] body .fab-criar svg {
+  color: #bfeaf6 !important;
+}
+/* Anel que pulsa em volta do botão Caixa: de dourado para azul-gelo. */
+html[data-theme="dark"][data-caixa-theme="christmas"] body .caixa-chat-fab-pulse {
+  border-color: rgba(125, 199, 229, .35) !important;
+}
