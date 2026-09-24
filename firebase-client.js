@@ -1,11 +1,9 @@
-/* CAIXA — Firebase / Firestore / Gemini API
- * Banco, autenticação e IA do Caixa. Não depende de Google Apps Script.
+/* CAIXA — Firebase / Firestore
+ * Banco e autenticação do Caixa. Não depende de Google Apps Script.
  * SDK modular carregado diretamente pelo navegador para manter o projeto
  * GitHub Pages sem build obrigatório.
  */
 import { initializeApp } from "https://www.gstatic.com/firebasejs/12.15.0/firebase-app.js";
-import { initializeAppCheck, ReCaptchaEnterpriseProvider } from "https://www.gstatic.com/firebasejs/12.15.0/firebase-app-check.js";
-import { getAI, getGenerativeModel, GoogleAIBackend } from "https://www.gstatic.com/firebasejs/12.15.0/firebase-ai.js";
 import {
   getAuth,
   onAuthStateChanged,
@@ -65,27 +63,12 @@ if (!cfg.apiKey || cfg.apiKey.includes("COLE_")) {
     "r5yVCCMatXPVsCiiJcMKWM613gq1",
   ]);
 
-  // IMPORTANTE: o App Check precisa ser inicializado antes de qualquer outro
-  // serviço Firebase (especialmente Auth). Assim o Auth não tenta obter um
-  // token de App Check antes de o provider reCAPTCHA Enterprise estar pronto.
-  const appCheck = initializeAppCheck(app, {
-    provider: new ReCaptchaEnterpriseProvider("6LfWccwtAAAAAAgJsbfS8IZr0S0Xt9-yagZ3WCh5"),
-    isTokenAutoRefreshEnabled: true
-  });
-
-  // A IA usa Firebase AI Logic + Gemini Developer API. O proxy do Firebase
-  // mantém a chave Gemini fora do código público do app.
   const auth = getAuth(app);
   const db = initializeFirestore(app, {
     localCache: persistentLocalCache({ tabManager: persistentMultipleTabManager() }),
   });
 
   const provider = new GoogleAuthProvider();
-  const ai = getAI(app, {
-    backend: new GoogleAIBackend(),
-    useLimitedUseAppCheckTokens: true
-  });
-  const geminiModel = getGenerativeModel(ai, { model: "gemini-3.8-flash" });
   const ADMIN_UID = "rMURmjHzuVdfaQyeikEAAYdAJxi1";
   let currentUser = null;
   let authResolve;
@@ -237,7 +220,7 @@ if (!cfg.apiKey || cfg.apiKey.includes("COLE_")) {
       gastosVariaveis:[...(a.gastosVariaveis||[]).map(x=>({...x,pessoa:"davi"})),...(b.gastosVariaveis||[]).map(x=>({...x,pessoa:"gabriel"}))],
       caixinhas:[...(a.caixinhas||[]).map(x=>({...x,pessoa:"davi"})),...(b.caixinhas||[]).map(x=>({...x,pessoa:"gabriel"}))],
       categorias:a.categorias||b.categorias||[], iconCategorias:a.iconCategorias||b.iconCategorias||[], iconNomes:a.iconNomes||b.iconNomes||{}, temasConfig:a.temasConfig||b.temasConfig||null,
-      iaConfig:a.iaConfig||b.iaConfig||null, faturas:Array.isArray(a.faturas)?a.faturas:[],
+      faturas:Array.isArray(a.faturas)?a.faturas:[],
       mesAtual:a.mesAtual, anoAtual:a.anoAtual,
       configDavi:{mesAtual:a.mesAtual,anoAtual:a.anoAtual}, configGabriel:{mesAtual:b.mesAtual,anoAtual:b.anoAtual},
     };
@@ -253,7 +236,7 @@ if (!cfg.apiKey || cfg.apiKey.includes("COLE_")) {
       iconCategorias:c.iconCategorias||d.iconCategorias||[],
       iconNomes:c.iconNomes||d.iconNomes||{},
       temasConfig:c.temasConfig||null,
-      iaConfig:c.iaConfig||null,
+
       faturas:Array.isArray(c.faturas)?c.faturas:[],
     };
   }
@@ -467,14 +450,13 @@ if (!cfg.apiKey || cfg.apiKey.includes("COLE_")) {
     if(action==="sincronizarGanhoCorrespondenteFixo") return respostaJson(await sincronizarGanhoCorrespondenteFixoFirestore(uid,body));
     if(action==="saveConfig"){
       const patch = body?.payload && typeof body.payload === "object" ? body.payload : {};
-      const permitidos = ["categorias","iconCategorias","iconNomes","temasConfig","iaConfig","faturas"];
+      const permitidos = ["categorias","iconCategorias","iconNomes","temasConfig","faturas"];
       const limpo = {};
       for (const chave of permitidos) {
         if (Object.prototype.hasOwnProperty.call(patch, chave)) limpo[chave] = patch[chave];
       }
       if (Object.prototype.hasOwnProperty.call(limpo,"categorias") && !Array.isArray(limpo.categorias)) throw new Error("Categorias inválidas.");
       if (Object.prototype.hasOwnProperty.call(limpo,"faturas") && !Array.isArray(limpo.faturas)) throw new Error("Faturas inválidas.");
-      if (Object.prototype.hasOwnProperty.call(limpo,"iaConfig") && limpo.iaConfig !== null && typeof limpo.iaConfig !== "object") throw new Error("Configuração da IA inválida.");
       await setDoc(configRef(uid), limpo, {merge:true});
       return respostaJson({ok:true});
     }
@@ -506,171 +488,8 @@ if (!cfg.apiKey || cfg.apiKey.includes("COLE_")) {
     if(pessoa==="ambos"){const [a,b]=await Promise.all([lerPerfil(uid,"davi"),lerPerfil(uid,"gabriel")]);return respostaJson(mergeAmbos(a,b));}
     const d=await lerPerfil(uid,pessoa);return respostaJson({ok:true,...d});
   }
-  const MODELO_IA_CAIXA = "gemini-3.8-flash";
-  const TIPOS_INSIGHT_CAIXA = ["gasto", "ganho", "beneficio", "guardado", "rendimento", "atencao", "comparacao", "planejamento", "geral"];
-
-  function textoTomIAFirebase(pessoa, iaConfig) {
-    if (pessoa === "gabriel") return String(iaConfig?.tomGabriel || "").trim();
-    if (pessoa === "ambos") return String(iaConfig?.tomAmbos || "natural, equilibrado e conversado, falando com vocês dois").trim();
-    return String(iaConfig?.tomDavi || "").trim();
-  }
-
-  function textoImersaoIAFirebase(pessoa, iaConfig) {
-    const comum = Array.isArray(iaConfig?.ambos) ? iaConfig.ambos : [];
-    if (pessoa === "gabriel") return [...(Array.isArray(iaConfig?.gabriel) ? iaConfig.gabriel : []), ...comum];
-    if (pessoa === "ambos") return comum;
-    return [...(Array.isArray(iaConfig?.davi) ? iaConfig.davi : []), ...comum];
-  }
-
-  async function gerarComGemini(prompt, generationConfig) {
-    await window.CAIXA_FIREBASE_READY;
-    if (!currentUser || !USUARIOS_AUTORIZADOS.has(currentUser.uid)) {
-      throw new Error("Usuário não autorizado para usar a IA.");
-    }
-    const result = await geminiModel.generateContent(String(prompt || ""), {
-      generationConfig: generationConfig || {}
-    });
-    return String(result?.response?.text?.() || "");
-  }
-
-  function promptGastarIA(pessoa, resumo, iaConfig) {
-    const tom = textoTomIAFirebase(pessoa, iaConfig) || "natural, direto e conversado.";
-    const imersao = textoImersaoIAFirebase(pessoa, iaConfig);
-    const limite = Number(resumo?.mesAtual?.limiteDeGastoProjetado) || 0;
-    const beneficio = Number(resumo?.mesAtual?.beneficioDisponivel) || 0;
-    return [
-      "Você é o assistente financeiro do app Caixa e está respondendo quanto a pessoa ainda pode gastar.",
-      "Responda de forma muito curta e natural, normalmente uma única frase para cada campo.",
-      "Não explique a conta, não liste saldo atual, entradas futuras ou contas reservadas. A pessoa quer a margem de gasto.",
-      "Use exclusivamente os números de mesAtual no resumo. Para saldo em conta, use limiteDeGastoProjetado. Para benefício, use beneficioDisponivel.",
-      "IMPORTANTE: limiteDeGastoProjetado NÃO é dinheiro disponível agora. É o que ficará livre DEPOIS de considerar as obrigações pendentes deste mês. Se positivo, não diga 'você tem X'; diga que, depois de pagar o que falta, sobram X para gastar. Se zero, diga que não sobra margem. Se negativo, diga que não pode gastar mais nada e ainda falta dinheiro para cobrir as obrigações.",
-      "Seja humano, direto e sem tom de sermão. Não julgue os gastos.",
-      `PERSONA/TOM: ${tom}`,
-      `IMERSÃO PESSOAL: ${imersao.length ? imersao.join(" | ") : "nenhuma informação adicional."}`,
-      "Valores monetários devem permanecer completos no padrão R$ 0,00. Para destacar margem positiva use {{+R$ 0,00}}; para falta use {{-R$ 0,00}}. Não invente outros valores monetários.",
-      "Retorne SOMENTE JSON no formato {\"respostas\":{\"saldo\":\"...\",\"beneficio\":\"...\"}}.",
-      `limiteDeGastoProjetado=${limite}. beneficioDisponivel=${beneficio}.`,
-      "Resumo completo em JSON:", JSON.stringify(resumo || {})
-    ].join("\n");
-  }
-
-  async function gerarRespostaGastarIA({ pessoa = "davi", periodo = null, resumo = {} } = {}) {
-    await window.CAIXA_FIREBASE_READY;
-    if (!currentUser) return { ok: false, error: "Faça login para usar a IA." };
-    const iaConfig = await getIAConfig();
-    const generationConfig = {
-      responseMimeType: "application/json",
-      responseSchema: {
-        type: "OBJECT",
-        properties: {
-          respostas: {
-            type: "OBJECT",
-            properties: {
-              saldo: { type: "STRING" },
-              beneficio: { type: "STRING" },
-            },
-            required: ["saldo", "beneficio"],
-          },
-        },
-        required: ["respostas"],
-      },
-    };
-    try {
-      const texto = await gerarComGemini(promptGastarIA(String(pessoa).toLowerCase(), resumo, iaConfig), generationConfig);
-      const parsed = JSON.parse(texto);
-      const respostas = parsed?.respostas;
-      if (!respostas) throw new Error("Resposta da IA sem o formato esperado.");
-      return { ok: true, respostas: { saldo: String(respostas.saldo || "").trim(), beneficio: String(respostas.beneficio || "").trim() }, periodo };
-    } catch (err) {
-      console.warn("CAIXA — erro na IA de gasto:", err);
-      return { ok: false, error: String(err?.message || err) };
-    }
-  }
-
-  function promptInsightsIA(pessoa, resumo, modo, iaConfig) {
-    const tom = textoTomIAFirebase(pessoa, iaConfig) || "natural, direto e conversado.";
-    const imersao = textoImersaoIAFirebase(pessoa, iaConfig);
-    const regras = [
-      "Você é o assistente financeiro do app Caixa, um app pessoal de controle de gastos. Seja específico aos números recebidos; nunca dê conselho financeiro genérico.",
-      "Lançamentos cujo nome começa por 'Guardado: ' são transferências para caixinhas e NÃO são gastos de consumo. Nunca trate esses lançamentos como despesa.",
-      "valorGuardado das caixinhas é o total acumulado real guardado até agora. Não some rendimentoTotal ou guardadoNesseMes novamente ao valorGuardado.",
-      "Diferencie sempre mês em andamento de histórico e diferencie contas futuras de contas que vencem neste mês. Gastos futuros não reduzem a margem de gasto do mês atual.",
-      "Quando comentar planejamento futuro, considere também ganhosFuturos; um gasto futuro isolado não é uma dívida líquida.",
-      "Use saldoAtualEmConta, saldoProjetadoComEntradas, contasAbertasTotal e limiteDeGastoProjetado para falar de disponibilidade. Para 'quanto ainda posso gastar', prefira limiteDeGastoProjetado.",
-      "aindaAPagarFixosEsseMes e aindaAPagarVariaveisEsseMes são exclusivamente pendências deste mês. Não some gastosFuturos a elas.",
-      "Use categorias, lançamentos, caixinhas, recebimentos e comparações somente quando os dados realmente sustentarem a observação. Nunca invente números, nomes ou causas.",
-      "Os insights devem ser curtos, em português do Brasil, com 1 a 3 frases e no máximo aproximadamente 280 caracteres no texto.",
-      "Cada insight deve ter um ângulo diferente. Evite repetir a mesma informação ou recomendação.",
-      "Cada objeto deve ter somente titulo, texto e tipo. titulo deve ser curto e em CAIXA ALTA. tipo deve ser um destes: gasto, ganho, beneficio, guardado, rendimento, atencao, comparacao, planejamento ou geral.",
-      `TOM/PERSONA: ${tom}`,
-      `CONTEXTO PESSOAL: ${imersao.length ? imersao.join(" | ") : "nenhum."}`,
-      "Use o contexto pessoal apenas quando houver ligação natural com os dados; não force referências pessoais.",
-    ];
-    if (modo === "statusFinanceiro") {
-      regras.push("MODO STATUS FINANCEIRO: o primeiro insight será mostrado diretamente no card de status. Ele deve ser uma observação curta de 1 a 2 frases explicando por que o status calculado pelo aplicativo faz sentido. Não crie outro status, não faça lista e não dê uma recomendação no primeiro insight.");
-    } else if (modo === "economia") {
-      regras.push("MODO DICAS: produza dicas de verdade, concretas e imediatamente aplicáveis aos números atuais. Evite frases genéricas como 'gaste com sabedoria', 'organize suas finanças' ou 'economize mais'. Uma dica pode aproveitar uma situação boa, não precisa apontar um problema.");
-    } else {
-      regras.push("Escolha os ângulos mais úteis do resumo atual, priorizando mudanças relevantes, pendências do mês, categorias, caixinhas, recebimentos e planejamento quando existirem dados para isso.");
-    }
-    return regras.join("\n") + "\n\nResumo em JSON:\n" + JSON.stringify(resumo || {});
-  }
-
-  async function gerarInsightIA({ pessoa = "davi", periodo = null, resumo = {}, modo = "" } = {}) {
-    await window.CAIXA_FIREBASE_READY;
-    if (!currentUser) return { ok: false, error: "Faça login para usar a IA." };
-    const iaConfig = await getIAConfig();
-    const generationConfig = {
-      responseMimeType: "application/json",
-      responseSchema: {
-        type: "ARRAY",
-        minItems: 5,
-        maxItems: 5,
-        items: {
-          type: "OBJECT",
-          properties: {
-            titulo: { type: "STRING" },
-            texto: { type: "STRING" },
-            tipo: { type: "STRING", enum: TIPOS_INSIGHT_CAIXA },
-          },
-          required: ["titulo", "texto", "tipo"],
-        },
-      },
-    };
-    const prompt = promptInsightsIA(String(pessoa).toLowerCase(), resumo, modo, iaConfig);
-    try {
-      let texto = await gerarComGemini(prompt, generationConfig);
-      let lista = JSON.parse(texto);
-      if (!Array.isArray(lista) || lista.length < 5) {
-        texto = await gerarComGemini(`${prompt}\n\nATENÇÃO: gere exatamente 5 objetos válidos e independentes agora.`, generationConfig);
-        lista = JSON.parse(texto);
-      }
-      const textos = (Array.isArray(lista) ? lista : []).map(item => {
-        if (!item || typeof item !== "object") return null;
-        const titulo = String(item.titulo || "").trim();
-        const textoInsight = String(item.texto || "").trim();
-        const tipoBruto = String(item.tipo || "geral").trim().toLowerCase();
-        if (!titulo || !textoInsight) return null;
-        return { titulo: titulo.slice(0, 32), texto: textoInsight, tipo: TIPOS_INSIGHT_CAIXA.includes(tipoBruto) ? tipoBruto : "geral" };
-      }).filter(Boolean).slice(0, 5);
-      if (textos.length < 5) throw new Error("A IA não devolveu os 5 insights completos.");
-      return { ok: true, textos, periodo };
-    } catch (err) {
-      console.warn("CAIXA — erro na IA de insights:", err);
-      return { ok: false, error: String(err?.message || err) };
-    }
-  }
-
   function isAdmin(){
     return !!currentUser && currentUser.uid === ADMIN_UID;
-  }
-  async function getIAConfig(){
-    await window.CAIXA_FIREBASE_READY;
-    if(!currentUser) return null;
-    const snap=await getDoc(configRef(currentUser.uid));
-    if(!snap.exists()) return null;
-    const data=snap.data()||{};
-    return data.iaConfig || null;
   }
   async function loginGoogle(){
     const cred = await signInWithPopup(auth, provider);
@@ -850,7 +669,7 @@ if (!cfg.apiKey || cfg.apiKey.includes("COLE_")) {
     };
   }
 
-  async function importarDados({fonte,historico,iaConfig,resumoMigracao}) {
+  async function importarDados({fonte,historico,resumoMigracao}) {
     await window.CAIXA_FIREBASE_READY;
     if(!currentUser) throw new Error("Faça login antes de importar os dados.");
     const uid=currentUser.uid;
@@ -864,7 +683,7 @@ if (!cfg.apiKey || cfg.apiKey.includes("COLE_")) {
       anoDavi:Number(d.anoAtual)||Number(historico?.configDavi?.anoAtual)||new Date().getFullYear(),
       mesGabriel:Number(g.mesAtual)||Number(historico?.configGabriel?.mesAtual)||1,
       anoGabriel:Number(g.anoAtual)||Number(historico?.configGabriel?.anoAtual)||new Date().getFullYear(),
-      iaConfig:iaConfig||null,
+
     };
     const backupRef = doc(db, "users", uid, "migracoes", "planilha-antes-da-migracao");
     const estadoRef = doc(db, "users", uid, "migracoes", "estado");
@@ -918,7 +737,7 @@ if (!cfg.apiKey || cfg.apiKey.includes("COLE_")) {
     await setDoc(estadoRef, estadoFinal, { merge:false });
     return {ok:true, jaMigrado:false, backupPath:estadoFinal.backupPath, resumo:verificado.resumo};
   }
-  window.CAIXA_FIREBASE={app,auth,db,request,get,getIAConfig,gerarInsightIA,gerarRespostaGastarIA,loginGoogle,signOut,importarDados,verificarMigracaoFirebase,testarFirestore,apagarTesteFirestore,criarBackupFirebase,listarBackupsFirebase,restaurarBackupFirebase,calcularSaldosDisponiveis,isAdmin};
+  window.CAIXA_FIREBASE={app,auth,db,request,get,loginGoogle,signOut,importarDados,verificarMigracaoFirebase,testarFirestore,apagarTesteFirestore,criarBackupFirebase,listarBackupsFirebase,restaurarBackupFirebase,calcularSaldosDisponiveis,isAdmin};
   window.criarBackupFirebase = criarBackupFirebase;
   window.listarBackupsFirebase = listarBackupsFirebase;
   window.restaurarBackupFirebase = restaurarBackupFirebase;

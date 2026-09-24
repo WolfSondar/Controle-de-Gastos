@@ -1,7 +1,6 @@
 // =====================================================================
 // CAIXA — app.js
 // Banco e sincronização: Firebase / Firestore
-// IA: Firebase AI Logic (Gemini)
 // =====================================================================
 
 // Bootstrap visual síncrono do tema: impede o "flash" do Padrão antes de o cache
@@ -714,7 +713,6 @@ const state = {
   iconCategorias: [], // regras [{categoria, padroes}] vindas da configuração
   iconNomes: {}, // nomes amigáveis dos ícones
   temasConfig: null, // temas sazonais e regras administrativas
-  iaConfig: null, // tom/imersão compartilhados com a IA
   faturas: [], // [{id,nome,dia,pessoa}] configuradas pelo usuário
 };
 
@@ -801,7 +799,6 @@ async function lerFonteLegadaParaMigracao() {
   return {
     fonte: snapshot.fonte || {},
     historico: snapshot.historico || { anos: [] },
-    iaConfig: snapshot.iaConfig || null,
   };
 }
 
@@ -835,10 +832,10 @@ async function migrarPlanilhaParaFirebase() {
   if (!window.CAIXA_FIREBASE || typeof window.CAIXA_FIREBASE.importarDados !== "function") {
     throw new Error("Firebase não está configurado.");
   }
-  const { fonte, historico, iaConfig } = await lerFonteLegadaParaMigracao();
+  const { fonte, historico } = await lerFonteLegadaParaMigracao();
   const resumo = resumoMigracaoFonte(fonte, historico);
   console.info("CAIXA — iniciando migração para o Firestore:", resumo);
-  const resultado = await window.CAIXA_FIREBASE.importarDados({ fonte, historico, iaConfig, resumoMigracao: resumo });
+  const resultado = await window.CAIXA_FIREBASE.importarDados({ fonte, historico, resumoMigracao: resumo });
   return { ...resultado, resumo };
 }
 window.CAIXA_MIGRAR_PLANILHA_FIREBASE = migrarPlanilhaParaFirebase;
@@ -850,25 +847,6 @@ window.CAIXA_VERIFICAR_MIGRACAO_FIREBASE = async function () {
   console.info("CAIXA — estado da migração no Firestore:", resultado);
   return resultado;
 };
-
-async function carregarConfigIA() {
-  try {
-    const salvo = JSON.parse(localStorage.getItem("caixa-ia-config-v1") || "null");
-    if (salvo && salvo.expira > Date.now() && salvo.data) { state.iaConfig = salvo.data; return salvo.data; }
-  } catch (err) {}
-  try {
-    if (window.CAIXA_FIREBASE && typeof window.CAIXA_FIREBASE.getIAConfig === "function") {
-      const data = await window.CAIXA_FIREBASE.getIAConfig();
-      if (data) {
-        state.iaConfig = data;
-        try { localStorage.setItem("caixa-ia-config-v1", JSON.stringify({ data, expira: Date.now() + 3000 })); } catch (err) {}
-        document.dispatchEvent(new CustomEvent("caixa:ia-config-atualizada"));
-        return data;
-      }
-    }
-  } catch (err) {}
-  return state.iaConfig || null;
-}
 
 async function getCache(pessoa) { return idbGet(IDB_LOJA_CACHE, CACHE_PREFIX + pessoa); }
 async function setCache(pessoa, data) {
@@ -884,7 +862,6 @@ async function setCache(pessoa, data) {
     iconNomes: data.iconNomes || {},
     temasConfig: data.temasConfig || null,
     temaAtivo: data.temaAtivo || (typeof caixaTemaAtivoGlobal === "function" ? caixaTemaAtivoGlobal() : "default"),
-    iaConfig: data.iaConfig || null,
     faturas: Array.isArray(data.faturas) ? data.faturas : [],
     mesAtual: data.mesAtual || null,
     anoAtual: data.anoAtual || null,
@@ -1103,7 +1080,6 @@ async function carregarDados() {
       caixaGarantirCssTemaGlobal(temaCache);
       if (temaCache === "christmas" && typeof garantirEstiloNatalRefinado === "function") garantirEstiloNatalRefinado();
     }
-    state.iaConfig = cache.iaConfig || state.iaConfig || null;
     state.faturas = Array.isArray(cache.faturas) ? cache.faturas : state.faturas;
     // Em modo offline, o cache pode fornecer o último mês conhecido.
     // Online, não usamos esse valor: o mês será definido somente pelo Firebase.
@@ -1177,7 +1153,6 @@ async function carregarDados() {
       categoriasConfig: colecaoMudou(state.categoriasConfig || [], data.categorias || []),
       iconCategorias: colecaoMudou(state.iconCategorias || [], data.iconCategorias || []),
       temasConfig: JSON.stringify(state.temasConfig || null) !== JSON.stringify(data.temasConfig || null),
-      iaConfig: JSON.stringify(state.iaConfig || null) !== JSON.stringify(data.iaConfig || null),
       faturas: JSON.stringify(state.faturas || []) !== JSON.stringify(Array.isArray(data.faturas) ? data.faturas : []),
     };
     state.ganhos = data.ganhos || [];
@@ -1189,7 +1164,6 @@ async function carregarDados() {
     state.categoriasConfig = data.categorias || null;
     state.iconCategorias = data.iconCategorias || [];
     state.temasConfig = data.temasConfig || null;
-    state.iaConfig = data.iaConfig || null;
     state.faturas = Array.isArray(data.faturas) ? data.faturas : [];
     state.loaded = true;
     if (pessoaRequisitada === "ambos") {
@@ -2015,7 +1989,6 @@ function renderDerivadosDeStatus() {
   renderSplit();
   renderJuntosView();
   atualizarCarrosselGraficos();
-  if (typeof window.renderResumoStatusFinanceiro === "function") window.renderResumoStatusFinanceiro();
   if (typeof window.renderResumoAcontecimentos === "function") window.renderResumoAcontecimentos();
 }
 
@@ -3836,8 +3809,7 @@ function renderIncremental(mudancas) {
   if (mudancas.caixinhas) renderCaixinhas();
   if (financeiroMudou) {
     renderTotais(); renderVisaoGeral(); renderCategorias(); renderRecentes(); renderSplit(); renderJuntosView(); atualizarCarrosselGraficos();
-    if (typeof window.renderResumoStatusFinanceiro === "function") window.renderResumoStatusFinanceiro();
-    if (typeof window.renderResumoAcontecimentos === "function") window.renderResumoAcontecimentos();
+      if (typeof window.renderResumoAcontecimentos === "function") window.renderResumoAcontecimentos();
   }
   if (mudancas.categoriasConfig || mudancas.iconCategorias) {
     popularSelectsDeCategoria();
@@ -6389,7 +6361,6 @@ posicionarIndicadorAba();
 // feitas pelo usuário continuam sendo enviadas normalmente via POST.
 carregarDados();
 carregarHistorico();
-void carregarConfigIA().catch(() => null);
 setTimeout(mostrarDicaAcoesConjuntoSeNecessario, 1200);
 
 // Listener do novo Seletor de Ano no Histórico
@@ -6539,11 +6510,9 @@ if (document.readyState === "loading") {
 
 /* ============================================================
    CAIXA — ASSISTENTE FINANCEIRO LOCAL
-   "IA" de respostas rápidas:
-   - prompts/intenções ficam pré-carregados no navegador;
+   Respostas rápidas locais:
    - os números são calculados do state atual;
-   - não chama Gemini/API para cada clique;
-   - o pequeno atraso é propositalmente visual, para parecer "pensando".
+   - o pequeno atraso é apenas visual para manter a sensação de resposta natural.
    ============================================================ */
 
 (function inicializarAssistenteCaixa() {
@@ -6561,7 +6530,6 @@ if (document.readyState === "loading") {
     categorias: "Você é o assistente financeiro do Caixa. Identifique as categorias que mais consumiram dinheiro no mês atual e apresente as três maiores, sem inventar dados.",
     guardado: "Você é o assistente financeiro do Caixa. Informe quanto existe atualmente nas caixinhas e destaque metas, se houver.",
     pendencias: "Você é o assistente financeiro do Caixa. Mostre o que ainda falta pagar e o que ainda falta receber neste mês, distinguindo claramente contas deste mês de lançamentos com vencimento no mês que vem ou depois. Nunca trate uma conta futura como se vencesse agora.",
-    economia: "Você é o assistente financeiro do Caixa. Dê uma dica financeira de verdade: identifique algo concreto nos números e transforme isso em uma ação simples e útil que a pessoa pode tomar agora ou no planejamento. Não faça apenas um comentário aleatório sobre os dados. Seja específico, prático e personalizado; não invente informações. Distinga saldo de hoje, entradas futuras, contas deste mês e contas futuras. Se calcular quanto sobra, use o fluxo projetado correto."
   };
 
   const IC = {
@@ -6582,11 +6550,9 @@ if (document.readyState === "loading") {
     { id: "mudou", icon: "chart", titulo: "O que mais mudou este mês?", subtitulo: "Compare com o mês anterior" },
     { id: "aconteceu", icon: "sparkle", titulo: "O que aconteceu este mês?", subtitulo: "Um resumo do que mudou por aqui" },
     { id: "pendencias", icon: "clock", titulo: "Ainda falta pagar", subtitulo: "Veja contas, parcelas e valores pendentes" },
-    { id: "economia", icon: "sparkle", titulo: "Me dê uma dica", subtitulo: "Uma orientação baseada nos seus números" }
   ];
 
   let pensamentoTimer = null;
-  let dicaOutraTimer = null;
 
   function esc(s) {
     return String(s ?? "").replace(/[&<>"']/g, c => ({ "&":"&amp;", "<":"&lt;", ">":"&gt;", '"':"&quot;", "'":"&#39;" }[c]));
@@ -6711,17 +6677,11 @@ if (document.readyState === "loading") {
       <span class="caixa-chat-action-arrow">↩</span>`;
     btn.addEventListener("click", () => {
       // Voltar ao menu encerra completamente o contexto da resposta anterior.
-      // Isso também invalida o timer de "Outra dica", para que ele nunca
-      // apareça sozinho no menu depois que o usuário já mudou de assunto.
       window._caixaChatSessao = (Number(window._caixaChatSessao) || 0) + 1;
       clearTimeout(pensamentoTimer);
-      clearTimeout(dicaOutraTimer);
-      pensamentoTimer = null;
-      dicaOutraTimer = null;
-      window._caixaDicasIAEstoque = [];
-      window._caixaDicaIAIndice = 0;
-      thinking.classList.add("is-hidden");
-      body.querySelectorAll(".caixa-chat-message, .caixa-chat-choices, .caixa-chat-select-wrap, .caixa-chat-simulador-form, #caixaChatBack, .caixa-chat-outra-dica").forEach(x => x.remove());
+        pensamentoTimer = null;
+            thinking.classList.add("is-hidden");
+      body.querySelectorAll(".caixa-chat-message, .caixa-chat-choices, .caixa-chat-select-wrap, .caixa-chat-simulador-form, #caixaChatBack").forEach(x => x.remove());
       quick.classList.remove("is-hidden");
       const quickTitle = quick.previousElementSibling;
       if (quickTitle && quickTitle.classList.contains("caixa-chat-quick-title")) quickTitle.classList.remove("is-hidden");
@@ -6733,18 +6693,6 @@ if (document.readyState === "loading") {
     body.appendChild(btn);
   }
 
-  function tomChat() {
-    const cfg = state.iaConfig || {};
-    if (state.pessoaAtual === "ambos") return { tom: "", imersao: [...(cfg.ambos || [])] };
-    const pessoa = state.pessoaAtual === "gabriel" ? "gabriel" : "davi";
-    return { tom: pessoa === "gabriel" ? (cfg.tomGabriel || "") : (cfg.tomDavi || ""), imersao: [...(cfg[pessoa] || []), ...(cfg.ambos || [])] };
-  }
-  function aplicarTomChat(texto) {
-    // A personalidade vem exclusivamente da TOM IA da Firebase e, nas
-    // respostas geradas pela IA, já é aplicada no backend. O navegador não
-    // deve inventar bordões como "Ora, ora" ou "Boa, Davi".
-    return String(texto || "").trim();
-  }
   function compararMesAnteriorChat() {
     const anos = listaFinita(state.historico?.anos);
     if (!state.mesAtual || !state.anoAtual || !anos.length) return null;
@@ -6763,347 +6711,6 @@ if (document.readyState === "loading") {
     return { ganhos: get("ganhos"), gastos: Math.abs(get("debitos")), guardado: Math.max(0, get("guardadoMes")), nome: mes.nome || "mês anterior" };
   }
 
-  function resumoParaIAChat(t) {
-    const totalGastos = (Number(t.fixosPagos) || 0) + (Number(t.variaveisPagos) || 0);
-    const categorias = Object.fromEntries(categoriasChat().map(([nome, valor]) => [nome, Number(valor) || 0]));
-    const caixinhas = listaFinita(state.caixinhas).map(cx => {
-      const atual = typeof totalCaixinha === "function" ? totalCaixinha(cx) : ((Number(cx.valorGuardado)||0)+(Number(cx.rendimentoTotal)||0)+(Number(cx.valorGuardadoMes)||0));
-      const objetivo = Number(cx.valorObjetivo) || 0;
-      const prazo = String(cx.data || "");
-      let diasAtePrazo = null;
-      if (prazo) {
-        const alvo = new Date(`${prazo}T23:59:59`);
-        if (!Number.isNaN(alvo.getTime())) diasAtePrazo = Math.ceil((alvo - new Date()) / 86400000);
-      }
-      const falta = Math.max(objetivo - atual, 0);
-      const meses = diasAtePrazo === null ? null : Math.max(1, Math.ceil(Math.max(diasAtePrazo, 0) / 30.4375));
-      return { nome: cx.nome || "Caixinha", valorGuardado: atual, valorObjetivo: objetivo, prazo, diasAtePrazo, faltaParaMeta: falta, necessarioGuardarPorMes: meses && falta > 0 ? falta / meses : 0, guardadoNesseMes: Number(cx.valorGuardadoMes) || 0 };
-    });
-    const anterior = compararMesAnteriorChat();
-    const ganhosAtuais = listaFinita(state.ganhos).filter(i => ganhoEhRecebido(i));
-    const gastosAtuais = listaFinita(state.gastosFixos).filter(i => fixoEhPago(i)).concat(listaFinita(state.gastosVariaveis).filter(i => gastoVariavelEhReal(i) && variavelContaNoSaldo(i)));
-    return {
-      mesAtual: {
-        mes: state.mesAtual, ano: state.anoAtual,
-        ganhosRecebidos: Number(t.ganhosRecebidos) || 0,
-        beneficiosRecebidos: Number(t.ganhosOrigem?.beneficios) || 0,
-        beneficioDisponivel: Number(t.beneficio) || 0,
-        ganhosRecebidosSemBeneficio: Number(t.ganhosOrigem?.ganhos) || 0,
-        gastoFixoPago: Number(t.fixosPagos) || 0,
-        gastoVariavelPago: Number(t.variaveisPagos) || 0,
-        gastos: totalGastos,
-        saldoAtualEmConta: Number(t.saldoAtualConta) || 0,
-        saldoProjetadoComEntradas: (Number(t.saldoAtualConta) || 0) + (Number(t.aReceberEsseMes) || 0),
-        contasAbertasTotal: (Number(t.aPagarFixosEsseMes) || 0) + (Number(t.aPagarVariaveisEsseMes) || 0),
-        limiteDeGastoProjetado: Number(t.conta) || 0,
-        // Projeção de longo prazo, separada da margem que a pessoa pode gastar
-        // no mês atual. Aqui entram ganhos e gastos futuros.
-        saldoProjetadoTodosOsMeses: Number(t.saldoAtualConta) || 0,
-        ganhosFuturos: Number(t.aReceberFuturos) || 0,
-        gastosFuturos: (Number(t.aPagarFixosFuturos) || 0) + (Number(t.aPagarVariaveisFuturos) || 0),
-        limiteProjetadoTodosOsMeses: Number(t.contaProjetadaTodosOsMeses) || 0,
-        statusFinanceiro: statusFinanceiroAtual(t),
-        aindaAReceberEsseMes: Number(t.aReceberEsseMes) || 0,
-        aindaAReceberFuturos: Number(t.aReceberFuturos) || 0,
-        aindaAPagarFixosEsseMes: Number(t.aPagarFixosEsseMes) || 0,
-        aindaAPagarVariaveisEsseMes: Number(t.aPagarVariaveisEsseMes) || 0,
-        gastosFuturos: (Number(t.aPagarFixosFuturos) || 0) + (Number(t.aPagarVariaveisFuturos) || 0),
-        guardadoNoMes: somaCampo(state.caixinhas, "valorGuardadoMes"),
-        totalGuardadoAtualDeVerdade: somaTotalCaixinhas(state.caixinhas),
-        rendimentoNoMes: somaCampo(state.caixinhas, "rendimentoTotal"),
-        categorias,
-        caixinhas,
-        lancamentosPagos: gastosAtuais.slice(0, 80).map(i => ({ nome: i.nome || "", valor: Number(i.valor)||0, categoria: i.tipo || "", data: i.data || "" })),
-        ganhosDoMes: ganhosAtuais.slice(0, 40).map(i => ({ nome: i.nome || "", valor: Number(i.valor)||0, data: i.data || "" }))
-      },
-      mesPassado: anterior ? { ganhosRecebidos: anterior.ganhos, gastos: anterior.gastos, guardadoNoMes: anterior.guardado, nome: anterior.nome } : null
-    };
-  }
-
-  function formatarTextoIAChat(texto) {
-    const bruto = String(texto || "").trim();
-    if (!bruto) return "";
-
-    // A IA pode devolver marcação para destacar valores. Não escapamos essa
-    // marcação inteira, pois isso fazia o usuário enxergar literalmente
-    // "<span class=...>" na conversa. Em vez disso, preservamos apenas um
-    // conjunto pequeno de tags que o chat conhece e escapamos todo o restante.
-    const marcadores = [];
-    const guardar = (html) => {
-      const id = `___CAIXA_TAG_${marcadores.length}___`;
-      marcadores.push(html);
-      return id;
-    };
-
-    let base = bruto
-      .replace(/\{\{\s*(?:(ganho|gasto|guardado|rendimento)\s*:\s*)?([+-])?\s*(R\$\s*[0-9.]+,[0-9]{2})\s*\}\}/gi, (_, tipo, sinal, valor) => {
-        const chave = String(tipo || sinal || "").toLowerCase();
-        const mapa = { ganho: "chat-valor-pos", gasto: "chat-valor-neg", guardado: "chat-valor-gold", rendimento: "chat-valor-yield", "+": "chat-valor-pos", "-": "chat-valor-neg" };
-        return guardar(`<span class="chat-valor ${mapa[chave] || ""}">${esc(valor)}</span>`);
-      })
-      .replace(/<span\s+class=["']chat-valor\s+(chat-valor-pos|chat-valor-neg|chat-valor-gold|chat-valor-yield)["']\s*>([\s\S]*?)<\/span>/gi,
-        (_, classe, conteudo) => guardar(`<span class="chat-valor ${classe}">${esc(String(conteudo).replace(/<[^>]*>/g, ""))}</span>`))
-      .replace(/<strong>([\s\S]*?)<\/strong>/gi, (_, conteudo) => guardar(`<strong>${esc(String(conteudo).replace(/<[^>]*>/g, ""))}</strong>`))
-      .replace(/<br\s*\/?>/gi, () => guardar("<br>"));
-
-    base = esc(base);
-    marcadores.forEach((html, i) => {
-      base = base.replace(`___CAIXA_TAG_${i}___`, html);
-    });
-    base = base.replace(/\*\*(.*?)\*\*/g, "<strong>$1</strong>");
-    return base.replace(/\n+/g, "<br>");
-  }
-
-  function hashDicasChat(valor) {
-    const texto = String(valor || "");
-    let h = 2166136261;
-    for (let i = 0; i < texto.length; i++) {
-      h ^= texto.charCodeAt(i);
-      h = Math.imul(h, 16777619);
-    }
-    return (h >>> 0).toString(36);
-  }
-
-  function chaveCacheDicasChat(t, modo = "") {
-    const cfg = state.iaConfig || {};
-    const { tom, imersao } = tomChat();
-    return `caixa:dicas:v4:${hashDicasChat(JSON.stringify({
-      pessoa: state.pessoaAtual || "davi",
-      mes: state.mesAtual,
-      ano: state.anoAtual,
-      resumo: resumoParaIAChat(t),
-      tom,
-      imersao,
-      modo
-    }))}`;
-  }
-
-  function lerCacheDicasChat(chave) {
-    try {
-      const raw = localStorage.getItem(chave);
-      if (!raw) return null;
-      const data = JSON.parse(raw);
-      if (!Array.isArray(data?.textos) || !data.textos.length) return null;
-      return data.textos;
-    } catch (e) { return null; }
-  }
-
-  function salvarCacheDicasChat(chave, textos) {
-    try {
-      localStorage.setItem(chave, JSON.stringify({ salvoEm: Date.now(), textos }));
-    } catch (e) {}
-  }
-
-  function chaveCacheGastarIA(t) {
-    const { tom, imersao } = tomChat();
-    return `caixa:gastar-ia:v3:${hashDicasChat(JSON.stringify({
-      pessoa: state.pessoaAtual || "davi",
-      mes: state.mesAtual,
-      ano: state.anoAtual,
-      resumo: resumoParaIAChat(t),
-      tom,
-      imersao
-    }))}`;
-  }
-
-  function lerCacheGastarIA(chave) {
-    try {
-      const raw = localStorage.getItem(chave);
-      if (!raw) return null;
-      const data = JSON.parse(raw);
-      if (!data || typeof data !== "object") return null;
-      if (!data.saldo && !data.beneficio) return null;
-      return data;
-    } catch (e) { return null; }
-  }
-
-  function salvarCacheGastarIA(chave, respostas) {
-    try { localStorage.setItem(chave, JSON.stringify({ salvoEm: Date.now(), ...respostas })); } catch (e) {}
-  }
-
-  async function buscarRespostasGastarIA(t, opcoes = {}) {
-    if (!window.CAIXA_FIREBASE || typeof window.CAIXA_FIREBASE.gerarRespostaGastarIA !== "function") return null;
-    const chave = opcoes.chave || chaveCacheGastarIA(t);
-    if (!opcoes.forcar) {
-      const cache = lerCacheGastarIA(chave);
-      if (cache) return cache;
-    }
-
-    try {
-      const data = await window.CAIXA_FIREBASE.gerarRespostaGastarIA({
-        pessoa: state.pessoaAtual || "davi",
-        periodo: { mes: state.mesAtual, ano: state.anoAtual },
-        resumo: resumoParaIAChat(t),
-      });
-      if (!data || data.ok === false || !data.respostas) return null;
-      const respostas = {
-        beneficio: String(data.respostas.beneficio || "").trim(),
-        saldo: String(data.respostas.saldo || "").trim()
-      };
-      if (!respostas.beneficio && !respostas.saldo) return null;
-      salvarCacheGastarIA(chave, respostas);
-      return respostas;
-    } catch (err) {
-      console.warn("CAIXA — IA de gasto indisponível:", err);
-      return null;
-    }
-  }
-
-  async function buscarDicasIA(t, opcoes = {}) {
-    if (!window.CAIXA_FIREBASE || typeof window.CAIXA_FIREBASE.gerarInsightIA !== "function") return [];
-    const chave = opcoes.chave || chaveCacheDicasChat(t, opcoes.modo || "");
-    if (!opcoes.forcar) {
-      const cache = lerCacheDicasChat(chave);
-      if (cache) return cache;
-    }
-
-    try {
-      const data = await window.CAIXA_FIREBASE.gerarInsightIA({
-        pessoa: state.pessoaAtual || "davi",
-        periodo: { mes: state.mesAtual, ano: state.anoAtual },
-        resumo: resumoParaIAChat(t),
-        modo: opcoes.modo || "",
-      });
-      if (!data || data.ok === false || !Array.isArray(data.textos)) return [];
-      const textos = data.textos.map(x => {
-        if (typeof x === "string") return { texto: x };
-        return { texto: x?.texto || "", tipo: x?.tipo || "geral", titulo: x?.titulo || "" };
-      }).filter(x => x.texto);
-      if (textos.length) salvarCacheDicasChat(chave, textos);
-      return textos;
-    } catch (err) {
-      console.warn("CAIXA — IA de insights indisponível:", err);
-      return [];
-    }
-  }
-
-  function montarDicasFinanceiras(t) {
-    const dicas = [];
-    const cats = categoriasChat();
-    const maior = cats[0];
-    const totalGastos = (Number(t.fixosPagos) || 0) + (Number(t.variaveisPagos) || 0);
-    const totalEntradas = Number(t.ganhosRecebidos) || 0;
-    const totalContasAbertas = (Number(t.aPagarFixos) || 0) + (Number(t.aPagarVariaveis) || 0);
-    const contasDesteMes = (Number(t.aPagarFixosEsseMes) || 0) + (Number(t.aPagarVariaveisEsseMes) || 0);
-    const contasFuturas = (Number(t.aPagarFixosFuturos) || 0) + (Number(t.aPagarVariaveisFuturos) || 0);
-    const ganhosFuturos = Number(t.aReceberFuturos) || 0;
-    const saldoProjetado = (Number(t.saldoAtualConta) || 0) + (Number(t.aReceberEsseMes) || 0);
-    const folgaProjetada = saldoProjetado - contasDesteMes;
-    const saldoProjetadoFuturo = (Number(t.contaProjetadaTodosOsMeses) || 0);
-
-    if (t.aReceberEsseMes > 0 && contasDesteMes > 0) {
-      dicas.push({ dica: `Quando entrarem os <span class="chat-valor chat-valor-pos">${chatFmt(t.aReceberEsseMes)}</span> deste mês, a folga após os compromissos fica em <span class="chat-valor chat-valor-pos">${chatFmt(Math.max(folgaProjetada, 0))}</span>. <strong>Dica:</strong> use esse valor como referência antes de assumir um novo gasto.` });
-    }
-    if (contasFuturas > 0) {
-      if (ganhosFuturos > 0) {
-        dicas.push({ dica: `Para os próximos meses, há <span class="chat-valor chat-valor-neg">${chatFmt(contasFuturas)}</span> em gastos futuros e <span class="chat-valor chat-valor-pos">${chatFmt(ganhosFuturos)}</span> em ganhos futuros já lançados. <strong>Dica:</strong> acompanhe os dois lados juntos ao planejar os próximos meses.` });
-      } else {
-        dicas.push({ dica: `Há <span class="chat-valor chat-valor-neg">${chatFmt(contasFuturas)}</span> em gastos futuros já lançados para os próximos meses. Eles não reduzem sua margem deste mês.` });
-      }
-    }
-    if (contasDesteMes > 0) {
-      dicas.push({ dica: `Neste mês, ainda existem <span class="chat-valor chat-valor-neg">${chatFmt(contasDesteMes)}</span> em compromissos com vencimento agora. <strong>Dica:</strong> priorize confirmar essas contas antes de considerar esse dinheiro livre para novos gastos.` });
-    }
-    if (t.aPagarVariaveisEsseMes > 0) {
-      dicas.push({ dica: `Ainda estão pendentes <span class="chat-valor chat-valor-neg">${chatFmt(t.aPagarVariaveisEsseMes)}</span> em gastos variáveis deste mês. <strong>Dica:</strong> confira esses lançamentos antes de registrar novos gastos na mesma categoria.` });
-    }
-    if (maior && maior[1] > 0 && totalGastos > 0) {
-      const percentual = Math.round((maior[1] / totalGastos) * 100);
-      dicas.push({ dica: `A categoria <strong>${esc(maior[0])}</strong> lidera os gastos pagos do mês com <span class="chat-valor chat-valor-neg">${chatFmt(maior[1])}</span>, cerca de ${percentual}% do total. <strong>Dica:</strong> use essa categoria como a primeira referência para definir um limite no próximo mês.` });
-    }
-    if (cats.length >= 2 && cats[0][1] > 0 && cats[1][1] > 0) {
-      const diferenca = cats[0][1] - cats[1][1];
-      if (diferenca > 0) dicas.push({ dica: `<strong>${esc(cats[0][0])}</strong> ficou <span class="chat-valor chat-valor-neg">${chatFmt(diferenca)}</span> acima de <strong>${esc(cats[1][0])}</strong> nos gastos pagos.` });
-    }
-    if (t.beneficio > 0) dicas.push({ dica: `Ainda há <span class="chat-valor chat-valor-gold">${chatFmt(t.beneficio)}</span> disponíveis no benefício.` });
-    if (t.aReceber > 0) dicas.push({ dica: `Você ainda espera receber <span class="chat-valor chat-valor-pos">${chatFmt(t.aReceber)}</span>. Esse valor ainda não entrou no saldo de hoje.` });
-    if (totalEntradas > 0 && totalGastos > totalEntradas) dicas.push({ dica: `Os gastos pagos já somam <span class="chat-valor chat-valor-neg">${chatFmt(totalGastos)}</span>, enquanto as entradas recebidas somam <span class="chat-valor chat-valor-pos">${chatFmt(totalEntradas)}</span>.` });
-    const metas = metasChat();
-    if (metas.length) {
-      const meta = metas[0];
-      const pct = meta.objetivo > 0 ? Math.min(100, Math.round(meta.atual / meta.objetivo * 100)) : 0;
-      dicas.push({ dica: `A caixinha <strong>${escapeHtml(meta.nome)}</strong> está em ${pct}% da meta, com <span class="chat-valor chat-valor-gold">${chatFmt(meta.atual)}</span> de <span class="chat-valor chat-valor-gold">${chatFmt(meta.objetivo)}</span>.` });
-    }
-    if (t.saldoAtualConta > 0 && contasDesteMes > 0) {
-      const comprometido = Math.min(100, Math.round(contasDesteMes / Math.max(t.saldoAtualConta + t.aReceberEsseMes, 1) * 100));
-      dicas.push({ dica: `Os compromissos deste mês representam cerca de ${comprometido}% do dinheiro disponível hoje somado ao que ainda entra neste mês. <strong>Dica:</strong> use essa proporção para avaliar novas compras.` });
-    }
-    if (dicas.length === 0) {
-      dicas.push(
-        { dica: "Não apareceu um alerta forte nos dados atuais. <strong>Dica:</strong> escolha uma categoria recorrente e acompanhe sua evolução no próximo mês para encontrar uma oportunidade de melhoria." },
-        { dica: "<strong>Dica:</strong> antes de assumir um novo gasto, use a margem projetada do mês depois dos compromissos conhecidos como sua referência, em vez de olhar só o saldo de hoje." },
-        { dica: "<strong>Dica:</strong> se você já tem uma meta nas caixinhas, use o planejamento do mês para decidir quanto consegue direcionar a ela sem comprometer os compromissos atuais." }
-      );
-    }
-    return dicas.map(d => ({ ...d, dica: aplicarTomChat(d.dica) }));
-  }
-
-  function mostrarDicaNoChat(item) {
-    clearTimeout(dicaOutraTimer);
-    body.querySelectorAll("#caixaChatOutraDica").forEach((x) => x.remove());
-    const texto = formatarTextoIAChat(item?.texto || item?.dica || "");
-    appendMensagem(`<span class="chat-dica-titulo">Dica</span><div class="chat-dica-texto">${texto}</div>`);
-    const tokenAtual = window._caixaChatSessao || 0;
-    dicaOutraTimer = setTimeout(() => {
-      if (!chat.classList.contains("is-open")) return;
-      if (tokenAtual !== (window._caixaChatSessao || 0)) return;
-      if (document.getElementById("caixaChatOutraDica")) return;
-      const btn = document.createElement("button");
-      btn.type = "button";
-      btn.id = "caixaChatOutraDica";
-      btn.className = "caixa-chat-outra-dica";
-      btn.innerHTML = `${IC.sparkle}<span>Outra dica</span><span aria-hidden="true">↗</span>`;
-      btn.addEventListener("click", async () => {
-        btn.remove();
-        clearTimeout(dicaOutraTimer);
-        dicaOutraTimer = null;
-        const back = document.getElementById("caixaChatBack");
-        if (back) back.remove();
-        const meuToken = window._caixaChatSessao || 0;
-        appendMensagem("Outra dica", "user");
-
-        // Mesmo com a dica já pré-carregada, mantemos uma pequena pausa
-        // intencional para a resposta parecer uma conversa natural, sem
-        // comprometer a sensação de rapidez. Se o usuário mudar de assunto
-        // durante a pausa, a resposta é descartada.
-        const textoPensamentoAnterior = thinking.querySelector("em");
-        if (textoPensamentoAnterior) textoPensamentoAnterior.textContent = "Deixe-me pensar em outra dica para você…";
-        thinking.classList.remove("is-hidden");
-        body.scrollTop = body.scrollHeight;
-        await new Promise(resolve => setTimeout(resolve, 900));
-        if (meuToken !== (window._caixaChatSessao || 0) || !chat.classList.contains("is-open")) {
-          thinking.classList.add("is-hidden");
-          return;
-        }
-        thinking.classList.add("is-hidden");
-
-        const estoque = Array.isArray(window._caixaDicasIAEstoque) ? window._caixaDicasIAEstoque : [];
-        const idx = Number(window._caixaDicaIAIndice || 0);
-        const proxima = estoque[idx];
-        if (proxima) {
-          window._caixaDicaIAIndice = idx + 1;
-          mostrarDicaNoChat(proxima);
-          mostrarMenuCompacto();
-          return;
-        }
-        // O estoque acabou. Não faz outra chamada para a mesma chave: se os
-        // números não mudaram, a resposta em cache é a mesma. Aqui usamos a
-        // reserva local e só uma nova chave volta a pedir um novo conjunto à IA.
-        if (meuToken !== (window._caixaChatSessao || 0) || !chat.classList.contains("is-open")) return;
-        const t = totaisChat();
-        const fallback = montarDicasFinanceiras(t);
-        const fi = Number(window._caixaDicaIndice || 0) % Math.max(fallback.length, 1);
-        window._caixaDicaIndice = fi + 1;
-        mostrarDicaNoChat({ texto: fallback[fi]?.dica || "Não apareceu nenhuma informação nova relevante nos dados atuais." });
-        mostrarMenuCompacto();
-      });
-      if (tokenAtual !== (window._caixaChatSessao || 0)) return;
-      const back = document.getElementById("caixaChatBack");
-      if (back) body.insertBefore(btn, back); else body.appendChild(btn);
-      body.scrollTop = body.scrollHeight;
-    }, 5000);
-  }
-
   function calcularRespostaGastar(origem) {
     const t = totaisChat();
     const valor = origem === "beneficio" ? t.beneficio : t.conta;
@@ -7120,16 +6727,7 @@ if (document.readyState === "loading") {
     } else {
       texto = `Você não pode gastar mais nada agora — ainda faltam <span class="chat-valor chat-valor-neg">${chatFmt(Math.abs(valor))}</span> para fechar as obrigações.`;
     }
-    return aplicarTomChat(texto);
-  }
-
-  function mostrarRespostaGastarIA(texto, origem) {
-    const bruto = String(texto || "").trim();
-    if (!bruto) {
-      appendMensagem(calcularRespostaGastar(origem));
-      return;
-    }
-    appendMensagem(formatarTextoIAChat(bruto));
+    return texto;
   }
 
   function respostaCaixinha(cx) {
@@ -7163,11 +6761,6 @@ if (document.readyState === "loading") {
 
   function executarAcao(id) {
     window._caixaChatSessao = (Number(window._caixaChatSessao) || 0) + 1;
-    clearTimeout(dicaOutraTimer);
-    dicaOutraTimer = null;
-    window._caixaDicasIAEstoque = [];
-    window._caixaDicaIAIndice = 0;
-    body.querySelectorAll("#caixaChatOutraDica").forEach(x => x.remove());
     quick.classList.add("is-hidden");
     const quickTitle = quick.previousElementSibling;
     if (quickTitle && quickTitle.classList.contains("caixa-chat-quick-title")) quickTitle.classList.add("is-hidden");
@@ -7192,15 +6785,7 @@ if (document.readyState === "loading") {
           appendMensagem(titulo, "user");
           iniciarPensamento(async () => {
             const tAtual = totaisChat();
-            const chave = chaveCacheGastarIA(tAtual);
-            const cache = lerCacheGastarIA(chave);
-            if (cache?.[valor]) {
-              mostrarRespostaGastarIA(cache[valor], valor);
-              return;
-            }
-            const respostas = await buscarRespostasGastarIA(tAtual, { chave });
-            if (respostas?.[valor]) mostrarRespostaGastarIA(respostas[valor], valor);
-            else appendMensagem(calcularRespostaGastar(valor));
+            appendMensagem(calcularRespostaGastar(valor));
           });
         });
         escolhas.appendChild(btn);
@@ -7316,38 +6901,6 @@ if (document.readyState === "loading") {
       }
 
 
-      if (id === "economia") {
-        // Primeiro tenta o cache. O mesmo conjunto de números + perfil usa
-        // exatamente as mesmas dicas e não espera a IA novamente.
-        window._caixaDicasIAEstoque = [];
-        window._caixaDicaIAIndice = 0;
-        const chave = chaveCacheDicasChat(t, "economia");
-        const cache = lerCacheDicasChat(chave);
-        if (cache?.length) {
-          window._caixaDicasIAEstoque = cache;
-          window._caixaDicaIAIndice = 1;
-          mostrarDicaNoChat(cache[0]);
-          return;
-        }
-        const sessaoEconomia = window._caixaChatSessao || 0;
-        const textoPensamento = thinking.querySelector("em");
-        if (textoPensamento) textoPensamento.textContent = "Só um instante… estou organizando os números para você…";
-        return buscarDicasIA(t, { chave, modo: "economia" }).then((dicasIA) => {
-          // Se o usuário já mudou de assunto/perfil, a resposta atrasada não
-          // pode invadir a nova conversa.
-          if (sessaoEconomia !== (window._caixaChatSessao || 0) || !chat.classList.contains("is-open")) return;
-          if (dicasIA.length) {
-            window._caixaDicasIAEstoque = dicasIA;
-            window._caixaDicaIAIndice = 1;
-            mostrarDicaNoChat(dicasIA[0]);
-          } else {
-            const dicas = montarDicasFinanceiras(t);
-            const indice = Number(window._caixaDicaIndice || 0) % Math.max(dicas.length, 1);
-            window._caixaDicaIndice = indice + 1;
-            mostrarDicaNoChat({ texto: aplicarTomChat(dicas[indice]?.dica || "Não apareceu nenhuma informação nova relevante nos dados atuais.") });
-          }
-        });
-      }
     });
   }
 
@@ -7701,9 +7254,6 @@ if (document.readyState === "loading") {
       return;
     }
     window._caixaChatSessao = (Number(window._caixaChatSessao) || 0) + 1;
-    clearTimeout(dicaOutraTimer);
-    dicaOutraTimer = null;
-    body.querySelectorAll("#caixaChatOutraDica").forEach(x => x.remove());
     quick.classList.add("is-hidden");
     const quickTitle = quick.previousElementSibling;
     if (quickTitle && quickTitle.classList.contains("caixa-chat-quick-title")) quickTitle.classList.add("is-hidden");
@@ -7904,30 +7454,6 @@ if (document.readyState === "loading") {
     }, 620);
   }
 
-  // STATUS FINANCEIRO — cálculo local + descrição IA persistente por estado dos dados.
-  function statusFinanceiroAtual(t) {
-    const saldo = Number(t.saldoAtualConta) || 0;
-    const limite = Number(t.conta) || 0;
-    const contasMes = (Number(t.aPagarFixosEsseMes)||0) + (Number(t.aPagarVariaveisEsseMes)||0);
-    const atrasados = listaFinita(state.gastosFixos).filter(i=>i.pago!==true && ehDoMesAnterior(i)).length + listaFinita(state.gastosVariaveis).filter(i=>gastoVariavelEhReal(i)&&i.pago!==true&&!i.lembrete&&ehDoMesAnterior(i)).length;
-    if (limite < 0 || saldo < 0) return {codigo:"apertado",titulo:"Apertado",classe:"status-financeiro-apertado"};
-    const base = Math.max(Math.abs(Number(t.ganhosOrigem?.ganhos)||0)+(Number(t.aReceber)||0),1);
-    if (atrasados > 0 || limite < Math.max(100, contasMes*.35) || contasMes/base >= .55) return {codigo:"atencao",titulo:"Atenção",classe:"status-financeiro-atencao"};
-    return {codigo:"tranquilo",titulo:"Tranquilo",classe:"status-financeiro-tranquilo"};
-  }
-  function chaveCacheStatusFinanceiro(t,status){ const {tom,imersao}=tomChat(); return `caixa:status-financeiro:v2:${hashDicasChat(JSON.stringify({pessoa:state.pessoaAtual||"davi",mes:state.mesAtual,ano:state.anoAtual,status:status.codigo,resumo:resumoParaIAChat(t),tom,imersao}))}`; }
-  function lerCacheStatusFinanceiro(chave){try{const raw=JSON.parse(localStorage.getItem(chave)||"null");return raw?.texto?String(raw.texto).trim():"";}catch(e){return "";}}
-  function salvarCacheStatusFinanceiro(chave,texto){try{localStorage.setItem(chave,JSON.stringify({salvoEm:Date.now(),texto:String(texto||"").trim()}));}catch(e){}}
-  function descricaoStatusFallback(t,status){ const limite=Number(t.conta)||0; if(status.codigo==="apertado") return limite<0?"Os compromissos que ainda precisam ser reservados ultrapassam o dinheiro projetado para o mês.":"Há compromissos que pedem atenção antes de considerar o dinheiro restante como folga."; return "Seu dinheiro projetado cobre os compromissos atuais e ainda deixa uma folga para o restante do mês."; }
-  async function atualizarDescricaoStatusIA(t,status,chave){
-    if (lerCacheStatusFinanceiro(chave)) return;
-    const token=(window._statusFinanceiroToken||0)+1; window._statusFinanceiroToken=token;
-    try{const respostas=await buscarDicasIA(t,{chave,modo:"statusFinanceiro"}); if(token!==window._statusFinanceiroToken)return; const texto=respostas?.[0]?.texto?String(respostas[0].texto).trim():""; if(!texto)return; salvarCacheStatusFinanceiro(chave,texto); const el=document.getElementById("statusFinanceiroDescricao"); if(el)el.innerHTML=formatarTextoIAChat(texto);}catch(e){}
-  }
-  function renderResumoStatusFinanceiro(){
-    const badge=document.getElementById("statusFinanceiroBadge"),titulo=document.getElementById("statusFinanceiroTitulo"),descricao=document.getElementById("statusFinanceiroDescricao");
-    if(!badge||!titulo||!descricao||!state.loaded)return; const t=totaisChat(),status=statusFinanceiroAtual(t); badge.classList.remove("status-financeiro-tranquilo","status-financeiro-atencao","status-financeiro-apertado","status-financeiro-neutro"); badge.classList.add(status.classe); titulo.textContent=status.titulo; const chave=chaveCacheStatusFinanceiro(t,status),cache=lerCacheStatusFinanceiro(chave); descricao.innerHTML=formatarTextoIAChat(cache||descricaoStatusFallback(t,status)); atualizarDescricaoStatusIA(t,status,chave);
-  }
   function categoriasPendentesChat() {
     const mapa = {};
     const adicionar = (item, tipo) => {
@@ -7947,7 +7473,6 @@ if (document.readyState === "loading") {
     const fontes=state.pessoaAtual==="ambos"?[mes.categoriasDavi||{},mes.categoriasGabriel||{}]:[state.pessoaAtual==="gabriel"?(mes.categoriasGabriel||{}):(mes.categoriasDavi||{})]; const mapa={}; fontes.forEach(obj=>Object.entries(obj).forEach(([cat,valor])=>{if(String(cat).trim().toLowerCase()!=="metas")mapa[cat]=(mapa[cat]||0)+Math.abs(Number(valor)||0);})); return mapa;
   }
   function renderResumoAcontecimentos(){}
-  window.renderResumoStatusFinanceiro=renderResumoStatusFinanceiro;
   window.renderResumoAcontecimentos=renderResumoAcontecimentos;
 
   let fechamentoChatTimer = null;
@@ -8010,11 +7535,7 @@ if (document.readyState === "loading") {
   function resetarChatParaSelecao() {
     window._caixaChatSessao = (Number(window._caixaChatSessao) || 0) + 1;
     clearTimeout(pensamentoTimer);
-    clearTimeout(dicaOutraTimer);
     pensamentoTimer = null;
-    dicaOutraTimer = null;
-    window._caixaDicasIAEstoque = [];
-    window._caixaDicaIAIndice = 0;
     thinking.classList.add("is-hidden");
     body.querySelectorAll(".caixa-chat-message, .caixa-chat-choices, .caixa-chat-select-wrap, .caixa-chat-simulador-form, #caixaChatBack").forEach(x => x.remove());
     quick.classList.remove("is-hidden");
@@ -8044,32 +7565,11 @@ if (document.readyState === "loading") {
   document.addEventListener("caixa:perfil-trocado", () => {
     resetarChatParaSelecao();
     fecharChat();
-    carregarConfigIA();
   });
-  document.addEventListener("caixa:ia-config-atualizada", () => { window._caixaDicaIndice = 0; });
-
-  async function preaquecerDicasIA() {
-    if (!state.mesAtual || !state.anoAtual) return;
-    try {
-      const t = totaisChat();
-      const chaveDicas = chaveCacheDicasChat(t);
-      const chaveGastar = chaveCacheGastarIA(t);
-      const status = statusFinanceiroAtual(t);
-      const chaveStatus = chaveCacheStatusFinanceiro(t, status);
-      await Promise.all([
-        lerCacheDicasChat(chaveDicas) ? Promise.resolve() : buscarDicasIA(t, { chave: chaveDicas }),
-        lerCacheGastarIA(chaveGastar) ? Promise.resolve() : buscarRespostasGastarIA(t, { chave: chaveGastar }),
-        lerCacheStatusFinanceiro(chaveStatus) ? Promise.resolve() : buscarDicasIA(t, { chave: chaveStatus, modo: "statusFinanceiro" })
-      ]);
-      if (typeof window.renderResumoStatusFinanceiro === "function") window.renderResumoStatusFinanceiro();
-    } catch (e) {}
-  }
 
   mostrarAcoesRapidas();
-  setTimeout(() => preaquecerDicasIA(), 900);
 
   // Expor os prompts para diagnóstico/uso futuro sem chamar a IA.
-  window.CAIXA_CHAT_PROMPTS = CHAT_PROMPTS;
 })();
 
 
@@ -8143,7 +7643,6 @@ function usuarioAtualEhAdmin(){
 
   const views = {
     categorias: document.getElementById("caixaConfigCategorias"),
-    ia: document.getElementById("caixaConfigIA"),
     faturas: document.getElementById("caixaConfigFaturas"),
     tema: document.getElementById("caixaConfigTema"),
     admin: document.getElementById("caixaConfigAdmin"),
@@ -8151,14 +7650,12 @@ function usuarioAtualEhAdmin(){
   const titles = {
     home: "Configurações",
     categorias: "Categorias",
-    ia: "Assistente IA",
     faturas: "Faturas",
     tema: "Aparência",
     admin: "Admin",
   };
 
   let viewAtual = "home";
-  let iaPessoa = state.pessoaAtual === "ambos" ? "ambos" : (state.pessoaAtual === "gabriel" ? "gabriel" : "davi");
   let faturaPessoa = state.pessoaAtual === "gabriel" ? "gabriel" : "davi";
 
   const clone = value => {
@@ -8227,7 +7724,6 @@ function usuarioAtualEhAdmin(){
     cabecalho?.classList.toggle("caixa-config-inner", interna);
     cabecalho?.setAttribute("data-view-title", tituloView);
     if (nome === "categorias") renderCategorias();
-    if (nome === "ia") renderIA();
     if (nome === "faturas") renderFaturas();
     if (nome === "tema") renderTema();
     if (nome === "admin") {
@@ -8355,79 +7851,6 @@ function usuarioAtualEhAdmin(){
     lista.push(normalizarCategoria({ nome: nomeLimpo, cor }));
     const ok = await salvarCategorias(lista);
     if (ok) renderCategorias();
-  }
-
-  function iaConfigAtual() {
-    const cfg = clone(state.iaConfig || {});
-    cfg.davi = Array.isArray(cfg.davi) ? cfg.davi : [];
-    cfg.gabriel = Array.isArray(cfg.gabriel) ? cfg.gabriel : [];
-    cfg.ambos = Array.isArray(cfg.ambos) ? cfg.ambos : [];
-    cfg.tomDavi = String(cfg.tomDavi || "");
-    cfg.tomGabriel = String(cfg.tomGabriel || "");
-    cfg.tomAmbos = String(cfg.tomAmbos || "natural, equilibrado e conversado, falando com vocês dois");
-    return cfg;
-  }
-  function renderIA() {
-    if (state.pessoaAtual === "ambos") iaPessoa = "ambos";
-    else if (state.pessoaAtual === "gabriel") iaPessoa = "gabriel";
-    else iaPessoa = "davi";
-    const cfg = iaConfigAtual();
-    const tom = iaPessoa === "gabriel" ? cfg.tomGabriel : iaPessoa === "ambos" ? cfg.tomAmbos : cfg.tomDavi;
-    const pessoaLabel = document.getElementById("configIAPessoaLabel");
-    if (pessoaLabel) pessoaLabel.textContent = iaPessoa === "ambos" ? "Juntos" : (iaPessoa === "gabriel" ? "Gabriel" : "Davi");
-    const textarea = document.getElementById("configIATom");
-    textarea.value = tom;
-    textarea.disabled = false;
-    textarea.placeholder = "Descreva como a IA deve falar…";
-    const lista = document.getElementById("listaConfigImersao");
-    const imersoes = Array.isArray(cfg[iaPessoa]) ? cfg[iaPessoa] : [];
-    if (!imersoes.length) {
-      lista.innerHTML = `<div class="caixa-config-empty">Nenhuma informação cadastrada para esta pessoa.</div>`;
-    } else {
-      lista.innerHTML = imersoes.map((item, idx) => `
-        <div class="caixa-config-immersion-row" data-immersion-index="${idx}">
-          <textarea rows="2" aria-label="Informação de imersão">${escapeHtml(String(item))}</textarea>
-          <button type="button" class="caixa-config-mini-btn danger" data-immersion-delete="${idx}" aria-label="Excluir informação">
-            <svg viewBox="0 0 24 24" fill="none"><path d="M5 7h14M9 7V4h6v3m-8 0 .8 13h8.4L17 7M10 11v6M14 11v6" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"/></svg>
-          </button>
-        </div>`).join("");
-      lista.querySelectorAll("textarea").forEach((el, idx) => {
-        el.addEventListener("input", () => { cfg[iaPessoa][idx] = el.value; state._iaConfigEdicao = cfg; });
-      });
-      lista.querySelectorAll("[data-immersion-delete]").forEach(btn => {
-        btn.addEventListener("click", () => {
-          const index = Number(btn.dataset.immersionDelete);
-          cfg[iaPessoa].splice(index, 1);
-          state._iaConfigEdicao = cfg;
-          renderIA();
-        });
-      });
-    }
-    state._iaConfigEdicao = cfg;
-  }
-
-  async function salvarIA() {
-    const cfg = state._iaConfigEdicao ? clone(state._iaConfigEdicao) : iaConfigAtual();
-    const textarea = document.getElementById("configIATom");
-    if (iaPessoa === "davi") cfg.tomDavi = textarea.value.trim();
-    if (iaPessoa === "gabriel") cfg.tomGabriel = textarea.value.trim();
-    if (iaPessoa === "ambos") cfg.tomAmbos = textarea.value.trim();
-    try {
-      await salvarConfig({ iaConfig: cfg }, "Configuração da IA salva.");
-      state.iaConfig = cfg;
-      try { localStorage.setItem("caixa-ia-config-v1", JSON.stringify({ data: cfg, expira: Date.now() + 86400000 })); } catch (_) {}
-      document.dispatchEvent(new CustomEvent("caixa:ia-config-atualizada"));
-      renderIA();
-    } catch (_) {}
-  }
-
-  function novaImersao() {
-    const texto = prompt("O que a IA deve saber sobre você? Ex.: Gosto muito de RPG.");
-    if (!texto?.trim()) return;
-    const cfg = iaConfigAtual();
-    cfg[iaPessoa].push(texto.trim());
-    state._iaConfigEdicao = cfg;
-    renderIA();
   }
 
   function faturasPessoa() {
@@ -8987,7 +8410,6 @@ function usuarioAtualEhAdmin(){
       iconNomes: state.iconNomes,
       temasConfig: state.temasConfig,
       temaAtivo: ativo,
-      iaConfig: state.iaConfig,
       faturas: state.faturas,
       mesAtual: state.mesAtual,
       anoAtual: state.anoAtual
@@ -9139,7 +8561,6 @@ function usuarioAtualEhAdmin(){
 
   function renderTudo() {
     if (viewAtual === "categorias") renderCategorias();
-    if (viewAtual === "ia") renderIA();
     if (viewAtual === "faturas") renderFaturas();
     if (viewAtual === "tema") renderTema();
     if (viewAtual === "admin") renderAdmin();
@@ -9163,8 +8584,6 @@ function usuarioAtualEhAdmin(){
     });
   });
   document.getElementById("btnNovaCategoria")?.addEventListener("click", novaCategoria);
-  document.getElementById("btnNovaImersao")?.addEventListener("click", novaImersao);
-  document.getElementById("btnSalvarConfigIA")?.addEventListener("click", salvarIA);
   document.getElementById("btnNovaFatura")?.addEventListener("click", novaFatura);
   document.getElementById("btnNovaCategoriaIcone")?.addEventListener("click", novaCategoriaIcone);
   document.querySelectorAll("[data-caixa-theme]").forEach(btn => btn.addEventListener("click", () => aplicarTemaCaixa(btn.dataset.caixaTheme)));
@@ -9174,9 +8593,7 @@ function usuarioAtualEhAdmin(){
   faturaModal.backdrop?.addEventListener("click", e => { if (e.target === faturaModal.backdrop) fecharModalFatura(); });
   document.addEventListener("keydown", e => { if (e.key === "Escape" && faturaModal.backdrop && !faturaModal.backdrop.classList.contains("is-hidden")) fecharModalFatura(); });
   document.addEventListener("caixa:perfil-trocado", () => {
-    iaPessoa = state.pessoaAtual === "ambos" ? "ambos" : (state.pessoaAtual === "gabriel" ? "gabriel" : "davi");
     faturaPessoa = state.pessoaAtual === "gabriel" ? "gabriel" : "davi";
-    if (viewAtual === "ia") renderIA();
     if (viewAtual === "faturas") renderFaturas();
     document.getElementById("caixaConfigAdminCard")?.classList.toggle("is-hidden", !usuarioAtualEhAdmin());
     if (viewAtual === "admin" && !usuarioAtualEhAdmin()) mostrarView("home");
@@ -9249,7 +8666,6 @@ function usuarioAtualEhAdmin(){
     fechar,
     mostrarView,
     renderCategorias,
-    renderIA,
     renderFaturas,
     renderTemas,
     renderAdmin

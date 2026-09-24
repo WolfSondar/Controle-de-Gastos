@@ -9,7 +9,7 @@ service cloud.firestore {
         ];
     }
 
-    // Configuração privada do servidor. Clientes nunca podem ler ou escrever a chave Gemini.
+    // Área de sistema reservada; clientes não têm acesso.
     match /system/{document=**} {
       allow read, write: if false;
     }

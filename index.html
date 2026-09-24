@@ -209,19 +209,6 @@
               <div class="split-legend split-legend-categorias" id="categoriaLegend"></div>
             </div>
           </div>
-          <div class="split-card resumo-status-card" id="statusFinanceiroCard">
-            <div class="ledger-line">
-              <h2 class="section-title">Status financeiro</h2>
-            </div>
-            <div class="status-financeiro-body" id="statusFinanceiroBody">
-              <div class="status-financeiro-badge status-financeiro-neutro" id="statusFinanceiroBadge">
-                <span class="status-financeiro-pulse" aria-hidden="true"></span>
-                <strong id="statusFinanceiroTitulo">Analisando</strong>
-              </div>
-              <p class="status-financeiro-descricao" id="statusFinanceiroDescricao">Estou organizando seus números para mostrar como está o mês.</p>
-            </div>
-          </div>
-
         </div>
         <div class="graficos-dots is-hidden" id="graficosDots" aria-hidden="true"></div>
       </div>
@@ -620,14 +607,14 @@
   <span>Adicionar</span>
 </button>
 
-<!-- CAIXA — CHAT FINANCEIRO IA -->
+<!-- CAIXA — ASSISTENTE FINANCEIRO -->
 <button type="button" class="caixa-chat-fab" id="caixaChatFab" aria-label="Abrir assistente financeiro" aria-expanded="false">
   <span class="caixa-chat-fab-pulse" aria-hidden="true"></span>
   <svg viewBox="0 0 24 24" fill="none" aria-hidden="true">
     <path d="M5 6.5A3.5 3.5 0 0 1 8.5 3h7A3.5 3.5 0 0 1 19 6.5v5A3.5 3.5 0 0 1 15.5 15H11l-4.7 4v-4.7A3.5 3.5 0 0 1 5 11.5v-5Z" stroke="currentColor" stroke-width="1.8" stroke-linejoin="round"/>
     <path d="M8.5 8.5h7M8.5 11.5h4.5" stroke="currentColor" stroke-width="1.7" stroke-linecap="round"/>
   </svg>
-  <span class="caixa-chat-fab-label">IA</span>
+  <span class="caixa-chat-fab-label">Caixa</span>
 </button>
 
 <section class="caixa-chat" id="caixaChat" aria-label="Assistente financeiro" aria-hidden="true">
@@ -642,8 +629,8 @@
         </svg>
       </span>
       <div>
-        <strong>Assistente Caixa</strong>
-        <small>Seu assistente financeiro</small>
+        <strong>Caixa</strong>
+        <small>Assistente financeiro</small>
       </div>
     </div>
     <button type="button" class="caixa-chat-close" id="caixaChatClose" aria-label="Fechar assistente">×</button>
@@ -702,12 +689,6 @@
           </span>
           <span><strong>Categorias</strong><small>Crie, edite, exclua e escolha as cores.</small></span><b>›</b>
         </button>
-        <button type="button" class="caixa-config-card" data-config-view="ia">
-          <span class="caixa-config-card-icon">
-            <svg viewBox="0 0 24 24" fill="none"><path d="M7 4.5h10A2.5 2.5 0 0 1 19.5 7v7A2.5 2.5 0 0 1 17 16.5h-4.5L8 20v-3.5H7A2.5 2.5 0 0 1 4.5 14V7A2.5 2.5 0 0 1 7 4.5Z" stroke="currentColor" stroke-width="1.7"/><path d="M8 9h8M8 12h5" stroke="currentColor" stroke-width="1.7" stroke-linecap="round"/></svg>
-          </span>
-          <span><strong>Assistente IA</strong><small>Edite o tom e as informações pessoais usadas pela IA.</small></span><b>›</b>
-        </button>
         <button type="button" class="caixa-config-card" data-config-view="faturas">
           <span class="caixa-config-card-icon">
             <svg viewBox="0 0 24 24" fill="none"><rect x="4" y="3.5" width="16" height="17" rx="2" stroke="currentColor" stroke-width="1.8"/><path d="M7.5 8h9M7.5 12h9M7.5 16h5" stroke="currentColor" stroke-width="1.7" stroke-linecap="round"/></svg>
@@ -734,21 +715,6 @@
           <button type="button" class="btn btn-gold btn-config-small" id="btnNovaCategoria">+ Nova</button>
         </div>
         <div class="caixa-config-list" id="listaConfigCategorias"></div>
-      </section>
-
-      <section class="caixa-config-view is-hidden" id="caixaConfigIA">
-        <div class="caixa-config-ia-context" id="configIAPessoaContext" aria-live="polite">
-          <span class="caixa-config-ia-context-dot" aria-hidden="true"></span>
-          <span>Editando: <strong id="configIAPessoaLabel">Davi</strong></span>
-        </div>
-        <label class="caixa-config-label" for="configIATom">Tom da IA</label>
-        <textarea id="configIATom" class="caixa-config-textarea" rows="7" placeholder="Como a IA deve falar com essa pessoa?"></textarea>
-        <div class="caixa-config-section-head caixa-config-subhead">
-          <div><h3>Imersão IA</h3><p>Informações pessoais que ajudam a IA a responder com contexto.</p></div>
-          <button type="button" class="btn btn-gold btn-config-small" id="btnNovaImersao">+ Nova</button>
-        </div>
-        <div class="caixa-config-list" id="listaConfigImersao"></div>
-        <button type="button" class="btn btn-gold caixa-config-save-wide" id="btnSalvarConfigIA">Salvar alterações</button>
       </section>
 
       <section class="caixa-config-view is-hidden" id="caixaConfigTema">
