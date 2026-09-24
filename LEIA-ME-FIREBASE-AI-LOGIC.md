@@ -1,4 +1,4 @@
-# Caixa — v46 Firebase AI Logic (Spark)
+# Caixa — v47 Firebase AI Logic (Spark)
 
 Esta versão remove a arquitetura de Cloud Functions e usa o Firebase AI Logic com o Gemini Developer API pelo SDK web oficial.
 

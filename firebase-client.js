@@ -3,16 +3,16 @@
  * SDK modular carregado diretamente pelo navegador para manter o projeto
  * GitHub Pages sem build obrigatório.
  */
-import { initializeApp } from "https://www.gstatic.com/firebasejs/12.19.0/firebase-app.js";
-import { initializeAppCheck, ReCaptchaEnterpriseProvider } from "https://www.gstatic.com/firebasejs/12.19.0/firebase-app-check.js";
-import { getAI, getGenerativeModel, GoogleAIBackend } from "https://www.gstatic.com/firebasejs/12.19.0/firebase-ai.js";
+import { initializeApp } from "https://www.gstatic.com/firebasejs/12.15.0/firebase-app.js";
+import { initializeAppCheck, ReCaptchaEnterpriseProvider } from "https://www.gstatic.com/firebasejs/12.15.0/firebase-app-check.js";
+import { getAI, getGenerativeModel, GoogleAIBackend } from "https://www.gstatic.com/firebasejs/12.15.0/firebase-ai.js";
 import {
   getAuth,
   onAuthStateChanged,
   GoogleAuthProvider,
   signInWithPopup,
   signOut,
-} from "https://www.gstatic.com/firebasejs/12.19.0/firebase-auth.js";
+} from "https://www.gstatic.com/firebasejs/12.15.0/firebase-auth.js";
 import {
   initializeFirestore,
   persistentLocalCache,
@@ -24,7 +24,7 @@ import {
   writeBatch,
   collection,
   getDocs,
-} from "https://www.gstatic.com/firebasejs/12.19.0/firebase-firestore.js";
+} from "https://www.gstatic.com/firebasejs/12.15.0/firebase-firestore.js";
 
 // Compatibilidade global: os backups precisam estar disponíveis também no console.
 // Os wrappers são criados antes da inicialização do Firebase para evitar ReferenceError
@@ -699,7 +699,7 @@ if (!cfg.apiKey || cfg.apiKey.includes("COLE_")) {
     await window.CAIXA_FIREBASE_READY;
     if (!currentUser) throw new Error("Faça login antes de limpar o teste.");
     const ref = doc(db, "users", currentUser.uid, "_testes", "conexao");
-    const { deleteDoc } = await import("https://www.gstatic.com/firebasejs/12.19.0/firebase-firestore.js");
+    const { deleteDoc } = await import("https://www.gstatic.com/firebasejs/12.15.0/firebase-firestore.js");
     await deleteDoc(ref);
     return { ok: true };
   }
