@@ -1760,3 +1760,112 @@ html[data-theme="dark"][data-caixa-theme="christmas"] .person-btn.is-active {
   box-shadow:0 5px 14px rgba(0,0,0,.28) !important;
 }
 
+
+/* ============================================================
+   NATAL ESCURO — NOITE DE NATAL (sem fundo verde)
+   Paleta: azul-noite + azul-gelo + vinho natalino + dourado + neve.
+   ============================================================ */
+html[data-theme="dark"][data-caixa-theme="christmas"] body {
+  background:
+    radial-gradient(circle at 12% 8%, rgba(255,255,255,.07) 0 1.5px, transparent 2.5px),
+    radial-gradient(circle at 82% 13%, rgba(246,216,139,.08) 0 1.5px, transparent 2.5px),
+    radial-gradient(circle at 68% 38%, rgba(255,255,255,.045) 0 1px, transparent 2px),
+    linear-gradient(180deg,#071523 0%,#0a1b2b 48%,#0d2234 100%) !important;
+}
+
+html[data-theme="dark"][data-caixa-theme="christmas"] .topbar {
+  background:linear-gradient(180deg,#102a42 0%,#0a1d31 100%) !important;
+  color:#f4f8fc !important;
+  border-color:rgba(126,188,220,.25) !important;
+}
+
+html[data-theme="dark"][data-caixa-theme="christmas"] .hero {
+  background:
+    radial-gradient(circle at 84% 10%,rgba(110,190,235,.18),transparent 25%),
+    radial-gradient(circle at 16% 72%,rgba(185,43,61,.18),transparent 24%),
+    radial-gradient(circle at 53% 100%,rgba(224,183,83,.08),transparent 28%),
+    linear-gradient(145deg,#102d47 0%,#0b2238 50%,#071827 100%) !important;
+  color:#f7fbff !important;
+  box-shadow:0 18px 44px rgba(0,0,0,.44) !important;
+}
+
+/* A faixa inferior do saldo fica azul-noite/azul-gelo, nunca verde. */
+html[data-theme="dark"][data-caixa-theme="christmas"] .saldo-block {
+  background:
+    radial-gradient(circle at 90% 10%,rgba(116,204,239,.16),transparent 28%),
+    linear-gradient(145deg,#173e5d 0%,#12314c 52%,#0b253c 100%) !important;
+  border-color:rgba(137,211,239,.28) !important;
+  box-shadow:inset 0 1px 0 rgba(255,255,255,.08),0 12px 28px rgba(0,0,0,.28) !important;
+}
+
+html[data-theme="dark"][data-caixa-theme="christmas"] .saldo-label {
+  color:#d9f3fc !important;
+}
+
+html[data-theme="dark"][data-caixa-theme="christmas"] .saldo-valor {
+  background:linear-gradient(135deg,#3d89ad 0%,#286887 52%,#194b69 100%) !important;
+  border-color:rgba(143,219,242,.28) !important;
+  color:#fff !important;
+  box-shadow:inset 0 1px 0 rgba(255,255,255,.14),0 8px 22px rgba(0,0,0,.30) !important;
+}
+
+html[data-theme="dark"][data-caixa-theme="christmas"] .hero-stat {
+  background:linear-gradient(145deg,rgba(29,73,103,.90),rgba(12,38,61,.94)) !important;
+  border-color:rgba(125,199,229,.22) !important;
+}
+
+html[data-theme="dark"][data-caixa-theme="christmas"] .hero-stat-valor {
+  background:linear-gradient(135deg,rgba(102,183,219,.20),rgba(36,92,125,.30)) !important;
+}
+
+/* Cores de significado continuam distintas, mas não contaminam o fundo. */
+html[data-theme="dark"][data-caixa-theme="christmas"] .hero-stat-valor.income {
+  color:#91dff3 !important;
+}
+html[data-theme="dark"][data-caixa-theme="christmas"] .hero-stat-valor.expense {
+  color:#ff9ca7 !important;
+}
+html[data-theme="dark"][data-caixa-theme="christmas"] .hero-stat-valor.gold {
+  color:#ffd982 !important;
+}
+
+html[data-theme="dark"][data-caixa-theme="christmas"] .person-switch {
+  background:rgba(5,20,34,.78) !important;
+  border-color:rgba(125,199,229,.25) !important;
+}
+html[data-theme="dark"][data-caixa-theme="christmas"] .person-btn {
+  color:#a9cbe0 !important;
+}
+html[data-theme="dark"][data-caixa-theme="christmas"] .person-btn.is-active {
+  background:linear-gradient(135deg,#3e88ad,#275f80) !important;
+  color:#fff !important;
+  box-shadow:0 5px 14px rgba(0,0,0,.30),inset 0 1px 0 rgba(255,255,255,.13) !important;
+}
+
+/* Botão de expandir/recolher também segue a noite azul do Natal. */
+html[data-theme="dark"][data-caixa-theme="christmas"] .hero-stats-toggle.collapse-toggle {
+  background:linear-gradient(145deg,#204f70,#123650) !important;
+  color:#d8f4ff !important;
+  border-color:rgba(126,204,235,.30) !important;
+}
+html[data-theme="dark"][data-caixa-theme="christmas"] .hero-stats-toggle.collapse-toggle:not(.is-collapsed) {
+  background:linear-gradient(135deg,#3d89ad,#245f80) !important;
+  color:#fff !important;
+  border-color:#67c2e3 !important;
+}
+
+/* A neve continua branca/gelo para marcar claramente o rodapé do cartão. */
+html[data-theme="dark"][data-caixa-theme="christmas"] .hero::after {
+  background:linear-gradient(180deg,#ffffff 0%,#f3f9fc 58%,#d9eaf1 100%) !important;
+  filter:drop-shadow(0 -1px 1px rgba(255,255,255,.20)) drop-shadow(0 1px 3px rgba(0,0,0,.28)) !important;
+}
+
+/* Luzes natalinas: dourado quente sobre o azul da noite. */
+html[data-theme="dark"][data-caixa-theme="christmas"] .caixa-christmas-lights i {
+  background:#f7dc91 !important;
+  color:#f7dc91 !important;
+  box-shadow:0 0 4px rgba(247,220,145,.95),0 0 9px rgba(247,220,145,.46) !important;
+}
+html[data-theme="dark"][data-caixa-theme="christmas"] .caixa-christmas-lights .christmas-wire {
+  border-top-color:rgba(247,220,145,.58) !important;
+}
