@@ -6,7 +6,7 @@
 
 // IMPORTANTE: altere esta versão sempre que publicar uma nova versão do app.
 // A ativação remove TODOS os caches "caixa-*" de versões anteriores.
-const CACHE_VERSION = "caixa-v57";
+const CACHE_VERSION = "caixa-v58";
 const CACHE_SHELL = `${CACHE_VERSION}-shell`;
 const CACHE_RUNTIME = `${CACHE_VERSION}-runtime`;
 
