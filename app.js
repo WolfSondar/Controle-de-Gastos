@@ -12,6 +12,14 @@
     const valido = ["default", "christmas", "halloween"];
     const tema = valido.includes(salvo) ? salvo : "default";
     document.documentElement.dataset.caixaTheme = tema;
+    // Atualiza a cor da área do sistema já no bootstrap, antes do restante do app.
+    try {
+      const escuro = document.documentElement.dataset.theme === "dark";
+      const cor = tema === "christmas" ? (escuro ? "#0b1d28" : "#b8dfea")
+        : tema === "halloween" ? (escuro ? "#12091a" : "#eadcf3")
+        : (escuro ? "#0d1e19" : "#16332c");
+      document.querySelectorAll('meta[name="theme-color"]').forEach(meta => meta.setAttribute("content", cor));
+    } catch (_) {}
     document.documentElement.classList.add("caixa-theme-booting");
     let css = document.getElementById("caixaThemeBootStyle");
     if (!css) {
@@ -1991,9 +1999,9 @@ function caixaAtualizarCorChromeTema() {
     const escuro = root.dataset.theme === "dark";
     const sazonal = root.dataset.caixaTheme || "default";
     const cor = sazonal === "christmas"
-      ? (escuro ? "#102b25" : "#dceff4")
+      ? (escuro ? "#0b1d28" : "#b8dfea")
       : sazonal === "halloween"
-        ? (escuro ? "#160d20" : "#eee3f4")
+        ? (escuro ? "#12091a" : "#eadcf3")
         : (escuro ? "#0d1e19" : "#16332c");
     document.querySelectorAll('meta[name="theme-color"]').forEach(meta => meta.setAttribute("content", cor));
     return cor;
@@ -2001,8 +2009,28 @@ function caixaAtualizarCorChromeTema() {
 }
 window.CAIXA_ATUALIZAR_COR_CHROME_TEMA = caixaAtualizarCorChromeTema;
 
+// Se o tema sazonal for trocado por qualquer caminho do app, atualiza imediatamente
+// a barra do sistema e a trilha sonora, sem esperar o próximo intervalo.
+(function observarMudancaDeTemaSazonal(){
+  try {
+    const root = document.documentElement;
+    let ultimoTema = root.dataset.caixaTheme || "default";
+    const observer = new MutationObserver(() => {
+      const tema = root.dataset.caixaTheme || "default";
+      if (tema === ultimoTema) return;
+      ultimoTema = tema;
+      window.CAIXA_ATUALIZAR_COR_CHROME_TEMA?.();
+      window.CAIXA_ATUALIZAR_MUSICA_TEMA?.();
+    });
+    observer.observe(root, { attributes:true, attributeFilter:["data-caixa-theme"] });
+  } catch (_) {}
+})();
+
 function caixaGarantirPlayerMusica() {
-  if (caixaMusicaAudio) return caixaMusicaAudio;
+  if (caixaMusicaAudio) {
+    caixaMusicaAudio.volume = 0.055;
+    return caixaMusicaAudio;
+  }
   const audio = document.createElement("audio");
   audio.id = "caixaTemaMusicPlayer";
   audio.preload = "auto";

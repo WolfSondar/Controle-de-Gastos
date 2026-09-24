@@ -1778,3 +1778,20 @@ html[data-theme="dark"][data-caixa-theme="christmas"] .caixa-config-drawer texta
   color:#eef8f4 !important;
   border-color:rgba(125,203,215,.18) !important;
 }
+
+
+/* ==========================================================
+   NATAL — contraste final (claro/escuro)
+   ========================================================== */
+html[data-caixa-theme="christmas"] .caixa-config-kicker{color:#c53f52 !important;opacity:1 !important;font-weight:900 !important;}
+html[data-theme="dark"][data-caixa-theme="christmas"] .caixa-config-kicker{color:#ff7d87 !important;opacity:1 !important;font-weight:900 !important;}
+html[data-caixa-theme="christmas"] .caixa-config-head h2{color:#214e66 !important;}
+html[data-theme="dark"][data-caixa-theme="christmas"] .caixa-config-head h2{color:#f0f8fb !important;}
+html[data-caixa-theme="christmas"] .caixa-config-trigger,
+html[data-caixa-theme="christmas"] .icon-btn,
+html[data-caixa-theme="christmas"] .sync{color:#245a75 !important;}
+html[data-theme="dark"][data-caixa-theme="christmas"] .caixa-config-trigger,
+html[data-theme="dark"][data-caixa-theme="christmas"] .icon-btn,
+html[data-theme="dark"][data-caixa-theme="christmas"] .sync{color:#dff3fa !important;}
+html[data-caixa-theme="christmas"] .fab-criar,
+html[data-caixa-theme="christmas"] .caixa-chat-fab{background:var(--ink) !important;color:var(--on-ink) !important;}

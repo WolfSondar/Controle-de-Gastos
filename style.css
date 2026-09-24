@@ -9328,3 +9328,352 @@ html[data-theme="dark"] .caixa-config-drawer textarea {
     padding-bottom: env(safe-area-inset-bottom);
   }
 }
+
+
+/* ==========================================================
+   V15 — acabamento final dos temas sazonais + FABs
+   ========================================================== */
+/* O + usa exatamente o mesmo nível de camada e linguagem visual do botão IA. */
+.fab-criar {
+  z-index:1200 !important;
+  background:var(--ink) !important;
+  color:var(--on-ink) !important;
+  border-color:rgba(255,255,255,.18) !important;
+  box-shadow:0 12px 30px rgba(22,51,44,.26),0 2px 8px rgba(22,51,44,.16) !important;
+}
+.fab-criar svg { color:var(--gold) !important; }
+.fab-criar:hover { box-shadow:0 16px 34px rgba(22,51,44,.30),0 3px 10px rgba(22,51,44,.18) !important; }
+html[data-theme="dark"] .fab-criar {
+  background:var(--ink) !important;
+  color:var(--on-ink) !important;
+  border-color:rgba(255,255,255,.16) !important;
+  box-shadow:0 14px 34px rgba(0,0,0,.40),0 2px 8px rgba(0,0,0,.22) !important;
+}
+
+/* O botão IA e o + permanecem acima do conteúdo e abaixo apenas dos modais. */
+.caixa-chat-fab { z-index:1200 !important; }
+
+/* Contraste da área superior no tema padrão também fica mais consistente. */
+html[data-theme="dark"] .caixa-config-trigger,
+html[data-theme="dark"] .icon-btn,
+html[data-theme="dark"] .sync { color:var(--ink-text); }
+
+/* ==========================================================
+   NATAL — interface principal
+   ========================================================== */
+html[data-caixa-theme="christmas"] .hero {
+  color:#214b63 !important;
+}
+html[data-caixa-theme="christmas"] .caixa-config-trigger,
+html[data-caixa-theme="christmas"] .icon-btn,
+html[data-caixa-theme="christmas"] .sync,
+html[data-caixa-theme="christmas"] .mes-atual-badge {
+  background:rgba(255,255,255,.48) !important;
+  border-color:rgba(51,112,145,.28) !important;
+  color:#245a75 !important;
+  box-shadow:0 3px 10px rgba(55,115,145,.10),inset 0 1px 0 rgba(255,255,255,.72) !important;
+}
+html[data-caixa-theme="christmas"] .caixa-config-trigger:hover,
+html[data-caixa-theme="christmas"] .icon-btn:hover,
+html[data-caixa-theme="christmas"] .sync:hover,
+html[data-caixa-theme="christmas"] .mes-atual-badge:hover {
+  background:rgba(255,255,255,.70) !important;
+}
+html[data-caixa-theme="christmas"] .sync-icone-on,
+html[data-caixa-theme="christmas"] .sync-icone-check { color:#287da4 !important; }
+html[data-caixa-theme="christmas"] .sync-icone-off { color:#c54e61 !important; }
+html[data-caixa-theme="christmas"] .person-switch {
+  background:rgba(238,250,255,.58) !important;
+  border-color:rgba(56,125,159,.25) !important;
+  box-shadow:inset 0 2px 7px rgba(44,108,139,.13),0 3px 12px rgba(48,108,137,.08) !important;
+}
+html[data-caixa-theme="christmas"] .person-btn {
+  color:#507b90 !important;
+}
+html[data-caixa-theme="christmas"] .person-btn.is-active {
+  background:linear-gradient(135deg,#5faed0,#388bb6) !important;
+  color:#fff !important;
+  box-shadow:0 4px 12px rgba(49,126,165,.24) !important;
+}
+
+/* Saldo: a parte inferior deixa de puxar para o verde e passa a ter gelo/azul. */
+html[data-caixa-theme="christmas"] .saldo-block {
+  background:
+    radial-gradient(circle at 92% 85%,rgba(107,202,232,.22),transparent 28%),
+    linear-gradient(145deg,rgba(255,255,255,.70),rgba(211,238,247,.72)) !important;
+  border-color:rgba(65,139,171,.25) !important;
+  box-shadow:inset 0 1px 0 rgba(255,255,255,.88),0 9px 24px rgba(53,117,148,.12) !important;
+}
+html[data-caixa-theme="christmas"] .saldo-label { color:#4d7d92 !important; text-shadow:none; }
+html[data-caixa-theme="christmas"] .saldo-valor {
+  background:linear-gradient(135deg,#8fc8dc,#6fa7bd) !important;
+  color:#fff !important;
+  border:1px solid rgba(61,126,153,.20) !important;
+  box-shadow:inset 0 1px 0 rgba(255,255,255,.22),0 7px 16px rgba(53,112,143,.16) !important;
+  text-shadow:0 2px 7px rgba(25,76,101,.25) !important;
+}
+html[data-caixa-theme="christmas"] .saldo-origem-beneficio .saldo-origem-label,
+html[data-caixa-theme="christmas"] .saldo-origem-beneficio > span:last-child {
+  color:#4a9bc0 !important;
+}
+html[data-caixa-theme="christmas"] .saldo-origem-saldo .saldo-origem-label,
+html[data-caixa-theme="christmas"] .saldo-origem-saldo > span:last-child {
+  color:#2f84a8 !important;
+}
+html[data-caixa-theme="christmas"] .saldo-block::after { border-color:rgba(84,173,204,.20);box-shadow:0 0 0 12px rgba(84,173,204,.035),0 0 0 24px rgba(84,173,204,.022); }
+
+html[data-caixa-theme="christmas"] .hero-stat {
+  background:linear-gradient(145deg,rgba(244,252,255,.84),rgba(205,234,244,.76)) !important;
+  border-color:rgba(65,139,171,.22) !important;
+  box-shadow:inset 0 1px 0 rgba(255,255,255,.88),0 6px 16px rgba(53,117,148,.10) !important;
+}
+html[data-caixa-theme="christmas"] .hero-stat-label { color:#5a7f91 !important; }
+html[data-caixa-theme="christmas"] .hero-stat-valor {
+  background:rgba(72,139,166,.20) !important;
+  color:#2b6078 !important;
+  text-shadow:none !important;
+}
+html[data-caixa-theme="christmas"] .hero-stat-valor.income { color:#287da4 !important; }
+html[data-caixa-theme="christmas"] .hero-stat-valor.expense { color:#b64d62 !important; }
+html[data-caixa-theme="christmas"] .hero-stat-valor.gold { color:#9a711e !important; }
+html[data-caixa-theme="christmas"] .hero-stat-pendente { color:#68899a !important; }
+html[data-caixa-theme="christmas"] .hero-stats-toggle.collapse-toggle {
+  background:linear-gradient(135deg,#f0fbff,#c9e8f2) !important;
+  border-color:rgba(54,126,157,.30) !important;
+  color:#327596 !important;
+  box-shadow:0 4px 12px rgba(52,118,147,.10) !important;
+}
+html[data-caixa-theme="christmas"] .hero-stats-toggle.collapse-toggle:not(.is-collapsed) {
+  background:linear-gradient(135deg,#72bdd9,#438eaf) !important;
+  color:#fff !important;
+  border-color:#3d85a8 !important;
+}
+
+/* ==========================================================
+   NATAL — popup, chat e lateral no claro
+   ========================================================== */
+html[data-caixa-theme="christmas"] .modal,
+html[data-caixa-theme="christmas"] .caixa-chat,
+html[data-caixa-theme="christmas"] .caixa-config-drawer {
+  background:
+    radial-gradient(circle at 92% 0%,rgba(118,205,231,.20),transparent 27%),
+    linear-gradient(180deg,#fafdff 0%,#edf8fb 52%,#fffaf2 100%) !important;
+  border-color:rgba(61,137,170,.30) !important;
+  box-shadow:0 28px 78px rgba(39,95,122,.22),inset 0 1px 0 rgba(255,255,255,.95) !important;
+}
+html[data-caixa-theme="christmas"] .caixa-chat-header,
+html[data-caixa-theme="christmas"] .caixa-config-head {
+  background:linear-gradient(135deg,#d8eff6,#f8fcfd) !important;
+  color:#1e5069 !important;
+  border-color:rgba(61,137,170,.20) !important;
+}
+html[data-caixa-theme="christmas"] .caixa-chat-body { background:rgba(255,255,255,.24) !important; }
+html[data-caixa-theme="christmas"] .caixa-chat-welcome,
+html[data-caixa-theme="christmas"] .caixa-chat-action,
+html[data-caixa-theme="christmas"] .caixa-chat-choice,
+html[data-caixa-theme="christmas"] .caixa-chat-goal-help-card,
+html[data-caixa-theme="christmas"] .caixa-chat-simulador-form,
+html[data-caixa-theme="christmas"] .caixa-chat-select-wrap {
+  background:linear-gradient(145deg,#fafdff,#e7f5fa) !important;
+  border-color:rgba(70,143,176,.20) !important;
+  box-shadow:0 5px 16px rgba(48,112,143,.08),inset 0 1px 0 rgba(255,255,255,.82) !important;
+}
+html[data-caixa-theme="christmas"] .caixa-chat-action-icon,
+html[data-caixa-theme="christmas"] .caixa-chat-avatar {
+  background:linear-gradient(135deg,#d4edf5,#b8dfea) !important;
+  color:#27789c !important;
+  box-shadow:inset 0 0 0 1px rgba(46,122,158,.10) !important;
+}
+html[data-caixa-theme="christmas"] .caixa-chat-action-text strong,
+html[data-caixa-theme="christmas"] .caixa-chat-choice strong { color:#24566e !important; }
+html[data-caixa-theme="christmas"] .caixa-chat-action-text small,
+html[data-caixa-theme="christmas"] .caixa-chat-action-arrow,
+html[data-caixa-theme="christmas"] .caixa-chat-note,
+html[data-caixa-theme="christmas"] .caixa-chat-thinking em { color:#668394 !important; }
+html[data-caixa-theme="christmas"] .caixa-chat-bubble { background:#e5f4f8 !important;color:#234d63 !important;border-color:rgba(63,135,168,.16) !important; }
+html[data-caixa-theme="christmas"] .caixa-chat-message.user .caixa-chat-bubble { background:linear-gradient(135deg,#5eafd0,#388bb4) !important;color:#fff !important;border-color:#388bb4 !important; }
+html[data-caixa-theme="christmas"] .modal .btn-ghost,
+html[data-caixa-theme="christmas"] .caixa-chat .btn-ghost,
+html[data-caixa-theme="christmas"] .caixa-config-drawer .btn-ghost { background:#e4f2f7 !important;color:#2b6179 !important;border-color:rgba(62,136,169,.20) !important; }
+html[data-caixa-theme="christmas"] .modal .btn-gold,
+html[data-caixa-theme="christmas"] .caixa-chat .btn-gold,
+html[data-caixa-theme="christmas"] .caixa-config-drawer .btn-gold { background:linear-gradient(135deg,#58abd0,#2f83ae) !important;color:#fff !important;border-color:#2f83ae !important;box-shadow:0 8px 20px rgba(47,131,174,.20) !important; }
+
+/* Lateral: PERSONALIZAÇÃO e Configurações ficam fortes e legíveis. */
+html[data-caixa-theme="christmas"] .caixa-config-kicker { color:#c53f52 !important;opacity:1 !important;font-weight:900 !important; }
+html[data-caixa-theme="christmas"] .caixa-config-head h2,
+html[data-caixa-theme="christmas"] .caixa-config-section-head h3,
+html[data-caixa-theme="christmas"] .caixa-theme-option strong { color:#214e66 !important; }
+html[data-caixa-theme="christmas"] .caixa-config-intro,
+html[data-caixa-theme="christmas"] .caixa-theme-option small,
+html[data-caixa-theme="christmas"] .caixa-config-card small,
+html[data-caixa-theme="christmas"] .caixa-config-section-head p { color:#5d7887 !important;opacity:1 !important; }
+html[data-caixa-theme="christmas"] .caixa-config-card,
+html[data-caixa-theme="christmas"] .caixa-theme-option,
+html[data-caixa-theme="christmas"] .caixa-config-row { background:linear-gradient(145deg,#fafdff,#eaf6fa) !important;border-color:rgba(61,137,170,.20) !important; }
+html[data-caixa-theme="christmas"] .caixa-config-card-icon { background:linear-gradient(135deg,#d8eff6,#f9fcfd) !important;color:#287da4 !important; }
+html[data-caixa-theme="christmas"] .caixa-config-back,
+html[data-caixa-theme="christmas"] .caixa-config-close { color:#3c7188 !important;border-color:rgba(61,137,170,.18) !important; }
+html[data-caixa-theme="christmas"] .caixa-config-back:hover,
+html[data-caixa-theme="christmas"] .caixa-config-close:hover { background:rgba(82,166,197,.10) !important;color:#1f526b !important; }
+
+/* ==========================================================
+   NATAL — popup, chat e lateral no escuro
+   ========================================================== */
+html[data-theme="dark"][data-caixa-theme="christmas"] .caixa-config-kicker { color:#ff7d87 !important;opacity:1 !important;font-weight:900 !important; }
+html[data-theme="dark"][data-caixa-theme="christmas"] .caixa-config-head h2,
+html[data-theme="dark"][data-caixa-theme="christmas"] .caixa-config-section-head h3,
+html[data-theme="dark"][data-caixa-theme="christmas"] .caixa-theme-option strong { color:#f0f8fb !important; }
+html[data-theme="dark"][data-caixa-theme="christmas"] .caixa-config-intro,
+html[data-theme="dark"][data-caixa-theme="christmas"] .caixa-theme-option small,
+html[data-theme="dark"][data-caixa-theme="christmas"] .caixa-config-card small,
+html[data-theme="dark"][data-caixa-theme="christmas"] .caixa-config-section-head p { color:#a9c2cc !important;opacity:1 !important; }
+html[data-theme="dark"][data-caixa-theme="christmas"] .caixa-config-card,
+html[data-theme="dark"][data-caixa-theme="christmas"] .caixa-theme-option,
+html[data-theme="dark"][data-caixa-theme="christmas"] .caixa-config-row { background:linear-gradient(145deg,#122b38,#0c1c26) !important;border-color:rgba(117,195,218,.18) !important; }
+html[data-theme="dark"][data-caixa-theme="christmas"] .caixa-config-card-icon { background:rgba(100,194,220,.10) !important;color:#8cdaef !important; }
+html[data-theme="dark"][data-caixa-theme="christmas"] .caixa-config-back,
+html[data-theme="dark"][data-caixa-theme="christmas"] .caixa-config-close { color:#a8cbd6 !important;border-color:rgba(151,210,226,.15) !important; }
+
+html[data-theme="dark"][data-caixa-theme="christmas"] .modal,
+html[data-theme="dark"][data-caixa-theme="christmas"] .caixa-chat,
+html[data-theme="dark"][data-caixa-theme="christmas"] .caixa-config-drawer {
+  background:
+    radial-gradient(circle at 92% 0%,rgba(87,192,219,.10),transparent 28%),
+    linear-gradient(180deg,#142d39 0%,#0b1a23 100%) !important;
+  border-color:rgba(111,204,226,.22) !important;
+  box-shadow:0 30px 86px rgba(0,0,0,.55),inset 0 1px 0 rgba(255,255,255,.045) !important;
+}
+html[data-theme="dark"][data-caixa-theme="christmas"] .caixa-chat-header,
+html[data-theme="dark"][data-caixa-theme="christmas"] .caixa-config-head { background:linear-gradient(135deg,#193a48,#10242f) !important;color:#f0f8fb !important; }
+html[data-theme="dark"][data-caixa-theme="christmas"] .caixa-chat-welcome,
+html[data-theme="dark"][data-caixa-theme="christmas"] .caixa-chat-action,
+html[data-theme="dark"][data-caixa-theme="christmas"] .caixa-chat-choice,
+html[data-theme="dark"][data-caixa-theme="christmas"] .caixa-chat-goal-help-card,
+html[data-theme="dark"][data-caixa-theme="christmas"] .caixa-chat-simulador-form,
+html[data-theme="dark"][data-caixa-theme="christmas"] .caixa-chat-select-wrap { background:linear-gradient(145deg,#17313e,#10232d) !important;border-color:rgba(111,204,226,.16) !important; }
+html[data-theme="dark"][data-caixa-theme="christmas"] .caixa-chat-action-icon,
+html[data-theme="dark"][data-caixa-theme="christmas"] .caixa-chat-avatar { background:rgba(96,196,222,.12) !important;color:#8dddf1 !important; }
+html[data-theme="dark"][data-caixa-theme="christmas"] .caixa-chat-action-text strong,
+html[data-theme="dark"][data-caixa-theme="christmas"] .caixa-chat-choice strong { color:#eff9fc !important; }
+html[data-theme="dark"][data-caixa-theme="christmas"] .caixa-chat-action-text small,
+html[data-theme="dark"][data-caixa-theme="christmas"] .caixa-chat-action-arrow,
+html[data-theme="dark"][data-caixa-theme="christmas"] .caixa-chat-note,
+html[data-theme="dark"][data-caixa-theme="christmas"] .caixa-chat-thinking em { color:#a7c2cc !important; }
+html[data-theme="dark"][data-caixa-theme="christmas"] .caixa-chat-bubble { background:#193541 !important;color:#eaf7fb !important;border-color:rgba(111,204,226,.15) !important; }
+html[data-theme="dark"][data-caixa-theme="christmas"] .caixa-chat-message.user .caixa-chat-bubble { background:linear-gradient(135deg,#4398bc,#286f91) !important;color:#fff !important; }
+html[data-theme="dark"][data-caixa-theme="christmas"] .modal .btn-ghost,
+html[data-theme="dark"][data-caixa-theme="christmas"] .caixa-chat .btn-ghost,
+html[data-theme="dark"][data-caixa-theme="christmas"] .caixa-config-drawer .btn-ghost { background:#18323f !important;color:#d5eef5 !important;border-color:rgba(111,204,226,.17) !important; }
+html[data-theme="dark"][data-caixa-theme="christmas"] .modal .btn-gold,
+html[data-theme="dark"][data-caixa-theme="christmas"] .caixa-chat .btn-gold,
+html[data-theme="dark"][data-caixa-theme="christmas"] .caixa-config-drawer .btn-gold { background:linear-gradient(135deg,#4ba5ca,#2c789d) !important;color:#fff !important;border-color:#2c789d !important; }
+
+/* ==========================================================
+   HALLOWEEN — contraste dos controles, lateral e popups
+   ========================================================== */
+html[data-caixa-theme="halloween"] .caixa-config-trigger,
+html[data-caixa-theme="halloween"] .icon-btn,
+html[data-caixa-theme="halloween"] .sync,
+html[data-caixa-theme="halloween"] .mes-atual-badge {
+  background:rgba(255,248,253,.48) !important;
+  border-color:rgba(105,59,135,.28) !important;
+  color:#54336d !important;
+  box-shadow:0 3px 10px rgba(82,47,111,.10),inset 0 1px 0 rgba(255,255,255,.76) !important;
+}
+html[data-caixa-theme="halloween"] .person-btn.is-active { background:linear-gradient(135deg,#8750c5,#6531a5) !important;color:#fff !important; }
+html[data-caixa-theme="halloween"] .sync-icone-on,
+html[data-caixa-theme="halloween"] .sync-icone-check { color:#4b9fc0 !important; }
+html[data-caixa-theme="halloween"] .caixa-config-kicker { color:#7a38c7 !important;opacity:1 !important;font-weight:900 !important; }
+html[data-caixa-theme="halloween"] .caixa-config-head h2,
+html[data-caixa-theme="halloween"] .caixa-config-section-head h3,
+html[data-caixa-theme="halloween"] .caixa-theme-option strong { color:#3f2a4c !important; }
+html[data-caixa-theme="halloween"] .caixa-config-intro,
+html[data-caixa-theme="halloween"] .caixa-theme-option small,
+html[data-caixa-theme="halloween"] .caixa-config-card small,
+html[data-caixa-theme="halloween"] .caixa-config-section-head p { color:#6b5b76 !important;opacity:1 !important; }
+html[data-caixa-theme="halloween"] .caixa-config-card,
+html[data-caixa-theme="halloween"] .caixa-theme-option,
+html[data-caixa-theme="halloween"] .caixa-config-row { background:linear-gradient(145deg,#fffaff,#f1e7f7) !important;border-color:rgba(122,56,199,.20) !important; }
+html[data-caixa-theme="halloween"] .caixa-config-card-icon { background:linear-gradient(135deg,#eee1f7,#fff3e8) !important;color:#7a38c7 !important; }
+html[data-caixa-theme="halloween"] .caixa-config-back,
+html[data-caixa-theme="halloween"] .caixa-config-close { color:#654878 !important;border-color:rgba(122,56,199,.18) !important; }
+
+html[data-theme="dark"][data-caixa-theme="halloween"] .caixa-config-trigger,
+html[data-theme="dark"][data-caixa-theme="halloween"] .icon-btn,
+html[data-theme="dark"][data-caixa-theme="halloween"] .sync,
+html[data-theme="dark"][data-caixa-theme="halloween"] .mes-atual-badge { background:rgba(31,18,43,.72) !important;border-color:rgba(112,224,255,.20) !important;color:#e9d9f3 !important; }
+html[data-theme="dark"][data-caixa-theme="halloween"] .caixa-config-kicker { color:#ff8a24 !important;opacity:1 !important;font-weight:900 !important; }
+html[data-theme="dark"][data-caixa-theme="halloween"] .caixa-config-head h2,
+html[data-theme="dark"][data-caixa-theme="halloween"] .caixa-config-section-head h3,
+html[data-theme="dark"][data-caixa-theme="halloween"] .caixa-theme-option strong { color:#f8effc !important; }
+html[data-theme="dark"][data-caixa-theme="halloween"] .caixa-config-intro,
+html[data-theme="dark"][data-caixa-theme="halloween"] .caixa-theme-option small,
+html[data-theme="dark"][data-caixa-theme="halloween"] .caixa-config-card small,
+html[data-theme="dark"][data-caixa-theme="halloween"] .caixa-config-section-head p { color:#c4b4ce !important;opacity:1 !important; }
+html[data-theme="dark"][data-caixa-theme="halloween"] .caixa-config-card,
+html[data-theme="dark"][data-caixa-theme="halloween"] .caixa-theme-option,
+html[data-theme="dark"][data-caixa-theme="halloween"] .caixa-config-row { background:linear-gradient(145deg,#21132d,#140c1c) !important;border-color:rgba(112,224,255,.16) !important; }
+html[data-theme="dark"][data-caixa-theme="halloween"] .caixa-config-card-icon { background:rgba(112,224,255,.09) !important;color:#75e4ff !important; }
+html[data-theme="dark"][data-caixa-theme="halloween"] .caixa-config-back,
+html[data-theme="dark"][data-caixa-theme="halloween"] .caixa-config-close { color:#d0bfd9 !important;border-color:rgba(112,224,255,.15) !important; }
+
+html[data-caixa-theme="halloween"] .modal,
+html[data-caixa-theme="halloween"] .caixa-chat,
+html[data-caixa-theme="halloween"] .caixa-config-drawer { background:radial-gradient(circle at 92% 0%,rgba(85,223,255,.14),transparent 28%),linear-gradient(180deg,#fffaf6,#f5ebf8) !important; border-color:rgba(122,56,199,.28) !important; box-shadow:0 28px 78px rgba(51,24,67,.22),inset 0 1px 0 rgba(255,255,255,.92) !important; }
+html[data-caixa-theme="halloween"] .caixa-chat-header,
+html[data-caixa-theme="halloween"] .caixa-config-head { background:linear-gradient(135deg,#efe1f6,#fff0e2) !important;color:#452756 !important;border-color:rgba(122,56,199,.18) !important; }
+html[data-caixa-theme="halloween"] .caixa-chat-welcome,
+html[data-caixa-theme="halloween"] .caixa-chat-action,
+html[data-caixa-theme="halloween"] .caixa-chat-choice,
+html[data-caixa-theme="halloween"] .caixa-chat-goal-help-card,
+html[data-caixa-theme="halloween"] .caixa-chat-simulador-form,
+html[data-caixa-theme="halloween"] .caixa-chat-select-wrap { background:linear-gradient(145deg,#fffafd,#f0e5f7) !important;border-color:rgba(122,56,199,.18) !important; }
+html[data-caixa-theme="halloween"] .caixa-chat-action-icon,
+html[data-caixa-theme="halloween"] .caixa-chat-avatar { background:linear-gradient(135deg,#eadbf5,#ffe9d7) !important;color:#7539a9 !important; }
+html[data-caixa-theme="halloween"] .caixa-chat-action-text strong,
+html[data-caixa-theme="halloween"] .caixa-chat-choice strong { color:#482955 !important; }
+html[data-caixa-theme="halloween"] .caixa-chat-action-text small,
+html[data-caixa-theme="halloween"] .caixa-chat-action-arrow,
+html[data-caixa-theme="halloween"] .caixa-chat-note,
+html[data-caixa-theme="halloween"] .caixa-chat-thinking em { color:#75667e !important; }
+html[data-caixa-theme="halloween"] .caixa-chat-bubble { background:#f0e5f7 !important;color:#452956 !important;border-color:rgba(122,56,199,.15) !important; }
+html[data-caixa-theme="halloween"] .caixa-chat-message.user .caixa-chat-bubble { background:linear-gradient(135deg,#814ac0,#63309e) !important;color:#fff !important; }
+html[data-caixa-theme="halloween"] .modal .btn-ghost,
+html[data-caixa-theme="halloween"] .caixa-chat .btn-ghost,
+html[data-caixa-theme="halloween"] .caixa-config-drawer .btn-ghost { background:#eee2f5 !important;color:#55356b !important;border-color:rgba(122,56,199,.20) !important; }
+html[data-caixa-theme="halloween"] .modal .btn-gold,
+html[data-caixa-theme="halloween"] .caixa-chat .btn-gold,
+html[data-caixa-theme="halloween"] .caixa-config-drawer .btn-gold { background:linear-gradient(135deg,#7d3bc6,#5e269c) !important;color:#fff !important;border-color:#5e269c !important; }
+
+html[data-theme="dark"][data-caixa-theme="halloween"] .modal,
+html[data-theme="dark"][data-caixa-theme="halloween"] .caixa-chat,
+html[data-theme="dark"][data-caixa-theme="halloween"] .caixa-config-drawer { background:radial-gradient(circle at 92% 0%,rgba(85,223,255,.09),transparent 28%),linear-gradient(180deg,#24132f,#130b1b) !important;border-color:rgba(112,224,255,.22) !important;box-shadow:0 30px 86px rgba(0,0,0,.58),inset 0 1px 0 rgba(255,255,255,.045) !important; }
+html[data-theme="dark"][data-caixa-theme="halloween"] .caixa-chat-header,
+html[data-theme="dark"][data-caixa-theme="halloween"] .caixa-config-head { background:linear-gradient(135deg,#2d173a,#17101f) !important;color:#f8effc !important;border-color:rgba(112,224,255,.18) !important; }
+html[data-theme="dark"][data-caixa-theme="halloween"] .caixa-chat-welcome,
+html[data-theme="dark"][data-caixa-theme="halloween"] .caixa-chat-action,
+html[data-theme="dark"][data-caixa-theme="halloween"] .caixa-chat-choice,
+html[data-theme="dark"][data-caixa-theme="halloween"] .caixa-chat-goal-help-card,
+html[data-theme="dark"][data-caixa-theme="halloween"] .caixa-chat-simulador-form,
+html[data-theme="dark"][data-caixa-theme="halloween"] .caixa-chat-select-wrap { background:linear-gradient(145deg,#21132c,#150d1e) !important;border-color:rgba(112,224,255,.15) !important; }
+html[data-theme="dark"][data-caixa-theme="halloween"] .caixa-chat-action-icon,
+html[data-theme="dark"][data-caixa-theme="halloween"] .caixa-chat-avatar { background:rgba(112,224,255,.10) !important;color:#73e5ff !important; }
+html[data-theme="dark"][data-caixa-theme="halloween"] .caixa-chat-action-text strong,
+html[data-theme="dark"][data-caixa-theme="halloween"] .caixa-chat-choice strong { color:#f8effc !important; }
+html[data-theme="dark"][data-caixa-theme="halloween"] .caixa-chat-action-text small,
+html[data-theme="dark"][data-caixa-theme="halloween"] .caixa-chat-action-arrow,
+html[data-theme="dark"][data-caixa-theme="halloween"] .caixa-chat-note,
+html[data-theme="dark"][data-caixa-theme="halloween"] .caixa-chat-thinking em { color:#c0afca !important; }
+html[data-theme="dark"][data-caixa-theme="halloween"] .caixa-chat-bubble { background:#251532 !important;color:#f4eafa !important;border-color:rgba(112,224,255,.14) !important; }
+html[data-theme="dark"][data-caixa-theme="halloween"] .caixa-chat-message.user .caixa-chat-bubble { background:linear-gradient(135deg,#ff8a24,#c85818) !important;color:#fff !important; }
+html[data-theme="dark"][data-caixa-theme="halloween"] .modal .btn-ghost,
+html[data-theme="dark"][data-caixa-theme="halloween"] .caixa-chat .btn-ghost,
+html[data-theme="dark"][data-caixa-theme="halloween"] .caixa-config-drawer .btn-ghost { background:#2a1836 !important;color:#eadcf2 !important;border-color:rgba(112,224,255,.16) !important; }
+html[data-theme="dark"][data-caixa-theme="halloween"] .modal .btn-gold,
+html[data-theme="dark"][data-caixa-theme="halloween"] .caixa-chat .btn-gold,
+html[data-theme="dark"][data-caixa-theme="halloween"] .caixa-config-drawer .btn-gold { background:linear-gradient(135deg,#ff8a24,#d65d18) !important;color:#fff8ef !important;border-color:#d65d18 !important; }
+
+@media(max-width:640px){
+  .fab-criar,.caixa-chat-fab { z-index:1200 !important; }
+}

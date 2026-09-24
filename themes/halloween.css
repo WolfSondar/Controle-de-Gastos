@@ -773,3 +773,20 @@ html[data-theme="dark"][data-caixa-theme="halloween"] .caixa-config-drawer texta
   color:#f7effb !important;
   border-color:rgba(168,75,218,.25) !important;
 }
+
+
+/* ==========================================================
+   HALLOWEEN — contraste final (claro/escuro)
+   ========================================================== */
+html[data-caixa-theme="halloween"] .caixa-config-kicker{color:#7a38c7 !important;opacity:1 !important;font-weight:900 !important;}
+html[data-theme="dark"][data-caixa-theme="halloween"] .caixa-config-kicker{color:#ff8a24 !important;opacity:1 !important;font-weight:900 !important;}
+html[data-caixa-theme="halloween"] .caixa-config-head h2{color:#3f2a4c !important;}
+html[data-theme="dark"][data-caixa-theme="halloween"] .caixa-config-head h2{color:#f8effc !important;}
+html[data-caixa-theme="halloween"] .caixa-config-trigger,
+html[data-caixa-theme="halloween"] .icon-btn,
+html[data-caixa-theme="halloween"] .sync{color:#54336d !important;}
+html[data-theme="dark"][data-caixa-theme="halloween"] .caixa-config-trigger,
+html[data-theme="dark"][data-caixa-theme="halloween"] .icon-btn,
+html[data-theme="dark"][data-caixa-theme="halloween"] .sync{color:#f0e4f7 !important;}
+html[data-caixa-theme="halloween"] .fab-criar,
+html[data-caixa-theme="halloween"] .caixa-chat-fab{background:var(--ink) !important;color:var(--on-ink) !important;}
