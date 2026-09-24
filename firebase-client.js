@@ -63,6 +63,13 @@ if (!cfg.apiKey || cfg.apiKey.includes("COLE_")) {
 
   // O Firebase AI Logic usa o proxy oficial do Firebase para falar com o Gemini.
   // Nenhuma chave do Gemini fica exposta no código do aplicativo.
+  // Em localhost, o Firebase exige o provedor de depuração durante o desenvolvimento.
+  // Em produção (GitHub Pages), o reCAPTCHA Enterprise continua sendo usado normalmente.
+  const isLocalhost = ["localhost", "127.0.0.1", "::1"].includes(window.location.hostname);
+  if (isLocalhost) {
+    self.FIREBASE_APPCHECK_DEBUG_TOKEN = true;
+  }
+
   let appCheck = null;
   if (cfg.appCheckRecaptchaKey && !String(cfg.appCheckRecaptchaKey).includes("COLE_")) {
     try {

@@ -8,5 +8,5 @@ window.CAIXA_FIREBASE_CONFIG = {
   messagingSenderId: "1039928111098",
   appId: "1:1039928111098:web:14143543a6607e7182fe43",
   // Preencha com a chave pública do reCAPTCHA Enterprise quando o App Check estiver configurado.
-  appCheckRecaptchaKey: ""
+  appCheckRecaptchaKey: "6LfWccwtAAAAAAgJsbfS8IZr0S0Xt9-yagZ3WCh5"
 };
