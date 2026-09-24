@@ -1869,3 +1869,97 @@ html[data-theme="dark"][data-caixa-theme="christmas"] .caixa-christmas-lights i 
 html[data-theme="dark"][data-caixa-theme="christmas"] .caixa-christmas-lights .christmas-wire {
   border-top-color:rgba(247,220,145,.58) !important;
 }
+
+
+/* ============================================================
+   NATAL ESCURO — FUNDO DOS CARTÕES E DAS ABAS (noite azul)
+
+   Este bloco vem por último de propósito: ele unifica o fundo dos
+   cartões com o azul-noite do topo (hero/saldo), no lugar da mistura
+   de verde-pinho + azul que existia antes.
+
+   Cobre: Visão geral (e os outros gráficos do Resumo), Lançamentos
+   recentes, Suas caixinhas, Ganhos, Gastos fixos, Gastos variáveis,
+   Caixinhas e Histórico.
+
+   Para trocar as cores, mexa só nas variáveis --noite-* logo abaixo.
+   O prefixo "body" nos seletores é o que garante que estas regras
+   ganhem dos estilos que o app.js injeta em tempo de execução.
+   ============================================================ */
+html[data-theme="dark"][data-caixa-theme="christmas"] {
+  /* fundo da área de conteúdo (atrás dos cartões) */
+  --noite-pagina-1: #081a2b;
+  --noite-pagina-2: #0a1e31;
+  --noite-pagina-3: #0c2135;
+
+  /* cartão principal */
+  --noite-cartao-1: #14314c;
+  --noite-cartao-2: #0f2740;
+  --noite-cartao-3: #0c2137;
+
+  /* linhas/itens dentro dos cartões */
+  --noite-linha-1: #183a58;
+  --noite-linha-2: #12304a;
+
+  /* contornos e brilho */
+  --noite-borda: rgba(125, 199, 229, .22);
+  --noite-borda-suave: rgba(125, 199, 229, .13);
+  --noite-brilho: rgba(116, 204, 239, .10);
+}
+
+/* Fundo da área de conteúdo: azul-noite com pontinhos de neve. */
+html[data-theme="dark"][data-caixa-theme="christmas"] body .content {
+  background:
+    radial-gradient(circle at 15% 10%, rgba(255,255,255,.06) 0 1.5px, transparent 2px) 0 0/130px 130px,
+    linear-gradient(180deg, var(--noite-pagina-1) 0%, var(--noite-pagina-2) 50%, var(--noite-pagina-3) 100%) !important;
+}
+
+/* Cartões principais. */
+html[data-theme="dark"][data-caixa-theme="christmas"] body .split-card,
+html[data-theme="dark"][data-caixa-theme="christmas"] body .resumo-status-card,
+html[data-theme="dark"][data-caixa-theme="christmas"] body .juntos-card,
+html[data-theme="dark"][data-caixa-theme="christmas"] body .goal-card.caixinha-card,
+html[data-theme="dark"][data-caixa-theme="christmas"] body .historico-controles,
+html[data-theme="dark"][data-caixa-theme="christmas"] body .historico-grafico-wrap,
+html[data-theme="dark"][data-caixa-theme="christmas"] body .historico-mes-card,
+html[data-theme="dark"][data-caixa-theme="christmas"] body #tab-ganhos .item-list-row,
+html[data-theme="dark"][data-caixa-theme="christmas"] body #tab-fixos .item-list-row,
+html[data-theme="dark"][data-caixa-theme="christmas"] body #tab-variaveis .item-list-row {
+  background:
+    radial-gradient(circle at 92% 6%, var(--noite-brilho), transparent 34%),
+    linear-gradient(145deg, var(--noite-cartao-1) 0%, var(--noite-cartao-2) 55%, var(--noite-cartao-3) 100%) !important;
+  border-color: var(--noite-borda) !important;
+  box-shadow: 0 12px 28px rgba(0, 0, 0, .30), inset 0 1px 0 rgba(224, 247, 253, .06) !important;
+}
+
+/* Parte da frente das linhas de Ganhos / Fixos / Variáveis (a que desliza). */
+html[data-theme="dark"][data-caixa-theme="christmas"] body #tab-ganhos .item-list-row .swipe-content,
+html[data-theme="dark"][data-caixa-theme="christmas"] body #tab-fixos .item-list-row .swipe-content,
+html[data-theme="dark"][data-caixa-theme="christmas"] body #tab-variaveis .item-list-row .swipe-content {
+  background: linear-gradient(145deg, var(--noite-cartao-1) 0%, var(--noite-cartao-2) 100%) !important;
+  border-color: var(--noite-borda-suave) !important;
+}
+
+/* Lançamentos recentes: caixa maior + cada lançamento. */
+html[data-theme="dark"][data-caixa-theme="christmas"] body .ledger {
+  background: linear-gradient(180deg, #0e2439 0%, #0b1d30 100%) !important;
+  border-color: var(--noite-borda) !important;
+  box-shadow: 0 10px 25px rgba(0, 0, 0, .28), inset 0 1px 0 rgba(224, 247, 253, .04) !important;
+}
+html[data-theme="dark"][data-caixa-theme="christmas"] body .ledger-item,
+html[data-theme="dark"][data-caixa-theme="christmas"] body .mini-goal {
+  background: linear-gradient(145deg, var(--noite-linha-1), var(--noite-linha-2)) !important;
+  border-color: var(--noite-borda-suave) !important;
+  border-bottom-color: var(--noite-borda-suave) !important;
+}
+html[data-theme="dark"][data-caixa-theme="christmas"] body .ledger-more-btn {
+  background: rgba(20, 49, 76, .70) !important;
+  border-color: var(--noite-borda) !important;
+  color: #bfeaf6 !important;
+}
+
+/* Miolo dos gráficos de rosca. */
+html[data-theme="dark"][data-caixa-theme="christmas"] body .split-donut-center {
+  background: var(--noite-cartao-2) !important;
+  box-shadow: inset 0 0 0 1px var(--noite-borda-suave);
+}
