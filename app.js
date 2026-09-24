@@ -990,6 +990,138 @@
         background:#0f222c !important;
         border-color:rgba(133,215,236,.14) !important;
       }
+
+      /* ============================================================
+         POPUPS — NATAL ESCURO
+         Os popups têm componentes próprios e algumas regras antigas usam
+         var(--paper)/var(--paper-deep), que no modo escuro padrão ainda é verde.
+         Aqui definimos diretamente cada superfície para impedir esse vazamento.
+         ============================================================ */
+      html[data-theme="dark"][data-caixa-theme="christmas"] .modal-backdrop{
+        background:rgba(2,8,13,.76) !important;
+        backdrop-filter:blur(12px) saturate(.9) !important;
+      }
+      html[data-theme="dark"][data-caixa-theme="christmas"] .modal,
+      html[data-theme="dark"][data-caixa-theme="christmas"] .modal.modal-acoes,
+      html[data-theme="dark"][data-caixa-theme="christmas"] .modal.fechar-mes-modal,
+      html[data-theme="dark"][data-caixa-theme="christmas"] .modal.modal-config-fatura,
+      html[data-theme="dark"][data-caixa-theme="christmas"] #criacaoBackdrop .modal{
+        background:linear-gradient(160deg,#102b38 0%,#0b1b25 55%,#08141c 100%) !important;
+        color:#edf9fd !important;
+        border:1px solid rgba(126,205,224,.25) !important;
+        box-shadow:0 24px 70px rgba(0,0,0,.52),inset 0 1px 0 rgba(224,247,253,.06) !important;
+      }
+      html[data-theme="dark"][data-caixa-theme="christmas"] .modal h3,
+      html[data-theme="dark"][data-caixa-theme="christmas"] .modal .section-title,
+      html[data-theme="dark"][data-caixa-theme="christmas"] .modal strong{
+        color:#effaff !important;
+      }
+      html[data-theme="dark"][data-caixa-theme="christmas"] .modal-hint,
+      html[data-theme="dark"][data-caixa-theme="christmas"] .modal .section-hint,
+      html[data-theme="dark"][data-caixa-theme="christmas"] .fechar-mes-explicacao,
+      html[data-theme="dark"][data-caixa-theme="christmas"] .fechar-mes-explicacao p{
+        color:#9ebbc7 !important;
+      }
+      html[data-theme="dark"][data-caixa-theme="christmas"] .modal input,
+      html[data-theme="dark"][data-caixa-theme="christmas"] .modal select,
+      html[data-theme="dark"][data-caixa-theme="christmas"] .modal textarea,
+      html[data-theme="dark"][data-caixa-theme="christmas"] .modal-criacao .add-form input,
+      html[data-theme="dark"][data-caixa-theme="christmas"] .modal-criacao .add-form select{
+        background:#071820 !important;
+        color:#edf9fd !important;
+        border-color:#2a5362 !important;
+      }
+      html[data-theme="dark"][data-caixa-theme="christmas"] .acao-card,
+      html[data-theme="dark"][data-caixa-theme="christmas"] .modal .acao-card,
+      html[data-theme="dark"][data-caixa-theme="christmas"] .modal .card{
+        background:linear-gradient(145deg,#102a36,#0b1c25) !important;
+        color:#edf9fd !important;
+        border-color:#28505e !important;
+        box-shadow:0 8px 22px rgba(0,0,0,.20) !important;
+      }
+      html[data-theme="dark"][data-caixa-theme="christmas"] .acao-card-icon{
+        background:#173b4a !important;
+        color:#8fe0f3 !important;
+        border:1px solid rgba(143,224,243,.20) !important;
+      }
+      html[data-theme="dark"][data-caixa-theme="christmas"] .acao-card-texto strong,
+      html[data-theme="dark"][data-caixa-theme="christmas"] .acao-card-texto small,
+      html[data-theme="dark"][data-caixa-theme="christmas"] .acao-card-seta{
+        color:inherit !important;
+      }
+      html[data-theme="dark"][data-caixa-theme="christmas"] .acao-card-texto small,
+      html[data-theme="dark"][data-caixa-theme="christmas"] .acao-card-seta{
+        color:#91afbb !important;
+      }
+
+      /* CHAT — nenhuma bolha/card usa o verde do tema padrão. */
+      html[data-theme="dark"][data-caixa-theme="christmas"] .caixa-chat{
+        background:linear-gradient(160deg,#0d2531 0%,#08171f 100%) !important;
+        color:#edf9fd !important;
+        border:1px solid rgba(126,205,224,.27) !important;
+        box-shadow:0 24px 70px rgba(0,0,0,.52) !important;
+      }
+      html[data-theme="dark"][data-caixa-theme="christmas"] .caixa-chat-header{
+        background:linear-gradient(135deg,#143b4b 0%,#0d2632 100%) !important;
+        border-bottom:1px solid rgba(126,205,224,.20) !important;
+      }
+      html[data-theme="dark"][data-caixa-theme="christmas"] .caixa-chat-body{
+        background:linear-gradient(180deg,#091a23 0%,#07141b 100%) !important;
+      }
+      html[data-theme="dark"][data-caixa-theme="christmas"] .caixa-chat-welcome,
+      html[data-theme="dark"][data-caixa-theme="christmas"] .caixa-chat-action,
+      html[data-theme="dark"][data-caixa-theme="christmas"] .caixa-chat-choice,
+      html[data-theme="dark"][data-caixa-theme="christmas"] .caixa-chat-goal-choice,
+      html[data-theme="dark"][data-caixa-theme="christmas"] .caixa-chat-simulador-form,
+      html[data-theme="dark"][data-caixa-theme="christmas"] .caixa-chat-outra-dica{
+        background:linear-gradient(145deg,#112d39,#0c2029) !important;
+        color:#edf9fd !important;
+        border-color:#285361 !important;
+        box-shadow:0 7px 20px rgba(0,0,0,.18) !important;
+      }
+      html[data-theme="dark"][data-caixa-theme="christmas"] .caixa-chat-action:hover,
+      html[data-theme="dark"][data-caixa-theme="christmas"] .caixa-chat-choice:hover,
+      html[data-theme="dark"][data-caixa-theme="christmas"] .caixa-chat-goal-choice:hover{
+        background:linear-gradient(145deg,#153745,#102731) !important;
+        border-color:#4b91aa !important;
+      }
+      html[data-theme="dark"][data-caixa-theme="christmas"] .caixa-chat-action-icon{
+        background:#173d4c !important;
+        color:#8fe0f3 !important;
+        border-color:rgba(143,224,243,.20) !important;
+      }
+      html[data-theme="dark"][data-caixa-theme="christmas"] .caixa-chat-identidade strong,
+      html[data-theme="dark"][data-caixa-theme="christmas"] .caixa-chat-action-text strong,
+      html[data-theme="dark"][data-caixa-theme="christmas"] .caixa-chat-choice strong,
+      html[data-theme="dark"][data-caixa-theme="christmas"] .caixa-chat-goal-choice strong{
+        color:#effaff !important;
+      }
+      html[data-theme="dark"][data-caixa-theme="christmas"] .caixa-chat-identidade small,
+      html[data-theme="dark"][data-caixa-theme="christmas"] .caixa-chat-action-text small,
+      html[data-theme="dark"][data-caixa-theme="christmas"] .caixa-chat-choice small,
+      html[data-theme="dark"][data-caixa-theme="christmas"] .caixa-chat-note,
+      html[data-theme="dark"][data-caixa-theme="christmas"] .caixa-chat-thinking em{
+        color:#91afbb !important;
+      }
+      html[data-theme="dark"][data-caixa-theme="christmas"] .caixa-chat-bubble{
+        background:linear-gradient(145deg,#112d39,#0c2029) !important;
+        color:#edf9fd !important;
+        border:1px solid #285361 !important;
+      }
+      html[data-theme="dark"][data-caixa-theme="christmas"] .caixa-chat-message.user .caixa-chat-bubble{
+        background:linear-gradient(145deg,#1d5367,#164152) !important;
+        color:#f1fbff !important;
+        border-color:#4a91aa !important;
+      }
+      html[data-theme="dark"][data-caixa-theme="christmas"] .caixa-chat-bubble .chat-valor-pos{color:#8be0b3 !important}
+      html[data-theme="dark"][data-caixa-theme="christmas"] .caixa-chat-bubble .chat-valor-neg{color:#ff9b98 !important}
+      html[data-theme="dark"][data-caixa-theme="christmas"] .caixa-chat-bubble .chat-valor-gold{color:#9fe5f5 !important}
+      html[data-theme="dark"][data-caixa-theme="christmas"] .caixa-chat-bubble .chat-valor-yield{color:#8bd8ef !important}
+      html[data-theme="dark"][data-caixa-theme="christmas"] .caixa-chat-fab{
+        background:linear-gradient(145deg,#1b566c,#123c4c) !important;
+        border-color:#4d9bb5 !important;
+        color:#e8faff !important;
+      }
     `;
     document.head.appendChild(style);
   } catch (_) {}
@@ -1999,6 +2131,7 @@ let caixaMusicaAudio = null;
 let caixaMusicaSrcAtual = "";
 let caixaMusicaInteracaoArmada = false;
 let caixaMusicaRelogio = null;
+let caixaMusicaTransicaoId = 0;
 
 function caixaPeriodoMusical() {
   const hora = new Date().getHours();
@@ -2104,7 +2237,9 @@ function caixaArmarInteracaoMusica() {
   if (caixaMusicaInteracaoArmada) return;
   caixaMusicaInteracaoArmada = true;
   const tentar = () => {
-    caixaIniciarMusicaTema(true);
+    // O gesto do usuário só deve desbloquear a reprodução.
+    // Nunca force a troca/reinício da faixa que já está tocando.
+    caixaIniciarMusicaTema(false);
     ["pointerdown", "touchstart", "keydown", "click"].forEach(ev =>
       document.removeEventListener(ev, tentar, true)
     );
@@ -2114,27 +2249,71 @@ function caixaArmarInteracaoMusica() {
   );
 }
 
+function caixaMusicaFade(audio, de, para, duracao = 650) {
+  return new Promise(resolve => {
+    const inicio = performance.now();
+    const id = ++caixaMusicaTransicaoId;
+    audio.volume = de;
+    const passo = agora => {
+      if (id !== caixaMusicaTransicaoId) { resolve(false); return; }
+      const t = Math.min(1, (agora - inicio) / duracao);
+      const suavizado = t * (2 - t);
+      audio.volume = de + (para - de) * suavizado;
+      if (t < 1) requestAnimationFrame(passo);
+      else resolve(true);
+    };
+    requestAnimationFrame(passo);
+  });
+}
+
 async function caixaIniciarMusicaTema(forcarTroca = false) {
   const audio = caixaGarantirPlayerMusica();
   const srcAbs = new URL(caixaArquivoMusicaTema(), document.baseURI).href;
-  if (forcarTroca || caixaMusicaSrcAtual !== srcAbs) {
-    const estavaTocando = !audio.paused && !audio.ended;
-    audio.pause();
-    audio.src = srcAbs;
-    audio.load();
-    caixaMusicaSrcAtual = srcAbs;
-    try { await audio.play(); }
-    catch (_) {
-      if (estavaTocando || forcarTroca) caixaArmarInteracaoMusica();
+  const mesmaFaixa = caixaMusicaSrcAtual === srcAbs;
+
+  // IMPORTANTE: chamadas repetidas (inclusive por cliques, renderizações ou
+  // abertura de menus) não podem reiniciar a música. Só trocamos a faixa
+  // quando o arquivo realmente mudou.
+  if (mesmaFaixa) {
+    if (!audio.paused && !audio.ended) return;
+    try {
+      audio.volume = 0.055;
+      await audio.play();
+    } catch (_) {
+      caixaArmarInteracaoMusica();
     }
-  } else if (audio.paused) {
-    try { await audio.play(); }
-    catch (_) { caixaArmarInteracaoMusica(); }
+    return;
+  }
+
+  const estavaTocando = !audio.paused && !audio.ended;
+  const volumeAlvo = 0.055;
+  ++caixaMusicaTransicaoId;
+
+  // Se já existe uma faixa tocando, faz fade-out antes de trocar o arquivo.
+  if (estavaTocando) {
+    await caixaMusicaFade(audio, audio.volume, 0, 500);
+    audio.pause();
+  } else {
+    audio.pause();
+  }
+
+  audio.src = srcAbs;
+  audio.load();
+  caixaMusicaSrcAtual = srcAbs;
+  audio.volume = 0;
+
+  try {
+    await audio.play();
+    await caixaMusicaFade(audio, 0, volumeAlvo, 700);
+  } catch (_) {
+    audio.volume = volumeAlvo;
+    caixaArmarInteracaoMusica();
   }
 }
 
 function atualizarMusicaTema() {
-  caixaIniciarMusicaTema(true);
+  // Atualização idempotente: só troca se o tema/período apontar para outro MP3.
+  caixaIniciarMusicaTema(false);
 }
 
 function iniciarRelogioMusicaTema() {
