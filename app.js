@@ -4276,13 +4276,17 @@ function renderVisaoGeral() {
       seg.setAttribute("stroke-dashoffset", `${-circ * acumulado / 100}`);
       acumulado += pct;
     });
-    svg.style.cssText = "position:absolute;inset:0;width:100%;height:100%;display:block;pointer-events:none;z-index:0;overflow:visible";
+    svg.style.cssText = "position:absolute;inset:0;width:100%;height:100%;display:block;pointer-events:none;z-index:3;overflow:visible;display:block";
+    donut.style.setProperty("position", "relative", "important");
     donut.style.setProperty("background", "transparent", "important");
     donut.style.setProperty("background-image", "none", "important");
     donut.style.setProperty("box-shadow", temaAtual === "halloween"
       ? "0 0 0 1px rgba(85,223,255,.24), 0 8px 24px rgba(61,31,78,.14)"
       : "0 8px 24px rgba(35,52,78,.12)", "important");
-    if (centro) centro.style.zIndex = "2";
+    if (centro) {
+      centro.style.position = "absolute";
+      centro.style.zIndex = "4";
+    }
   }
   if (centro) {
     // Texto alterado para exibir apenas o valor e a palavra "GANHO"
