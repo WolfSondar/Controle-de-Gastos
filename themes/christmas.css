@@ -1622,176 +1622,141 @@ html[data-theme="dark"][data-caixa-theme="christmas"] .resumo-status-card {
   border-color: rgba(155,213,225,.17) !important;
 }
 
+/* ============================================================
+   NATAL — reformulação de contraste do painel principal
+   ============================================================ */
 
-/* ==========================================================
-   NATAL — REFINAMENTO PREMIUM V5
-   Claro: azul-gelo mais profundo no topo, branco quente controlado.
-   Escuro: verde-pinheiro, gelo e dourado com contraste confortável.
-   ========================================================== */
-html[data-caixa-theme="christmas"] body {
-  background:
-    radial-gradient(circle at 8% 7%, rgba(255,255,255,.82) 0 2px, transparent 2.8px),
-    radial-gradient(circle at 88% 14%, rgba(255,255,255,.72) 0 2px, transparent 2.8px),
-    linear-gradient(180deg,#d9edf2 0%,#edf4f1 22%,#f7f3ea 55%,#fffaf2 100%) !important;
+/* Claro: o fundo permanece leve, mas toda a tipografia principal ganha
+   contraste suficiente para não desaparecer no azul-gelo. */
+html[data-caixa-theme="christmas"] .saldo-label {
+  color:#174d68 !important;
+  font-weight:900 !important;
+  text-shadow:0 1px 0 rgba(255,255,255,.72) !important;
 }
-
-html[data-theme="dark"][data-caixa-theme="christmas"] body {
-  background:
-    radial-gradient(circle at 12% 9%, rgba(150,224,231,.08) 0 2px, transparent 3px),
-    radial-gradient(circle at 86% 17%, rgba(216,180,91,.07) 0 2px, transparent 3px),
-    linear-gradient(180deg,#102b25 0%,#10241f 35%,#101f1a 100%) !important;
+html[data-caixa-theme="christmas"] .saldo-valor {
+  background:linear-gradient(135deg,#4c91b2 0%,#2e6e92 58%,#255b7a 100%) !important;
+  color:#fff !important;
+  border-color:rgba(28,82,110,.34) !important;
+  box-shadow:inset 0 1px 0 rgba(255,255,255,.24),0 8px 18px rgba(31,88,116,.20) !important;
+  text-shadow:0 2px 5px rgba(14,55,75,.32) !important;
 }
-
-/* O topo claro deixa de ser uma grande área branca: azul-gelo + pinheiro. */
-html[data-caixa-theme="christmas"] .hero {
-  background:
-    radial-gradient(circle at 82% 18%,rgba(191,232,239,.16),transparent 24%),
-    radial-gradient(circle at 15% 72%,rgba(216,180,91,.10),transparent 28%),
-    linear-gradient(145deg,#173f36 0%,#1d5747 52%,#163a31 100%) !important;
-  box-shadow: 0 14px 34px rgba(28,72,59,.18);
+html[data-caixa-theme="christmas"] .saldo-formula,
+html[data-caixa-theme="christmas"] .saldo-origem-label,
+html[data-caixa-theme="christmas"] .saldo-origem > span {
+  font-weight:800 !important;
 }
+html[data-caixa-theme="christmas"] .saldo-formula { color:#285e78 !important; }
+html[data-caixa-theme="christmas"] .saldo-origem-beneficio .saldo-origem-label,
+html[data-caixa-theme="christmas"] .saldo-origem-beneficio > span:last-child { color:#1779a7 !important; }
+html[data-caixa-theme="christmas"] .saldo-origem-saldo .saldo-origem-label,
+html[data-caixa-theme="christmas"] .saldo-origem-saldo > span:last-child { color:#26708e !important; }
 
+html[data-caixa-theme="christmas"] .hero-stat-label {
+  color:#28586e !important;
+  font-weight:900 !important;
+  text-shadow:0 1px 0 rgba(255,255,255,.65) !important;
+}
+html[data-caixa-theme="christmas"] .hero-stat-valor {
+  background:linear-gradient(135deg,rgba(44,111,143,.22),rgba(74,151,180,.14)) !important;
+  color:#194f69 !important;
+  font-weight:900 !important;
+  border-radius:7px;
+}
+html[data-caixa-theme="christmas"] .hero-stat-valor.income { color:#1775a0 !important; }
+html[data-caixa-theme="christmas"] .hero-stat-valor.expense { color:#a63f55 !important; }
+html[data-caixa-theme="christmas"] .hero-stat-valor.gold { color:#8b6514 !important; }
+html[data-caixa-theme="christmas"] .hero-stat-pendente { color:#476c7b !important; font-weight:700 !important; }
+
+/* O texto do topo também ganha uma pequena sombra para continuar legível
+   sobre o céu claro e a neve. */
+html[data-caixa-theme="christmas"] .hero,
 html[data-caixa-theme="christmas"] .hero .brand-mark,
-html[data-caixa-theme="christmas"] .hero .hero-label,
-html[data-caixa-theme="christmas"] .hero .hero-stat-label,
-html[data-caixa-theme="christmas"] .hero .saldo-label {
-  color:#f5fbf8 !important;
-  text-shadow:0 1px 2px rgba(0,0,0,.22);
+html[data-caixa-theme="christmas"] .hero .hero-top {
+  text-shadow:0 1px 2px rgba(255,255,255,.38);
+}
+html[data-caixa-theme="christmas"] .person-btn {
+  font-weight:800 !important;
+  color:#315f73 !important;
+}
+html[data-caixa-theme="christmas"] .person-btn.is-active {
+  color:#fff !important;
+  text-shadow:0 1px 3px rgba(20,65,86,.30);
 }
 
-html[data-caixa-theme="christmas"] .hero .saldo-valor,
-html[data-caixa-theme="christmas"] .hero .hero-stat-valor {
-  color:#fffdf5 !important;
-  text-shadow:0 2px 12px rgba(0,0,0,.20);
-}
-
-html[data-caixa-theme="christmas"] .topbar {
-  background:linear-gradient(180deg,#edf7f8,#dcecef) !important;
-  color:#173d36 !important;
-  border-color:rgba(35,100,71,.20) !important;
-}
-
-html[data-theme="dark"][data-caixa-theme="christmas"] .topbar {
-  background:linear-gradient(180deg,#17362d,#10271f) !important;
-  color:#eef8f4 !important;
-}
-
-/* Popups e lateral: aparência própria, não apenas troca de cor. */
-html[data-caixa-theme="christmas"] .modal,
-html[data-caixa-theme="christmas"] .caixa-chat,
-html[data-caixa-theme="christmas"] .caixa-config-drawer {
-  --popup-ink:#173d36;
-  --popup-muted:#58716d;
+/* Escuro: troca completa da antiga leitura esverdeada por uma noite de
+   inverno em azul-petróleo, azul-gelo e pequenos pontos de vermelho/dourado. */
+html[data-theme="dark"][data-caixa-theme="christmas"] .hero {
   background:
-    radial-gradient(circle at 92% 8%,rgba(133,205,220,.16),transparent 25%),
-    linear-gradient(180deg,#f9fdff 0%,#fffaf3 72%,#f5f0e5 100%) !important;
-  color:var(--popup-ink) !important;
-  border:1px solid rgba(61,133,151,.24) !important;
-  box-shadow:0 26px 70px rgba(35,81,79,.22),0 1px 0 rgba(255,255,255,.92) inset !important;
+    radial-gradient(circle at 82% 12%,rgba(127,216,244,.15),transparent 25%),
+    radial-gradient(circle at 12% 74%,rgba(219,63,79,.10),transparent 23%),
+    linear-gradient(145deg,#123448 0%,#0b2637 48%,#071b29 100%) !important;
+  color:#f7fcff !important;
+  box-shadow:0 18px 44px rgba(0,0,0,.40) !important;
 }
-
-html[data-caixa-theme="christmas"] .modal h1,
-html[data-caixa-theme="christmas"] .modal h2,
-html[data-caixa-theme="christmas"] .modal h3,
-html[data-caixa-theme="christmas"] .caixa-chat h1,
-html[data-caixa-theme="christmas"] .caixa-chat h2,
-html[data-caixa-theme="christmas"] .caixa-chat h3,
-html[data-caixa-theme="christmas"] .caixa-config-drawer h1,
-html[data-caixa-theme="christmas"] .caixa-config-drawer h2,
-html[data-caixa-theme="christmas"] .caixa-config-drawer h3 {
-  color:#173d36 !important;
-}
-
-html[data-caixa-theme="christmas"] .modal p,
-html[data-caixa-theme="christmas"] .modal label,
-html[data-caixa-theme="christmas"] .caixa-chat p,
-html[data-caixa-theme="christmas"] .caixa-chat label,
-html[data-caixa-theme="christmas"] .caixa-config-drawer p,
-html[data-caixa-theme="christmas"] .caixa-config-drawer label {
-  color:#58716d !important;
-}
-
-html[data-caixa-theme="christmas"] .caixa-config-head,
-html[data-caixa-theme="christmas"] .caixa-chat-header {
-  background:linear-gradient(135deg,#e4f3f5,#fffaf2) !important;
-  border-bottom:1px solid rgba(61,133,151,.16) !important;
-}
-
-html[data-caixa-theme="christmas"] .modal input,
-html[data-caixa-theme="christmas"] .modal select,
-html[data-caixa-theme="christmas"] .modal textarea,
-html[data-caixa-theme="christmas"] .caixa-chat input,
-html[data-caixa-theme="christmas"] .caixa-chat textarea,
-html[data-caixa-theme="christmas"] .caixa-config-drawer input,
-html[data-caixa-theme="christmas"] .caixa-config-drawer select,
-html[data-caixa-theme="christmas"] .caixa-config-drawer textarea {
-  background:#eef7f8 !important;
-  color:#173d36 !important;
-  border-color:rgba(61,133,151,.24) !important;
-  box-shadow:inset 0 1px 2px rgba(33,78,82,.05) !important;
-}
-
-html[data-theme="dark"][data-caixa-theme="christmas"] .modal,
-html[data-theme="dark"][data-caixa-theme="christmas"] .caixa-chat,
-html[data-theme="dark"][data-caixa-theme="christmas"] .caixa-config-drawer {
-  --popup-ink:#edf8f4;
-  --popup-muted:#a8c1ba;
+html[data-theme="dark"][data-caixa-theme="christmas"] .saldo-block {
   background:
-    radial-gradient(circle at 90% 7%,rgba(100,194,211,.10),transparent 25%),
-    linear-gradient(180deg,#17342b 0%,#12261f 100%) !important;
-  border-color:rgba(125,203,215,.22) !important;
-  box-shadow:0 30px 80px rgba(0,0,0,.52),inset 0 1px 0 rgba(255,255,255,.045) !important;
+    radial-gradient(circle at 92% 15%,rgba(105,209,237,.16),transparent 28%),
+    linear-gradient(145deg,#173f53 0%,#102f42 52%,#0c2637 100%) !important;
+  border-color:rgba(129,210,231,.25) !important;
+  box-shadow:inset 0 1px 0 rgba(255,255,255,.07),0 12px 28px rgba(0,0,0,.24) !important;
+}
+html[data-theme="dark"][data-caixa-theme="christmas"] .saldo-label {
+  color:#c9eff9 !important;
+  font-weight:900 !important;
+  text-shadow:0 1px 4px rgba(0,0,0,.30) !important;
+}
+html[data-theme="dark"][data-caixa-theme="christmas"] .saldo-valor {
+  background:linear-gradient(135deg,#347b9d 0%,#225d7e 55%,#174766 100%) !important;
+  color:#fff !important;
+  border-color:rgba(130,215,237,.24) !important;
+  box-shadow:inset 0 1px 0 rgba(255,255,255,.12),0 8px 22px rgba(0,0,0,.28) !important;
+}
+html[data-theme="dark"][data-caixa-theme="christmas"] .saldo-formula { color:#a9d9e8 !important; }
+html[data-theme="dark"][data-caixa-theme="christmas"] .saldo-origem-beneficio .saldo-origem-label,
+html[data-theme="dark"][data-caixa-theme="christmas"] .saldo-origem-beneficio > span:last-child { color:#70d2f1 !important; }
+html[data-theme="dark"][data-caixa-theme="christmas"] .saldo-origem-saldo .saldo-origem-label,
+html[data-theme="dark"][data-caixa-theme="christmas"] .saldo-origem-saldo > span:last-child { color:#8ed5e7 !important; }
+
+html[data-theme="dark"][data-caixa-theme="christmas"] .hero-stat {
+  background:linear-gradient(145deg,rgba(38,91,114,.72),rgba(13,42,58,.88)) !important;
+  border-color:rgba(126,210,232,.18) !important;
+  box-shadow:inset 0 1px 0 rgba(255,255,255,.055),0 7px 18px rgba(0,0,0,.24) !important;
+}
+html[data-theme="dark"][data-caixa-theme="christmas"] .hero-stat-label {
+  color:#b9e4ef !important;
+  font-weight:900 !important;
+}
+html[data-theme="dark"][data-caixa-theme="christmas"] .hero-stat-valor {
+  background:linear-gradient(135deg,rgba(121,204,228,.16),rgba(43,111,140,.24)) !important;
+  color:#f2fbff !important;
+  font-weight:900 !important;
+}
+html[data-theme="dark"][data-caixa-theme="christmas"] .hero-stat-valor.income { color:#82e2b2 !important; }
+html[data-theme="dark"][data-caixa-theme="christmas"] .hero-stat-valor.expense { color:#ff9ca7 !important; }
+html[data-theme="dark"][data-caixa-theme="christmas"] .hero-stat-valor.gold { color:#ffd779 !important; }
+html[data-theme="dark"][data-caixa-theme="christmas"] .hero-stat-pendente { color:#a5cbd6 !important; }
+
+html[data-theme="dark"][data-caixa-theme="christmas"] .hero-stats-toggle.collapse-toggle {
+  background:linear-gradient(145deg,#1a4b63,#103247) !important;
+  color:#bfeef8 !important;
+  border-color:rgba(124,211,233,.28) !important;
+}
+html[data-theme="dark"][data-caixa-theme="christmas"] .hero-stats-toggle.collapse-toggle:not(.is-collapsed) {
+  background:linear-gradient(135deg,#2d7f9f,#1b5d7c) !important;
+  color:#fff !important;
+  border-color:#58b8d8 !important;
+}
+html[data-theme="dark"][data-caixa-theme="christmas"] .person-switch {
+  background:rgba(8,29,42,.72) !important;
+  border-color:rgba(126,211,232,.22) !important;
+}
+html[data-theme="dark"][data-caixa-theme="christmas"] .person-btn {
+  color:#a9c9d4 !important;
+  font-weight:800 !important;
+}
+html[data-theme="dark"][data-caixa-theme="christmas"] .person-btn.is-active {
+  background:linear-gradient(135deg,#3f91b3,#246d8c) !important;
+  color:#fff !important;
+  box-shadow:0 5px 14px rgba(0,0,0,.28) !important;
 }
 
-html[data-theme="dark"][data-caixa-theme="christmas"] .modal h1,
-html[data-theme="dark"][data-caixa-theme="christmas"] .modal h2,
-html[data-theme="dark"][data-caixa-theme="christmas"] .modal h3,
-html[data-theme="dark"][data-caixa-theme="christmas"] .caixa-chat h1,
-html[data-theme="dark"][data-caixa-theme="christmas"] .caixa-chat h2,
-html[data-theme="dark"][data-caixa-theme="christmas"] .caixa-chat h3,
-html[data-theme="dark"][data-caixa-theme="christmas"] .caixa-config-drawer h1,
-html[data-theme="dark"][data-caixa-theme="christmas"] .caixa-config-drawer h2,
-html[data-theme="dark"][data-caixa-theme="christmas"] .caixa-config-drawer h3 { color:#f2fbf7 !important; }
-
-html[data-theme="dark"][data-caixa-theme="christmas"] .modal p,
-html[data-theme="dark"][data-caixa-theme="christmas"] .modal label,
-html[data-theme="dark"][data-caixa-theme="christmas"] .caixa-chat p,
-html[data-theme="dark"][data-caixa-theme="christmas"] .caixa-chat label,
-html[data-theme="dark"][data-caixa-theme="christmas"] .caixa-config-drawer p,
-html[data-theme="dark"][data-caixa-theme="christmas"] .caixa-config-drawer label { color:#a8c1ba !important; }
-
-html[data-theme="dark"][data-caixa-theme="christmas"] .caixa-config-head,
-html[data-theme="dark"][data-caixa-theme="christmas"] .caixa-chat-header {
-  background:linear-gradient(135deg,#1b4035,#12271f) !important;
-  border-color:rgba(125,203,215,.15) !important;
-}
-
-html[data-theme="dark"][data-caixa-theme="christmas"] .modal input,
-html[data-theme="dark"][data-caixa-theme="christmas"] .modal select,
-html[data-theme="dark"][data-caixa-theme="christmas"] .modal textarea,
-html[data-theme="dark"][data-caixa-theme="christmas"] .caixa-chat input,
-html[data-theme="dark"][data-caixa-theme="christmas"] .caixa-chat textarea,
-html[data-theme="dark"][data-caixa-theme="christmas"] .caixa-config-drawer input,
-html[data-theme="dark"][data-caixa-theme="christmas"] .caixa-config-drawer select,
-html[data-theme="dark"][data-caixa-theme="christmas"] .caixa-config-drawer textarea {
-  background:rgba(255,255,255,.055) !important;
-  color:#eef8f4 !important;
-  border-color:rgba(125,203,215,.18) !important;
-}
-
-
-/* ==========================================================
-   NATAL — contraste final (claro/escuro)
-   ========================================================== */
-html[data-caixa-theme="christmas"] .caixa-config-kicker{color:#c53f52 !important;opacity:1 !important;font-weight:900 !important;}
-html[data-theme="dark"][data-caixa-theme="christmas"] .caixa-config-kicker{color:#ff7d87 !important;opacity:1 !important;font-weight:900 !important;}
-html[data-caixa-theme="christmas"] .caixa-config-head h2{color:#214e66 !important;}
-html[data-theme="dark"][data-caixa-theme="christmas"] .caixa-config-head h2{color:#f0f8fb !important;}
-html[data-caixa-theme="christmas"] .caixa-config-trigger,
-html[data-caixa-theme="christmas"] .icon-btn,
-html[data-caixa-theme="christmas"] .sync{color:#245a75 !important;}
-html[data-theme="dark"][data-caixa-theme="christmas"] .caixa-config-trigger,
-html[data-theme="dark"][data-caixa-theme="christmas"] .icon-btn,
-html[data-theme="dark"][data-caixa-theme="christmas"] .sync{color:#dff3fa !important;}
-html[data-caixa-theme="christmas"] .fab-criar,
-html[data-caixa-theme="christmas"] .caixa-chat-fab{background:var(--ink) !important;color:var(--on-ink) !important;}
