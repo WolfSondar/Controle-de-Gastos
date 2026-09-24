@@ -11,7 +11,6 @@ import {
   signInWithPopup,
   signOut,
 } from "https://www.gstatic.com/firebasejs/12.19.0/firebase-auth.js";
-import { getFunctions, httpsCallable } from "https://www.gstatic.com/firebasejs/12.19.0/firebase-functions.js";
 import {
   initializeFirestore,
   persistentLocalCache,
@@ -64,18 +63,15 @@ if (!cfg.apiKey || cfg.apiKey.includes("COLE_")) {
     "r5yVCCMatXPVsCiiJcMKWM613gq1",
   ]);
 
-  // A IA passa por uma Cloud Function autenticada. A chave do Gemini
-  // fica somente no Secret Manager e nunca chega ao navegador.
+  // A IA passa por um Cloudflare Worker. A chave do Gemini fica como
+  // Secret no Worker e nunca chega ao navegador.
   const auth = getAuth(app);
   const db = initializeFirestore(app, {
     localCache: persistentLocalCache({ tabManager: persistentMultipleTabManager() }),
   });
 
   const provider = new GoogleAuthProvider();
-  const functions = getFunctions(app, "southamerica-east1");
-  const geminiGenerate = httpsCallable(functions, "geminiGenerate");
-  const getGeminiKeyStatusCall = httpsCallable(functions, "getGeminiKeyStatus");
-  const saveGeminiApiKeyCall = httpsCallable(functions, "saveGeminiApiKey");
+  const GEMINI_WORKER_URL = String(cfg.geminiWorkerUrl || "").trim().replace(/\/$/, "");
   const ADMIN_UID = "rMURmjHzuVdfaQyeikEAAYdAJxi1";
   let currentUser = null;
   let authResolve;
@@ -517,12 +513,23 @@ if (!cfg.apiKey || cfg.apiKey.includes("COLE_")) {
     if (!currentUser || !USUARIOS_AUTORIZADOS.has(currentUser.uid)) {
       throw new Error("Usuário não autorizado para usar a IA.");
     }
-    const result = await geminiGenerate({
-      model: MODELO_IA_CAIXA,
-      prompt: String(prompt || ""),
-      generationConfig: generationConfig || {},
+    if (!GEMINI_WORKER_URL) throw new Error("A URL do serviço de IA ainda não foi configurada.");
+    const token = await currentUser.getIdToken();
+    const response = await fetch(`${GEMINI_WORKER_URL}/generate`, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        "Authorization": `Bearer ${token}`,
+      },
+      body: JSON.stringify({
+        model: MODELO_IA_CAIXA,
+        prompt: String(prompt || ""),
+        generationConfig: generationConfig || {},
+      }),
     });
-    return String(result?.data?.text || "");
+    const data = await response.json().catch(() => ({}));
+    if (!response.ok) throw new Error(String(data?.error || `Serviço de IA retornou HTTP ${response.status}.`));
+    return String(data?.text || "");
   }
 
   function promptGastarIA(pessoa, resumo, iaConfig) {
@@ -659,16 +666,18 @@ if (!cfg.apiKey || cfg.apiKey.includes("COLE_")) {
   async function getGeminiKeyStatus(){
     await window.CAIXA_FIREBASE_READY;
     if (!isAdmin()) throw new Error("Usuário não autorizado.");
-    const result = await getGeminiKeyStatusCall({});
-    return result?.data || {configured:false};
+    if (!GEMINI_WORKER_URL) return {configured:false, workerConfigured:false};
+    const token = await currentUser.getIdToken();
+    const response = await fetch(`${GEMINI_WORKER_URL}/status`, {
+      method: "GET",
+      headers: { "Authorization": `Bearer ${token}` },
+    });
+    const data = await response.json().catch(() => ({}));
+    if (!response.ok) throw new Error(String(data?.error || `Serviço de IA retornou HTTP ${response.status}.`));
+    return data;
   }
-  async function saveGeminiApiKey(apiKey){
-    await window.CAIXA_FIREBASE_READY;
-    if (!isAdmin()) throw new Error("Usuário não autorizado.");
-    const key = String(apiKey || "").trim();
-    if (!key) throw new Error("Informe a chave Gemini.");
-    const result = await saveGeminiApiKeyCall({apiKey:key});
-    return result?.data || {ok:false};
+  async function saveGeminiApiKey(){
+    throw new Error("A chave da Gemini agora é cadastrada como Secret no Cloudflare Worker, não pelo navegador.");
   }
   async function getIAConfig(){
     await window.CAIXA_FIREBASE_READY;

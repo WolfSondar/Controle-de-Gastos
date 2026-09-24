@@ -9008,38 +9008,24 @@ function usuarioAtualEhAdmin(){
   }
 
   async function renderAdminGeminiKey(){
-    const status = document.getElementById("adminGeminiKeyStatus");
-    const input = document.getElementById("adminGeminiApiKey");
-    if (!usuarioAtualEhAdmin()) return;
-    try {
-      const data = await window.CAIXA_FIREBASE?.getGeminiKeyStatus?.();
-      if (status) status.textContent = data?.configured ? "Chave cadastrada no Firebase." : "Nenhuma chave cadastrada ainda.";
-      if (input) input.value = "";
-    } catch (err) {
-      if (status) status.textContent = "Não foi possível consultar o estado da chave.";
-    }
+  const status = document.getElementById("adminGeminiKeyStatus");
+  if (!status) return;
+  status.textContent = "Consultando configuração do serviço de IA…";
+  if (!window.CAIXA_FIREBASE?.isAdmin?.()) {
+    status.textContent = "Apenas o administrador pode consultar esta configuração.";
+    return;
   }
+  Promise.resolve(window.CAIXA_FIREBASE.getGeminiKeyStatus?.())
+    .then(data => {
+      if (!data) { status.textContent = "Não foi possível consultar o serviço de IA."; return; }
+      status.textContent = data.configured
+        ? "✓ Chave Gemini configurada no Secret do Cloudflare Worker."
+        : "⚠️ O Worker está criado, mas ainda falta cadastrar GEMINI_API_KEY nos Secrets do Cloudflare.";
+    })
+    .catch(err => { status.textContent = `Não foi possível consultar a configuração: ${String(err?.message || err)}`; });
+}
 
-  async function salvarChaveGeminiAdmin(){
-    if (!usuarioAtualEhAdmin()) return;
-    const input = document.getElementById("adminGeminiApiKey");
-    const status = document.getElementById("adminGeminiKeyStatus");
-    const botao = document.getElementById("btnSalvarGeminiApiKey");
-    const key = String(input?.value || "").trim();
-    if (!key) { showToast("Informe a nova chave Gemini."); return; }
-    if (botao) { botao.disabled = true; botao.textContent = "Salvando…"; }
-    try {
-      await window.CAIXA_FIREBASE?.saveGeminiApiKey?.(key);
-      if (input) input.value = "";
-      if (status) status.textContent = "Chave cadastrada no Firebase.";
-      showToast("Chave Gemini salva com segurança.");
-    } catch (err) {
-      if (status) status.textContent = "Não foi possível salvar a chave.";
-      showToast(err?.message || "Não consegui salvar a chave Gemini.");
-    } finally {
-      if (botao) { botao.disabled = false; botao.textContent = "Salvar chave"; }
-    }
-  }
+
 
   function renderAdminIcones() {
     const catsWrap = document.getElementById("listaCategoriasIcones");
@@ -9202,7 +9188,6 @@ function usuarioAtualEhAdmin(){
   document.getElementById("btnSalvarConfigIA")?.addEventListener("click", salvarIA);
   document.getElementById("btnNovaFatura")?.addEventListener("click", novaFatura);
   document.getElementById("btnNovaCategoriaIcone")?.addEventListener("click", novaCategoriaIcone);
-  document.getElementById("btnSalvarGeminiApiKey")?.addEventListener("click", salvarChaveGeminiAdmin);
   document.querySelectorAll("[data-caixa-theme]").forEach(btn => btn.addEventListener("click", () => aplicarTemaCaixa(btn.dataset.caixaTheme)));
   faturaModal.salvar?.addEventListener("click", salvarFaturaModal);
   faturaModal.cancelar?.addEventListener("click", fecharModalFatura);
