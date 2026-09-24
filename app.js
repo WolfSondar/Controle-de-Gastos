@@ -142,6 +142,237 @@
           text-shadow:0 0 8px rgba(116,226,255,.32);
         }
 
+        /* ============================================================
+           PALETA DOS POPUPS — cada tema com identidade própria
+           ============================================================ */
+        html[data-caixa-theme="christmas"] .modal,
+        html[data-caixa-theme="christmas"] .caixa-chat,
+        html[data-caixa-theme="christmas"] .caixa-config-drawer{
+          --popup-ink:#1f3f57;
+          --popup-muted:#5f7c90;
+          --popup-line:rgba(78,145,184,.22);
+          --popup-soft:#eaf7ff;
+          --popup-soft-2:#f6fbff;
+          --popup-accent:#3d8fbd;
+          --popup-accent-strong:#2877a5;
+          --popup-accent-contrast:#ffffff;
+          color:var(--popup-ink) !important;
+        }
+        html[data-caixa-theme="christmas"] .modal *,
+        html[data-caixa-theme="christmas"] .caixa-chat *,
+        html[data-caixa-theme="christmas"] .caixa-config-drawer *{
+          --popup-ink:#1f3f57;
+        }
+        html[data-caixa-theme="christmas"] .modal h1,
+        html[data-caixa-theme="christmas"] .modal h2,
+        html[data-caixa-theme="christmas"] .modal h3,
+        html[data-caixa-theme="christmas"] .caixa-chat h1,
+        html[data-caixa-theme="christmas"] .caixa-chat h2,
+        html[data-caixa-theme="christmas"] .caixa-chat h3,
+        html[data-caixa-theme="christmas"] .caixa-config-drawer h1,
+        html[data-caixa-theme="christmas"] .caixa-config-drawer h2,
+        html[data-caixa-theme="christmas"] .caixa-config-drawer h3{
+          color:#214963 !important;
+        }
+        html[data-caixa-theme="christmas"] .modal p,
+        html[data-caixa-theme="christmas"] .modal label,
+        html[data-caixa-theme="christmas"] .caixa-chat p,
+        html[data-caixa-theme="christmas"] .caixa-chat label,
+        html[data-caixa-theme="christmas"] .caixa-config-drawer p,
+        html[data-caixa-theme="christmas"] .caixa-config-drawer label{
+          color:#5b788d !important;
+        }
+        html[data-caixa-theme="christmas"] .modal input,
+        html[data-caixa-theme="christmas"] .modal select,
+        html[data-caixa-theme="christmas"] .modal textarea,
+        html[data-caixa-theme="christmas"] .caixa-chat input,
+        html[data-caixa-theme="christmas"] .caixa-chat select,
+        html[data-caixa-theme="christmas"] .caixa-chat textarea,
+        html[data-caixa-theme="christmas"] .caixa-config-drawer input,
+        html[data-caixa-theme="christmas"] .caixa-config-drawer select,
+        html[data-caixa-theme="christmas"] .caixa-config-drawer textarea{
+          background:#f8fcff !important;
+          color:#23455d !important;
+          border-color:rgba(78,145,184,.25) !important;
+        }
+        html[data-caixa-theme="christmas"] .modal input::placeholder,
+        html[data-caixa-theme="christmas"] .caixa-chat input::placeholder,
+        html[data-caixa-theme="christmas"] .caixa-config-drawer input::placeholder{
+          color:#7895a8 !important;
+          opacity:1;
+        }
+        html[data-caixa-theme="christmas"] .modal .btn-secondary,
+        html[data-caixa-theme="christmas"] .caixa-chat .btn-secondary,
+        html[data-caixa-theme="christmas"] .caixa-config-drawer .btn-secondary{
+          background:#e5f3fb !important;
+          color:#28536e !important;
+          border-color:rgba(78,145,184,.25) !important;
+        }
+        html[data-caixa-theme="christmas"] .modal .btn-gold,
+        html[data-caixa-theme="christmas"] .caixa-chat .btn-gold,
+        html[data-caixa-theme="christmas"] .caixa-config-drawer .btn-gold{
+          background:linear-gradient(135deg,#4b9fca,#2d7fad) !important;
+          color:#ffffff !important;
+          border-color:#2d7fad !important;
+          box-shadow:0 7px 18px rgba(45,127,173,.2) !important;
+        }
+        html[data-caixa-theme="christmas"] .caixa-chat-header,
+        html[data-caixa-theme="christmas"] .caixa-config-head{
+          color:#214963 !important;
+          border-bottom-color:rgba(78,145,184,.18) !important;
+        }
+
+        html[data-caixa-theme="halloween"] .modal,
+        html[data-caixa-theme="halloween"] .caixa-chat,
+        html[data-caixa-theme="halloween"] .caixa-config-drawer{
+          --popup-ink:#30203b;
+          --popup-muted:#6f6079;
+          --popup-line:rgba(113,69,151,.23);
+          --popup-soft:#f1e7f7;
+          --popup-soft-2:#fff9fd;
+          --popup-accent:#7a38c7;
+          --popup-accent-strong:#5e249f;
+          --popup-accent-contrast:#ffffff;
+          color:var(--popup-ink) !important;
+        }
+        html[data-theme="dark"][data-caixa-theme="halloween"] .modal,
+        html[data-theme="dark"][data-caixa-theme="halloween"] .caixa-chat,
+        html[data-theme="dark"][data-caixa-theme="halloween"] .caixa-config-drawer{
+          --popup-ink:#f7effb;
+          --popup-muted:#c6b7cf;
+          --popup-line:rgba(126,226,255,.2);
+          --popup-soft:#21152c;
+          --popup-soft-2:#17101f;
+          --popup-accent:#55dfff;
+          --popup-accent-strong:#ff8a24;
+          --popup-accent-contrast:#130a19;
+          color:var(--popup-ink) !important;
+        }
+        html[data-caixa-theme="halloween"] .modal h1,
+        html[data-caixa-theme="halloween"] .modal h2,
+        html[data-caixa-theme="halloween"] .modal h3,
+        html[data-caixa-theme="halloween"] .caixa-chat h1,
+        html[data-caixa-theme="halloween"] .caixa-chat h2,
+        html[data-caixa-theme="halloween"] .caixa-chat h3,
+        html[data-caixa-theme="halloween"] .caixa-config-drawer h1,
+        html[data-caixa-theme="halloween"] .caixa-config-drawer h2,
+        html[data-caixa-theme="halloween"] .caixa-config-drawer h3{
+          color:#4b2a62 !important;
+        }
+        html[data-theme="dark"][data-caixa-theme="halloween"] .modal h1,
+        html[data-theme="dark"][data-caixa-theme="halloween"] .modal h2,
+        html[data-theme="dark"][data-caixa-theme="halloween"] .modal h3,
+        html[data-theme="dark"][data-caixa-theme="halloween"] .caixa-chat h1,
+        html[data-theme="dark"][data-caixa-theme="halloween"] .caixa-chat h2,
+        html[data-theme="dark"][data-caixa-theme="halloween"] .caixa-chat h3,
+        html[data-theme="dark"][data-caixa-theme="halloween"] .caixa-config-drawer h1,
+        html[data-theme="dark"][data-caixa-theme="halloween"] .caixa-config-drawer h2,
+        html[data-theme="dark"][data-caixa-theme="halloween"] .caixa-config-drawer h3{
+          color:#f8f0fc !important;
+        }
+        html[data-caixa-theme="halloween"] .modal p,
+        html[data-caixa-theme="halloween"] .modal label,
+        html[data-caixa-theme="halloween"] .caixa-chat p,
+        html[data-caixa-theme="halloween"] .caixa-chat label,
+        html[data-caixa-theme="halloween"] .caixa-config-drawer p,
+        html[data-caixa-theme="halloween"] .caixa-config-drawer label{
+          color:#6e6078 !important;
+        }
+        html[data-theme="dark"][data-caixa-theme="halloween"] .modal p,
+        html[data-theme="dark"][data-caixa-theme="halloween"] .modal label,
+        html[data-theme="dark"][data-caixa-theme="halloween"] .caixa-chat p,
+        html[data-theme="dark"][data-caixa-theme="halloween"] .caixa-chat label,
+        html[data-theme="dark"][data-caixa-theme="halloween"] .caixa-config-drawer p,
+        html[data-theme="dark"][data-caixa-theme="halloween"] .caixa-config-drawer label{
+          color:#c5b6ce !important;
+        }
+        html[data-caixa-theme="halloween"] .modal input,
+        html[data-caixa-theme="halloween"] .modal select,
+        html[data-caixa-theme="halloween"] .modal textarea,
+        html[data-caixa-theme="halloween"] .caixa-chat input,
+        html[data-caixa-theme="halloween"] .caixa-chat select,
+        html[data-caixa-theme="halloween"] .caixa-chat textarea,
+        html[data-caixa-theme="halloween"] .caixa-config-drawer input,
+        html[data-caixa-theme="halloween"] .caixa-config-drawer select,
+        html[data-caixa-theme="halloween"] .caixa-config-drawer textarea{
+          background:#fff9fd !important;
+          color:#33203f !important;
+          border-color:rgba(113,69,151,.24) !important;
+        }
+        html[data-theme="dark"][data-caixa-theme="halloween"] .modal input,
+        html[data-theme="dark"][data-caixa-theme="halloween"] .modal select,
+        html[data-theme="dark"][data-caixa-theme="halloween"] .modal textarea,
+        html[data-theme="dark"][data-caixa-theme="halloween"] .caixa-chat input,
+        html[data-theme="dark"][data-caixa-theme="halloween"] .caixa-chat select,
+        html[data-theme="dark"][data-caixa-theme="halloween"] .caixa-chat textarea,
+        html[data-theme="dark"][data-caixa-theme="halloween"] .caixa-config-drawer input,
+        html[data-theme="dark"][data-caixa-theme="halloween"] .caixa-config-drawer select,
+        html[data-theme="dark"][data-caixa-theme="halloween"] .caixa-config-drawer textarea{
+          background:#24172f !important;
+          color:#f7effb !important;
+          border-color:rgba(126,226,255,.22) !important;
+        }
+        html[data-caixa-theme="halloween"] .modal input::placeholder,
+        html[data-caixa-theme="halloween"] .caixa-chat input::placeholder,
+        html[data-caixa-theme="halloween"] .caixa-config-drawer input::placeholder{
+          color:#8a7893 !important;opacity:1;
+        }
+        html[data-theme="dark"][data-caixa-theme="halloween"] .modal input::placeholder,
+        html[data-theme="dark"][data-caixa-theme="halloween"] .caixa-chat input::placeholder,
+        html[data-theme="dark"][data-caixa-theme="halloween"] .caixa-config-drawer input::placeholder{
+          color:#a99ab2 !important;opacity:1;
+        }
+        html[data-caixa-theme="halloween"] .modal .btn-secondary,
+        html[data-caixa-theme="halloween"] .caixa-chat .btn-secondary,
+        html[data-caixa-theme="halloween"] .caixa-config-drawer .btn-secondary{
+          background:#eee2f5 !important;
+          color:#55366a !important;
+          border-color:rgba(113,69,151,.24) !important;
+        }
+        html[data-theme="dark"][data-caixa-theme="halloween"] .modal .btn-secondary,
+        html[data-theme="dark"][data-caixa-theme="halloween"] .caixa-chat .btn-secondary,
+        html[data-theme="dark"][data-caixa-theme="halloween"] .caixa-config-drawer .btn-secondary{
+          background:#2b1b37 !important;
+          color:#eadcf1 !important;
+          border-color:rgba(126,226,255,.2) !important;
+        }
+        html[data-caixa-theme="halloween"] .modal .btn-gold,
+        html[data-caixa-theme="halloween"] .caixa-chat .btn-gold,
+        html[data-caixa-theme="halloween"] .caixa-config-drawer .btn-gold{
+          background:linear-gradient(135deg,#7a38c7,#5e249f) !important;
+          color:#ffffff !important;
+          border-color:#5e249f !important;
+          box-shadow:0 7px 18px rgba(94,36,159,.22) !important;
+        }
+        html[data-theme="dark"][data-caixa-theme="halloween"] .modal .btn-gold,
+        html[data-theme="dark"][data-caixa-theme="halloween"] .caixa-chat .btn-gold,
+        html[data-theme="dark"][data-caixa-theme="halloween"] .caixa-config-drawer .btn-gold{
+          background:linear-gradient(135deg,#ff8a24,#d85a18) !important;
+          color:#fff8ef !important;
+          border-color:#d85a18 !important;
+          box-shadow:0 7px 18px rgba(255,138,36,.2) !important;
+        }
+
+        /* Bordas e superfícies internas dos popups acompanham a paleta. */
+        html[data-caixa-theme="christmas"] .modal .card,
+        html[data-caixa-theme="christmas"] .caixa-chat .card,
+        html[data-caixa-theme="christmas"] .caixa-config-drawer .card{
+          background:linear-gradient(180deg,#ffffff,#eef8ff) !important;
+          border-color:rgba(78,145,184,.18) !important;
+        }
+        html[data-caixa-theme="halloween"] .modal .card,
+        html[data-caixa-theme="halloween"] .caixa-chat .card,
+        html[data-caixa-theme="halloween"] .caixa-config-drawer .card{
+          background:linear-gradient(180deg,#fffaff,#f2e8f7) !important;
+          border-color:rgba(113,69,151,.18) !important;
+        }
+        html[data-theme="dark"][data-caixa-theme="halloween"] .modal .card,
+        html[data-theme="dark"][data-caixa-theme="halloween"] .caixa-chat .card,
+        html[data-theme="dark"][data-caixa-theme="halloween"] .caixa-config-drawer .card{
+          background:linear-gradient(180deg,#21142b,#170f20) !important;
+          border-color:rgba(126,226,255,.16) !important;
+        }
+
         /* Modal próprio para criação de categoria. */
         .caixa-categoria-criacao-backdrop{
           position:fixed;inset:0;z-index:5000;
