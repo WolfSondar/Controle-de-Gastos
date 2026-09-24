@@ -64,9 +64,9 @@
       style.textContent = `
         .caixa-popup-season-float{
           position:absolute;
-          right:18px;
+          right:72px;
           top:12px;
-          z-index:30;
+          z-index:2;
           pointer-events:none;
           user-select:none;
           font-size:25px;
