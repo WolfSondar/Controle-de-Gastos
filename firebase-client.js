@@ -1,11 +1,9 @@
-/* CAIXA — Firebase / Firestore / Firebase AI Logic
+/* CAIXA — Firebase / Firestore / Gemini API
  * Banco, autenticação e IA do Caixa. Não depende de Google Apps Script.
  * SDK modular carregado diretamente pelo navegador para manter o projeto
  * GitHub Pages sem build obrigatório.
  */
 import { initializeApp } from "https://www.gstatic.com/firebasejs/12.19.0/firebase-app.js";
-import { getAI, getGenerativeModel, GoogleAIBackend, Schema } from "https://www.gstatic.com/firebasejs/12.19.0/firebase-ai.js";
-import { initializeAppCheck, ReCaptchaEnterpriseProvider, getToken } from "https://www.gstatic.com/firebasejs/12.19.0/firebase-app-check.js";
 import {
   getAuth,
   onAuthStateChanged,
@@ -13,6 +11,7 @@ import {
   signInWithPopup,
   signOut,
 } from "https://www.gstatic.com/firebasejs/12.19.0/firebase-auth.js";
+import { getFunctions, httpsCallable } from "https://www.gstatic.com/firebasejs/12.19.0/firebase-functions.js";
 import {
   initializeFirestore,
   persistentLocalCache,
@@ -60,41 +59,21 @@ if (!cfg.apiKey || cfg.apiKey.includes("COLE_")) {
   window.CAIXA_FIREBASE_READY = Promise.resolve(null);
 } else {
   const app = initializeApp(cfg);
+  const USUARIOS_AUTORIZADOS = new Set([
+    "rMURmjHzuVdfaQyeikEAAYdAJxi1",
+    "r5yVCCMatXPVsCiiJcMKWM613gq1",
+  ]);
 
-  // O Firebase AI Logic usa o proxy oficial do Firebase para falar com o Gemini.
-  // Nenhuma chave do Gemini fica exposta no código do aplicativo.
-  let appCheck = null;
-  if (cfg.appCheckRecaptchaKey && !String(cfg.appCheckRecaptchaKey).includes("COLE_")) {
-    try {
-      // O App Check precisa ser ativado antes de Auth/Firestore/AI Logic.
-      // Em produção usamos exclusivamente a chave Enterprise registrada no
-      // Firebase. Em localhost, FIREBASE_APPCHECK_DEBUG_TOKEN permite o
-      // fluxo oficial de depuração sem adicionar localhost à chave de produção.
-      appCheck = initializeAppCheck(app, {
-        provider: new ReCaptchaEnterpriseProvider(cfg.appCheckRecaptchaKey),
-        isTokenAutoRefreshEnabled: true,
-      });
-
-      // Pré-aquece a primeira obtenção do token sem bloquear a inicialização
-      // da aplicação. Isso evita que Auth/Firestore sejam os primeiros
-      // serviços a dispararem a atestação durante o carregamento da página.
-      // Se o navegador/reCAPTCHA ainda não estiver pronto, o SDK poderá
-      // tentar novamente quando um serviço solicitar o token.
-      void getToken(appCheck).catch((err) => {
-        console.warn("CAIXA: primeira tentativa do App Check não obteve token; o SDK tentará novamente.", err);
-      });
-    } catch (err) {
-      console.warn("CAIXA: não foi possível iniciar o App Check.", err);
-    }
-  }
-
+  // A IA passa por uma Cloud Function autenticada. A chave do Gemini
+  // fica somente no Secret Manager e nunca chega ao navegador.
   const auth = getAuth(app);
   const db = initializeFirestore(app, {
     localCache: persistentLocalCache({ tabManager: persistentMultipleTabManager() }),
   });
 
   const provider = new GoogleAuthProvider();
-  const ai = getAI(app, { backend: new GoogleAIBackend() });
+  const functions = getFunctions(app, "southamerica-east1");
+  const geminiGenerate = httpsCallable(functions, "geminiGenerate");
   let currentUser = null;
   let authResolve;
   let authReject;
@@ -530,26 +509,17 @@ if (!cfg.apiKey || cfg.apiKey.includes("COLE_")) {
     return [...(Array.isArray(iaConfig?.davi) ? iaConfig.davi : []), ...comum];
   }
 
-  async function modeloIA() {
+  async function gerarComGemini(prompt, generationConfig) {
     await window.CAIXA_FIREBASE_READY;
-    return getGenerativeModel(ai, { model: MODELO_IA_CAIXA });
-  }
-
-  async function gerarComRetry(model, prompt, generationConfig, tentativas = 3) {
-    let ultimoErro = null;
-    for (let tentativa = 0; tentativa < tentativas; tentativa++) {
-      try {
-        const instancia = getGenerativeModel(ai, {
-          model: MODELO_IA_CAIXA,
-          generationConfig,
-        });
-        return await instancia.generateContent(prompt);
-      } catch (err) {
-        ultimoErro = err;
-        if (tentativa < tentativas - 1) await new Promise(resolve => setTimeout(resolve, 900 * (tentativa + 1)));
-      }
+    if (!currentUser || !USUARIOS_AUTORIZADOS.has(currentUser.uid)) {
+      throw new Error("Usuário não autorizado para usar a IA.");
     }
-    throw ultimoErro || new Error("Falha ao chamar a IA.");
+    const result = await geminiGenerate({
+      model: MODELO_IA_CAIXA,
+      prompt: String(prompt || ""),
+      generationConfig: generationConfig || {},
+    });
+    return String(result?.data?.text || "");
   }
 
   function promptGastarIA(pessoa, resumo, iaConfig) {
@@ -579,20 +549,23 @@ if (!cfg.apiKey || cfg.apiKey.includes("COLE_")) {
     const iaConfig = await getIAConfig();
     const generationConfig = {
       responseMimeType: "application/json",
-      responseSchema: Schema.object({
+      responseSchema: {
+        type: "OBJECT",
         properties: {
-          respostas: Schema.object({
+          respostas: {
+            type: "OBJECT",
             properties: {
-              saldo: Schema.string(),
-              beneficio: Schema.string(),
+              saldo: { type: "STRING" },
+              beneficio: { type: "STRING" },
             },
-          }),
+            required: ["saldo", "beneficio"],
+          },
         },
-      }),
+        required: ["respostas"],
+      },
     };
     try {
-      const result = await gerarComRetry(await modeloIA(), promptGastarIA(String(pessoa).toLowerCase(), resumo, iaConfig), generationConfig, 3);
-      const texto = result?.response?.text?.() || "";
+      const texto = await gerarComGemini(promptGastarIA(String(pessoa).toLowerCase(), resumo, iaConfig), generationConfig);
       const parsed = JSON.parse(texto);
       const respostas = parsed?.respostas;
       if (!respostas) throw new Error("Resposta da IA sem o formato esperado.");
@@ -638,26 +611,27 @@ if (!cfg.apiKey || cfg.apiKey.includes("COLE_")) {
     const iaConfig = await getIAConfig();
     const generationConfig = {
       responseMimeType: "application/json",
-      responseSchema: Schema.array({
+      responseSchema: {
+        type: "ARRAY",
         minItems: 5,
         maxItems: 5,
-        items: Schema.object({
+        items: {
+          type: "OBJECT",
           properties: {
-            titulo: Schema.string(),
-            texto: Schema.string(),
-            tipo: Schema.enumString({ enum: TIPOS_INSIGHT_CAIXA }),
+            titulo: { type: "STRING" },
+            texto: { type: "STRING" },
+            tipo: { type: "STRING", enum: TIPOS_INSIGHT_CAIXA },
           },
-        }),
-      }),
+          required: ["titulo", "texto", "tipo"],
+        },
+      },
     };
     const prompt = promptInsightsIA(String(pessoa).toLowerCase(), resumo, modo, iaConfig);
     try {
-      let result = await gerarComRetry(await modeloIA(), prompt, generationConfig, 3);
-      let texto = result?.response?.text?.() || "";
+      let texto = await gerarComGemini(prompt, generationConfig);
       let lista = JSON.parse(texto);
       if (!Array.isArray(lista) || lista.length < 5) {
-        result = await gerarComRetry(await modeloIA(), `${prompt}\n\nATENÇÃO: gere exatamente 5 objetos válidos e independentes agora.`, generationConfig, 2);
-        texto = result?.response?.text?.() || "";
+        texto = await gerarComGemini(`${prompt}\n\nATENÇÃO: gere exatamente 5 objetos válidos e independentes agora.`, generationConfig);
         lista = JSON.parse(texto);
       }
       const textos = (Array.isArray(lista) ? lista : []).map(item => {
@@ -684,7 +658,16 @@ if (!cfg.apiKey || cfg.apiKey.includes("COLE_")) {
     const data=snap.data()||{};
     return data.iaConfig || null;
   }
-  async function loginGoogle(){return signInWithPopup(auth,provider);}
+  async function loginGoogle(){
+    const cred = await signInWithPopup(auth, provider);
+    if (!USUARIOS_AUTORIZADOS.has(cred.user.uid)) {
+      await signOut(auth);
+      const err = new Error("USUARIO_NAO_AUTORIZADO");
+      err.code = "auth/user-not-allowed";
+      throw err;
+    }
+    return cred;
+  }
   async function testarFirestore() {
     await window.CAIXA_FIREBASE_READY;
     if (!currentUser) throw new Error("Faça login antes de testar o Firestore.");
@@ -956,10 +939,21 @@ if (!cfg.apiKey || cfg.apiKey.includes("COLE_")) {
       const erro = el.querySelector("#caixaFirebaseLoginErro");
       btn.disabled = true; btn.classList.add("caixa-firebase-login-google-loading"); btn.textContent = "Entrando…"; erro.textContent = "";
       try { await loginGoogle(); location.reload(); }
-      catch (e) { erro.textContent = "Não foi possível entrar agora. Tente novamente."; btn.disabled = false; btn.classList.remove("caixa-firebase-login-google-loading"); btn.innerHTML = `<svg class="caixa-google-icon" viewBox="0 0 24 24" aria-hidden="true"><path fill="#4285F4" d="M21.35 12.27c0-.73-.07-1.43-.2-2.1H12v3.98h5.24a4.48 4.48 0 0 1-1.94 2.94v2.45h3.14c1.84-1.7 2.91-4.2 2.91-7.27Z"/><path fill="#34A853" d="M12 21.7c2.63 0 4.84-.87 6.45-2.36l-3.14-2.45c-.87.58-1.98.92-3.31.92-2.54 0-4.69-1.72-5.46-4.03H3.3v2.53A9.74 9.74 0 0 0 12 21.7Z"/><path fill="#FBBC05" d="M6.54 13.78A5.86 5.86 0 0 1 6.23 12c0-.62.11-1.22.31-1.78V7.69H3.3A9.73 9.73 0 0 0 2.26 12c0 1.57.38 3.05 1.04 4.31l3.24-2.53Z"/><path fill="#EA4335" d="M12 6.19c1.43 0 2.72.49 3.73 1.45l2.8-2.8C16.84 3.27 14.63 2.3 12 2.3a9.74 9.74 0 0 0-8.7 5.39l3.24 2.53C7.31 7.91 9.46 6.19 12 6.19Z"/></svg><span>Continuar com Google</span>`; }
+      catch (e) { erro.textContent = e?.code === "auth/user-not-allowed" ? "Esta conta não tem autorização para acessar o Caixa." : "Não foi possível entrar agora. Tente novamente."; btn.disabled = false; btn.classList.remove("caixa-firebase-login-google-loading"); btn.innerHTML = `<svg class="caixa-google-icon" viewBox="0 0 24 24" aria-hidden="true"><path fill="#4285F4" d="M21.35 12.27c0-.73-.07-1.43-.2-2.1H12v3.98h5.24a4.48 4.48 0 0 1-1.94 2.94v2.45h3.14c1.84-1.7 2.91-4.2 2.91-7.27Z"/><path fill="#34A853" d="M12 21.7c2.63 0 4.84-.87 6.45-2.36l-3.14-2.45c-.87.58-1.98.92-3.31.92-2.54 0-4.69-1.72-5.46-4.03H3.3v2.53A9.74 9.74 0 0 0 12 21.7Z"/><path fill="#FBBC05" d="M6.54 13.78A5.86 5.86 0 0 1 6.23 12c0-.62.11-1.22.31-1.78V7.69H3.3A9.73 9.73 0 0 0 2.26 12c0 1.57.38 3.05 1.04 4.31l3.24-2.53Z"/><path fill="#EA4335" d="M12 6.19c1.43 0 2.72.49 3.73 1.45l2.8-2.8C16.84 3.27 14.63 2.3 12 2.3a9.74 9.74 0 0 0-8.7 5.39l3.24 2.53C7.31 7.91 9.46 6.19 12 6.19Z"/></svg><span>Continuar com Google</span>`; }
     });
   }
-  onAuthStateChanged(auth,user=>{
+  onAuthStateChanged(auth, async user=>{
+    if (user && !USUARIOS_AUTORIZADOS.has(user.uid)) {
+      currentUser = null;
+      document.documentElement.classList.remove("firebase-authenticated");
+      try { await signOut(auth); } catch (_) {}
+      montarLogin();
+      const erro = document.getElementById("caixaFirebaseLoginErro");
+      if (erro) erro.textContent = "Esta conta não tem autorização para acessar o Caixa.";
+      document.dispatchEvent(new CustomEvent("caixa:firebase-unauthorized",{detail:{user}}));
+      if(authResolve){authResolve(null);authResolve=null;authReject=null;}
+      return;
+    }
     currentUser=user||null;
     document.documentElement.classList.toggle("firebase-authenticated",!!user);
     if (!user) montarLogin();

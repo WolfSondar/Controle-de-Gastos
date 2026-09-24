@@ -1,8 +1,16 @@
 rules_version = '2';
 service cloud.firestore {
   match /databases/{database}/documents {
+    function usuarioAutorizado() {
+      return request.auth != null
+        && request.auth.uid in [
+          "rMURmjHzuVdfaQyeikEAAYdAJxi1",
+          "r5yVCCMatXPVsCiiJcMKWM613gq1"
+        ];
+    }
+
     match /users/{uid}/{document=**} {
-      allow read, write: if request.auth != null && request.auth.uid == uid;
+      allow read, write: if usuarioAutorizado() && request.auth.uid == uid;
     }
   }
 }
