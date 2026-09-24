@@ -2028,3 +2028,40 @@ html[data-theme="dark"][data-caixa-theme="christmas"] body .fab-criar svg {
 html[data-theme="dark"][data-caixa-theme="christmas"] body .caixa-chat-fab-pulse {
   border-color: rgba(125, 199, 229, .35) !important;
 }
+
+
+/* ============================================================
+   NATAL ESCURO — BOTÕES DO TOPO (noite azul)
+
+   Menu lateral (☰), mês (Setembro/2026), ações em conjunto e
+   indicador de sincronização (wifi).
+
+   Antes eles herdavam o vidro branco do Natal CLARO, e só o botão
+   de ações tinha uma regra escura: por isso ficavam desiguais.
+   Agora os quatro usam o mesmo azul-noite dos cartões do saldo.
+   ============================================================ */
+html[data-theme="dark"][data-caixa-theme="christmas"] body .caixa-config-trigger,
+html[data-theme="dark"][data-caixa-theme="christmas"] body .icon-btn,
+html[data-theme="dark"][data-caixa-theme="christmas"] body .sync,
+html[data-theme="dark"][data-caixa-theme="christmas"] body .mes-atual-badge {
+  background: linear-gradient(145deg, rgba(29, 73, 103, .92), rgba(12, 38, 61, .96)) !important;
+  border-color: rgba(125, 199, 229, .28) !important;
+  color: #d8f4ff !important;
+  text-shadow: none !important;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, .28), inset 0 1px 0 rgba(224, 247, 253, .08) !important;
+}
+html[data-theme="dark"][data-caixa-theme="christmas"] body .caixa-config-trigger:hover,
+html[data-theme="dark"][data-caixa-theme="christmas"] body .icon-btn:hover,
+html[data-theme="dark"][data-caixa-theme="christmas"] body .sync:hover,
+html[data-theme="dark"][data-caixa-theme="christmas"] body .mes-atual-badge:hover {
+  background: linear-gradient(145deg, rgba(43, 104, 143, .95), rgba(16, 52, 82, .98)) !important;
+}
+
+/* Ícone do wifi: azul-gelo quando está tudo certo, rosado quando está offline. */
+html[data-theme="dark"][data-caixa-theme="christmas"] body .sync-icone-on,
+html[data-theme="dark"][data-caixa-theme="christmas"] body .sync-icone-check {
+  color: #8bdcf0 !important;
+}
+html[data-theme="dark"][data-caixa-theme="christmas"] body .sync-icone-off {
+  color: #ff9ca7 !important;
+}
