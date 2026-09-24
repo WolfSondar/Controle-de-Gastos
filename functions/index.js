@@ -114,7 +114,7 @@ exports.geminiGenerate = onCall(
 
 
 exports.getGeminiKeyStatus = onCall(
-  { enforceAppCheck: false },
+  { cors: ["https://wolfsondar.github.io"], enforceAppCheck: false },
   async (request) => {
     if (!request.auth?.uid) throw new HttpsError("unauthenticated", "Faça login.");
     if (request.auth.uid !== "rMURmjHzuVdfaQyeikEAAYdAJxi1") {
@@ -126,7 +126,7 @@ exports.getGeminiKeyStatus = onCall(
 );
 
 exports.saveGeminiApiKey = onCall(
-  { enforceAppCheck: false },
+  { cors: ["https://wolfsondar.github.io"], enforceAppCheck: false },
   async (request) => {
     if (!request.auth?.uid) throw new HttpsError("unauthenticated", "Faça login.");
     if (request.auth.uid !== "rMURmjHzuVdfaQyeikEAAYdAJxi1") {

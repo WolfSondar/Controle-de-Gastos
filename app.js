@@ -8034,11 +8034,11 @@ if (document.readyState === "loading") {
   });
   document.addEventListener("caixa:firebase-logged-in", () => {
     document.getElementById("caixaConfigAdminCard")?.classList.toggle("is-hidden", !usuarioAtualEhAdmin());
-    if (usuarioAtualEhAdmin() && viewAtual === "admin") renderAdmin();
+    if (usuarioAtualEhAdmin() && typeof viewAtual !== "undefined" && viewAtual === "admin") renderAdmin();
   });
   document.addEventListener("caixa:firebase-logged-out", () => {
     document.getElementById("caixaConfigAdminCard")?.classList.add("is-hidden");
-    if (viewAtual === "admin") mostrarView("home");
+    if (typeof viewAtual !== "undefined" && viewAtual === "admin") mostrarView("home");
   });
 
   document.addEventListener("caixa:perfil-trocado", () => {
