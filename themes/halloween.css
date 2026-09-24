@@ -653,3 +653,123 @@ html[data-caixa-theme="halloween"] .goal-card .goal-head::after{
   content:none !important;
   display:none !important;
 }
+
+
+/* ==========================================================
+   HALLOWEEN — REFINAMENTO PREMIUM V4
+   Popups/lateral coerentes com o claro e o escuro.
+   ========================================================== */
+html[data-caixa-theme="halloween"] body {
+  background:
+    radial-gradient(circle at 12% 8%,rgba(255,138,36,.10) 0 2px,transparent 3px),
+    radial-gradient(circle at 86% 18%,rgba(85,223,255,.10) 0 2px,transparent 3px),
+    linear-gradient(180deg,#e9e0f0 0%,#f8f0f4 42%,#fff7ed 100%) !important;
+}
+
+html[data-theme="dark"][data-caixa-theme="halloween"] body {
+  background:
+    radial-gradient(circle at 12% 8%,rgba(255,138,36,.08) 0 2px,transparent 3px),
+    radial-gradient(circle at 86% 18%,rgba(85,223,255,.08) 0 2px,transparent 3px),
+    linear-gradient(180deg,#1a1023 0%,#130d1b 100%) !important;
+}
+
+html[data-caixa-theme="halloween"] .hero {
+  background:
+    radial-gradient(circle at 82% 15%,rgba(85,223,255,.14),transparent 25%),
+    radial-gradient(circle at 14% 72%,rgba(255,138,36,.13),transparent 28%),
+    linear-gradient(145deg,#241331 0%,#321746 55%,#20102c 100%) !important;
+}
+
+html[data-caixa-theme="halloween"] .modal,
+html[data-caixa-theme="halloween"] .caixa-chat,
+html[data-caixa-theme="halloween"] .caixa-config-drawer {
+  background:
+    radial-gradient(circle at 92% 8%,rgba(85,223,255,.12),transparent 25%),
+    linear-gradient(180deg,#fffaf5 0%,#f8eff9 100%) !important;
+  color:#30213a !important;
+  border:1px solid rgba(122,56,199,.25) !important;
+  box-shadow:0 28px 72px rgba(50,22,66,.20),0 1px 0 rgba(255,255,255,.9) inset !important;
+}
+
+html[data-caixa-theme="halloween"] .modal h1,
+html[data-caixa-theme="halloween"] .modal h2,
+html[data-caixa-theme="halloween"] .modal h3,
+html[data-caixa-theme="halloween"] .caixa-chat h1,
+html[data-caixa-theme="halloween"] .caixa-chat h2,
+html[data-caixa-theme="halloween"] .caixa-chat h3,
+html[data-caixa-theme="halloween"] .caixa-config-drawer h1,
+html[data-caixa-theme="halloween"] .caixa-config-drawer h2,
+html[data-caixa-theme="halloween"] .caixa-config-drawer h3 { color:#30213a !important; }
+
+html[data-caixa-theme="halloween"] .modal p,
+html[data-caixa-theme="halloween"] .modal label,
+html[data-caixa-theme="halloween"] .caixa-chat p,
+html[data-caixa-theme="halloween"] .caixa-chat label,
+html[data-caixa-theme="halloween"] .caixa-config-drawer p,
+html[data-caixa-theme="halloween"] .caixa-config-drawer label { color:#6e6078 !important; }
+
+html[data-caixa-theme="halloween"] .caixa-config-head,
+html[data-caixa-theme="halloween"] .caixa-chat-header {
+  background:linear-gradient(135deg,#f2e7f7,#fff5e9) !important;
+  border-bottom:1px solid rgba(122,56,199,.16) !important;
+}
+
+html[data-caixa-theme="halloween"] .modal input,
+html[data-caixa-theme="halloween"] .modal select,
+html[data-caixa-theme="halloween"] .modal textarea,
+html[data-caixa-theme="halloween"] .caixa-chat input,
+html[data-caixa-theme="halloween"] .caixa-chat textarea,
+html[data-caixa-theme="halloween"] .caixa-config-drawer input,
+html[data-caixa-theme="halloween"] .caixa-config-drawer select,
+html[data-caixa-theme="halloween"] .caixa-config-drawer textarea {
+  background:#f3eaf7 !important;
+  color:#30213a !important;
+  border-color:rgba(122,56,199,.22) !important;
+}
+
+html[data-theme="dark"][data-caixa-theme="halloween"] .modal,
+html[data-theme="dark"][data-caixa-theme="halloween"] .caixa-chat,
+html[data-theme="dark"][data-caixa-theme="halloween"] .caixa-config-drawer {
+  background:
+    radial-gradient(circle at 90% 8%,rgba(85,223,255,.10),transparent 25%),
+    linear-gradient(180deg,#271532 0%,#17101f 100%) !important;
+  color:#f7effb !important;
+  border-color:rgba(168,75,218,.34) !important;
+  box-shadow:0 32px 84px rgba(0,0,0,.56),inset 0 1px 0 rgba(255,255,255,.045) !important;
+}
+
+html[data-theme="dark"][data-caixa-theme="halloween"] .modal h1,
+html[data-theme="dark"][data-caixa-theme="halloween"] .modal h2,
+html[data-theme="dark"][data-caixa-theme="halloween"] .modal h3,
+html[data-theme="dark"][data-caixa-theme="halloween"] .caixa-chat h1,
+html[data-theme="dark"][data-caixa-theme="halloween"] .caixa-chat h2,
+html[data-theme="dark"][data-caixa-theme="halloween"] .caixa-chat h3,
+html[data-theme="dark"][data-caixa-theme="halloween"] .caixa-config-drawer h1,
+html[data-theme="dark"][data-caixa-theme="halloween"] .caixa-config-drawer h2,
+html[data-theme="dark"][data-caixa-theme="halloween"] .caixa-config-drawer h3 { color:#faf3fd !important; }
+
+html[data-theme="dark"][data-caixa-theme="halloween"] .modal p,
+html[data-theme="dark"][data-caixa-theme="halloween"] .modal label,
+html[data-theme="dark"][data-caixa-theme="halloween"] .caixa-chat p,
+html[data-theme="dark"][data-caixa-theme="halloween"] .caixa-chat label,
+html[data-theme="dark"][data-caixa-theme="halloween"] .caixa-config-drawer p,
+html[data-theme="dark"][data-caixa-theme="halloween"] .caixa-config-drawer label { color:#b8a9c2 !important; }
+
+html[data-theme="dark"][data-caixa-theme="halloween"] .caixa-config-head,
+html[data-theme="dark"][data-caixa-theme="halloween"] .caixa-chat-header {
+  background:linear-gradient(135deg,#30183d,#191020) !important;
+  border-color:rgba(168,75,218,.22) !important;
+}
+
+html[data-theme="dark"][data-caixa-theme="halloween"] .modal input,
+html[data-theme="dark"][data-caixa-theme="halloween"] .modal select,
+html[data-theme="dark"][data-caixa-theme="halloween"] .modal textarea,
+html[data-theme="dark"][data-caixa-theme="halloween"] .caixa-chat input,
+html[data-theme="dark"][data-caixa-theme="halloween"] .caixa-chat textarea,
+html[data-theme="dark"][data-caixa-theme="halloween"] .caixa-config-drawer input,
+html[data-theme="dark"][data-caixa-theme="halloween"] .caixa-config-drawer select,
+html[data-theme="dark"][data-caixa-theme="halloween"] .caixa-config-drawer textarea {
+  background:rgba(255,255,255,.055) !important;
+  color:#f7effb !important;
+  border-color:rgba(168,75,218,.25) !important;
+}

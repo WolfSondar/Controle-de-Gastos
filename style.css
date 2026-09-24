@@ -9226,3 +9226,105 @@ html[data-caixa-theme="christmas"] .split-chart-wrap::after {
   background: radial-gradient(circle at 8% 12%, rgba(255,255,255,.16) 0 1px, transparent 1.7px), radial-gradient(circle at 92% 88%, rgba(255,255,255,.12) 0 1px, transparent 1.7px);
   opacity: .55;
 }
+
+
+/* ==========================================================
+   V14 — acabamento responsivo de sistema + popups
+   ========================================================== */
+html {
+  min-height: 100%;
+  background: var(--paper);
+}
+
+body {
+  min-height: 100vh;
+  min-height: 100dvh;
+  padding-top: env(safe-area-inset-top);
+}
+
+.app {
+  min-height: calc(100vh - env(safe-area-inset-top));
+  min-height: calc(100dvh - env(safe-area-inset-top));
+}
+
+/* A navegação e os avisos respeitam a área reservada pelo sistema no celular. */
+.tabbar {
+  padding-bottom: calc(9px + env(safe-area-inset-bottom)) !important;
+  background: var(--ink) !important;
+  color: var(--on-ink);
+}
+
+.toast {
+  bottom: calc(92px + env(safe-area-inset-bottom)) !important;
+  background: var(--ink) !important;
+  color: var(--on-ink) !important;
+  border-color: color-mix(in srgb, var(--gold) 42%, transparent) !important;
+}
+
+/* Popups base: contraste consistente em claro e escuro. */
+.modal,
+.caixa-chat,
+.caixa-config-drawer {
+  color: var(--ink-text);
+  background: var(--paper);
+  border-color: var(--line);
+  box-shadow:
+    0 24px 70px rgba(0,0,0,.18),
+    0 8px 24px rgba(0,0,0,.08);
+}
+
+.modal input,
+.modal select,
+.modal textarea,
+.caixa-chat input,
+.caixa-chat textarea,
+.caixa-config-drawer input,
+.caixa-config-drawer select,
+.caixa-config-drawer textarea {
+  color: var(--ink-text) !important;
+  background: var(--paper-deep) !important;
+  border-color: var(--line) !important;
+}
+
+.modal p, .modal label,
+.caixa-chat p, .caixa-chat label,
+.caixa-config-drawer p, .caixa-config-drawer label {
+  color: var(--muted);
+}
+
+html[data-theme="dark"] .modal,
+html[data-theme="dark"] .caixa-chat,
+html[data-theme="dark"] .caixa-config-drawer {
+  background: linear-gradient(180deg, var(--paper-deep), var(--paper));
+  border-color: var(--line);
+  box-shadow:
+    0 28px 80px rgba(0,0,0,.48),
+    0 8px 28px rgba(0,0,0,.28),
+    inset 0 1px 0 rgba(255,255,255,.035);
+}
+
+html[data-theme="dark"] .modal input,
+html[data-theme="dark"] .modal select,
+html[data-theme="dark"] .modal textarea,
+html[data-theme="dark"] .caixa-chat input,
+html[data-theme="dark"] .caixa-chat textarea,
+html[data-theme="dark"] .caixa-config-drawer input,
+html[data-theme="dark"] .caixa-config-drawer select,
+html[data-theme="dark"] .caixa-config-drawer textarea {
+  background: rgba(255,255,255,.045) !important;
+  border-color: rgba(255,255,255,.10) !important;
+}
+
+@media (max-width: 640px) {
+  body {
+    padding-top: 0;
+  }
+
+  .modal-backdrop {
+    padding-top: env(safe-area-inset-top);
+  }
+
+  .caixa-config-drawer {
+    padding-bottom: env(safe-area-inset-bottom);
+  }
+}

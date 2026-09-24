@@ -1984,13 +1984,30 @@ function caixaArquivoMusicaTema(tema = document.documentElement.dataset.caixaThe
   return `music/${id}_${caixaPeriodoMusical()}.mp3`;
 }
 
+// Mantém a barra/status do navegador alinhada ao tema atual, inclusive no mobile.
+function caixaAtualizarCorChromeTema() {
+  try {
+    const root = document.documentElement;
+    const escuro = root.dataset.theme === "dark";
+    const sazonal = root.dataset.caixaTheme || "default";
+    const cor = sazonal === "christmas"
+      ? (escuro ? "#102b25" : "#dceff4")
+      : sazonal === "halloween"
+        ? (escuro ? "#160d20" : "#eee3f4")
+        : (escuro ? "#0d1e19" : "#16332c");
+    document.querySelectorAll('meta[name="theme-color"]').forEach(meta => meta.setAttribute("content", cor));
+    return cor;
+  } catch (_) { return null; }
+}
+window.CAIXA_ATUALIZAR_COR_CHROME_TEMA = caixaAtualizarCorChromeTema;
+
 function caixaGarantirPlayerMusica() {
   if (caixaMusicaAudio) return caixaMusicaAudio;
   const audio = document.createElement("audio");
   audio.id = "caixaTemaMusicPlayer";
   audio.preload = "auto";
   audio.loop = true;
-  audio.volume = 0.34;
+  audio.volume = 0.055;
   audio.setAttribute("aria-hidden", "true");
   audio.style.display = "none";
   document.body.appendChild(audio);
@@ -2056,6 +2073,7 @@ function caixaSincronizarTemaSazonalGlobal() {
   const ativo = disponiveis[0] || "default";
   try { localStorage.setItem("caixa-tema-estilo-v1", ativo); } catch (_) {}
   document.documentElement.dataset.caixaTheme = ativo;
+  window.CAIXA_ATUALIZAR_COR_CHROME_TEMA?.();
   window.CAIXA_ATUALIZAR_MUSICA_TEMA?.();
   return ativo;
 }
@@ -2100,6 +2118,8 @@ async function carregarDados() {
     if (["default", "christmas", "halloween"].includes(temaCache)) {
       try { localStorage.setItem("caixa-tema-estilo-v1", temaCache); } catch (_) {}
       document.documentElement.dataset.caixaTheme = temaCache;
+      window.CAIXA_ATUALIZAR_COR_CHROME_TEMA?.();
+      window.CAIXA_ATUALIZAR_MUSICA_TEMA?.();
       caixaGarantirCssTemaGlobal(temaCache);
       if (temaCache === "christmas" && typeof garantirEstiloNatalRefinado === "function") garantirEstiloNatalRefinado();
     }
@@ -2119,6 +2139,8 @@ async function carregarDados() {
     // logo depois.
     const temaDepoisCache = ["default", "christmas", "halloween"].includes(temaCache) ? temaCache : "default";
     document.documentElement.dataset.caixaTheme = temaDepoisCache;
+    window.CAIXA_ATUALIZAR_COR_CHROME_TEMA?.();
+    window.CAIXA_ATUALIZAR_MUSICA_TEMA?.();
     window.CAIXA_GARANTIR_CSS_TEMA?.(temaDepoisCache);
     popularSelectsDeCategoria();
     renderAll();
@@ -8660,6 +8682,7 @@ if (document.readyState === "loading") {
       meta.media = "";
       meta.setAttribute("content", escuro ? "#0d1e19" : "#16332c");
     });
+    caixaAtualizarCorChromeTema();
     document.querySelectorAll("[data-theme-choice]").forEach(btn => {
       const ativo = btn.dataset.themeChoice === preferencia;
       btn.classList.toggle("is-active", ativo);
@@ -9154,6 +9177,8 @@ function usuarioAtualEhAdmin(){
     const ativo = disponiveis[0] || "default";
     try { localStorage.setItem("caixa-tema-estilo-v1", ativo); } catch (_) {}
     document.documentElement.dataset.caixaTheme = ativo;
+    window.CAIXA_ATUALIZAR_COR_CHROME_TEMA?.();
+    window.CAIXA_ATUALIZAR_MUSICA_TEMA?.();
     return ativo;
   }
   function garantirEstiloNatalRefinado() {

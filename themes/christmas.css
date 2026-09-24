@@ -1621,3 +1621,160 @@ html[data-theme="dark"][data-caixa-theme="christmas"] .split-card,
 html[data-theme="dark"][data-caixa-theme="christmas"] .resumo-status-card {
   border-color: rgba(155,213,225,.17) !important;
 }
+
+
+/* ==========================================================
+   NATAL — REFINAMENTO PREMIUM V5
+   Claro: azul-gelo mais profundo no topo, branco quente controlado.
+   Escuro: verde-pinheiro, gelo e dourado com contraste confortável.
+   ========================================================== */
+html[data-caixa-theme="christmas"] body {
+  background:
+    radial-gradient(circle at 8% 7%, rgba(255,255,255,.82) 0 2px, transparent 2.8px),
+    radial-gradient(circle at 88% 14%, rgba(255,255,255,.72) 0 2px, transparent 2.8px),
+    linear-gradient(180deg,#d9edf2 0%,#edf4f1 22%,#f7f3ea 55%,#fffaf2 100%) !important;
+}
+
+html[data-theme="dark"][data-caixa-theme="christmas"] body {
+  background:
+    radial-gradient(circle at 12% 9%, rgba(150,224,231,.08) 0 2px, transparent 3px),
+    radial-gradient(circle at 86% 17%, rgba(216,180,91,.07) 0 2px, transparent 3px),
+    linear-gradient(180deg,#102b25 0%,#10241f 35%,#101f1a 100%) !important;
+}
+
+/* O topo claro deixa de ser uma grande área branca: azul-gelo + pinheiro. */
+html[data-caixa-theme="christmas"] .hero {
+  background:
+    radial-gradient(circle at 82% 18%,rgba(191,232,239,.16),transparent 24%),
+    radial-gradient(circle at 15% 72%,rgba(216,180,91,.10),transparent 28%),
+    linear-gradient(145deg,#173f36 0%,#1d5747 52%,#163a31 100%) !important;
+  box-shadow: 0 14px 34px rgba(28,72,59,.18);
+}
+
+html[data-caixa-theme="christmas"] .hero .brand-mark,
+html[data-caixa-theme="christmas"] .hero .hero-label,
+html[data-caixa-theme="christmas"] .hero .hero-stat-label,
+html[data-caixa-theme="christmas"] .hero .saldo-label {
+  color:#f5fbf8 !important;
+  text-shadow:0 1px 2px rgba(0,0,0,.22);
+}
+
+html[data-caixa-theme="christmas"] .hero .saldo-valor,
+html[data-caixa-theme="christmas"] .hero .hero-stat-valor {
+  color:#fffdf5 !important;
+  text-shadow:0 2px 12px rgba(0,0,0,.20);
+}
+
+html[data-caixa-theme="christmas"] .topbar {
+  background:linear-gradient(180deg,#edf7f8,#dcecef) !important;
+  color:#173d36 !important;
+  border-color:rgba(35,100,71,.20) !important;
+}
+
+html[data-theme="dark"][data-caixa-theme="christmas"] .topbar {
+  background:linear-gradient(180deg,#17362d,#10271f) !important;
+  color:#eef8f4 !important;
+}
+
+/* Popups e lateral: aparência própria, não apenas troca de cor. */
+html[data-caixa-theme="christmas"] .modal,
+html[data-caixa-theme="christmas"] .caixa-chat,
+html[data-caixa-theme="christmas"] .caixa-config-drawer {
+  --popup-ink:#173d36;
+  --popup-muted:#58716d;
+  background:
+    radial-gradient(circle at 92% 8%,rgba(133,205,220,.16),transparent 25%),
+    linear-gradient(180deg,#f9fdff 0%,#fffaf3 72%,#f5f0e5 100%) !important;
+  color:var(--popup-ink) !important;
+  border:1px solid rgba(61,133,151,.24) !important;
+  box-shadow:0 26px 70px rgba(35,81,79,.22),0 1px 0 rgba(255,255,255,.92) inset !important;
+}
+
+html[data-caixa-theme="christmas"] .modal h1,
+html[data-caixa-theme="christmas"] .modal h2,
+html[data-caixa-theme="christmas"] .modal h3,
+html[data-caixa-theme="christmas"] .caixa-chat h1,
+html[data-caixa-theme="christmas"] .caixa-chat h2,
+html[data-caixa-theme="christmas"] .caixa-chat h3,
+html[data-caixa-theme="christmas"] .caixa-config-drawer h1,
+html[data-caixa-theme="christmas"] .caixa-config-drawer h2,
+html[data-caixa-theme="christmas"] .caixa-config-drawer h3 {
+  color:#173d36 !important;
+}
+
+html[data-caixa-theme="christmas"] .modal p,
+html[data-caixa-theme="christmas"] .modal label,
+html[data-caixa-theme="christmas"] .caixa-chat p,
+html[data-caixa-theme="christmas"] .caixa-chat label,
+html[data-caixa-theme="christmas"] .caixa-config-drawer p,
+html[data-caixa-theme="christmas"] .caixa-config-drawer label {
+  color:#58716d !important;
+}
+
+html[data-caixa-theme="christmas"] .caixa-config-head,
+html[data-caixa-theme="christmas"] .caixa-chat-header {
+  background:linear-gradient(135deg,#e4f3f5,#fffaf2) !important;
+  border-bottom:1px solid rgba(61,133,151,.16) !important;
+}
+
+html[data-caixa-theme="christmas"] .modal input,
+html[data-caixa-theme="christmas"] .modal select,
+html[data-caixa-theme="christmas"] .modal textarea,
+html[data-caixa-theme="christmas"] .caixa-chat input,
+html[data-caixa-theme="christmas"] .caixa-chat textarea,
+html[data-caixa-theme="christmas"] .caixa-config-drawer input,
+html[data-caixa-theme="christmas"] .caixa-config-drawer select,
+html[data-caixa-theme="christmas"] .caixa-config-drawer textarea {
+  background:#eef7f8 !important;
+  color:#173d36 !important;
+  border-color:rgba(61,133,151,.24) !important;
+  box-shadow:inset 0 1px 2px rgba(33,78,82,.05) !important;
+}
+
+html[data-theme="dark"][data-caixa-theme="christmas"] .modal,
+html[data-theme="dark"][data-caixa-theme="christmas"] .caixa-chat,
+html[data-theme="dark"][data-caixa-theme="christmas"] .caixa-config-drawer {
+  --popup-ink:#edf8f4;
+  --popup-muted:#a8c1ba;
+  background:
+    radial-gradient(circle at 90% 7%,rgba(100,194,211,.10),transparent 25%),
+    linear-gradient(180deg,#17342b 0%,#12261f 100%) !important;
+  border-color:rgba(125,203,215,.22) !important;
+  box-shadow:0 30px 80px rgba(0,0,0,.52),inset 0 1px 0 rgba(255,255,255,.045) !important;
+}
+
+html[data-theme="dark"][data-caixa-theme="christmas"] .modal h1,
+html[data-theme="dark"][data-caixa-theme="christmas"] .modal h2,
+html[data-theme="dark"][data-caixa-theme="christmas"] .modal h3,
+html[data-theme="dark"][data-caixa-theme="christmas"] .caixa-chat h1,
+html[data-theme="dark"][data-caixa-theme="christmas"] .caixa-chat h2,
+html[data-theme="dark"][data-caixa-theme="christmas"] .caixa-chat h3,
+html[data-theme="dark"][data-caixa-theme="christmas"] .caixa-config-drawer h1,
+html[data-theme="dark"][data-caixa-theme="christmas"] .caixa-config-drawer h2,
+html[data-theme="dark"][data-caixa-theme="christmas"] .caixa-config-drawer h3 { color:#f2fbf7 !important; }
+
+html[data-theme="dark"][data-caixa-theme="christmas"] .modal p,
+html[data-theme="dark"][data-caixa-theme="christmas"] .modal label,
+html[data-theme="dark"][data-caixa-theme="christmas"] .caixa-chat p,
+html[data-theme="dark"][data-caixa-theme="christmas"] .caixa-chat label,
+html[data-theme="dark"][data-caixa-theme="christmas"] .caixa-config-drawer p,
+html[data-theme="dark"][data-caixa-theme="christmas"] .caixa-config-drawer label { color:#a8c1ba !important; }
+
+html[data-theme="dark"][data-caixa-theme="christmas"] .caixa-config-head,
+html[data-theme="dark"][data-caixa-theme="christmas"] .caixa-chat-header {
+  background:linear-gradient(135deg,#1b4035,#12271f) !important;
+  border-color:rgba(125,203,215,.15) !important;
+}
+
+html[data-theme="dark"][data-caixa-theme="christmas"] .modal input,
+html[data-theme="dark"][data-caixa-theme="christmas"] .modal select,
+html[data-theme="dark"][data-caixa-theme="christmas"] .modal textarea,
+html[data-theme="dark"][data-caixa-theme="christmas"] .caixa-chat input,
+html[data-theme="dark"][data-caixa-theme="christmas"] .caixa-chat textarea,
+html[data-theme="dark"][data-caixa-theme="christmas"] .caixa-config-drawer input,
+html[data-theme="dark"][data-caixa-theme="christmas"] .caixa-config-drawer select,
+html[data-theme="dark"][data-caixa-theme="christmas"] .caixa-config-drawer textarea {
+  background:rgba(255,255,255,.055) !important;
+  color:#eef8f4 !important;
+  border-color:rgba(125,203,215,.18) !important;
+}
