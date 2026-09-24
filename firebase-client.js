@@ -5,7 +5,7 @@
  */
 import { initializeApp } from "https://www.gstatic.com/firebasejs/12.19.0/firebase-app.js";
 import { getAI, getGenerativeModel, GoogleAIBackend, Schema } from "https://www.gstatic.com/firebasejs/12.19.0/firebase-ai.js";
-import { initializeAppCheck, ReCaptchaEnterpriseProvider } from "https://www.gstatic.com/firebasejs/12.19.0/firebase-app-check.js";
+import { initializeAppCheck, ReCaptchaEnterpriseProvider, getToken } from "https://www.gstatic.com/firebasejs/12.19.0/firebase-app-check.js";
 import {
   getAuth,
   onAuthStateChanged,
@@ -63,19 +63,25 @@ if (!cfg.apiKey || cfg.apiKey.includes("COLE_")) {
 
   // O Firebase AI Logic usa o proxy oficial do Firebase para falar com o Gemini.
   // Nenhuma chave do Gemini fica exposta no código do aplicativo.
-  // Em localhost, o Firebase exige o provedor de depuração durante o desenvolvimento.
-  // Em produção (GitHub Pages), o reCAPTCHA Enterprise continua sendo usado normalmente.
-  const isLocalhost = ["localhost", "127.0.0.1", "::1"].includes(window.location.hostname);
-  if (isLocalhost) {
-    self.FIREBASE_APPCHECK_DEBUG_TOKEN = true;
-  }
-
   let appCheck = null;
   if (cfg.appCheckRecaptchaKey && !String(cfg.appCheckRecaptchaKey).includes("COLE_")) {
     try {
+      // O App Check precisa ser ativado antes de Auth/Firestore/AI Logic.
+      // Em produção usamos exclusivamente a chave Enterprise registrada no
+      // Firebase. Em localhost, FIREBASE_APPCHECK_DEBUG_TOKEN permite o
+      // fluxo oficial de depuração sem adicionar localhost à chave de produção.
       appCheck = initializeAppCheck(app, {
         provider: new ReCaptchaEnterpriseProvider(cfg.appCheckRecaptchaKey),
         isTokenAutoRefreshEnabled: true,
+      });
+
+      // Pré-aquece a primeira obtenção do token sem bloquear a inicialização
+      // da aplicação. Isso evita que Auth/Firestore sejam os primeiros
+      // serviços a dispararem a atestação durante o carregamento da página.
+      // Se o navegador/reCAPTCHA ainda não estiver pronto, o SDK poderá
+      // tentar novamente quando um serviço solicitar o token.
+      void getToken(appCheck).catch((err) => {
+        console.warn("CAIXA: primeira tentativa do App Check não obteve token; o SDK tentará novamente.", err);
       });
     } catch (err) {
       console.warn("CAIXA: não foi possível iniciar o App Check.", err);
