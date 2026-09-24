@@ -35,6 +35,24 @@
   }
 })();
 
+// Camada global de navegação: a barra de abas deve sempre ficar acima dos
+// títulos de status ("Recebidos"/"Pagos"), independentemente do tema ou
+// do usuário. Isso evita que o título atravesse visualmente os botões.
+(function garantirCamadaNavegacaoGlobal(){
+  try {
+    const id = "caixaNavegacaoGlobalStyle";
+    if (document.getElementById(id)) return;
+    const style = document.createElement("style");
+    style.id = id;
+    style.textContent = `
+      #tabbar{position:fixed!important;z-index:1200!important;}
+      .status-list-title-row{position:relative!important;z-index:1!important;}
+      .status-list-title{position:relative;z-index:1;}
+    `;
+    (document.head || document.documentElement).appendChild(style);
+  } catch (_) {}
+})();
+
 const PESSOA_LABEL = { davi: "Davi", gabriel: "Gabriel", ambos: "Juntos" };
 const COLAPSO_STORAGE_KEY = "caixaFormsColapsados";
 const PESSOA_STORAGE_KEY = "caixaPessoaAtual";
@@ -8280,6 +8298,11 @@ function usuarioAtualEhAdmin(){
       #temaNatalInicio,#temaNatalFim,#temaHalloweenInicio,#temaHalloweenFim,
       #temaNatalPermanente,#temaHalloweenPermanente,
       #btnSalvarAdminTemas,#btnSalvarAdminHalloween{display:none !important}
+      /* O título Recebidos/Pagos nunca pode ficar acima da barra de abas.
+         A barra continua sendo a camada de navegação superior em todos os temas. */
+      .tabbar{position:fixed;z-index:1200!important;}
+      .status-list-title-row{position:relative!important;z-index:1!important;}
+      .status-list-title{position:relative;z-index:1;}
       @media(max-width:700px){
         .caixa-admin-seasonal-force-wrap{grid-template-columns:1fr}
       }
@@ -8288,53 +8311,17 @@ function usuarioAtualEhAdmin(){
   }
 
   function encontrarRaizAdminSazonalidade() {
-    const raizExistente = document.getElementById("caixaAdminSazonalidadeRoot");
-    if (raizExistente) return raizExistente;
-    const marcador = document.getElementById("temaNatalInicio") || document.getElementById("temaNatalFim");
-    if (!marcador) return null;
-    const candidatos = [...document.querySelectorAll(".caixa-config-card, .caixa-settings-card, .settings-card, .config-card, section, fieldset")];
-    const raizPorTitulo = candidatos.find(el => {
-      if (!el.contains(marcador)) return false;
-      return /Sazonalidade\s+dos\s+temas/i.test(String(el.textContent || "")) && el !== marcador.parentElement;
-    });
-    if (raizPorTitulo) return raizPorTitulo;
-    return marcador.closest(".caixa-config-card-body, .caixa-config-card, .caixa-settings-card, .settings-card, .config-card, section") || marcador.parentElement;
+    return document.getElementById("caixaAdminForcarTemas");
   }
 
   function garantirCardAdminHalloween() {
-    if (state.pessoaAtual !== "davi") return;
+    if (!usuarioAtualEhAdmin()) return;
     garantirEstiloAdminSazonalidade();
     const raiz = encontrarRaizAdminSazonalidade();
     if (!raiz) return;
-    raiz.classList.add("caixa-admin-seasonal-root");
-    raiz.id = "caixaAdminSazonalidadeRoot";
 
-    // A partir daqui, a sazonalidade é controlada apenas pelos dois testes
-    // globais. As datas ficam no app.js e a antiga UI de calendário não deve
-    // permanecer visível no Admin.
-    document.getElementById("caixaAdminHalloweenTema")?.remove();
-    document.getElementById("btnSalvarAdminTemas")?.remove();
-    document.getElementById("btnSalvarAdminHalloween")?.remove();
-
-    ["temaNatalInicio","temaNatalFim","temaHalloweenInicio","temaHalloweenFim"].forEach(id => {
-      const input = document.getElementById(id);
-      if (!input) return;
-      const card = input.closest(".caixa-config-card, .caixa-settings-card, .settings-card, .config-card");
-      if (card && card !== raiz) card.remove();
-      else input.closest("label, .caixa-config-row")?.remove();
-    });
-    ["temaNatalPermanente","temaHalloweenPermanente"].forEach(id => {
-      document.getElementById(id)?.closest("label, .caixa-config-row")?.remove();
-    });
-
-    // Atualiza o subtítulo legado da seção para refletir a nova função dela.
-    [...raiz.querySelectorAll("p, .caixa-config-card-sub, .caixa-config-section-sub")].forEach(el => {
-      const txt = String(el.textContent || "").trim();
-      if (/Defina quando cada tema especial fica dispon[ií]vel para sele[cç][aã]o/i.test(txt)) {
-        el.textContent = "Ative um tema imediatamente para todos os usuários apenas para teste.";
-      }
-    });
-
+    // A antiga seção "Sazonalidade dos temas" não existe mais. O Admin agora
+    // possui uma área simples e direta para forçar os temas disponíveis.
     const temasForcaveis = [
       { id: "christmas", emoji: "🎄", titulo: "Natal", subtitulo: "Ativa o tema imediatamente para todos os usuários." },
       { id: "halloween", emoji: "🎃", titulo: "Halloween", subtitulo: "Ativa o tema imediatamente para todos os usuários." }
@@ -8345,11 +8332,9 @@ function usuarioAtualEhAdmin(){
       wrap = document.createElement("div");
       wrap.id = "caixaAdminSazonalForcar";
       wrap.className = "caixa-admin-seasonal-force-wrap";
+      raiz.appendChild(wrap);
     }
 
-    // Mantém a ordem e o layout em grade em um único ponto da seção. Se um
-    // novo tema for adicionado depois, basta entrar nesta lista e o card
-    // seguirá automaticamente o mesmo desenho.
     wrap.innerHTML = temasForcaveis.map(t => `
       <div class="caixa-admin-seasonal-card" data-caixa-seasonal-force-card="${t.id}">
         <div class="caixa-admin-seasonal-head">
@@ -8361,17 +8346,6 @@ function usuarioAtualEhAdmin(){
           <span class="caixa-admin-seasonal-force-text"><span class="caixa-admin-seasonal-force-title">Forçar ${t.titulo} agora</span><span class="caixa-admin-seasonal-force-sub">Use apenas para teste.</span></span>
         </label>
       </div>`).join("");
-
-    // Remove o card Natal legado e coloca a grade exatamente no lugar dele.
-    const marcadorNatal = document.getElementById("temaNatalInicio") || document.getElementById("temaNatalFim");
-    const cardNatalLegado = marcadorNatal?.closest(".caixa-config-card, .caixa-settings-card, .settings-card, .config-card");
-    if (cardNatalLegado && cardNatalLegado !== raiz) {
-      cardNatalLegado.replaceWith(wrap);
-    } else {
-      const primeiroBloco = raiz.querySelector(".caixa-config-card-body, .caixa-config-body, .caixa-config-row");
-      if (primeiroBloco && primeiroBloco !== wrap) primeiroBloco.before(wrap);
-      else if (!wrap.parentElement) raiz.appendChild(wrap);
-    }
 
     ["temaNatalForcar", "temaHalloweenForcar"].forEach(id => {
       const cb = document.getElementById(id);

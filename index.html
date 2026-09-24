@@ -738,21 +738,6 @@
             <span class="caixa-theme-check" aria-hidden="true">✓</span>
           </button>
         </div>
-        <div class="caixa-config-section-head caixa-config-subhead">
-          <div><h3>Temas</h3><p>Temas especiais aparecem somente quando estiverem disponíveis.</p></div>
-        </div>
-        <div class="caixa-theme-options" id="caixaTemasOptions">
-          <button type="button" class="caixa-theme-option caixa-tema-option" data-caixa-theme="default" aria-pressed="true">
-            <span class="caixa-tema-preview" aria-hidden="true"><i></i><b></b><em></em><strong></strong></span>
-            <span><strong>Padrão</strong><small>O visual original do Caixa. Sempre disponível.</small></span>
-            <span class="caixa-theme-check">✓</span>
-          </button>
-          <button type="button" class="caixa-theme-option caixa-tema-option caixa-tema-natal" data-caixa-theme="christmas" aria-pressed="false">
-            <span class="caixa-tema-preview" aria-hidden="true"><i></i><b></b><em></em><strong></strong><u></u></span>
-            <span><strong>Natal</strong><small>Neve, luzinhas e clima natalino.</small></span>
-            <span class="caixa-theme-check">✓</span>
-          </button>
-        </div>
       </section>
 
       <section class="caixa-config-view is-hidden" id="caixaConfigAdmin">
@@ -768,20 +753,18 @@
             <div class="caixa-config-section-head"><div><h3>Nomes dos ícones</h3><p>Dê nomes mais bonitos aos arquivos exibidos no seletor.</p></div></div>
             <div class="caixa-config-list" id="listaNomesIcones"></div>
           </div>
-          <div class="caixa-config-admin-group caixa-admin-card-season">
-            <div class="caixa-config-section-head"><div><h3>Sazonalidade dos temas</h3><p>Defina quando cada tema especial fica disponível para seleção.</p></div></div>
-            <div class="caixa-season-card">
-              <div class="caixa-season-theme">
-                <span class="caixa-season-theme-icon" aria-hidden="true">🎄</span>
-                <div><strong>Natal</strong><small>Tema natalino</small></div>
+          <div class="caixa-config-admin-group caixa-admin-card-season" id="caixaAdminForcarTemas">
+            <div class="caixa-config-section-head"><div><h3>Forçar temas</h3><p>Ative um tema imediatamente para todos os usuários apenas para teste.</p></div></div>
+            <div class="caixa-admin-seasonal-force-wrap" id="caixaAdminSazonalForcar">
+              <div class="caixa-admin-seasonal-card" data-caixa-seasonal-force-card="christmas">
+                <div class="caixa-admin-seasonal-head"><span class="caixa-admin-seasonal-emoji" aria-hidden="true">🎄</span><div><div class="caixa-admin-seasonal-title">Natal</div><div class="caixa-admin-seasonal-sub">Ativa o tema imediatamente para todos os usuários.</div></div></div>
+                <label class="caixa-admin-seasonal-force"><input type="checkbox" id="temaNatalForcar"><span class="caixa-admin-seasonal-force-text"><span class="caixa-admin-seasonal-force-title">Forçar Natal agora</span><span class="caixa-admin-seasonal-force-sub">Use apenas para teste.</span></span></label>
               </div>
-              <div class="caixa-season-fields">
-                <label><span>Disponível a partir de</span><input type="date" id="temaNatalInicio"></label>
-                <label><span>Disponível até</span><input type="date" id="temaNatalFim"></label>
-                <label class="caixa-season-toggle"><input type="checkbox" id="temaNatalPermanente"><span class="caixa-season-switch"></span><span>Sempre disponível</span></label>
+              <div class="caixa-admin-seasonal-card" data-caixa-seasonal-force-card="halloween">
+                <div class="caixa-admin-seasonal-head"><span class="caixa-admin-seasonal-emoji" aria-hidden="true">🎃</span><div><div class="caixa-admin-seasonal-title">Halloween</div><div class="caixa-admin-seasonal-sub">Ativa o tema imediatamente para todos os usuários.</div></div></div>
+                <label class="caixa-admin-seasonal-force"><input type="checkbox" id="temaHalloweenForcar"><span class="caixa-admin-seasonal-force-text"><span class="caixa-admin-seasonal-force-title">Forçar Halloween agora</span><span class="caixa-admin-seasonal-force-sub">Use apenas para teste.</span></span></label>
               </div>
             </div>
-            <button type="button" class="btn btn-gold caixa-config-save-wide" id="btnSalvarAdminTemas">Salvar regras</button>
           </div>
         </div>
       </section>
