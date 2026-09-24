@@ -990,138 +990,6 @@
         background:#0f222c !important;
         border-color:rgba(133,215,236,.14) !important;
       }
-
-      /* ============================================================
-         POPUPS — NATAL ESCURO
-         Os popups têm componentes próprios e algumas regras antigas usam
-         var(--paper)/var(--paper-deep), que no modo escuro padrão ainda é verde.
-         Aqui definimos diretamente cada superfície para impedir esse vazamento.
-         ============================================================ */
-      html[data-theme="dark"][data-caixa-theme="christmas"] .modal-backdrop{
-        background:rgba(2,8,13,.76) !important;
-        backdrop-filter:blur(12px) saturate(.9) !important;
-      }
-      html[data-theme="dark"][data-caixa-theme="christmas"] .modal,
-      html[data-theme="dark"][data-caixa-theme="christmas"] .modal.modal-acoes,
-      html[data-theme="dark"][data-caixa-theme="christmas"] .modal.fechar-mes-modal,
-      html[data-theme="dark"][data-caixa-theme="christmas"] .modal.modal-config-fatura,
-      html[data-theme="dark"][data-caixa-theme="christmas"] #criacaoBackdrop .modal{
-        background:linear-gradient(160deg,#102b38 0%,#0b1b25 55%,#08141c 100%) !important;
-        color:#edf9fd !important;
-        border:1px solid rgba(126,205,224,.25) !important;
-        box-shadow:0 24px 70px rgba(0,0,0,.52),inset 0 1px 0 rgba(224,247,253,.06) !important;
-      }
-      html[data-theme="dark"][data-caixa-theme="christmas"] .modal h3,
-      html[data-theme="dark"][data-caixa-theme="christmas"] .modal .section-title,
-      html[data-theme="dark"][data-caixa-theme="christmas"] .modal strong{
-        color:#effaff !important;
-      }
-      html[data-theme="dark"][data-caixa-theme="christmas"] .modal-hint,
-      html[data-theme="dark"][data-caixa-theme="christmas"] .modal .section-hint,
-      html[data-theme="dark"][data-caixa-theme="christmas"] .fechar-mes-explicacao,
-      html[data-theme="dark"][data-caixa-theme="christmas"] .fechar-mes-explicacao p{
-        color:#9ebbc7 !important;
-      }
-      html[data-theme="dark"][data-caixa-theme="christmas"] .modal input,
-      html[data-theme="dark"][data-caixa-theme="christmas"] .modal select,
-      html[data-theme="dark"][data-caixa-theme="christmas"] .modal textarea,
-      html[data-theme="dark"][data-caixa-theme="christmas"] .modal-criacao .add-form input,
-      html[data-theme="dark"][data-caixa-theme="christmas"] .modal-criacao .add-form select{
-        background:#071820 !important;
-        color:#edf9fd !important;
-        border-color:#2a5362 !important;
-      }
-      html[data-theme="dark"][data-caixa-theme="christmas"] .acao-card,
-      html[data-theme="dark"][data-caixa-theme="christmas"] .modal .acao-card,
-      html[data-theme="dark"][data-caixa-theme="christmas"] .modal .card{
-        background:linear-gradient(145deg,#102a36,#0b1c25) !important;
-        color:#edf9fd !important;
-        border-color:#28505e !important;
-        box-shadow:0 8px 22px rgba(0,0,0,.20) !important;
-      }
-      html[data-theme="dark"][data-caixa-theme="christmas"] .acao-card-icon{
-        background:#173b4a !important;
-        color:#8fe0f3 !important;
-        border:1px solid rgba(143,224,243,.20) !important;
-      }
-      html[data-theme="dark"][data-caixa-theme="christmas"] .acao-card-texto strong,
-      html[data-theme="dark"][data-caixa-theme="christmas"] .acao-card-texto small,
-      html[data-theme="dark"][data-caixa-theme="christmas"] .acao-card-seta{
-        color:inherit !important;
-      }
-      html[data-theme="dark"][data-caixa-theme="christmas"] .acao-card-texto small,
-      html[data-theme="dark"][data-caixa-theme="christmas"] .acao-card-seta{
-        color:#91afbb !important;
-      }
-
-      /* CHAT — nenhuma bolha/card usa o verde do tema padrão. */
-      html[data-theme="dark"][data-caixa-theme="christmas"] .caixa-chat{
-        background:linear-gradient(160deg,#0d2531 0%,#08171f 100%) !important;
-        color:#edf9fd !important;
-        border:1px solid rgba(126,205,224,.27) !important;
-        box-shadow:0 24px 70px rgba(0,0,0,.52) !important;
-      }
-      html[data-theme="dark"][data-caixa-theme="christmas"] .caixa-chat-header{
-        background:linear-gradient(135deg,#143b4b 0%,#0d2632 100%) !important;
-        border-bottom:1px solid rgba(126,205,224,.20) !important;
-      }
-      html[data-theme="dark"][data-caixa-theme="christmas"] .caixa-chat-body{
-        background:linear-gradient(180deg,#091a23 0%,#07141b 100%) !important;
-      }
-      html[data-theme="dark"][data-caixa-theme="christmas"] .caixa-chat-welcome,
-      html[data-theme="dark"][data-caixa-theme="christmas"] .caixa-chat-action,
-      html[data-theme="dark"][data-caixa-theme="christmas"] .caixa-chat-choice,
-      html[data-theme="dark"][data-caixa-theme="christmas"] .caixa-chat-goal-choice,
-      html[data-theme="dark"][data-caixa-theme="christmas"] .caixa-chat-simulador-form,
-      html[data-theme="dark"][data-caixa-theme="christmas"] .caixa-chat-outra-dica{
-        background:linear-gradient(145deg,#112d39,#0c2029) !important;
-        color:#edf9fd !important;
-        border-color:#285361 !important;
-        box-shadow:0 7px 20px rgba(0,0,0,.18) !important;
-      }
-      html[data-theme="dark"][data-caixa-theme="christmas"] .caixa-chat-action:hover,
-      html[data-theme="dark"][data-caixa-theme="christmas"] .caixa-chat-choice:hover,
-      html[data-theme="dark"][data-caixa-theme="christmas"] .caixa-chat-goal-choice:hover{
-        background:linear-gradient(145deg,#153745,#102731) !important;
-        border-color:#4b91aa !important;
-      }
-      html[data-theme="dark"][data-caixa-theme="christmas"] .caixa-chat-action-icon{
-        background:#173d4c !important;
-        color:#8fe0f3 !important;
-        border-color:rgba(143,224,243,.20) !important;
-      }
-      html[data-theme="dark"][data-caixa-theme="christmas"] .caixa-chat-identidade strong,
-      html[data-theme="dark"][data-caixa-theme="christmas"] .caixa-chat-action-text strong,
-      html[data-theme="dark"][data-caixa-theme="christmas"] .caixa-chat-choice strong,
-      html[data-theme="dark"][data-caixa-theme="christmas"] .caixa-chat-goal-choice strong{
-        color:#effaff !important;
-      }
-      html[data-theme="dark"][data-caixa-theme="christmas"] .caixa-chat-identidade small,
-      html[data-theme="dark"][data-caixa-theme="christmas"] .caixa-chat-action-text small,
-      html[data-theme="dark"][data-caixa-theme="christmas"] .caixa-chat-choice small,
-      html[data-theme="dark"][data-caixa-theme="christmas"] .caixa-chat-note,
-      html[data-theme="dark"][data-caixa-theme="christmas"] .caixa-chat-thinking em{
-        color:#91afbb !important;
-      }
-      html[data-theme="dark"][data-caixa-theme="christmas"] .caixa-chat-bubble{
-        background:linear-gradient(145deg,#112d39,#0c2029) !important;
-        color:#edf9fd !important;
-        border:1px solid #285361 !important;
-      }
-      html[data-theme="dark"][data-caixa-theme="christmas"] .caixa-chat-message.user .caixa-chat-bubble{
-        background:linear-gradient(145deg,#1d5367,#164152) !important;
-        color:#f1fbff !important;
-        border-color:#4a91aa !important;
-      }
-      html[data-theme="dark"][data-caixa-theme="christmas"] .caixa-chat-bubble .chat-valor-pos{color:#8be0b3 !important}
-      html[data-theme="dark"][data-caixa-theme="christmas"] .caixa-chat-bubble .chat-valor-neg{color:#ff9b98 !important}
-      html[data-theme="dark"][data-caixa-theme="christmas"] .caixa-chat-bubble .chat-valor-gold{color:#9fe5f5 !important}
-      html[data-theme="dark"][data-caixa-theme="christmas"] .caixa-chat-bubble .chat-valor-yield{color:#8bd8ef !important}
-      html[data-theme="dark"][data-caixa-theme="christmas"] .caixa-chat-fab{
-        background:linear-gradient(145deg,#1b566c,#123c4c) !important;
-        border-color:#4d9bb5 !important;
-        color:#e8faff !important;
-      }
     `;
     document.head.appendChild(style);
   } catch (_) {}
@@ -2131,7 +1999,6 @@ let caixaMusicaAudio = null;
 let caixaMusicaSrcAtual = "";
 let caixaMusicaInteracaoArmada = false;
 let caixaMusicaRelogio = null;
-let caixaMusicaTransicaoId = 0;
 
 function caixaPeriodoMusical() {
   const hora = new Date().getHours();
@@ -2237,9 +2104,7 @@ function caixaArmarInteracaoMusica() {
   if (caixaMusicaInteracaoArmada) return;
   caixaMusicaInteracaoArmada = true;
   const tentar = () => {
-    // O gesto do usuário só deve desbloquear a reprodução.
-    // Nunca force a troca/reinício da faixa que já está tocando.
-    caixaIniciarMusicaTema(false);
+    caixaIniciarMusicaTema(true);
     ["pointerdown", "touchstart", "keydown", "click"].forEach(ev =>
       document.removeEventListener(ev, tentar, true)
     );
@@ -2249,71 +2114,27 @@ function caixaArmarInteracaoMusica() {
   );
 }
 
-function caixaMusicaFade(audio, de, para, duracao = 650) {
-  return new Promise(resolve => {
-    const inicio = performance.now();
-    const id = ++caixaMusicaTransicaoId;
-    audio.volume = de;
-    const passo = agora => {
-      if (id !== caixaMusicaTransicaoId) { resolve(false); return; }
-      const t = Math.min(1, (agora - inicio) / duracao);
-      const suavizado = t * (2 - t);
-      audio.volume = de + (para - de) * suavizado;
-      if (t < 1) requestAnimationFrame(passo);
-      else resolve(true);
-    };
-    requestAnimationFrame(passo);
-  });
-}
-
 async function caixaIniciarMusicaTema(forcarTroca = false) {
   const audio = caixaGarantirPlayerMusica();
   const srcAbs = new URL(caixaArquivoMusicaTema(), document.baseURI).href;
-  const mesmaFaixa = caixaMusicaSrcAtual === srcAbs;
-
-  // IMPORTANTE: chamadas repetidas (inclusive por cliques, renderizações ou
-  // abertura de menus) não podem reiniciar a música. Só trocamos a faixa
-  // quando o arquivo realmente mudou.
-  if (mesmaFaixa) {
-    if (!audio.paused && !audio.ended) return;
-    try {
-      audio.volume = 0.055;
-      await audio.play();
-    } catch (_) {
-      caixaArmarInteracaoMusica();
+  if (forcarTroca || caixaMusicaSrcAtual !== srcAbs) {
+    const estavaTocando = !audio.paused && !audio.ended;
+    audio.pause();
+    audio.src = srcAbs;
+    audio.load();
+    caixaMusicaSrcAtual = srcAbs;
+    try { await audio.play(); }
+    catch (_) {
+      if (estavaTocando || forcarTroca) caixaArmarInteracaoMusica();
     }
-    return;
-  }
-
-  const estavaTocando = !audio.paused && !audio.ended;
-  const volumeAlvo = 0.055;
-  ++caixaMusicaTransicaoId;
-
-  // Se já existe uma faixa tocando, faz fade-out antes de trocar o arquivo.
-  if (estavaTocando) {
-    await caixaMusicaFade(audio, audio.volume, 0, 500);
-    audio.pause();
-  } else {
-    audio.pause();
-  }
-
-  audio.src = srcAbs;
-  audio.load();
-  caixaMusicaSrcAtual = srcAbs;
-  audio.volume = 0;
-
-  try {
-    await audio.play();
-    await caixaMusicaFade(audio, 0, volumeAlvo, 700);
-  } catch (_) {
-    audio.volume = volumeAlvo;
-    caixaArmarInteracaoMusica();
+  } else if (audio.paused) {
+    try { await audio.play(); }
+    catch (_) { caixaArmarInteracaoMusica(); }
   }
 }
 
 function atualizarMusicaTema() {
-  // Atualização idempotente: só troca se o tema/período apontar para outro MP3.
-  caixaIniciarMusicaTema(false);
+  caixaIniciarMusicaTema(true);
 }
 
 function iniciarRelogioMusicaTema() {
@@ -10044,4 +9865,179 @@ function usuarioAtualEhAdmin(){
     renderTemas,
     renderAdmin
   };
+})();
+
+/* ============================================================
+   EMOJIS DO APLICATIVO
+   Prioridade: Google Animated Emoji -> Microsoft Fluent Emoji Color
+   -> emoji nativo do dispositivo.
+
+   O Google disponibiliza os assets animados do Noto Emoji por URL direta.
+   Quando um emoji/sequência não existir lá, o erro da imagem aciona o
+   fallback para Fluent Emoji Color. Se os dois provedores não estiverem
+   acessíveis (ex.: uso totalmente offline), o emoji nativo volta a aparecer.
+   ============================================================ */
+(function instalarRenderizadorEmojis() {
+  try {
+    if (window.__CAIXA_EMOJI_RENDERER__) return;
+    window.__CAIXA_EMOJI_RENDERER__ = true;
+
+    const CONFIG = {
+      // Ordem intencional: não trocar para fonte do sistema enquanto houver
+      // asset animado do Google disponível.
+      primary: "google-animated",
+      fallback: "fluent-color"
+    };
+    window.CAIXA_EMOJI_CONFIG = CONFIG;
+
+    const GOOGLE_BASE = "https://fonts.gstatic.com/s/e/notoemoji/latest";
+    const FLUENT_BASE = "https://cdn.jsdelivr.net/gh/shuding/fluentui-emoji-unicode@main/assets";
+    const CACHE = new Map();
+    const SKIP_TAGS = new Set(["SCRIPT", "STYLE", "NOSCRIPT", "TEXTAREA", "OPTION"]);
+
+    function codepoints(str) {
+      return Array.from(str).map(ch => ch.codePointAt(0).toString(16)).join("-");
+    }
+
+    function googleUrl(emoji) {
+      return `${GOOGLE_BASE}/${codepoints(emoji)}/512.gif`;
+    }
+
+    function fluentUrl(emoji) {
+      return `${FLUENT_BASE}/${codepoints(emoji)}_color.svg`;
+    }
+
+    function pareceEmoji(segment) {
+      if (!segment) return false;
+      // Abrange emoji de apresentação, pictogramas com VS16, ZWJ e flags.
+      if (/\p{Emoji_Presentation}/u.test(segment)) return true;
+      if (/\p{Extended_Pictographic}/u.test(segment)) return true;
+      if (/\p{Regional_Indicator}{2}/u.test(segment)) return true;
+      return false;
+    }
+
+    function dividirGraphemes(texto) {
+      if (window.Intl && Intl.Segmenter) {
+        const seg = new Intl.Segmenter(undefined, { granularity: "grapheme" });
+        return Array.from(seg.segment(texto), x => x.segment);
+      }
+      // Fallback para navegadores antigos: ainda preserva pares surrogate.
+      return Array.from(texto);
+    }
+
+    function criarEmoji(emoji) {
+      const wrap = document.createElement("span");
+      wrap.className = "caixa-emoji-render";
+      wrap.dataset.emoji = emoji;
+      wrap.setAttribute("role", "img");
+      wrap.setAttribute("aria-label", emoji);
+
+      const native = document.createElement("span");
+      native.className = "caixa-emoji-native";
+      native.textContent = emoji;
+      native.setAttribute("aria-hidden", "true");
+
+      const img = document.createElement("img");
+      img.className = "caixa-emoji-img";
+      img.alt = "";
+      img.decoding = "async";
+      img.loading = "lazy";
+      img.draggable = false;
+      img.setAttribute("aria-hidden", "true");
+
+      const google = googleUrl(emoji);
+      const fluent = fluentUrl(emoji);
+      img.dataset.googleSrc = google;
+      img.dataset.fluentSrc = fluent;
+
+      let fase = "google";
+      img.onerror = () => {
+        if (fase === "google") {
+          fase = "fluent";
+          img.src = fluent;
+          return;
+        }
+        wrap.classList.add("is-fallback");
+        img.removeAttribute("src");
+      };
+
+      // O GIF do Google é o primeiro e único candidato inicial.
+      img.src = google;
+      wrap.append(native, img);
+      return wrap;
+    }
+
+    function transformarTexto(textNode) {
+      if (!textNode || !textNode.parentNode) return;
+      const parent = textNode.parentElement;
+      if (!parent || SKIP_TAGS.has(parent.tagName)) return;
+      if (parent.closest(".caixa-emoji-render")) return;
+      if (!pareceEmoji(textNode.nodeValue)) return;
+
+      const partes = dividirGraphemes(textNode.nodeValue);
+      if (!partes.some(pareceEmoji)) return;
+
+      const frag = document.createDocumentFragment();
+      for (const parte of partes) {
+        if (pareceEmoji(parte)) {
+          frag.appendChild(criarEmoji(parte));
+        } else {
+          frag.appendChild(document.createTextNode(parte));
+        }
+      }
+      textNode.replaceWith(frag);
+    }
+
+    function escanear(root) {
+      if (!root) return;
+      const walker = document.createTreeWalker(root, NodeFilter.SHOW_TEXT, {
+        acceptNode(node) {
+          const p = node.parentElement;
+          if (!p || SKIP_TAGS.has(p.tagName) || p.closest(".caixa-emoji-render")) {
+            return NodeFilter.FILTER_REJECT;
+          }
+          return pareceEmoji(node.nodeValue) ? NodeFilter.FILTER_ACCEPT : NodeFilter.FILTER_REJECT;
+        }
+      });
+      const nodes = [];
+      let node;
+      while ((node = walker.nextNode())) nodes.push(node);
+      nodes.forEach(transformarTexto);
+    }
+
+    let timer = 0;
+    const agendar = () => {
+      if (timer) return;
+      timer = requestAnimationFrame(() => {
+        timer = 0;
+        escanear(document.body);
+      });
+    };
+
+    const observer = new MutationObserver(records => {
+      for (const record of records) {
+        if (record.type === "characterData" || record.addedNodes.length) {
+          agendar();
+          break;
+        }
+      }
+    });
+
+    function iniciar() {
+      if (!document.body) return;
+      escanear(document.body);
+      observer.observe(document.body, { childList: true, subtree: true, characterData: true });
+    }
+
+    if (document.readyState === "loading") {
+      document.addEventListener("DOMContentLoaded", iniciar, { once: true });
+    } else {
+      iniciar();
+    }
+
+    window.CAIXA_RENDER_EMOJIS = () => escanear(document.body);
+  } catch (err) {
+    // Se algo impedir o renderizador, o aplicativo continua usando os emojis nativos.
+    console.warn("Renderizador de emojis desativado:", err);
+  }
 })();
