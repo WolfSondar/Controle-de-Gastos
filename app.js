@@ -709,6 +709,267 @@
 })();
 
 
+/* ============================================================
+   NATAL — PALETA GÉLIDA v2
+   Natal claro + Natal escuro sem o verde do sistema padrão.
+   O verde das árvores/elementos natalinos continua apenas como
+   decoração; a identidade de interface passa a ser gelo + azul.
+   ============================================================ */
+(function instalarNatalPaletaGelida(){
+  try {
+    const id = "caixaNatalPaletaGelidaV2";
+    if (document.getElementById(id)) return;
+    const style = document.createElement("style");
+    style.id = id;
+    style.textContent = `
+      /* ---------- NATAL CLARO: neve, gelo e azul de inverno ---------- */
+      html[data-caixa-theme="christmas"]{
+        --gold:#5c9fca;
+        --gold-deep:#347fae;
+        --ink:#18384c;
+        --on-ink:#f7fcff;
+        --paper:#f3f9fd;
+        --paper-deep:#e7f2f8;
+        --ink-text:#24465a;
+        --muted:#6c8798;
+        --line:rgba(91,145,176,.20);
+        --income:#3d9a74;
+        --income-bg:#e7f7f0;
+        --expense:#d5656b;
+        --expense-bg:#fff0f1;
+        --yield:#4b9fca;
+        --yield-bg:#e8f6fc;
+        --christmas-ice:#74c9e7;
+        --christmas-ice-soft:#dff5fc;
+        --christmas-pine:#6f9bb2;
+      }
+
+      html[data-caixa-theme="christmas"] body{
+        background:
+          radial-gradient(circle at 12% 8%,rgba(143,218,243,.22),transparent 22%),
+          radial-gradient(circle at 88% 20%,rgba(199,232,246,.28),transparent 25%),
+          linear-gradient(180deg,#edf7fc 0%,#f8fcff 48%,#eaf5fa 100%) !important;
+        color:#24465a !important;
+      }
+      html[data-caixa-theme="christmas"] .topbar,
+      html[data-caixa-theme="christmas"] .card,
+      html[data-caixa-theme="christmas"] .split-card,
+      html[data-caixa-theme="christmas"] .add-form,
+      html[data-caixa-theme="christmas"] .goal-card.caixinha-card,
+      html[data-caixa-theme="christmas"] .historico-controles,
+      html[data-caixa-theme="christmas"] .transferir-direcao,
+      html[data-caixa-theme="christmas"] .caixa-config-card,
+      html[data-caixa-theme="christmas"] .caixa-theme-option{
+        background:linear-gradient(180deg,#ffffff 0%,#f4faff 100%) !important;
+        border-color:rgba(91,151,185,.20) !important;
+        box-shadow:0 10px 28px rgba(61,119,151,.10),0 1px 0 rgba(255,255,255,.92) inset !important;
+      }
+      html[data-caixa-theme="christmas"] .hero{
+        background:
+          radial-gradient(circle at 84% 14%,rgba(186,237,251,.58),transparent 25%),
+          radial-gradient(circle at 10% 82%,rgba(224,244,252,.48),transparent 28%),
+          linear-gradient(145deg,#d9f0fa 0%,#c5e5f2 48%,#b8dce9 100%) !important;
+        color:#173c52 !important;
+        border-bottom-color:rgba(71,139,174,.24) !important;
+        box-shadow:0 16px 34px rgba(69,126,155,.15) !important;
+      }
+      html[data-caixa-theme="christmas"] .hero-stat{
+        background:rgba(255,255,255,.54) !important;
+        border-color:rgba(74,139,172,.20) !important;
+        box-shadow:inset 0 1px 0 rgba(255,255,255,.86),0 5px 16px rgba(70,126,155,.10) !important;
+      }
+      html[data-caixa-theme="christmas"] .hero-stat-label,
+      html[data-caixa-theme="christmas"] .hero-stat-subvalor,
+      html[data-caixa-theme="christmas"] .section-hint,
+      html[data-caixa-theme="christmas"] .empty-state,
+      html[data-caixa-theme="christmas"] .ledger-meta{
+        color:#638196 !important;
+      }
+      html[data-caixa-theme="christmas"] .section-title,
+      html[data-caixa-theme="christmas"] .item-nome,
+      html[data-caixa-theme="christmas"] .goal-nome{
+        color:#21465d !important;
+      }
+
+      /* Interface: azul-gelo em vez do verde padrão. */
+      html[data-caixa-theme="christmas"] .btn-gold{
+        background:linear-gradient(135deg,#63afd3,#3c8fb9) !important;
+        color:#f9fdff !important;
+        border-color:#58a5cc !important;
+        box-shadow:0 7px 18px rgba(53,133,172,.22) !important;
+      }
+      html[data-caixa-theme="christmas"] .btn-gold:hover{
+        background:linear-gradient(135deg,#71badb,#438fba) !important;
+      }
+      html[data-caixa-theme="christmas"] .tab-btn{color:#7692a2 !important}
+      html[data-caixa-theme="christmas"] .tab-btn.is-active{color:#286b91 !important}
+      html[data-caixa-theme="christmas"] .tab-indicator{
+        background:linear-gradient(90deg,#8ad8ef,#4a9fc8) !important;
+        box-shadow:0 0 10px rgba(82,173,214,.25) !important;
+      }
+      html[data-caixa-theme="christmas"] .collapse-toggle,
+      html[data-caixa-theme="christmas"] .btn-ghost,
+      html[data-caixa-theme="christmas"] .icon-btn{
+        background:#edf7fb !important;
+        color:#35627a !important;
+        border-color:#c4dfe9 !important;
+      }
+
+      html[data-caixa-theme="christmas"] input,
+      html[data-caixa-theme="christmas"] select,
+      html[data-caixa-theme="christmas"] textarea{
+        background:#fbfdff !important;
+        color:#24465a !important;
+        border-color:#bfdbe7 !important;
+      }
+      html[data-caixa-theme="christmas"] input::placeholder,
+      html[data-caixa-theme="christmas"] textarea::placeholder{color:#86a0af !important}
+      html[data-caixa-theme="christmas"] input:focus,
+      html[data-caixa-theme="christmas"] select:focus,
+      html[data-caixa-theme="christmas"] textarea:focus{
+        border-color:#68b8d8 !important;
+        box-shadow:0 0 0 3px rgba(104,184,216,.13) !important;
+      }
+
+      /* Caixinhas: gelo puro, sem verde no preenchimento da interface. */
+      html[data-caixa-theme="christmas"] .goal-bar-track{
+        background:linear-gradient(180deg,#e8f6fb,#dceef5) !important;
+        border-color:#b7d9e5 !important;
+        box-shadow:inset 0 1px 4px rgba(66,125,153,.10) !important;
+      }
+      html[data-caixa-theme="christmas"] .goal-bar-fill{
+        background:linear-gradient(90deg,#a8e6f5 0%,#67c7e5 52%,#4d9fc8 100%) !important;
+        box-shadow:inset 0 1px 0 rgba(255,255,255,.70),0 1px 10px rgba(76,169,207,.24) !important;
+      }
+      html[data-caixa-theme="christmas"] .goal-bar-fill.completo{
+        background:linear-gradient(90deg,#c5f0fa 0%,#78d2e9 50%,#4d9fc8 100%) !important;
+      }
+      html[data-caixa-theme="christmas"] .goal-icon-ring{
+        background:conic-gradient(#70cbe7 var(--pct,0%),#d2e8f0 0) !important;
+        box-shadow:0 0 0 2px rgba(103,192,221,.10),0 4px 14px rgba(68,137,169,.12) !important;
+      }
+      html[data-caixa-theme="christmas"] .goal-icon-ring-inner{
+        background:#f2faff !important;
+        color:#3d91b8 !important;
+      }
+      html[data-caixa-theme="christmas"] .split-donut-center{
+        background:#f5fbfe !important;
+        border-color:rgba(92,166,199,.14) !important;
+      }
+
+      /* ---------- NATAL ESCURO: azul-marinho, gelo e prata ---------- */
+      html[data-theme="dark"][data-caixa-theme="christmas"]{
+        --paper:#07121a;
+        --paper-deep:#0d1c27;
+        --line:rgba(139,203,225,.17);
+        --line-soft:rgba(115,183,211,.12);
+        --gold:#72c6e4;
+        --gold-deep:#a8e5f5;
+        --ink-text:#edf9fd;
+        --muted:#9bb8c5;
+        --tag-bg:rgba(214,242,250,.07);
+        --christmas-ice:#82d8ef;
+        --christmas-ice-soft:#d9f6fc;
+        --christmas-pine:#7898aa;
+      }
+      html[data-theme="dark"][data-caixa-theme="christmas"] body{
+        background:
+          radial-gradient(circle at 14% 8%,rgba(116,207,235,.10),transparent 23%),
+          radial-gradient(circle at 86% 18%,rgba(182,222,236,.055),transparent 25%),
+          linear-gradient(180deg,#061017 0%,#091722 52%,#050c12 100%) !important;
+        color:#edf9fd !important;
+      }
+      html[data-theme="dark"][data-caixa-theme="christmas"] .hero{
+        background:
+          radial-gradient(circle at 82% 12%,rgba(129,218,240,.18),transparent 27%),
+          radial-gradient(circle at 15% 80%,rgba(111,164,188,.10),transparent 28%),
+          linear-gradient(145deg,#102b39 0%,#0a1d29 54%,#07131c 100%) !important;
+      }
+      html[data-theme="dark"][data-caixa-theme="christmas"] .topbar,
+      html[data-theme="dark"][data-caixa-theme="christmas"] .card,
+      html[data-theme="dark"][data-caixa-theme="christmas"] .split-card,
+      html[data-theme="dark"][data-caixa-theme="christmas"] .add-form,
+      html[data-theme="dark"][data-caixa-theme="christmas"] .goal-card.caixinha-card,
+      html[data-theme="dark"][data-caixa-theme="christmas"] .historico-controles,
+      html[data-theme="dark"][data-caixa-theme="christmas"] .transferir-direcao,
+      html[data-theme="dark"][data-caixa-theme="christmas"] .caixa-config-card,
+      html[data-theme="dark"][data-caixa-theme="christmas"] .caixa-theme-option{
+        background:linear-gradient(180deg,#10222d 0%,#0b1821 100%) !important;
+        border-color:rgba(117,190,216,.18) !important;
+        box-shadow:0 12px 30px rgba(0,0,0,.30),inset 0 1px 0 rgba(224,247,253,.025) !important;
+      }
+      html[data-theme="dark"][data-caixa-theme="christmas"] .swipe-content,
+      html[data-theme="dark"][data-caixa-theme="christmas"] .ledger-item{
+        background:linear-gradient(180deg,#0f202a,#0b1821) !important;
+        border-color:#1f3946 !important;
+      }
+      html[data-theme="dark"][data-caixa-theme="christmas"] .item-list li.item-list-row{border-bottom-color:#203944 !important}
+      html[data-theme="dark"][data-caixa-theme="christmas"] .section-title,
+      html[data-theme="dark"][data-caixa-theme="christmas"] .item-nome,
+      html[data-theme="dark"][data-caixa-theme="christmas"] .goal-nome{color:#edf9fd !important}
+
+      html[data-theme="dark"][data-caixa-theme="christmas"] .btn-gold{
+        background:linear-gradient(135deg,#3e94b8,#286f92) !important;
+        color:#f5fcff !important;
+        border-color:#56a8ca !important;
+        box-shadow:0 7px 20px rgba(31,116,151,.24) !important;
+      }
+      html[data-theme="dark"][data-caixa-theme="christmas"] .collapse-toggle,
+      html[data-theme="dark"][data-caixa-theme="christmas"] .btn-ghost,
+      html[data-theme="dark"][data-caixa-theme="christmas"] .icon-btn{
+        background:#132a35 !important;
+        color:#ccebf3 !important;
+        border-color:#284653 !important;
+      }
+      html[data-theme="dark"][data-caixa-theme="christmas"] .tab-btn{color:#8caab7 !important}
+      html[data-theme="dark"][data-caixa-theme="christmas"] .tab-btn.is-active{color:#e7f9fd !important}
+      html[data-theme="dark"][data-caixa-theme="christmas"] .tab-indicator{
+        background:linear-gradient(90deg,#8bdcf0,#4eafd1) !important;
+        box-shadow:0 0 12px rgba(84,190,224,.26) !important;
+      }
+      html[data-theme="dark"][data-caixa-theme="christmas"] input,
+      html[data-theme="dark"][data-caixa-theme="christmas"] select,
+      html[data-theme="dark"][data-caixa-theme="christmas"] textarea{
+        background:#081720 !important;
+        color:#edf9fd !important;
+        border-color:#294754 !important;
+      }
+      html[data-theme="dark"][data-caixa-theme="christmas"] input::placeholder,
+      html[data-theme="dark"][data-caixa-theme="christmas"] textarea::placeholder{color:#718d9a !important}
+      html[data-theme="dark"][data-caixa-theme="christmas"] input:focus,
+      html[data-theme="dark"][data-caixa-theme="christmas"] select:focus,
+      html[data-theme="dark"][data-caixa-theme="christmas"] textarea:focus{
+        border-color:#68c5e1 !important;
+        box-shadow:0 0 0 3px rgba(104,197,225,.12) !important;
+      }
+      html[data-theme="dark"][data-caixa-theme="christmas"] .goal-bar-track{
+        background:linear-gradient(180deg,#102c37,#0d202a) !important;
+        border-color:rgba(108,193,220,.22) !important;
+      }
+      html[data-theme="dark"][data-caixa-theme="christmas"] .goal-bar-fill{
+        background:linear-gradient(90deg,#9be5f4 0%,#63c8e5 52%,#3f91ba 100%) !important;
+        box-shadow:inset 0 1px 0 rgba(255,255,255,.34),0 1px 10px rgba(67,170,207,.24) !important;
+      }
+      html[data-theme="dark"][data-caixa-theme="christmas"] .goal-bar-fill.completo{
+        background:linear-gradient(90deg,#c1f1fa 0%,#79d5eb 50%,#4e9fc6 100%) !important;
+      }
+      html[data-theme="dark"][data-caixa-theme="christmas"] .goal-icon-ring{
+        background:conic-gradient(#83d9ed var(--pct,0%),#274451 0) !important;
+      }
+      html[data-theme="dark"][data-caixa-theme="christmas"] .goal-icon-ring-inner{
+        background:#10232d !important;
+        color:#8edff2 !important;
+      }
+      html[data-theme="dark"][data-caixa-theme="christmas"] .split-donut-center{
+        background:#0f222c !important;
+        border-color:rgba(133,215,236,.14) !important;
+      }
+    `;
+    document.head.appendChild(style);
+  } catch (_) {}
+})();
+
+
 const PESSOA_LABEL = { davi: "Davi", gabriel: "Gabriel", ambos: "Juntos" };
 const COLAPSO_STORAGE_KEY = "caixaFormsColapsados";
 const PESSOA_STORAGE_KEY = "caixaPessoaAtual";
