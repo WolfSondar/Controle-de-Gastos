@@ -53,6 +53,187 @@
   } catch (_) {}
 })();
 
+/* ============================================================
+   POPUPS TEMÁTICOS — Natal / Halloween
+   ============================================================ */
+(function instalarPopupsTematicos(){
+  try {
+    if (!document.getElementById("caixaPopupsTematicosStyle")) {
+      const style = document.createElement("style");
+      style.id = "caixaPopupsTematicosStyle";
+      style.textContent = `
+        .caixa-popup-season-float{
+          position:absolute;
+          right:18px;
+          top:12px;
+          z-index:30;
+          pointer-events:none;
+          user-select:none;
+          font-size:25px;
+          line-height:1;
+          opacity:.9;
+          filter:drop-shadow(0 5px 10px rgba(0,0,0,.16));
+          transform-origin:50% 50%;
+          animation:caixaPopupFloat 4.8s ease-in-out infinite;
+        }
+        .caixa-popup-season-float::after{
+          content:"";
+          position:absolute;
+          width:7px;height:7px;
+          border-radius:50%;
+          left:-10px;top:15px;
+          background:currentColor;
+          opacity:.28;
+          filter:blur(1px);
+        }
+        html[data-caixa-theme="christmas"] .caixa-popup-season-float{
+          color:#dff7ff;
+          text-shadow:0 0 10px rgba(185,235,255,.9),0 0 18px rgba(255,255,255,.65);
+          animation:caixaSnowFloat 5.6s ease-in-out infinite;
+        }
+        html[data-caixa-theme="halloween"] .caixa-popup-season-float{
+          color:#24152f;
+          filter:drop-shadow(0 5px 9px rgba(65,25,90,.3));
+          animation:caixaBatFloat 4.2s ease-in-out infinite;
+        }
+        .caixa-popup-season-float.caixa-popup-float-2{right:58px;top:auto;bottom:14px;font-size:17px;opacity:.45;animation-delay:-2.1s}
+        html[data-caixa-theme="halloween"] .caixa-popup-season-float.caixa-popup-float-2{font-size:14px;}
+        @keyframes caixaPopupFloat{0%,100%{transform:translate3d(0,0,0) rotate(-2deg)}50%{transform:translate3d(0,-8px,0) rotate(2deg)}}
+        @keyframes caixaSnowFloat{0%,100%{transform:translate3d(0,0,0) rotate(0deg) scale(1)}50%{transform:translate3d(-5px,-11px,0) rotate(18deg) scale(1.08)}}
+        @keyframes caixaBatFloat{0%,100%{transform:translate3d(0,0,0) rotate(-4deg) scale(1)}50%{transform:translate3d(-7px,-9px,0) rotate(5deg) scale(1.05)}}
+
+        /* Acabamento temático em todos os diálogos/painéis flutuantes. */
+        html[data-caixa-theme="christmas"] .modal,
+        html[data-caixa-theme="christmas"] .caixa-chat,
+        html[data-caixa-theme="christmas"] .caixa-config-drawer{
+          border-color:rgba(108,178,220,.26) !important;
+          box-shadow:0 18px 48px rgba(72,132,174,.16),0 1px 0 rgba(255,255,255,.72) inset !important;
+          background-image:linear-gradient(180deg,rgba(255,255,255,.92),rgba(238,248,255,.94)) !important;
+        }
+        html[data-caixa-theme="christmas"] .modal::before{
+          background:linear-gradient(90deg,#bfe9ff,#ffffff,#8ed5f4) !important;
+          height:4px !important;
+        }
+        html[data-caixa-theme="christmas"] .caixa-chat-header,
+        html[data-caixa-theme="christmas"] .caixa-config-head{
+          background:linear-gradient(180deg,rgba(235,248,255,.96),rgba(255,255,255,.96)) !important;
+        }
+        html[data-caixa-theme="christmas"] .modal-backdrop,
+        html[data-caixa-theme="christmas"] .caixa-config-overlay{
+          background:rgba(54,103,137,.25) !important;
+          backdrop-filter:blur(10px);
+        }
+        html[data-caixa-theme="halloween"] .modal,
+        html[data-caixa-theme="halloween"] .caixa-chat,
+        html[data-caixa-theme="halloween"] .caixa-config-drawer{
+          border-color:rgba(122,56,199,.34) !important;
+          box-shadow:0 20px 52px rgba(35,13,51,.25),0 1px 0 rgba(255,255,255,.05) inset !important;
+        }
+        html[data-caixa-theme="halloween"] .modal-backdrop,
+        html[data-caixa-theme="halloween"] .caixa-config-overlay{
+          background:rgba(23,8,34,.48) !important;
+          backdrop-filter:blur(10px);
+        }
+        html[data-caixa-theme="halloween"] .caixa-chat-header,
+        html[data-caixa-theme="halloween"] .caixa-config-head{
+          background:linear-gradient(135deg,#261432,#171021) !important;
+        }
+        html[data-caixa-theme="halloween"] .caixa-popup-season-float{
+          text-shadow:0 0 8px rgba(116,226,255,.32);
+        }
+
+        /* Modal próprio para criação de categoria. */
+        .caixa-categoria-criacao-backdrop{
+          position:fixed;inset:0;z-index:5000;
+          display:flex;align-items:center;justify-content:center;
+          padding:20px;
+          background:rgba(18,25,31,.34);
+          backdrop-filter:blur(12px);
+          opacity:1;transition:opacity .18s ease;
+        }
+        .caixa-categoria-criacao-backdrop.is-hidden{display:none}
+        .caixa-categoria-criacao-card{
+          position:relative;width:min(420px,100%);
+          border:1px solid rgba(74,120,102,.2);
+          border-radius:24px;padding:22px;
+          background:var(--paper,#fff);
+          color:var(--ink-text,#17201c);
+          box-shadow:0 24px 70px rgba(0,0,0,.2);
+          overflow:hidden;
+        }
+        .caixa-categoria-criacao-card::before{
+          content:"";position:absolute;left:0;right:0;top:0;height:5px;
+          background:linear-gradient(90deg,#4a7866,#8fc7ad,#d7eee5);
+        }
+        .caixa-categoria-criacao-kicker{font-size:11px;font-weight:800;letter-spacing:.16em;text-transform:uppercase;opacity:.62;margin-bottom:5px}
+        .caixa-categoria-criacao-title{font-size:22px;font-weight:850;letter-spacing:-.02em;margin:0 0 6px}
+        .caixa-categoria-criacao-sub{margin:0 0 18px;color:var(--muted,#68756f);font-size:13px;line-height:1.45}
+        .caixa-categoria-criacao-field{display:grid;gap:7px;margin-top:13px}
+        .caixa-categoria-criacao-field label{font-size:12px;font-weight:750}
+        .caixa-categoria-criacao-name{width:100%;box-sizing:border-box;border:1px solid var(--line,rgba(0,0,0,.12));border-radius:13px;padding:12px 13px;background:rgba(255,255,255,.72);color:inherit;font:inherit;outline:none}
+        .caixa-categoria-criacao-name:focus{border-color:#4a7866;box-shadow:0 0 0 4px rgba(74,120,102,.12)}
+        .caixa-categoria-criacao-color-row{display:flex;align-items:center;gap:12px}
+        .caixa-categoria-criacao-color{width:52px;height:42px;padding:3px;border:1px solid var(--line,rgba(0,0,0,.12));border-radius:13px;background:transparent;cursor:pointer}
+        .caixa-categoria-criacao-preview{flex:1;min-width:0;border:1px solid var(--line,rgba(0,0,0,.1));border-radius:13px;padding:10px 12px;display:flex;align-items:center;gap:9px;font-size:13px}
+        .caixa-categoria-criacao-preview-dot{width:11px;height:11px;border-radius:50%;background:#4a7866;box-shadow:0 0 0 4px color-mix(in srgb,#4a7866 14%,transparent)}
+        .caixa-categoria-criacao-actions{display:flex;justify-content:flex-end;gap:9px;margin-top:20px}
+        .caixa-categoria-criacao-actions button{min-width:104px}
+        html[data-caixa-theme="christmas"] .caixa-categoria-criacao-card{
+          background:linear-gradient(180deg,#ffffff,#edf8ff);
+          border-color:rgba(91,164,210,.25);
+          box-shadow:0 28px 80px rgba(61,126,169,.2),0 1px 0 rgba(255,255,255,.9) inset;
+        }
+        html[data-caixa-theme="christmas"] .caixa-categoria-criacao-card::before{background:linear-gradient(90deg,#8fd8f7,#ffffff,#b9e9ff)}
+        html[data-caixa-theme="halloween"] .caixa-categoria-criacao-card{
+          background:linear-gradient(180deg,#24142f,#160d1f);
+          color:#f7effb;border-color:rgba(112,226,255,.2);
+          box-shadow:0 28px 80px rgba(0,0,0,.42),0 1px 0 rgba(255,255,255,.04) inset;
+        }
+        html[data-caixa-theme="halloween"] .caixa-categoria-criacao-card::before{background:linear-gradient(90deg,#ff8a24,#7a38c7,#55dfff)}
+        html[data-caixa-theme="halloween"] .caixa-categoria-criacao-name,
+        html[data-caixa-theme="halloween"] .caixa-categoria-criacao-preview{background:#21142b;color:#f7effb;border-color:rgba(126,226,255,.18)}
+        html[data-caixa-theme="halloween"] .caixa-categoria-criacao-name:focus{border-color:#55dfff;box-shadow:0 0 0 4px rgba(85,223,255,.1)}
+      `;
+      (document.head || document.documentElement).appendChild(style);
+    }
+
+    const isPopup = (el) => el && el.nodeType === 1 && (
+      el.matches?.(".modal, .caixa-chat, .caixa-config-drawer") ||
+      el.id === "caixaChat" || el.id === "caixaConfiguracoesOverlay"
+    );
+    const addFloat = (root, cls, emoji) => {
+      if (!root || root.querySelector(`:scope > .${String(cls).trim().split(/\s+/).join(".")}`)) return;
+      const el = document.createElement("span");
+      el.className = cls;
+      el.setAttribute("aria-hidden", "true");
+      el.textContent = emoji;
+      root.appendChild(el);
+    };
+    const decorate = () => {
+      document.querySelectorAll(".modal, .caixa-chat, .caixa-config-drawer").forEach(root => {
+        addFloat(root, "caixa-popup-season-float", "❄️");
+        addFloat(root, "caixa-popup-season-float caixa-popup-float-2", "❄️");
+      });
+      document.querySelectorAll(".caixa-categoria-criacao-card").forEach(root => {
+        addFloat(root, "caixa-popup-season-float", "❄️");
+      });
+    };
+    const observer = new MutationObserver(decorate);
+    observer.observe(document.body || document.documentElement, {childList:true, subtree:true});
+    if (document.readyState === "loading") document.addEventListener("DOMContentLoaded", decorate, {once:true});
+    else decorate();
+
+    window.CAIXA_ATUALIZAR_DECORACAO_POPUPS = () => {
+      document.querySelectorAll(".caixa-popup-season-float").forEach(el => {
+        const halloween = document.documentElement.getAttribute("data-caixa-theme") === "halloween";
+        el.textContent = halloween ? "🦇" : "❄️";
+      });
+      decorate();
+    };
+  } catch (_) {}
+})();
+
+
 const PESSOA_LABEL = { davi: "Davi", gabriel: "Gabriel", ambos: "Juntos" };
 const COLAPSO_STORAGE_KEY = "caixaFormsColapsados";
 const PESSOA_STORAGE_KEY = "caixaPessoaAtual";
@@ -1118,6 +1299,7 @@ async function carregarDados() {
     popularSelectsDeCategoria();
     renderAll();
     window.CAIXA_ATUALIZAR_CAMADAS_TEMAS?.();
+    window.CAIXA_ATUALIZAR_DECORACAO_POPUPS?.();
     renderVisaoGeral();
     // Alguns blocos da tela são recriados por renderAll/renderIncremental.
     // Reaplicamos as camadas no próximo frame para garantir que Natal/Halloween
@@ -1126,8 +1308,10 @@ async function carregarDados() {
     requestAnimationFrame(() => {
       window.CAIXA_GARANTIR_CSS_TEMA?.(temaDepoisCache);
       window.CAIXA_ATUALIZAR_CAMADAS_TEMAS?.();
+    window.CAIXA_ATUALIZAR_DECORACAO_POPUPS?.();
       requestAnimationFrame(() => {
         window.CAIXA_ATUALIZAR_CAMADAS_TEMAS?.();
+    window.CAIXA_ATUALIZAR_DECORACAO_POPUPS?.();
         window.CAIXA_REVELAR_TEMA_BOOT?.();
       });
     });
@@ -1214,14 +1398,17 @@ async function carregarDados() {
       renderAll();
     }
     window.CAIXA_ATUALIZAR_CAMADAS_TEMAS?.();
+    window.CAIXA_ATUALIZAR_DECORACAO_POPUPS?.();
     renderVisaoGeral();
     // Garante que, quando o Firebase confirmou o mesmo tema do cache, as
     // decorações não dependam de um segundo evento de UI para aparecer.
     requestAnimationFrame(() => {
       window.CAIXA_GARANTIR_CSS_TEMA?.(temaDepois);
       window.CAIXA_ATUALIZAR_CAMADAS_TEMAS?.();
+    window.CAIXA_ATUALIZAR_DECORACAO_POPUPS?.();
       requestAnimationFrame(() => {
         window.CAIXA_ATUALIZAR_CAMADAS_TEMAS?.();
+    window.CAIXA_ATUALIZAR_DECORACAO_POPUPS?.();
         window.CAIXA_REVELAR_TEMA_BOOT?.();
       });
     });
@@ -7874,19 +8061,73 @@ function usuarioAtualEhAdmin(){
   }
 
   async function novaCategoria() {
-    const nome = prompt("Nome da nova categoria:");
-    if (!nome) return;
-    const nomeLimpo = nome.trim();
-    if (!nomeLimpo) return;
-    const lista = categoriasLocais();
-    if (lista.some(c => c.nome.toLocaleLowerCase("pt-BR") === nomeLimpo.toLocaleLowerCase("pt-BR"))) {
-      showToast("Essa categoria já existe.");
-      return;
-    }
-    const cor = prompt("Cor da categoria (hex, ex.: #4a7866):", "#4a7866") || "#4a7866";
-    lista.push(normalizarCategoria({ nome: nomeLimpo, cor }));
-    const ok = await salvarCategorias(lista);
-    if (ok) renderCategorias();
+    const antigo = document.getElementById("caixaCategoriaCriacaoBackdrop");
+    antigo?.remove();
+    const backdrop = document.createElement("div");
+    backdrop.id = "caixaCategoriaCriacaoBackdrop";
+    backdrop.className = "caixa-categoria-criacao-backdrop";
+    backdrop.setAttribute("role", "dialog");
+    backdrop.setAttribute("aria-modal", "true");
+    backdrop.setAttribute("aria-labelledby", "caixaCategoriaCriacaoTitulo");
+    backdrop.innerHTML = `
+      <div class="caixa-categoria-criacao-card">
+        <div class="caixa-categoria-criacao-kicker">Nova categoria</div>
+        <h2 class="caixa-categoria-criacao-title" id="caixaCategoriaCriacaoTitulo">Como vamos chamar?</h2>
+        <p class="caixa-categoria-criacao-sub">Escolha um nome e uma cor para identificar esta categoria nos seus lançamentos.</p>
+        <div class="caixa-categoria-criacao-field">
+          <label for="caixaCategoriaCriacaoNome">Nome</label>
+          <input id="caixaCategoriaCriacaoNome" class="caixa-categoria-criacao-name" type="text" maxlength="50" autocomplete="off" placeholder="Ex.: Casa, Lazer, Estudos…">
+        </div>
+        <div class="caixa-categoria-criacao-field">
+          <label for="caixaCategoriaCriacaoCor">Cor</label>
+          <div class="caixa-categoria-criacao-color-row">
+            <input id="caixaCategoriaCriacaoCor" class="caixa-categoria-criacao-color" type="color" value="#4a7866" aria-label="Cor da categoria">
+            <div class="caixa-categoria-criacao-preview"><span class="caixa-categoria-criacao-preview-dot"></span><span id="caixaCategoriaCriacaoPreview">Sua categoria</span></div>
+          </div>
+        </div>
+        <div class="caixa-categoria-criacao-actions">
+          <button type="button" class="btn btn-secondary" id="caixaCategoriaCriacaoCancelar">Cancelar</button>
+          <button type="button" class="btn btn-gold" id="caixaCategoriaCriacaoSalvar">Criar categoria</button>
+        </div>
+      </div>`;
+    document.body.appendChild(backdrop);
+    window.CAIXA_ATUALIZAR_DECORACAO_POPUPS?.();
+    const nomeInput = backdrop.querySelector("#caixaCategoriaCriacaoNome");
+    const corInput = backdrop.querySelector("#caixaCategoriaCriacaoCor");
+    const preview = backdrop.querySelector("#caixaCategoriaCriacaoPreview");
+    const dot = backdrop.querySelector(".caixa-categoria-criacao-preview-dot");
+    const fechar = () => {
+      const ativo = document.activeElement;
+      if (ativo && backdrop.contains(ativo)) ativo.blur();
+      backdrop.remove();
+    };
+    const atualizarPreview = () => {
+      const cor = /^#[0-9a-f]{6}$/i.test(corInput.value) ? corInput.value : "#4a7866";
+      dot.style.background = cor;
+      dot.style.boxShadow = `0 0 0 4px ${cor}22`;
+      preview.textContent = nomeInput.value.trim() || "Sua categoria";
+    };
+    corInput.addEventListener("input", atualizarPreview);
+    nomeInput.addEventListener("input", atualizarPreview);
+    backdrop.addEventListener("click", e => { if (e.target === backdrop) fechar(); });
+    backdrop.querySelector("#caixaCategoriaCriacaoCancelar").addEventListener("click", fechar);
+    backdrop.querySelector("#caixaCategoriaCriacaoSalvar").addEventListener("click", async () => {
+      const nomeLimpo = nomeInput.value.trim();
+      if (!nomeLimpo) { nomeInput.focus(); showToast("Digite um nome para a categoria."); return; }
+      const lista = categoriasLocais();
+      if (lista.some(c => c.nome.toLocaleLowerCase("pt-BR") === nomeLimpo.toLocaleLowerCase("pt-BR"))) {
+        nomeInput.focus();
+        showToast("Essa categoria já existe.");
+        return;
+      }
+      const cor = normalizarCategoria({nome:nomeLimpo, cor:corInput.value}).cor;
+      const ok = await salvarCategorias([...lista, {nome:nomeLimpo, cor}]);
+      if (ok) { fechar(); renderCategorias(); }
+    });
+    nomeInput.addEventListener("keydown", e => { if (e.key === "Enter") backdrop.querySelector("#caixaCategoriaCriacaoSalvar").click(); if (e.key === "Escape") fechar(); });
+    corInput.addEventListener("keydown", e => { if (e.key === "Escape") fechar(); });
+    atualizarPreview();
+    requestAnimationFrame(() => nomeInput.focus());
   }
 
   function faturasPessoa() {
@@ -8265,6 +8506,7 @@ function usuarioAtualEhAdmin(){
     const ativo = sincronizarTemaSazonal();
     garantirCssTema(ativo);
     window.CAIXA_ATUALIZAR_CAMADAS_TEMAS?.();
+    window.CAIXA_ATUALIZAR_DECORACAO_POPUPS?.();
     renderVisaoGeral();
   }
   function renderTemas() {
@@ -8387,6 +8629,7 @@ function usuarioAtualEhAdmin(){
     const ativo = sincronizarTemaSazonal();
     garantirCssTema(ativo);
     window.CAIXA_ATUALIZAR_CAMADAS_TEMAS?.();
+    window.CAIXA_ATUALIZAR_DECORACAO_POPUPS?.();
     renderVisaoGeral();
     // O tema forçado também é salvo no cache local imediatamente. Assim,
     // o próximo reload já abre no tema correto enquanto o Firebase responde.
@@ -8648,6 +8891,7 @@ function usuarioAtualEhAdmin(){
         // Halloween não usa mais slime nos cards; o cenário/terreno é reaplicado pelo
         // controlador do tema quando necessário.
         if (tema === "halloween") window.CAIXA_ATUALIZAR_CAMADAS_TEMAS?.();
+    window.CAIXA_ATUALIZAR_DECORACAO_POPUPS?.();
       });
     }
   });
