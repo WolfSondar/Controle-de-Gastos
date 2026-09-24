@@ -802,6 +802,14 @@
             <div class="caixa-config-section-head"><div><h3>Nomes dos ícones</h3><p>Dê nomes mais bonitos aos arquivos exibidos no seletor.</p></div></div>
             <div class="caixa-config-list" id="listaNomesIcones"></div>
           </div>
+          <div class="caixa-config-admin-group caixa-admin-card-gemini">
+            <div class="caixa-config-section-head"><div><h3>Chave da Gemini API</h3><p>A chave fica guardada no Firebase e não é enviada para o código público do GitHub.</p></div></div>
+            <div style="display:flex;gap:10px;align-items:center;flex-wrap:wrap">
+              <input id="adminGeminiApiKey" type="password" autocomplete="new-password" placeholder="Cole uma nova chave Gemini" style="flex:1;min-width:240px">
+              <button type="button" class="btn btn-gold" id="btnSalvarGeminiApiKey">Salvar chave</button>
+            </div>
+            <div id="adminGeminiKeyStatus" style="margin-top:8px;font-size:11px;opacity:.62">Consultando…</div>
+          </div>
           <div class="caixa-config-admin-group caixa-admin-card-season">
             <div class="caixa-config-section-head"><div><h3>Sazonalidade dos temas</h3><p>Defina quando cada tema especial fica disponível para seleção.</p></div></div>
             <div class="caixa-season-card">

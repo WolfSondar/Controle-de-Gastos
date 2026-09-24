@@ -74,6 +74,9 @@ if (!cfg.apiKey || cfg.apiKey.includes("COLE_")) {
   const provider = new GoogleAuthProvider();
   const functions = getFunctions(app, "southamerica-east1");
   const geminiGenerate = httpsCallable(functions, "geminiGenerate");
+  const getGeminiKeyStatusCall = httpsCallable(functions, "getGeminiKeyStatus");
+  const saveGeminiApiKeyCall = httpsCallable(functions, "saveGeminiApiKey");
+  const ADMIN_UID = "rMURmjHzuVdfaQyeikEAAYdAJxi1";
   let currentUser = null;
   let authResolve;
   let authReject;
@@ -650,6 +653,23 @@ if (!cfg.apiKey || cfg.apiKey.includes("COLE_")) {
     }
   }
 
+  function isAdmin(){
+    return !!currentUser && currentUser.uid === ADMIN_UID;
+  }
+  async function getGeminiKeyStatus(){
+    await window.CAIXA_FIREBASE_READY;
+    if (!isAdmin()) throw new Error("Usuário não autorizado.");
+    const result = await getGeminiKeyStatusCall({});
+    return result?.data || {configured:false};
+  }
+  async function saveGeminiApiKey(apiKey){
+    await window.CAIXA_FIREBASE_READY;
+    if (!isAdmin()) throw new Error("Usuário não autorizado.");
+    const key = String(apiKey || "").trim();
+    if (!key) throw new Error("Informe a chave Gemini.");
+    const result = await saveGeminiApiKeyCall({apiKey:key});
+    return result?.data || {ok:false};
+  }
   async function getIAConfig(){
     await window.CAIXA_FIREBASE_READY;
     if(!currentUser) return null;
@@ -904,7 +924,7 @@ if (!cfg.apiKey || cfg.apiKey.includes("COLE_")) {
     await setDoc(estadoRef, estadoFinal, { merge:false });
     return {ok:true, jaMigrado:false, backupPath:estadoFinal.backupPath, resumo:verificado.resumo};
   }
-  window.CAIXA_FIREBASE={app,auth,db,request,get,getIAConfig,gerarInsightIA,gerarRespostaGastarIA,loginGoogle,signOut,importarDados,verificarMigracaoFirebase,testarFirestore,apagarTesteFirestore,criarBackupFirebase,listarBackupsFirebase,restaurarBackupFirebase,calcularSaldosDisponiveis};
+  window.CAIXA_FIREBASE={app,auth,db,request,get,getIAConfig,gerarInsightIA,gerarRespostaGastarIA,loginGoogle,signOut,importarDados,verificarMigracaoFirebase,testarFirestore,apagarTesteFirestore,criarBackupFirebase,listarBackupsFirebase,restaurarBackupFirebase,calcularSaldosDisponiveis,isAdmin,getGeminiKeyStatus,saveGeminiApiKey};
   window.criarBackupFirebase = criarBackupFirebase;
   window.listarBackupsFirebase = listarBackupsFirebase;
   window.restaurarBackupFirebase = restaurarBackupFirebase;

@@ -1,6 +1,7 @@
 const { onCall, HttpsError } = require("firebase-functions/v2/https");
-const { defineSecret } = require("firebase-functions/params");
 const { setGlobalOptions } = require("firebase-functions/v2");
+const { initializeApp } = require("firebase-admin/app");
+const { getFirestore, FieldValue } = require("firebase-admin/firestore");
 
 setGlobalOptions({
   region: "southamerica-east1",
@@ -9,12 +10,14 @@ setGlobalOptions({
   memory: "256MiB",
 });
 
-const GEMINI_API_KEY = defineSecret("GEMINI_API_KEY");
 const ALLOWED_UIDS = new Set([
   "rMURmjHzuVdfaQyeikEAAYdAJxi1",
   "r5yVCCMatXPVsCiiJcMKWM613gq1",
 ]);
 const MODEL = "gemini-3.8-flash";
+const SYSTEM_CONFIG_PATH = "system/config";
+initializeApp();
+const adminDb = getFirestore();
 
 function bad(message) {
   throw new HttpsError("invalid-argument", message);
@@ -39,7 +42,6 @@ function sanitizeGenerationConfig(config) {
 exports.geminiGenerate = onCall(
   {
     cors: ["https://wolfsondar.github.io"],
-    secrets: [GEMINI_API_KEY],
     enforceAppCheck: false,
   },
   async (request) => {
@@ -52,6 +54,11 @@ exports.geminiGenerate = onCall(
     }
 
     const data = request.data && typeof request.data === "object" ? request.data : {};
+    const configSnap = await adminDb.doc(SYSTEM_CONFIG_PATH).get();
+    const geminiApiKey = String(configSnap.data()?.geminiApiKey || "").trim();
+    if (!geminiApiKey) {
+      throw new HttpsError("failed-precondition", "A chave da Gemini API ainda não foi configurada no Admin.");
+    }
     const prompt = typeof data.prompt === "string" ? data.prompt : "";
     if (!prompt.trim()) bad("Prompt vazio.");
     if (prompt.length > 120000) bad("Prompt muito grande.");
@@ -73,7 +80,7 @@ exports.geminiGenerate = onCall(
           method: "POST",
           headers: {
             "Content-Type": "application/json",
-            "x-goog-api-key": GEMINI_API_KEY.value(),
+            "x-goog-api-key": geminiApiKey,
           },
           body: JSON.stringify(payload),
         });
@@ -102,5 +109,38 @@ exports.geminiGenerate = onCall(
     }
 
     return { ok: true, text };
+  }
+);
+
+
+exports.getGeminiKeyStatus = onCall(
+  { enforceAppCheck: false },
+  async (request) => {
+    if (!request.auth?.uid) throw new HttpsError("unauthenticated", "Faça login.");
+    if (request.auth.uid !== "rMURmjHzuVdfaQyeikEAAYdAJxi1") {
+      throw new HttpsError("permission-denied", "Somente o administrador pode consultar este estado.");
+    }
+    const snap = await adminDb.doc(SYSTEM_CONFIG_PATH).get();
+    return { configured: Boolean(String(snap.data()?.geminiApiKey || "").trim()) };
+  }
+);
+
+exports.saveGeminiApiKey = onCall(
+  { enforceAppCheck: false },
+  async (request) => {
+    if (!request.auth?.uid) throw new HttpsError("unauthenticated", "Faça login.");
+    if (request.auth.uid !== "rMURmjHzuVdfaQyeikEAAYdAJxi1") {
+      throw new HttpsError("permission-denied", "Somente o administrador pode alterar a chave da Gemini API.");
+    }
+    const key = String(request.data?.apiKey || "").trim();
+    if (key.length < 20 || key.length > 512) {
+      throw new HttpsError("invalid-argument", "Chave Gemini inválida.");
+    }
+    await adminDb.doc(SYSTEM_CONFIG_PATH).set({
+      geminiApiKey: key,
+      updatedBy: request.auth.uid,
+      updatedAt: FieldValue.serverTimestamp(),
+    }, { merge: true });
+    return { ok: true, configured: true };
   }
 );

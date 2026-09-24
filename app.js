@@ -1049,96 +1049,6 @@ function caixaGarantirCssTemaGlobal(id) {
   document.head.appendChild(link);
 }
 
-
-// =====================================================================
-// MÚSICA TEMÁTICA
-// Arquivos esperados em ./music/:
-// default_day.mp3 / default_night.mp3
-// halloween_day.mp3 / halloween_night.mp3
-// christmas_day.mp3 / christmas_night.mp3
-// Dia: 06:00–17:59 | Noite: 18:00–05:59.
-// O navegador pode bloquear autoplay; nesse caso a primeira interação do
-// usuário libera a reprodução e a música continua normalmente.
-// =====================================================================
-let caixaMusicaAudio = null;
-let caixaMusicaSrcAtual = "";
-let caixaMusicaInteracaoArmada = false;
-let caixaMusicaRelogio = null;
-
-function caixaPeriodoMusical() {
-  const hora = new Date().getHours();
-  return hora >= 6 && hora < 18 ? "day" : "night";
-}
-
-function caixaArquivoMusicaTema(tema = document.documentElement.dataset.caixaTheme || "default") {
-  const id = ["christmas", "halloween"].includes(tema) ? tema : "default";
-  return `music/${id}_${caixaPeriodoMusical()}.mp3`;
-}
-
-function caixaGarantirPlayerMusica() {
-  if (caixaMusicaAudio) return caixaMusicaAudio;
-  const audio = document.createElement("audio");
-  audio.id = "caixaTemaMusicPlayer";
-  audio.preload = "auto";
-  audio.loop = true;
-  audio.volume = 0.34;
-  audio.setAttribute("aria-hidden", "true");
-  audio.style.display = "none";
-  document.body.appendChild(audio);
-  caixaMusicaAudio = audio;
-  audio.addEventListener("error", () => {});
-  return audio;
-}
-
-function caixaArmarInteracaoMusica() {
-  if (caixaMusicaInteracaoArmada) return;
-  caixaMusicaInteracaoArmada = true;
-  const tentar = () => {
-    caixaIniciarMusicaTema(true);
-    ["pointerdown", "touchstart", "keydown", "click"].forEach(ev =>
-      document.removeEventListener(ev, tentar, true)
-    );
-  };
-  ["pointerdown", "touchstart", "keydown", "click"].forEach(ev =>
-    document.addEventListener(ev, tentar, true)
-  );
-}
-
-async function caixaIniciarMusicaTema(forcarTroca = false) {
-  const audio = caixaGarantirPlayerMusica();
-  const srcAbs = new URL(caixaArquivoMusicaTema(), document.baseURI).href;
-  if (forcarTroca || caixaMusicaSrcAtual !== srcAbs) {
-    const estavaTocando = !audio.paused && !audio.ended;
-    audio.pause();
-    audio.src = srcAbs;
-    audio.load();
-    caixaMusicaSrcAtual = srcAbs;
-    try { await audio.play(); }
-    catch (_) {
-      if (estavaTocando || forcarTroca) caixaArmarInteracaoMusica();
-    }
-  } else if (audio.paused) {
-    try { await audio.play(); }
-    catch (_) { caixaArmarInteracaoMusica(); }
-  }
-}
-
-function atualizarMusicaTema() {
-  caixaIniciarMusicaTema(true);
-}
-
-function iniciarRelogioMusicaTema() {
-  if (caixaMusicaRelogio) return;
-  caixaMusicaRelogio = setInterval(() => {
-    const esperado = new URL(caixaArquivoMusicaTema(), document.baseURI).href;
-    if (esperado !== caixaMusicaSrcAtual) caixaIniciarMusicaTema(true);
-  }, 60000);
-}
-
-window.CAIXA_ATUALIZAR_MUSICA_TEMA = atualizarMusicaTema;
-window.CAIXA_INICIAR_MUSICA_TEMA = () => caixaIniciarMusicaTema(false);
-iniciarRelogioMusicaTema();
-
 function caixaSincronizarTemaSazonalGlobal() {
   const sazonais = ["christmas", "halloween"];
   const disponiveis = sazonais.filter(id => caixaTemaPodeSerUsadoGlobal(id));
@@ -1147,7 +1057,6 @@ function caixaSincronizarTemaSazonalGlobal() {
   const ativo = disponiveis[0] || "default";
   try { localStorage.setItem("caixa-tema-estilo-v1", ativo); } catch (_) {}
   document.documentElement.dataset.caixaTheme = ativo;
-  window.CAIXA_ATUALIZAR_MUSICA_TEMA?.();
   return ativo;
 }
 
@@ -1192,7 +1101,6 @@ async function carregarDados() {
       try { localStorage.setItem("caixa-tema-estilo-v1", temaCache); } catch (_) {}
       document.documentElement.dataset.caixaTheme = temaCache;
       caixaGarantirCssTemaGlobal(temaCache);
-      window.CAIXA_ATUALIZAR_MUSICA_TEMA?.();
       if (temaCache === "christmas" && typeof garantirEstiloNatalRefinado === "function") garantirEstiloNatalRefinado();
     }
     state.iaConfig = cache.iaConfig || state.iaConfig || null;
@@ -1213,7 +1121,6 @@ async function carregarDados() {
     const temaDepoisCache = ["default", "christmas", "halloween"].includes(temaCache) ? temaCache : "default";
     document.documentElement.dataset.caixaTheme = temaDepoisCache;
     window.CAIXA_GARANTIR_CSS_TEMA?.(temaDepoisCache);
-    window.CAIXA_ATUALIZAR_MUSICA_TEMA?.();
     popularSelectsDeCategoria();
     renderAll();
     window.CAIXA_ATUALIZAR_CAMADAS_TEMAS?.();
@@ -4325,8 +4232,7 @@ function renderVisaoGeral() {
   const corte1 = pctGuardado;
   const corte2 = pctGuardado + pctGastos;
 
-  const temaAtual = document.documentElement.dataset.caixaTheme || "default";
-  const temaEspecial = ["christmas", "halloween"].includes(temaAtual);
+  const temaEspecial = ["christmas", "halloween"].includes(document.documentElement.dataset.caixaTheme);
   const corGuardado = temaEspecial ? "var(--theme-summary-saved)" : "var(--gold)";
   const corGastos = temaEspecial ? "var(--theme-summary-expense)" : "var(--expense)";
   const corLivre = temaEspecial ? "var(--theme-summary-free)" : "var(--income)";
@@ -4334,6 +4240,7 @@ function renderVisaoGeral() {
     // O Natal chegou a receber um background sólido por regras de tema,
     // então o gráfico passa a ser desenhado com SVG. Assim os 3 segmentos
     // ficam independentes do background/shorthand do CSS e nunca somem.
+    const temaAtual = document.documentElement.dataset.caixaTheme || "default";
     const modoEscuro = document.documentElement.dataset.theme === "dark";
     const rootStyle = getComputedStyle(document.documentElement);
     const resolverCor = (valor, fallback) => {
@@ -4343,9 +4250,9 @@ function renderVisaoGeral() {
     // Halloween possui variáveis próprias no tema. O Natal, porém, não
     // precisa depender dessas variáveis: se elas não existirem, usamos as
     // cores normais do sistema para que os segmentos nunca desapareçam.
-    const chaveCor1 = ["halloween","christmas"].includes(temaAtual) ? "--theme-summary-saved" : "--gold";
-    const chaveCor2 = ["halloween","christmas"].includes(temaAtual) ? "--theme-summary-expense" : "--expense";
-    const chaveCor3 = ["halloween","christmas"].includes(temaAtual) ? "--theme-summary-free" : "--income";
+    const chaveCor1 = temaAtual === "halloween" ? "--theme-summary-saved" : "--gold";
+    const chaveCor2 = temaAtual === "halloween" ? "--theme-summary-expense" : "--expense";
+    const chaveCor3 = temaAtual === "halloween" ? "--theme-summary-free" : "--income";
     const cor1 = resolverCor(chaveCor1, corGuardado);
     const cor2 = resolverCor(chaveCor2, corGastos);
     const cor3 = resolverCor(chaveCor3, corLivre);
@@ -6463,7 +6370,6 @@ renderPessoaSwitch();
   if (["default", "christmas", "halloween"].includes(tema)) {
     document.documentElement.dataset.caixaTheme = tema;
     caixaGarantirCssTemaGlobal(tema);
-    window.CAIXA_ATUALIZAR_MUSICA_TEMA?.();
     if (tema === "christmas" && typeof garantirEstiloNatalRefinado === "function") garantirEstiloNatalRefinado();
   }
 })();
@@ -8126,6 +8032,15 @@ if (document.readyState === "loading") {
       fecharChat();
     }
   });
+  document.addEventListener("caixa:firebase-logged-in", () => {
+    document.getElementById("caixaConfigAdminCard")?.classList.toggle("is-hidden", !usuarioAtualEhAdmin());
+    if (usuarioAtualEhAdmin() && viewAtual === "admin") renderAdmin();
+  });
+  document.addEventListener("caixa:firebase-logged-out", () => {
+    document.getElementById("caixaConfigAdminCard")?.classList.add("is-hidden");
+    if (viewAtual === "admin") mostrarView("home");
+  });
+
   document.addEventListener("caixa:perfil-trocado", () => {
     resetarChatParaSelecao();
     fecharChat();
@@ -8209,6 +8124,10 @@ if (document.readyState === "loading") {
   window.CAIXA_TEMA = { aplicar, salvar, lerPreferencia };
 })();
 
+function usuarioAtualEhAdmin(){
+  try { return window.CAIXA_FIREBASE?.isAdmin?.() === true; } catch (_) { return false; }
+}
+
 /* ============================================================
    CONFIGURAÇÕES DO USUÁRIO
    Painel único para categorias, IA e faturas.
@@ -8284,7 +8203,7 @@ if (document.readyState === "loading") {
     overlay.classList.add("is-opening");
     overlay.setAttribute("aria-hidden", "false");
     document.body.classList.add("caixa-config-open");
-    document.getElementById("caixaConfigAdminCard")?.classList.toggle("is-hidden", state.pessoaAtual !== "davi");
+    document.getElementById("caixaConfigAdminCard")?.classList.toggle("is-hidden", !usuarioAtualEhAdmin());
     setTimeout(() => overlay.classList.remove("is-opening"), 30);
     mostrarView("home");
     renderTudo();
@@ -8311,7 +8230,10 @@ if (document.readyState === "loading") {
     if (nome === "ia") renderIA();
     if (nome === "faturas") renderFaturas();
     if (nome === "tema") renderTema();
-    if (nome === "admin") renderAdmin();
+    if (nome === "admin") {
+      if (!usuarioAtualEhAdmin()) { mostrarView("home"); return; }
+      renderAdmin();
+    }
   }
 
   function renderCategorias() {
@@ -8513,7 +8435,7 @@ if (document.readyState === "loading") {
   }
   function renderFaturas() {
     faturaPessoa = state.pessoaAtual === "gabriel" ? "gabriel" : "davi";
-    document.getElementById("caixaConfigAdminCard")?.classList.toggle("is-hidden", state.pessoaAtual !== "davi");
+    document.getElementById("caixaConfigAdminCard")?.classList.toggle("is-hidden", !usuarioAtualEhAdmin());
     garantirFaturas();
     const wrap = document.getElementById("listaConfigFaturas");
     const lista = faturasPessoa();
@@ -9074,14 +8996,49 @@ if (document.readyState === "loading") {
   }
 
   function renderAdmin() {
-    if (state.pessoaAtual !== "davi") return;
+    if (!usuarioAtualEhAdmin()) return;
     renderAdminIcones();
+    renderAdminGeminiKey();
     garantirCardAdminHalloween();
     const cfg = state.temasConfig || {};
     const natalForcar = document.getElementById("temaNatalForcar");
     const halloweenForcar = document.getElementById("temaHalloweenForcar");
     if (natalForcar) natalForcar.checked = cfg.christmas?.forcarAgora === true;
     if (halloweenForcar) halloweenForcar.checked = cfg.halloween?.forcarAgora === true;
+  }
+
+  async function renderAdminGeminiKey(){
+    const status = document.getElementById("adminGeminiKeyStatus");
+    const input = document.getElementById("adminGeminiApiKey");
+    if (!usuarioAtualEhAdmin()) return;
+    try {
+      const data = await window.CAIXA_FIREBASE?.getGeminiKeyStatus?.();
+      if (status) status.textContent = data?.configured ? "Chave cadastrada no Firebase." : "Nenhuma chave cadastrada ainda.";
+      if (input) input.value = "";
+    } catch (err) {
+      if (status) status.textContent = "Não foi possível consultar o estado da chave.";
+    }
+  }
+
+  async function salvarChaveGeminiAdmin(){
+    if (!usuarioAtualEhAdmin()) return;
+    const input = document.getElementById("adminGeminiApiKey");
+    const status = document.getElementById("adminGeminiKeyStatus");
+    const botao = document.getElementById("btnSalvarGeminiApiKey");
+    const key = String(input?.value || "").trim();
+    if (!key) { showToast("Informe a nova chave Gemini."); return; }
+    if (botao) { botao.disabled = true; botao.textContent = "Salvando…"; }
+    try {
+      await window.CAIXA_FIREBASE?.saveGeminiApiKey?.(key);
+      if (input) input.value = "";
+      if (status) status.textContent = "Chave cadastrada no Firebase.";
+      showToast("Chave Gemini salva com segurança.");
+    } catch (err) {
+      if (status) status.textContent = "Não foi possível salvar a chave.";
+      showToast(err?.message || "Não consegui salvar a chave Gemini.");
+    } finally {
+      if (botao) { botao.disabled = false; botao.textContent = "Salvar chave"; }
+    }
   }
 
   function renderAdminIcones() {
@@ -9234,13 +9191,18 @@ if (document.readyState === "loading") {
   document.addEventListener("keydown", e => { if (e.key === "Escape" && !overlay.classList.contains("is-hidden")) fechar(); });
 
   document.querySelectorAll("[data-config-view]").forEach(btn => {
-    btn.addEventListener("click", () => mostrarView(btn.dataset.configView));
+    btn.addEventListener("click", () => {
+      const view = btn.dataset.configView;
+      if (view === "admin" && !usuarioAtualEhAdmin()) return;
+      mostrarView(view);
+    });
   });
   document.getElementById("btnNovaCategoria")?.addEventListener("click", novaCategoria);
   document.getElementById("btnNovaImersao")?.addEventListener("click", novaImersao);
   document.getElementById("btnSalvarConfigIA")?.addEventListener("click", salvarIA);
   document.getElementById("btnNovaFatura")?.addEventListener("click", novaFatura);
   document.getElementById("btnNovaCategoriaIcone")?.addEventListener("click", novaCategoriaIcone);
+  document.getElementById("btnSalvarGeminiApiKey")?.addEventListener("click", salvarChaveGeminiAdmin);
   document.querySelectorAll("[data-caixa-theme]").forEach(btn => btn.addEventListener("click", () => aplicarTemaCaixa(btn.dataset.caixaTheme)));
   faturaModal.salvar?.addEventListener("click", salvarFaturaModal);
   faturaModal.cancelar?.addEventListener("click", fecharModalFatura);
@@ -9252,8 +9214,8 @@ if (document.readyState === "loading") {
     faturaPessoa = state.pessoaAtual === "gabriel" ? "gabriel" : "davi";
     if (viewAtual === "ia") renderIA();
     if (viewAtual === "faturas") renderFaturas();
-    document.getElementById("caixaConfigAdminCard")?.classList.toggle("is-hidden", state.pessoaAtual !== "davi");
-    if (viewAtual === "admin" && state.pessoaAtual !== "davi") mostrarView("home");
+    document.getElementById("caixaConfigAdminCard")?.classList.toggle("is-hidden", !usuarioAtualEhAdmin());
+    if (viewAtual === "admin" && !usuarioAtualEhAdmin()) mostrarView("home");
   });
 
   // O tema sazonal inicial só é decidido depois de carregar cache/Firebase.
