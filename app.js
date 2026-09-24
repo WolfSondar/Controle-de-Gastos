@@ -1049,6 +1049,96 @@ function caixaGarantirCssTemaGlobal(id) {
   document.head.appendChild(link);
 }
 
+
+// =====================================================================
+// MÚSICA TEMÁTICA
+// Arquivos esperados em ./music/:
+// default_day.mp4 / default_night.mp4
+// halloween_day.mp4 / halloween_night.mp4
+// christmas_day.mp4 / christmas_night.mp4
+// Dia: 06:00–17:59 | Noite: 18:00–05:59.
+// O navegador pode bloquear autoplay; nesse caso a primeira interação do
+// usuário libera a reprodução e a música continua normalmente.
+// =====================================================================
+let caixaMusicaAudio = null;
+let caixaMusicaSrcAtual = "";
+let caixaMusicaInteracaoArmada = false;
+let caixaMusicaRelogio = null;
+
+function caixaPeriodoMusical() {
+  const hora = new Date().getHours();
+  return hora >= 6 && hora < 18 ? "day" : "night";
+}
+
+function caixaArquivoMusicaTema(tema = document.documentElement.dataset.caixaTheme || "default") {
+  const id = ["christmas", "halloween"].includes(tema) ? tema : "default";
+  return `music/${id}_${caixaPeriodoMusical()}.mp4`;
+}
+
+function caixaGarantirPlayerMusica() {
+  if (caixaMusicaAudio) return caixaMusicaAudio;
+  const audio = document.createElement("audio");
+  audio.id = "caixaTemaMusicPlayer";
+  audio.preload = "auto";
+  audio.loop = true;
+  audio.volume = 0.34;
+  audio.setAttribute("aria-hidden", "true");
+  audio.style.display = "none";
+  document.body.appendChild(audio);
+  caixaMusicaAudio = audio;
+  audio.addEventListener("error", () => {});
+  return audio;
+}
+
+function caixaArmarInteracaoMusica() {
+  if (caixaMusicaInteracaoArmada) return;
+  caixaMusicaInteracaoArmada = true;
+  const tentar = () => {
+    caixaIniciarMusicaTema(true);
+    ["pointerdown", "touchstart", "keydown", "click"].forEach(ev =>
+      document.removeEventListener(ev, tentar, true)
+    );
+  };
+  ["pointerdown", "touchstart", "keydown", "click"].forEach(ev =>
+    document.addEventListener(ev, tentar, true)
+  );
+}
+
+async function caixaIniciarMusicaTema(forcarTroca = false) {
+  const audio = caixaGarantirPlayerMusica();
+  const srcAbs = new URL(caixaArquivoMusicaTema(), document.baseURI).href;
+  if (forcarTroca || caixaMusicaSrcAtual !== srcAbs) {
+    const estavaTocando = !audio.paused && !audio.ended;
+    audio.pause();
+    audio.src = srcAbs;
+    audio.load();
+    caixaMusicaSrcAtual = srcAbs;
+    try { await audio.play(); }
+    catch (_) {
+      if (estavaTocando || forcarTroca) caixaArmarInteracaoMusica();
+    }
+  } else if (audio.paused) {
+    try { await audio.play(); }
+    catch (_) { caixaArmarInteracaoMusica(); }
+  }
+}
+
+function atualizarMusicaTema() {
+  caixaIniciarMusicaTema(true);
+}
+
+function iniciarRelogioMusicaTema() {
+  if (caixaMusicaRelogio) return;
+  caixaMusicaRelogio = setInterval(() => {
+    const esperado = new URL(caixaArquivoMusicaTema(), document.baseURI).href;
+    if (esperado !== caixaMusicaSrcAtual) caixaIniciarMusicaTema(true);
+  }, 60000);
+}
+
+window.CAIXA_ATUALIZAR_MUSICA_TEMA = atualizarMusicaTema;
+window.CAIXA_INICIAR_MUSICA_TEMA = () => caixaIniciarMusicaTema(false);
+iniciarRelogioMusicaTema();
+
 function caixaSincronizarTemaSazonalGlobal() {
   const sazonais = ["christmas", "halloween"];
   const disponiveis = sazonais.filter(id => caixaTemaPodeSerUsadoGlobal(id));
@@ -1057,6 +1147,7 @@ function caixaSincronizarTemaSazonalGlobal() {
   const ativo = disponiveis[0] || "default";
   try { localStorage.setItem("caixa-tema-estilo-v1", ativo); } catch (_) {}
   document.documentElement.dataset.caixaTheme = ativo;
+  window.CAIXA_ATUALIZAR_MUSICA_TEMA?.();
   return ativo;
 }
 
@@ -1101,6 +1192,7 @@ async function carregarDados() {
       try { localStorage.setItem("caixa-tema-estilo-v1", temaCache); } catch (_) {}
       document.documentElement.dataset.caixaTheme = temaCache;
       caixaGarantirCssTemaGlobal(temaCache);
+      window.CAIXA_ATUALIZAR_MUSICA_TEMA?.();
       if (temaCache === "christmas" && typeof garantirEstiloNatalRefinado === "function") garantirEstiloNatalRefinado();
     }
     state.iaConfig = cache.iaConfig || state.iaConfig || null;
@@ -1121,6 +1213,7 @@ async function carregarDados() {
     const temaDepoisCache = ["default", "christmas", "halloween"].includes(temaCache) ? temaCache : "default";
     document.documentElement.dataset.caixaTheme = temaDepoisCache;
     window.CAIXA_GARANTIR_CSS_TEMA?.(temaDepoisCache);
+    window.CAIXA_ATUALIZAR_MUSICA_TEMA?.();
     popularSelectsDeCategoria();
     renderAll();
     window.CAIXA_ATUALIZAR_CAMADAS_TEMAS?.();
@@ -4232,7 +4325,8 @@ function renderVisaoGeral() {
   const corte1 = pctGuardado;
   const corte2 = pctGuardado + pctGastos;
 
-  const temaEspecial = ["christmas", "halloween"].includes(document.documentElement.dataset.caixaTheme);
+  const temaAtual = document.documentElement.dataset.caixaTheme || "default";
+  const temaEspecial = ["christmas", "halloween"].includes(temaAtual);
   const corGuardado = temaEspecial ? "var(--theme-summary-saved)" : "var(--gold)";
   const corGastos = temaEspecial ? "var(--theme-summary-expense)" : "var(--expense)";
   const corLivre = temaEspecial ? "var(--theme-summary-free)" : "var(--income)";
@@ -4240,7 +4334,6 @@ function renderVisaoGeral() {
     // O Natal chegou a receber um background sólido por regras de tema,
     // então o gráfico passa a ser desenhado com SVG. Assim os 3 segmentos
     // ficam independentes do background/shorthand do CSS e nunca somem.
-    const temaAtual = document.documentElement.dataset.caixaTheme || "default";
     const modoEscuro = document.documentElement.dataset.theme === "dark";
     const rootStyle = getComputedStyle(document.documentElement);
     const resolverCor = (valor, fallback) => {
@@ -4250,9 +4343,9 @@ function renderVisaoGeral() {
     // Halloween possui variáveis próprias no tema. O Natal, porém, não
     // precisa depender dessas variáveis: se elas não existirem, usamos as
     // cores normais do sistema para que os segmentos nunca desapareçam.
-    const chaveCor1 = temaAtual === "halloween" ? "--theme-summary-saved" : "--gold";
-    const chaveCor2 = temaAtual === "halloween" ? "--theme-summary-expense" : "--expense";
-    const chaveCor3 = temaAtual === "halloween" ? "--theme-summary-free" : "--income";
+    const chaveCor1 = ["halloween","christmas"].includes(temaAtual) ? "--theme-summary-saved" : "--gold";
+    const chaveCor2 = ["halloween","christmas"].includes(temaAtual) ? "--theme-summary-expense" : "--expense";
+    const chaveCor3 = ["halloween","christmas"].includes(temaAtual) ? "--theme-summary-free" : "--income";
     const cor1 = resolverCor(chaveCor1, corGuardado);
     const cor2 = resolverCor(chaveCor2, corGastos);
     const cor3 = resolverCor(chaveCor3, corLivre);
@@ -6370,6 +6463,7 @@ renderPessoaSwitch();
   if (["default", "christmas", "halloween"].includes(tema)) {
     document.documentElement.dataset.caixaTheme = tema;
     caixaGarantirCssTemaGlobal(tema);
+    window.CAIXA_ATUALIZAR_MUSICA_TEMA?.();
     if (tema === "christmas" && typeof garantirEstiloNatalRefinado === "function") garantirEstiloNatalRefinado();
   }
 })();

@@ -15,6 +15,10 @@ html[data-caixa-theme="christmas"] {
   --christmas-red:#b92f3b;
   --christmas-green:#236447;
   --christmas-ice:#eaf6ff;
+  --theme-summary-saved:#79cfe2;
+  --theme-summary-expense:#d95c67;
+  --theme-summary-free:#63a77c;
+  --theme-summary-rest:#6f8f86;
 }
 html[data-caixa-theme="christmas"] body {
   background:
@@ -272,6 +276,10 @@ html[data-theme="dark"][data-caixa-theme="christmas"] {
   --christmas-night-2: #12372d;
   --christmas-red: #d85b5f;
   --christmas-ice: #eaf7fb;
+  --theme-summary-saved: #8bd8e8;
+  --theme-summary-expense: #e47a80;
+  --theme-summary-free: #73b98c;
+  --theme-summary-rest: #7fa69b;
 }
 
 html[data-caixa-theme="christmas"] .hero {
