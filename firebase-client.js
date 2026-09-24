@@ -65,6 +65,14 @@ if (!cfg.apiKey || cfg.apiKey.includes("COLE_")) {
     "r5yVCCMatXPVsCiiJcMKWM613gq1",
   ]);
 
+  // IMPORTANTE: o App Check precisa ser inicializado antes de qualquer outro
+  // serviço Firebase (especialmente Auth). Assim o Auth não tenta obter um
+  // token de App Check antes de o provider reCAPTCHA Enterprise estar pronto.
+  const appCheck = initializeAppCheck(app, {
+    provider: new ReCaptchaEnterpriseProvider("6LfWccwtAAAAAAgJsbfS8IZr0S0Xt9-yagZ3WCh5"),
+    isTokenAutoRefreshEnabled: true
+  });
+
   // A IA usa Firebase AI Logic + Gemini Developer API. O proxy do Firebase
   // mantém a chave Gemini fora do código público do app.
   const auth = getAuth(app);
@@ -73,10 +81,6 @@ if (!cfg.apiKey || cfg.apiKey.includes("COLE_")) {
   });
 
   const provider = new GoogleAuthProvider();
-  const appCheck = initializeAppCheck(app, {
-    provider: new ReCaptchaEnterpriseProvider("6LfWccwtAAAAAAgJsbfS8IZr0S0Xt9-yagZ3WCh5"),
-    isTokenAutoRefreshEnabled: true
-  });
   const ai = getAI(app, {
     backend: new GoogleAIBackend(),
     useLimitedUseAppCheckTokens: true
