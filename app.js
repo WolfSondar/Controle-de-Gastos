@@ -1053,9 +1053,9 @@ function caixaGarantirCssTemaGlobal(id) {
 // =====================================================================
 // MÚSICA TEMÁTICA
 // Arquivos esperados em ./music/:
-// default_day.mp4 / default_night.mp4
-// halloween_day.mp4 / halloween_night.mp4
-// christmas_day.mp4 / christmas_night.mp4
+// default_day.mp3 / default_night.mp3
+// halloween_day.mp3 / halloween_night.mp3
+// christmas_day.mp3 / christmas_night.mp3
 // Dia: 06:00–17:59 | Noite: 18:00–05:59.
 // O navegador pode bloquear autoplay; nesse caso a primeira interação do
 // usuário libera a reprodução e a música continua normalmente.
@@ -1072,7 +1072,7 @@ function caixaPeriodoMusical() {
 
 function caixaArquivoMusicaTema(tema = document.documentElement.dataset.caixaTheme || "default") {
   const id = ["christmas", "halloween"].includes(tema) ? tema : "default";
-  return `music/${id}_${caixaPeriodoMusical()}.mp4`;
+  return `music/${id}_${caixaPeriodoMusical()}.mp3`;
 }
 
 function caixaGarantirPlayerMusica() {
