@@ -5145,10 +5145,34 @@ function renderVisaoGeral() {
   const corte1 = pctGuardado;
   const corte2 = pctGuardado + pctGastos;
 
-  const temaEspecial = ["christmas", "halloween"].includes(document.documentElement.dataset.caixaTheme);
-  const corGuardado = temaEspecial ? "var(--theme-summary-saved)" : "var(--gold)";
-  const corGastos = temaEspecial ? "var(--theme-summary-expense)" : "var(--expense)";
-  const corLivre = temaEspecial ? "var(--theme-summary-free)" : "var(--income)";
+  const temaAtualResumo = document.documentElement.dataset.caixaTheme || "default";
+  const modoEscuroResumo = document.documentElement.dataset.theme === "dark";
+  const temaEspecial = ["christmas", "halloween"].includes(temaAtualResumo);
+
+  // A "Visão geral" tem uma paleta própria por tema. O gráfico de
+  // "Gastos por categoria" continua usando exclusivamente as cores das
+  // categorias/configuração e não é alterado por estas regras.
+  let corGuardado = "var(--gold)";
+  let corGastos = "var(--expense)";
+  let corLivre = "var(--income)";
+
+  if (temaAtualResumo === "christmas") {
+    if (modoEscuroResumo) {
+      // Noite de Natal: gelo, azul de inverno e prata.
+      corGuardado = "#8fe8f6";
+      corGastos = "#6d9edb";
+      corLivre = "#d8e8f0";
+    } else {
+      // Natal claro: paleta cristalina, sem o verde do tema padrão.
+      corGuardado = "#58bcd3";
+      corGastos = "#7298c7";
+      corLivre = "#b7cbd8";
+    }
+  } else if (temaAtualResumo === "halloween") {
+    corGuardado = "var(--theme-summary-saved)";
+    corGastos = "var(--theme-summary-expense)";
+    corLivre = "var(--theme-summary-free)";
+  }
   if (donut) {
     // O Natal chegou a receber um background sólido por regras de tema,
     // então o gráfico passa a ser desenhado com SVG. Assim os 3 segmentos
@@ -5166,9 +5190,9 @@ function renderVisaoGeral() {
     const chaveCor1 = temaAtual === "halloween" ? "--theme-summary-saved" : "--gold";
     const chaveCor2 = temaAtual === "halloween" ? "--theme-summary-expense" : "--expense";
     const chaveCor3 = temaAtual === "halloween" ? "--theme-summary-free" : "--income";
-    const cor1 = resolverCor(chaveCor1, corGuardado);
-    const cor2 = resolverCor(chaveCor2, corGastos);
-    const cor3 = resolverCor(chaveCor3, corLivre);
+    const cor1 = temaAtual === "christmas" ? corGuardado : resolverCor(chaveCor1, corGuardado);
+    const cor2 = temaAtual === "christmas" ? corGastos : resolverCor(chaveCor2, corGastos);
+    const cor3 = temaAtual === "christmas" ? corLivre : resolverCor(chaveCor3, corLivre);
     let svg = donut.querySelector(":scope > .caixa-visao-geral-svg");
     if (!svg) {
       svg = document.createElementNS("http://www.w3.org/2000/svg", "svg");
