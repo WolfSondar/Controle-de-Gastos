@@ -94,6 +94,10 @@
           opacity:.28;
           filter:blur(1px);
         }
+        /* Sem Natal nem Halloween ativo (tema Padrão), não existe decoração sazonal. */
+        html:not([data-caixa-theme="christmas"]):not([data-caixa-theme="halloween"]) .caixa-popup-season-float{
+          display:none !important;
+        }
         html[data-caixa-theme="christmas"] .caixa-popup-season-float{
           color:#dff7ff;
           text-shadow:0 0 10px rgba(185,235,255,.9),0 0 18px rgba(255,255,255,.65);
@@ -448,13 +452,27 @@
       el.textContent = emoji;
       root.appendChild(el);
     };
+    // Tema sazonal em vigor: "christmas", "halloween" ou null (tema Padrão).
+    const temaSazonalAtual = () => {
+      const tema = document.documentElement.getAttribute("data-caixa-theme");
+      return tema === "christmas" || tema === "halloween" ? tema : null;
+    };
+    const emojiDoTema = (tema) => tema === "halloween" ? "🦇" : "❄️";
     const decorate = () => {
+      const tema = temaSazonalAtual();
+      // Tema Padrão: nenhuma decoração. Remove qualquer uma que tenha sobrado
+      // de um tema anterior (é isso que fazia o ❄️ ficar depois de desativar o Natal).
+      if (!tema) {
+        document.querySelectorAll(".caixa-popup-season-float").forEach(el => el.remove());
+        return;
+      }
+      const emoji = emojiDoTema(tema);
       document.querySelectorAll(".modal, .caixa-chat, .caixa-config-drawer").forEach(root => {
-        addFloat(root, "caixa-popup-season-float", "❄️");
-        addFloat(root, "caixa-popup-season-float caixa-popup-float-2", "❄️");
+        addFloat(root, "caixa-popup-season-float", emoji);
+        addFloat(root, "caixa-popup-season-float caixa-popup-float-2", emoji);
       });
       document.querySelectorAll(".caixa-categoria-criacao-card").forEach(root => {
-        addFloat(root, "caixa-popup-season-float", "❄️");
+        addFloat(root, "caixa-popup-season-float", emoji);
       });
     };
     const observer = new MutationObserver(decorate);
@@ -463,11 +481,11 @@
     else decorate();
 
     window.CAIXA_ATUALIZAR_DECORACAO_POPUPS = () => {
-      document.querySelectorAll(".caixa-popup-season-float").forEach(el => {
-        const halloween = document.documentElement.getAttribute("data-caixa-theme") === "halloween";
-        el.textContent = halloween ? "🦇" : "❄️";
-      });
       decorate();
+      const emoji = emojiDoTema(temaSazonalAtual());
+      document.querySelectorAll(".caixa-popup-season-float").forEach(el => {
+        el.textContent = emoji;
+      });
     };
   } catch (_) {}
 })();
