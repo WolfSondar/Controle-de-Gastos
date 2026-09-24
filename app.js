@@ -4,6 +4,38 @@
 // IA: Firebase AI Logic (Gemini)
 // =====================================================================
 
+// Bootstrap visual síncrono do tema: impede o "flash" do Padrão antes de o cache
+// e o Firebase decidirem o tema atual. O último tema conhecido é apenas um
+// estado inicial visual; a confirmação oficial continua sendo feita depois.
+(function bootstrapTemaVisualSemFlash(){
+  try {
+    const salvo = localStorage.getItem("caixa-tema-estilo-v1");
+    const valido = ["default", "christmas", "halloween"];
+    const tema = valido.includes(salvo) ? salvo : "default";
+    document.documentElement.dataset.caixaTheme = tema;
+    document.documentElement.classList.add("caixa-theme-booting");
+    let css = document.getElementById("caixaThemeBootStyle");
+    if (!css) {
+      css = document.createElement("style");
+      css.id = "caixaThemeBootStyle";
+      css.textContent = "html.caixa-theme-booting body{visibility:hidden!important}";
+      (document.head || document.documentElement).appendChild(css);
+    }
+    if (tema === "halloween" && document.head && !document.querySelector('link[data-caixa-theme-css="halloween"]')) {
+      const link = document.createElement("link");
+      link.rel = "stylesheet";
+      link.href = new URL("themes/halloween.css", document.baseURI).href;
+      link.dataset.caixaThemeCss = "halloween";
+      document.head.appendChild(link);
+    }
+    window.CAIXA_REVELAR_TEMA_BOOT = function(){
+      document.documentElement.classList.remove("caixa-theme-booting");
+    };
+  } catch (_) {
+    try { document.documentElement.classList.remove("caixa-theme-booting"); } catch (__) {}
+  }
+})();
+
 const PESSOA_LABEL = { davi: "Davi", gabriel: "Gabriel", ambos: "Juntos" };
 const COLAPSO_STORAGE_KEY = "caixaFormsColapsados";
 const PESSOA_STORAGE_KEY = "caixaPessoaAtual";
@@ -1033,11 +1065,14 @@ window.CAIXA_SINCRONIZAR_TEMA_SAZONAL = caixaSincronizarTemaSazonalGlobal;
 window.CAIXA_GARANTIR_CSS_TEMA = caixaGarantirCssTemaGlobal;
 
 async function carregarDados() {
+  window.CAIXA_CARREGAMENTO_INICIAL_TEMA = true;
   if (window.CAIXA_FIREBASE_READY) await window.CAIXA_FIREBASE_READY.catch(() => null);
   if (!temBackendDados()) {
     setSyncState("error");
     showToast("Configure o Firebase antes de carregar os dados.");
     renderAll();
+    window.CAIXA_CARREGAMENTO_INICIAL_TEMA = false;
+    window.CAIXA_REVELAR_TEMA_BOOT?.();
     return;
   }
 
@@ -1088,7 +1123,7 @@ async function carregarDados() {
     window.CAIXA_GARANTIR_CSS_TEMA?.(temaDepoisCache);
     popularSelectsDeCategoria();
     renderAll();
-    atualizarCamadasTemas();
+    window.CAIXA_ATUALIZAR_CAMADAS_TEMAS?.();
     renderVisaoGeral();
     // Alguns blocos da tela são recriados por renderAll/renderIncremental.
     // Reaplicamos as camadas no próximo frame para garantir que Natal/Halloween
@@ -1096,8 +1131,11 @@ async function carregarDados() {
     // outro intervalo ou interação do usuário.
     requestAnimationFrame(() => {
       window.CAIXA_GARANTIR_CSS_TEMA?.(temaDepoisCache);
-      atualizarCamadasTemas();
-      requestAnimationFrame(() => atualizarCamadasTemas());
+      window.CAIXA_ATUALIZAR_CAMADAS_TEMAS?.();
+      requestAnimationFrame(() => {
+        window.CAIXA_ATUALIZAR_CAMADAS_TEMAS?.();
+        window.CAIXA_REVELAR_TEMA_BOOT?.();
+      });
     });
   } else {
     renderSkeletons();
@@ -1107,7 +1145,11 @@ async function carregarDados() {
   // (sem nenhuma animação de "tentando"), mostrando o que já tem em cache.
   if (!navigator.onLine) {
     setSyncState("offline");
-    if (!cache) showToast("Sem internet. Assim que conectar eu atualizo sozinho.");
+    if (!cache) {
+      window.CAIXA_REVELAR_TEMA_BOOT?.();
+      showToast("Sem internet. Assim que conectar eu atualizo sozinho.");
+    }
+    window.CAIXA_CARREGAMENTO_INICIAL_TEMA = false;
     return;
   }
 
@@ -1179,15 +1221,19 @@ async function carregarDados() {
     } else {
       renderAll();
     }
-    atualizarCamadasTemas();
+    window.CAIXA_ATUALIZAR_CAMADAS_TEMAS?.();
     renderVisaoGeral();
     // Garante que, quando o Firebase confirmou o mesmo tema do cache, as
     // decorações não dependam de um segundo evento de UI para aparecer.
     requestAnimationFrame(() => {
       window.CAIXA_GARANTIR_CSS_TEMA?.(temaDepois);
-      atualizarCamadasTemas();
-      requestAnimationFrame(() => atualizarCamadasTemas());
+      window.CAIXA_ATUALIZAR_CAMADAS_TEMAS?.();
+      requestAnimationFrame(() => {
+        window.CAIXA_ATUALIZAR_CAMADAS_TEMAS?.();
+        window.CAIXA_REVELAR_TEMA_BOOT?.();
+      });
     });
+    window.CAIXA_CARREGAMENTO_INICIAL_TEMA = false;
     prefetchOutrasPessoas(pessoaRequisitada);
   } catch (err) {
     if (state.pessoaAtual !== pessoaRequisitada) return;
@@ -1204,6 +1250,8 @@ async function carregarDados() {
     } else {
       showToast("Não consegui atualizar agora. Mostrando o último dado salvo.");
     }
+    window.CAIXA_CARREGAMENTO_INICIAL_TEMA = false;
+    window.CAIXA_REVELAR_TEMA_BOOT?.();
   }
 }
 
@@ -8731,7 +8779,7 @@ if (document.readyState === "loading") {
     // apenas como compatibilidade com versões anteriores.
     const ativo = sincronizarTemaSazonal();
     garantirCssTema(ativo);
-    atualizarCamadasTemas();
+    window.CAIXA_ATUALIZAR_CAMADAS_TEMAS?.();
     renderVisaoGeral();
   }
   function renderTemas() {
@@ -8897,8 +8945,27 @@ if (document.readyState === "loading") {
     await salvarConfig({temasConfig: atual}, forcar ? `Tema ${id === "christmas" ? "Natal" : "Halloween"} forçado para todos.` : "Forçamento do tema removido.");
     const ativo = sincronizarTemaSazonal();
     garantirCssTema(ativo);
-    atualizarCamadasTemas();
+    window.CAIXA_ATUALIZAR_CAMADAS_TEMAS?.();
     renderVisaoGeral();
+    // O tema forçado também é salvo no cache local imediatamente. Assim,
+    // o próximo reload já abre no tema correto enquanto o Firebase responde.
+    setCache(state.pessoaAtual, {
+      ganhos: state.ganhos,
+      gastosFixos: state.gastosFixos,
+      gastosVariaveis: state.gastosVariaveis,
+      caixinhas: state.caixinhas,
+      saldoInicialConta: state.saldoInicialConta,
+      saldoInicialBeneficio: state.saldoInicialBeneficio,
+      categorias: state.categoriasConfig,
+      iconCategorias: state.iconCategorias,
+      iconNomes: state.iconNomes,
+      temasConfig: state.temasConfig,
+      temaAtivo: ativo,
+      iaConfig: state.iaConfig,
+      faturas: state.faturas,
+      mesAtual: state.mesAtual,
+      anoAtual: state.anoAtual
+    }).catch(() => {});
     renderAdmin();
   }
 
@@ -9104,6 +9171,7 @@ if (document.readyState === "loading") {
   // usuário que já está com o app aberto recebe o tema sem precisar recarregar.
   let caixaTemaRemotoBusy = false;
   window.setInterval(async () => {
+    if (window.CAIXA_CARREGAMENTO_INICIAL_TEMA) return;
     if (caixaTemaRemotoBusy || document.hidden || !navigator.onLine || !temBackendDados()) return;
     caixaTemaRemotoBusy = true;
     try {
@@ -9138,7 +9206,9 @@ if (document.readyState === "loading") {
       mutacao.addedNodes?.forEach((node) => {
         if (node.nodeType !== 1) return;
         if (tema === "christmas") aplicarNeveProcedural(node);
-        if (tema === "halloween") aplicarSlimeHalloween(node);
+        // Halloween não usa mais slime nos cards; o cenário/terreno é reaplicado pelo
+        // controlador do tema quando necessário.
+        if (tema === "halloween") window.CAIXA_ATUALIZAR_CAMADAS_TEMAS?.();
       });
     }
   });
