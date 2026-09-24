@@ -9902,9 +9902,15 @@ html[data-caixa-theme="halloween"] .caixa-config-kicker {
   color:#7b2fbe !important;
   text-shadow:0 1px 0 rgba(255,255,255,.65) !important;
 }
-html[data-caixa-theme="halloween"] .caixa-config-head h2,
+html[data-caixa-theme="halloween"] .caixa-config-head h2 {
+  /* O pedido aqui é apenas a cor do título; não mexemos no contraste do painel. */
+  color:#f7eaff !important;
+}
 html[data-caixa-theme="halloween"] .caixa-config-section-head h3 {
   color:#3b214d !important;
+}
+html[data-caixa-theme="halloween"] .caixa-config-head.caixa-config-inner::before {
+  color:#f7eaff !important;
 }
 html[data-caixa-theme="halloween"] .caixa-config-intro,
 html[data-caixa-theme="halloween"] .caixa-config-section-head p,
