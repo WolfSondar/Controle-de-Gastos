@@ -1961,6 +1961,93 @@ function caixaGarantirCssTemaGlobal(id) {
   document.head.appendChild(link);
 }
 
+// =====================================================================
+// MÚSICA TEMÁTICA — restaurada
+// Arquivos esperados em ./music/:
+// default_day.mp3 / default_night.mp3
+// halloween_day.mp3 / halloween_night.mp3
+// christmas_day.mp3 / christmas_night.mp3
+// Dia: 06:00–17:59 | Noite: 18:00–05:59.
+// =====================================================================
+let caixaMusicaAudio = null;
+let caixaMusicaSrcAtual = "";
+let caixaMusicaInteracaoArmada = false;
+let caixaMusicaRelogio = null;
+
+function caixaPeriodoMusical() {
+  const hora = new Date().getHours();
+  return hora >= 6 && hora < 18 ? "day" : "night";
+}
+
+function caixaArquivoMusicaTema(tema = document.documentElement.dataset.caixaTheme || "default") {
+  const id = ["christmas", "halloween"].includes(tema) ? tema : "default";
+  return `music/${id}_${caixaPeriodoMusical()}.mp3`;
+}
+
+function caixaGarantirPlayerMusica() {
+  if (caixaMusicaAudio) return caixaMusicaAudio;
+  const audio = document.createElement("audio");
+  audio.id = "caixaTemaMusicPlayer";
+  audio.preload = "auto";
+  audio.loop = true;
+  audio.volume = 0.34;
+  audio.setAttribute("aria-hidden", "true");
+  audio.style.display = "none";
+  document.body.appendChild(audio);
+  caixaMusicaAudio = audio;
+  audio.addEventListener("error", () => {});
+  return audio;
+}
+
+function caixaArmarInteracaoMusica() {
+  if (caixaMusicaInteracaoArmada) return;
+  caixaMusicaInteracaoArmada = true;
+  const tentar = () => {
+    caixaIniciarMusicaTema(true);
+    ["pointerdown", "touchstart", "keydown", "click"].forEach(ev =>
+      document.removeEventListener(ev, tentar, true)
+    );
+  };
+  ["pointerdown", "touchstart", "keydown", "click"].forEach(ev =>
+    document.addEventListener(ev, tentar, true)
+  );
+}
+
+async function caixaIniciarMusicaTema(forcarTroca = false) {
+  const audio = caixaGarantirPlayerMusica();
+  const srcAbs = new URL(caixaArquivoMusicaTema(), document.baseURI).href;
+  if (forcarTroca || caixaMusicaSrcAtual !== srcAbs) {
+    const estavaTocando = !audio.paused && !audio.ended;
+    audio.pause();
+    audio.src = srcAbs;
+    audio.load();
+    caixaMusicaSrcAtual = srcAbs;
+    try { await audio.play(); }
+    catch (_) {
+      if (estavaTocando || forcarTroca) caixaArmarInteracaoMusica();
+    }
+  } else if (audio.paused) {
+    try { await audio.play(); }
+    catch (_) { caixaArmarInteracaoMusica(); }
+  }
+}
+
+function atualizarMusicaTema() {
+  caixaIniciarMusicaTema(true);
+}
+
+function iniciarRelogioMusicaTema() {
+  if (caixaMusicaRelogio) return;
+  caixaMusicaRelogio = setInterval(() => {
+    const esperado = new URL(caixaArquivoMusicaTema(), document.baseURI).href;
+    if (esperado !== caixaMusicaSrcAtual) caixaIniciarMusicaTema(true);
+  }, 60000);
+}
+
+window.CAIXA_ATUALIZAR_MUSICA_TEMA = atualizarMusicaTema;
+window.CAIXA_INICIAR_MUSICA_TEMA = () => caixaIniciarMusicaTema(false);
+iniciarRelogioMusicaTema();
+
 function caixaSincronizarTemaSazonalGlobal() {
   const sazonais = ["christmas", "halloween"];
   const disponiveis = sazonais.filter(id => caixaTemaPodeSerUsadoGlobal(id));
@@ -1969,6 +2056,7 @@ function caixaSincronizarTemaSazonalGlobal() {
   const ativo = disponiveis[0] || "default";
   try { localStorage.setItem("caixa-tema-estilo-v1", ativo); } catch (_) {}
   document.documentElement.dataset.caixaTheme = ativo;
+  window.CAIXA_ATUALIZAR_MUSICA_TEMA?.();
   return ativo;
 }
 
