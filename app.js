@@ -4768,12 +4768,14 @@ function atualizarVisibilidadeFab() {
 
   if (fab) {
     const ocultar = isAmbos() || ocultarTudo;
+    if (ocultar && document.activeElement === fab) fab.blur();
     fab.classList.toggle("is-hidden", ocultar);
     fab.setAttribute("aria-hidden", String(ocultar));
     fab.setAttribute("tabindex", ocultar ? "-1" : "0");
   }
   if (chatFab) {
     const ocultar = isAmbos() || ocultarTudo;
+    if (ocultar && document.activeElement === chatFab) chatFab.blur();
     chatFab.classList.toggle("is-hidden", ocultar);
     chatFab.setAttribute("aria-hidden", String(ocultar));
     chatFab.setAttribute("tabindex", ocultar ? "-1" : "0");
@@ -7500,6 +7502,7 @@ if (document.readyState === "loading") {
     // antes de abrir para que o painel possa medir o conteúdo normalmente.
     chat.style.height = "";
     chat.classList.remove("is-closing");
+    chat.removeAttribute("inert");
     chat.classList.add("is-open");
     chat.setAttribute("aria-hidden", "false");
     fab.setAttribute("aria-expanded", "true");
@@ -7514,9 +7517,13 @@ if (document.readyState === "loading") {
     // que ele cresce/"estoura" antes de fechar — especialmente no fluxo do +.
     const alturaAtual = chat.offsetHeight;
     if (alturaAtual > 0) chat.style.height = alturaAtual + "px";
+    // Retira o foco de qualquer controle interno antes de esconder o painel.
+    // Isso evita o aviso do navegador sobre aria-hidden em um elemento focado.
+    if (chat.contains(document.activeElement)) document.activeElement?.blur?.();
     chat.classList.add("is-closing");
     chat.classList.remove("is-open");
     chat.setAttribute("aria-hidden", "true");
+    chat.setAttribute("inert", "");
     fab.setAttribute("aria-expanded", "false");
     atualizarVisibilidadeFab();
     cadastroAtivo = null;
@@ -7716,6 +7723,7 @@ function usuarioAtualEhAdmin(){
   function abrir() {
     overlay.classList.remove("is-hidden");
     overlay.classList.add("is-opening");
+    overlay.removeAttribute("inert");
     overlay.setAttribute("aria-hidden", "false");
     document.body.classList.add("caixa-config-open");
     document.getElementById("caixaConfigAdminCard")?.classList.toggle("is-hidden", !usuarioAtualEhAdmin());
@@ -7724,10 +7732,20 @@ function usuarioAtualEhAdmin(){
     renderTudo();
   }
   function fechar() {
+    // O botão de fechar pode estar focado no instante em que o overlay é ocultado.
+    // Primeiro devolvemos o foco ao botão que abriu as configurações.
+    const trigger = document.getElementById("btnAbrirConfiguracoes");
+    if (overlay.contains(document.activeElement)) {
+      if (trigger && !trigger.classList.contains("is-hidden")) {
+        trigger.focus({ preventScroll: true });
+      } else {
+        document.activeElement?.blur?.();
+      }
+    }
     overlay.classList.add("is-hidden");
     overlay.setAttribute("aria-hidden", "true");
+    overlay.setAttribute("inert", "");
     document.body.classList.remove("caixa-config-open");
-    const trigger = document.getElementById("btnAbrirConfiguracoes");
     trigger?.setAttribute("aria-expanded", "false");
   }
   function mostrarView(nome) {
