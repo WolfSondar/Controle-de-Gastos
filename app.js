@@ -4247,9 +4247,15 @@ function renderVisaoGeral() {
       const bruto = rootStyle.getPropertyValue(valor).trim();
       return bruto || fallback;
     };
-    const cor1 = resolverCor(temaEspecial ? "--theme-summary-saved" : "--gold", corGuardado);
-    const cor2 = resolverCor(temaEspecial ? "--theme-summary-expense" : "--expense", corGastos);
-    const cor3 = resolverCor(temaEspecial ? "--theme-summary-free" : "--income", corLivre);
+    // Halloween possui variáveis próprias no tema. O Natal, porém, não
+    // precisa depender dessas variáveis: se elas não existirem, usamos as
+    // cores normais do sistema para que os segmentos nunca desapareçam.
+    const chaveCor1 = temaAtual === "halloween" ? "--theme-summary-saved" : "--gold";
+    const chaveCor2 = temaAtual === "halloween" ? "--theme-summary-expense" : "--expense";
+    const chaveCor3 = temaAtual === "halloween" ? "--theme-summary-free" : "--income";
+    const cor1 = resolverCor(chaveCor1, corGuardado);
+    const cor2 = resolverCor(chaveCor2, corGastos);
+    const cor3 = resolverCor(chaveCor3, corLivre);
     let svg = donut.querySelector(":scope > .caixa-visao-geral-svg");
     if (!svg) {
       svg = document.createElementNS("http://www.w3.org/2000/svg", "svg");
