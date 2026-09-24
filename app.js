@@ -8998,7 +8998,6 @@ function usuarioAtualEhAdmin(){
   function renderAdmin() {
     if (!usuarioAtualEhAdmin()) return;
     renderAdminIcones();
-    renderAdminGeminiKey();
     garantirCardAdminHalloween();
     const cfg = state.temasConfig || {};
     const natalForcar = document.getElementById("temaNatalForcar");
@@ -9006,26 +9005,6 @@ function usuarioAtualEhAdmin(){
     if (natalForcar) natalForcar.checked = cfg.christmas?.forcarAgora === true;
     if (halloweenForcar) halloweenForcar.checked = cfg.halloween?.forcarAgora === true;
   }
-
-  async function renderAdminGeminiKey(){
-  const status = document.getElementById("adminGeminiKeyStatus");
-  if (!status) return;
-  status.textContent = "Consultando configuração do serviço de IA…";
-  if (!window.CAIXA_FIREBASE?.isAdmin?.()) {
-    status.textContent = "Apenas o administrador pode consultar esta configuração.";
-    return;
-  }
-  Promise.resolve(window.CAIXA_FIREBASE.getGeminiKeyStatus?.())
-    .then(data => {
-      if (!data) { status.textContent = "Não foi possível consultar o serviço de IA."; return; }
-      status.textContent = data.configured
-        ? "✓ Chave Gemini configurada no Secret do Cloudflare Worker."
-        : "⚠️ O Worker está criado, mas ainda falta cadastrar GEMINI_API_KEY nos Secrets do Cloudflare.";
-    })
-    .catch(err => { status.textContent = `Não foi possível consultar a configuração: ${String(err?.message || err)}`; });
-}
-
-
 
   function renderAdminIcones() {
     const catsWrap = document.getElementById("listaCategoriasIcones");

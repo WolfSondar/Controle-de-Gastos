@@ -4,6 +4,8 @@
  * GitHub Pages sem build obrigatório.
  */
 import { initializeApp } from "https://www.gstatic.com/firebasejs/12.19.0/firebase-app.js";
+import { initializeAppCheck, ReCaptchaEnterpriseProvider } from "https://www.gstatic.com/firebasejs/12.19.0/firebase-app-check.js";
+import { getAI, getGenerativeModel, GoogleAIBackend } from "https://www.gstatic.com/firebasejs/12.19.0/firebase-ai.js";
 import {
   getAuth,
   onAuthStateChanged,
@@ -63,15 +65,23 @@ if (!cfg.apiKey || cfg.apiKey.includes("COLE_")) {
     "r5yVCCMatXPVsCiiJcMKWM613gq1",
   ]);
 
-  // A IA passa por um Cloudflare Worker. A chave do Gemini fica como
-  // Secret no Worker e nunca chega ao navegador.
+  // A IA usa Firebase AI Logic + Gemini Developer API. O proxy do Firebase
+  // mantém a chave Gemini fora do código público do app.
   const auth = getAuth(app);
   const db = initializeFirestore(app, {
     localCache: persistentLocalCache({ tabManager: persistentMultipleTabManager() }),
   });
 
   const provider = new GoogleAuthProvider();
-  const GEMINI_WORKER_URL = String(cfg.geminiWorkerUrl || "").trim().replace(/\/$/, "");
+  const appCheck = initializeAppCheck(app, {
+    provider: new ReCaptchaEnterpriseProvider("6LfWccwtAAAAAAgJsbfS8IZr0S0Xt9-yagZ3WCh5"),
+    isTokenAutoRefreshEnabled: true
+  });
+  const ai = getAI(app, {
+    backend: new GoogleAIBackend(),
+    useLimitedUseAppCheckTokens: true
+  });
+  const geminiModel = getGenerativeModel(ai, { model: "gemini-3.8-flash" });
   const ADMIN_UID = "rMURmjHzuVdfaQyeikEAAYdAJxi1";
   let currentUser = null;
   let authResolve;
@@ -513,23 +523,10 @@ if (!cfg.apiKey || cfg.apiKey.includes("COLE_")) {
     if (!currentUser || !USUARIOS_AUTORIZADOS.has(currentUser.uid)) {
       throw new Error("Usuário não autorizado para usar a IA.");
     }
-    if (!GEMINI_WORKER_URL) throw new Error("A URL do serviço de IA ainda não foi configurada.");
-    const token = await currentUser.getIdToken();
-    const response = await fetch(`${GEMINI_WORKER_URL}/generate`, {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-        "Authorization": `Bearer ${token}`,
-      },
-      body: JSON.stringify({
-        model: MODELO_IA_CAIXA,
-        prompt: String(prompt || ""),
-        generationConfig: generationConfig || {},
-      }),
+    const result = await geminiModel.generateContent(String(prompt || ""), {
+      generationConfig: generationConfig || {}
     });
-    const data = await response.json().catch(() => ({}));
-    if (!response.ok) throw new Error(String(data?.error || `Serviço de IA retornou HTTP ${response.status}.`));
-    return String(data?.text || "");
+    return String(result?.response?.text?.() || "");
   }
 
   function promptGastarIA(pessoa, resumo, iaConfig) {
@@ -662,22 +659,6 @@ if (!cfg.apiKey || cfg.apiKey.includes("COLE_")) {
 
   function isAdmin(){
     return !!currentUser && currentUser.uid === ADMIN_UID;
-  }
-  async function getGeminiKeyStatus(){
-    await window.CAIXA_FIREBASE_READY;
-    if (!isAdmin()) throw new Error("Usuário não autorizado.");
-    if (!GEMINI_WORKER_URL) return {configured:false, workerConfigured:false};
-    const token = await currentUser.getIdToken();
-    const response = await fetch(`${GEMINI_WORKER_URL}/status`, {
-      method: "GET",
-      headers: { "Authorization": `Bearer ${token}` },
-    });
-    const data = await response.json().catch(() => ({}));
-    if (!response.ok) throw new Error(String(data?.error || `Serviço de IA retornou HTTP ${response.status}.`));
-    return data;
-  }
-  async function saveGeminiApiKey(){
-    throw new Error("A chave da Gemini agora é cadastrada como Secret no Cloudflare Worker, não pelo navegador.");
   }
   async function getIAConfig(){
     await window.CAIXA_FIREBASE_READY;
@@ -933,7 +914,7 @@ if (!cfg.apiKey || cfg.apiKey.includes("COLE_")) {
     await setDoc(estadoRef, estadoFinal, { merge:false });
     return {ok:true, jaMigrado:false, backupPath:estadoFinal.backupPath, resumo:verificado.resumo};
   }
-  window.CAIXA_FIREBASE={app,auth,db,request,get,getIAConfig,gerarInsightIA,gerarRespostaGastarIA,loginGoogle,signOut,importarDados,verificarMigracaoFirebase,testarFirestore,apagarTesteFirestore,criarBackupFirebase,listarBackupsFirebase,restaurarBackupFirebase,calcularSaldosDisponiveis,isAdmin,getGeminiKeyStatus,saveGeminiApiKey};
+  window.CAIXA_FIREBASE={app,auth,db,request,get,getIAConfig,gerarInsightIA,gerarRespostaGastarIA,loginGoogle,signOut,importarDados,verificarMigracaoFirebase,testarFirestore,apagarTesteFirestore,criarBackupFirebase,listarBackupsFirebase,restaurarBackupFirebase,calcularSaldosDisponiveis,isAdmin};
   window.criarBackupFirebase = criarBackupFirebase;
   window.listarBackupsFirebase = listarBackupsFirebase;
   window.restaurarBackupFirebase = restaurarBackupFirebase;
