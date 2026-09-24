@@ -1078,16 +1078,27 @@ async function carregarDados() {
       renderMesAtual();
     }
     state.loaded = true;
-    // O cache já pode conter as regras sazonais da última sincronização.
-    // Primeiro decidimos o tema e depois renderizamos o DOM; só então criamos
-    // árvores, neve, morcegos e terreno. Assim nenhuma camada é criada antes
-    // do Hero existir.
-    const temaDepoisCache = window.CAIXA_SINCRONIZAR_TEMA_SAZONAL?.() || "default";
+    // O cache é a primeira verdade visual da abertura. NÃO recalculamos a
+    // sazonalidade aqui: as regras podem estar desatualizadas e isso causaria
+    // justamente o efeito Padrão -> tema correto. Primeiro mostramos o último
+    // tema completo conhecido; o Firebase decide silenciosamente o tema atual
+    // logo depois.
+    const temaDepoisCache = ["default", "christmas", "halloween"].includes(temaCache) ? temaCache : "default";
+    document.documentElement.dataset.caixaTheme = temaDepoisCache;
     window.CAIXA_GARANTIR_CSS_TEMA?.(temaDepoisCache);
     popularSelectsDeCategoria();
     renderAll();
     atualizarCamadasTemas();
     renderVisaoGeral();
+    // Alguns blocos da tela são recriados por renderAll/renderIncremental.
+    // Reaplicamos as camadas no próximo frame para garantir que Natal/Halloween
+    // já nasçam completos (emojis + neve/terreno), sem esperar navegação,
+    // outro intervalo ou interação do usuário.
+    requestAnimationFrame(() => {
+      window.CAIXA_GARANTIR_CSS_TEMA?.(temaDepoisCache);
+      atualizarCamadasTemas();
+      requestAnimationFrame(() => atualizarCamadasTemas());
+    });
   } else {
     renderSkeletons();
   }
@@ -1154,22 +1165,29 @@ async function carregarDados() {
     }
     renderMesAtual();
 
-    // Depois que as regras reais do Firebase chegaram, decide o tema.
-    // Aplique a camada visual somente depois de o conteúdo ter sido renderizado.
-    // Isso é importante no primeiro carregamento: o Hero pode ainda não existir
-    // quando a decisão do tema acontece.
+    // Agora sim o Firebase é a fonte de verdade. Se o sazonal válido mudou
+    // em relação ao cache, trocamos o tema uma única vez e salvamos o novo ID
+    // no cache. Se não mudou, preservamos exatamente o que já foi mostrado.
+    const temaAntesFirebase = caixaTemaAtivoGlobal();
     const temaDepois = window.CAIXA_SINCRONIZAR_TEMA_SAZONAL?.() || "default";
     window.CAIXA_GARANTIR_CSS_TEMA?.(temaDepois);
     setCache(pessoaRequisitada, {...data, temaAtivo: temaDepois});
 
     setSyncState("idle");
-    if (Object.values(mudancas).some(Boolean)) {
+    if (Object.values(mudancas).some(Boolean) || temaAntesFirebase !== temaDepois) {
       renderIncremental(mudancas);
     } else {
       renderAll();
     }
     atualizarCamadasTemas();
     renderVisaoGeral();
+    // Garante que, quando o Firebase confirmou o mesmo tema do cache, as
+    // decorações não dependam de um segundo evento de UI para aparecer.
+    requestAnimationFrame(() => {
+      window.CAIXA_GARANTIR_CSS_TEMA?.(temaDepois);
+      atualizarCamadasTemas();
+      requestAnimationFrame(() => atualizarCamadasTemas());
+    });
     prefetchOutrasPessoas(pessoaRequisitada);
   } catch (err) {
     if (state.pessoaAtual !== pessoaRequisitada) return;
