@@ -6,7 +6,7 @@
 
 // IMPORTANTE: altere esta versão sempre que publicar uma nova versão do app.
 // A ativação remove TODOS os caches "caixa-*" de versões anteriores.
-const CACHE_VERSION = "caixa-v58";
+const CACHE_VERSION = "caixa-v59";
 const CACHE_SHELL = `${CACHE_VERSION}-shell`;
 const CACHE_RUNTIME = `${CACHE_VERSION}-runtime`;
 
@@ -16,7 +16,13 @@ const APP_SHELL = [
   "./style.css",
   "./app.js",
   "./manifest.json",
+  "./manifest-christmas.json",
+  "./manifest-halloween.json",
   "./IMG/Icon.jpg",
+  "./IMG/Icon-Christmas.png",
+  "./IMG/Icon-Christmas-192.png",
+  "./IMG/Icon-Halloween.png",
+  "./IMG/Icon-Halloween-192.png",
 ];
 
 // Arquivos que definem o comportamento/estrutura do app.
@@ -27,6 +33,8 @@ const APP_SHELL_PATHS = new Set([
   "/style.css",
   "/app.js",
   "/manifest.json",
+  "/manifest-christmas.json",
+  "/manifest-halloween.json",
 ]);
 
 self.addEventListener("install", (event) => {
@@ -78,7 +86,7 @@ self.addEventListener("sync", (event) => {
 function ehIconePersonalizado(url) {
   return (
     url.origin === self.location.origin &&
-    /^\/?IMG\/caixa[^/]*\.(png|webp)$/i.test(url.pathname)
+    /^\/?IMG\/(?:caixa[^/]*|Icon-(?:Christmas|Halloween))\.(png|webp)$/i.test(url.pathname)
   );
 }
 

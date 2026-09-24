@@ -1996,11 +1996,9 @@ function caixaGarantirCssTemaGlobal(id) {
 // Dia: 06:00–17:59 | Noite: 18:00–05:59.
 // =====================================================================
 let caixaMusicaAudio = null;
-let caixaMusicaAudioSecundario = null;
 let caixaMusicaSrcAtual = "";
 let caixaMusicaInteracaoArmada = false;
 let caixaMusicaRelogio = null;
-let caixaMusicaFadeTimer = null;
 
 function caixaPeriodoMusical() {
   const hora = new Date().getHours();
@@ -2029,6 +2027,41 @@ function caixaAtualizarCorChromeTema() {
 }
 window.CAIXA_ATUALIZAR_COR_CHROME_TEMA = caixaAtualizarCorChromeTema;
 
+// Ícone do site + manifesto PWA acompanham o tema sazonal.
+// O navegador atualiza o favicon imediatamente; o ícone do app instalado
+// passa a usar o manifesto correspondente na próxima atualização/instalação
+// que o navegador aceitar (o momento exato é controlado pelo navegador).
+function caixaAtualizarIconeTema() {
+  try {
+    const root = document.documentElement;
+    const tema = root.dataset.caixaTheme || "default";
+    const mapa = {
+      default: "IMG/Icon.jpg",
+      christmas: "IMG/Icon-Christmas.png",
+      halloween: "IMG/Icon-Halloween.png"
+    };
+    const manifests = {
+      default: "manifest.json",
+      christmas: "manifest-christmas.json",
+      halloween: "manifest-halloween.json"
+    };
+    const icon = mapa[tema] || mapa.default;
+    const manifest = manifests[tema] || manifests.default;
+    document.querySelectorAll('link[data-caixa-theme-icon="favicon"]').forEach(link => {
+      link.href = new URL(icon, document.baseURI).href + `?theme=${encodeURIComponent(tema)}`;
+    });
+    document.querySelectorAll('link[data-caixa-theme-icon="apple"]').forEach(link => {
+      link.href = new URL(icon, document.baseURI).href + `?theme=${encodeURIComponent(tema)}`;
+    });
+    const manifestLink = document.querySelector('link[rel="manifest"]');
+    if (manifestLink) {
+      const atual = new URL(manifest, document.baseURI).href;
+      if (manifestLink.href !== atual) manifestLink.href = atual;
+    }
+  } catch (_) {}
+}
+window.CAIXA_ATUALIZAR_ICONE_TEMA = caixaAtualizarIconeTema;
+
 // Se o tema sazonal for trocado por qualquer caminho do app, atualiza imediatamente
 // a barra do sistema e a trilha sonora, sem esperar o próximo intervalo.
 (function observarMudancaDeTemaSazonal(){
@@ -2040,11 +2073,14 @@ window.CAIXA_ATUALIZAR_COR_CHROME_TEMA = caixaAtualizarCorChromeTema;
       if (tema === ultimoTema) return;
       ultimoTema = tema;
       window.CAIXA_ATUALIZAR_COR_CHROME_TEMA?.();
+      window.CAIXA_ATUALIZAR_ICONE_TEMA?.();
       window.CAIXA_ATUALIZAR_MUSICA_TEMA?.();
     });
     observer.observe(root, { attributes:true, attributeFilter:["data-caixa-theme"] });
   } catch (_) {}
 })();
+
+try { window.CAIXA_ATUALIZAR_ICONE_TEMA?.(); } catch (_) {}
 
 function caixaGarantirPlayerMusica() {
   if (caixaMusicaAudio) {
@@ -2064,56 +2100,6 @@ function caixaGarantirPlayerMusica() {
   return audio;
 }
 
-function caixaGarantirPlayerMusicaSecundario() {
-  if (caixaMusicaAudioSecundario) {
-    caixaMusicaAudioSecundario.volume = 0;
-    return caixaMusicaAudioSecundario;
-  }
-  const audio = document.createElement("audio");
-  audio.id = "caixaTemaMusicPlayerSecundario";
-  audio.preload = "auto";
-  audio.loop = true;
-  audio.volume = 0;
-  audio.setAttribute("aria-hidden", "true");
-  audio.style.display = "none";
-  document.body.appendChild(audio);
-  caixaMusicaAudioSecundario = audio;
-  audio.addEventListener("error", () => {});
-  return audio;
-}
-
-function caixaCancelarFadeMusica() {
-  if (caixaMusicaFadeTimer) {
-    clearInterval(caixaMusicaFadeTimer);
-    caixaMusicaFadeTimer = null;
-  }
-}
-
-function caixaFadeTrocaMusica(audioAtual, audioNova) {
-  caixaCancelarFadeMusica();
-  const inicio = performance.now();
-  const duracao = 1100;
-  const volumeFinal = 0.055;
-
-  caixaMusicaFadeTimer = setInterval(() => {
-    const progresso = Math.min(1, (performance.now() - inicio) / duracao);
-    // Curvas suaves: a faixa antiga sai devagar e a nova entra sem "corte".
-    const entrada = Math.sin(progresso * Math.PI / 2);
-    const saida = Math.cos(progresso * Math.PI / 2);
-    audioNova.volume = volumeFinal * entrada;
-    audioAtual.volume = volumeFinal * saida;
-
-    if (progresso >= 1) {
-      caixaCancelarFadeMusica();
-      try { audioAtual.pause(); } catch (_) {}
-      audioAtual.volume = 0.055;
-      audioNova.volume = volumeFinal;
-      caixaMusicaAudio = audioNova;
-      caixaMusicaAudioSecundario = audioAtual;
-    }
-  }, 30);
-}
-
 function caixaArmarInteracaoMusica() {
   if (caixaMusicaInteracaoArmada) return;
   caixaMusicaInteracaoArmada = true;
@@ -2129,52 +2115,26 @@ function caixaArmarInteracaoMusica() {
 }
 
 async function caixaIniciarMusicaTema(forcarTroca = false) {
-  const audioAtual = caixaGarantirPlayerMusica();
+  const audio = caixaGarantirPlayerMusica();
   const srcAbs = new URL(caixaArquivoMusicaTema(), document.baseURI).href;
-
-  // Nunca reinicia a mesma faixa só porque o usuário clicou novamente em
-  // configurações/tema. Se ela já é a faixa correta, apenas garante o play.
-  if (!forcarTroca && caixaMusicaSrcAtual === srcAbs) {
-    if (audioAtual.paused) {
-      try { await audioAtual.play(); }
-      catch (_) { caixaArmarInteracaoMusica(); }
-    }
-    return;
-  }
-
-  // Mesmo quando uma atualização externa pede "forçar", não há motivo para
-  // reiniciar a faixa se a origem continua sendo exatamente a mesma.
-  if (caixaMusicaSrcAtual === srcAbs && !audioAtual.paused) return;
-
-  const estavaTocando = !audioAtual.paused && !audioAtual.ended;
-  const audioNova = caixaGarantirPlayerMusicaSecundario();
-
-  caixaCancelarFadeMusica();
-  try { audioNova.pause(); } catch (_) {}
-  audioNova.src = srcAbs;
-  audioNova.load();
-
-  try {
-    await audioNova.play();
+  if (forcarTroca || caixaMusicaSrcAtual !== srcAbs) {
+    const estavaTocando = !audio.paused && !audio.ended;
+    audio.pause();
+    audio.src = srcAbs;
+    audio.load();
     caixaMusicaSrcAtual = srcAbs;
-
-    if (estavaTocando) {
-      caixaFadeTrocaMusica(audioAtual, audioNova);
-    } else {
-      audioNova.volume = 0.055;
-      audioAtual.pause();
-      audioAtual.volume = 0;
-      caixaMusicaAudio = audioNova;
-      caixaMusicaAudioSecundario = audioAtual;
+    try { await audio.play(); }
+    catch (_) {
+      if (estavaTocando || forcarTroca) caixaArmarInteracaoMusica();
     }
-  } catch (_) {
-    audioNova.volume = 0;
-    if (estavaTocando || forcarTroca) caixaArmarInteracaoMusica();
+  } else if (audio.paused) {
+    try { await audio.play(); }
+    catch (_) { caixaArmarInteracaoMusica(); }
   }
 }
 
 function atualizarMusicaTema() {
-  caixaIniciarMusicaTema(false);
+  caixaIniciarMusicaTema(true);
 }
 
 function iniciarRelogioMusicaTema() {
@@ -2198,6 +2158,7 @@ function caixaSincronizarTemaSazonalGlobal() {
   try { localStorage.setItem("caixa-tema-estilo-v1", ativo); } catch (_) {}
   document.documentElement.dataset.caixaTheme = ativo;
   window.CAIXA_ATUALIZAR_COR_CHROME_TEMA?.();
+  window.CAIXA_ATUALIZAR_ICONE_TEMA?.();
   window.CAIXA_ATUALIZAR_MUSICA_TEMA?.();
   return ativo;
 }
@@ -9302,6 +9263,7 @@ function usuarioAtualEhAdmin(){
     try { localStorage.setItem("caixa-tema-estilo-v1", ativo); } catch (_) {}
     document.documentElement.dataset.caixaTheme = ativo;
     window.CAIXA_ATUALIZAR_COR_CHROME_TEMA?.();
+    window.CAIXA_ATUALIZAR_ICONE_TEMA?.();
     window.CAIXA_ATUALIZAR_MUSICA_TEMA?.();
     return ativo;
   }
@@ -9389,39 +9351,23 @@ function usuarioAtualEhAdmin(){
   }
 
   function prepararNeveNatal() {
-    const back = document.getElementById("caixaChristmasSnowBack");
-    const front = document.getElementById("caixaChristmasSnowFront");
-    if (!back || !front) return;
-
-    const preencher = (layer, quantidade, perfil) => {
-      if (layer.childElementCount) return;
-      const fragment = document.createDocumentFragment();
-      const simbolos = ["•", "❄", "✦", "·"];
-      for (let i = 0; i < quantidade; i++) {
-        const floco = document.createElement("span");
-        floco.className = `caixa-snowflake ${perfil}`;
-        floco.textContent = simbolos[i % simbolos.length];
-        floco.style.left = `${Math.random() * 100}%`;
-        floco.style.setProperty("--s", perfil === "back"
-          ? `${3 + Math.random() * 4}px`
-          : `${4 + Math.random() * 6}px`);
-        floco.style.setProperty("--o", perfil === "back"
-          ? `${0.10 + Math.random() * 0.16}`
-          : `${0.18 + Math.random() * 0.24}`);
-        floco.style.setProperty("--d", perfil === "back"
-          ? `${18 + Math.random() * 16}s`
-          : `${12 + Math.random() * 13}s`);
-        floco.style.setProperty("--delay", `${-Math.random() * 18}s`);
-        floco.style.setProperty("--x", `${-35 + Math.random() * 70}px`);
-        fragment.appendChild(floco);
-      }
-      layer.appendChild(fragment);
-    };
-
-    // Duas profundidades: muita neve no fundo + uma segunda camada mais
-    // próxima do usuário, sem atravessar modais/menus.
-    preencher(back, 54, "back");
-    preencher(front, 38, "front");
+    const layer = document.getElementById("caixaChristmasSnow");
+    if (!layer || layer.childElementCount) return;
+    const fragment = document.createDocumentFragment();
+    const simbolos = ["•", "❄", "✦", "·"];
+    for (let i = 0; i < 22; i++) {
+      const floco = document.createElement("span");
+      floco.className = "caixa-snowflake";
+      floco.textContent = simbolos[i % simbolos.length];
+      floco.style.left = `${Math.random() * 100}%`;
+      floco.style.setProperty("--s", `${3 + Math.random() * 3}px`);
+      floco.style.setProperty("--o", `${0.14 + Math.random() * 0.20}`);
+      floco.style.setProperty("--d", `${16 + Math.random() * 12}s`);
+      floco.style.setProperty("--delay", `${-Math.random() * 14}s`);
+      floco.style.setProperty("--x", `${-30 + Math.random() * 60}px`);
+      fragment.appendChild(floco);
+    }
+    layer.appendChild(fragment);
   }
   function prepararCenarioHalloween() {
     const hero = document.querySelector(".hero");
@@ -9492,8 +9438,7 @@ function usuarioAtualEhAdmin(){
   window.CAIXA_RENDER_TEMAS = () => renderTemas();
   function atualizarCamadaTemaNatal() {
     const natal = document.documentElement.dataset.caixaTheme === "christmas";
-    const layerBack = document.getElementById("caixaChristmasSnowBack");
-    const layerFront = document.getElementById("caixaChristmasSnowFront");
+    const layer = document.getElementById("caixaChristmasSnow");
     const lights = document.getElementById("caixaChristmasLights");
     if (natal) {
       garantirEstiloNatalRefinado();
@@ -9511,8 +9456,7 @@ function usuarioAtualEhAdmin(){
       });
       document.querySelectorAll(".caixa-christmas-snow-cap").forEach(el => el.remove());
     }
-    if (layerBack) layerBack.setAttribute("aria-hidden", natal ? "false" : "true");
-    if (layerFront) layerFront.setAttribute("aria-hidden", natal ? "false" : "true");
+    if (layer) layer.setAttribute("aria-hidden", natal ? "false" : "true");
     if (lights) lights.setAttribute("aria-hidden", natal ? "false" : "true");
   }
   function aplicarTemaCaixa(id) {
@@ -9580,132 +9524,6 @@ function usuarioAtualEhAdmin(){
       .status-list-title{position:relative;z-index:1;}
       @media(max-width:700px){
         .caixa-admin-seasonal-force-wrap{grid-template-columns:1fr}
-      }
-
-      /* Natal escuro — acabamento final em verde pinheiro, vinho e dourado. */
-      html[data-theme="dark"][data-caixa-theme="christmas"] body{
-        background:
-          radial-gradient(circle at 12% 8%,rgba(255,255,255,.10) 0 2px,transparent 2.8px),
-          radial-gradient(circle at 82% 14%,rgba(216,180,91,.06) 0 2px,transparent 2.8px),
-          linear-gradient(180deg,#0b1b16 0%,#101f19 54%,#0a1511 100%) !important;
-        color:#f3eadb !important;
-      }
-      html[data-theme="dark"][data-caixa-theme="christmas"] .hero{
-        background:radial-gradient(circle at 82% 10%,rgba(216,180,91,.10),transparent 25%),radial-gradient(circle at 12% 88%,rgba(35,100,71,.24),transparent 32%),linear-gradient(155deg,#123d31 0%,#0d3027 54%,#09231c 100%) !important;
-        border-bottom-color:rgba(216,180,91,.18) !important;
-      }
-      html[data-theme="dark"][data-caixa-theme="christmas"] .card,
-      html[data-theme="dark"][data-caixa-theme="christmas"] .add-form,
-      html[data-theme="dark"][data-caixa-theme="christmas"] .goal-card.caixinha-card,
-      html[data-theme="dark"][data-caixa-theme="christmas"] .split-card,
-      html[data-theme="dark"][data-caixa-theme="christmas"] .historico-controles,
-      html[data-theme="dark"][data-caixa-theme="christmas"] .transferir-direcao{
-        background:linear-gradient(145deg,#183329,#11271f) !important;
-        border-color:rgba(216,180,91,.15) !important;
-        box-shadow:0 12px 30px rgba(0,0,0,.25),inset 0 1px 0 rgba(255,255,255,.035) !important;
-      }
-      html[data-theme="dark"][data-caixa-theme="christmas"] input,
-      html[data-theme="dark"][data-caixa-theme="christmas"] select,
-      html[data-theme="dark"][data-caixa-theme="christmas"] textarea{
-        background:#0b1c16 !important;color:#f4eadb !important;border-color:rgba(216,180,91,.18) !important;
-      }
-      html[data-theme="dark"][data-caixa-theme="christmas"] input:focus,
-      html[data-theme="dark"][data-caixa-theme="christmas"] select:focus,
-      html[data-theme="dark"][data-caixa-theme="christmas"] textarea:focus{
-        border-color:#d8b45b !important;box-shadow:0 0 0 3px rgba(216,180,91,.12) !important;
-      }
-      html[data-theme="dark"][data-caixa-theme="christmas"] .btn-gold{
-        background:linear-gradient(135deg,#b92f3b,#8f2631) !important;color:#fff8ed !important;border-color:#c44850 !important;
-        box-shadow:0 7px 18px rgba(185,47,59,.22) !important;
-      }
-
-      /* Drawer lateral */
-      html[data-theme="dark"][data-caixa-theme="christmas"] .caixa-config-drawer{
-        background:radial-gradient(circle at 90% 0%,rgba(216,180,91,.08),transparent 24%),linear-gradient(160deg,#142d24,#0e211a) !important;
-        border-left-color:rgba(216,180,91,.20) !important;
-        box-shadow:-22px 0 60px rgba(0,0,0,.42),inset 1px 0 0 rgba(255,255,255,.025) !important;
-      }
-      html[data-theme="dark"][data-caixa-theme="christmas"] .caixa-config-head{
-        background:linear-gradient(180deg,#19392e,#132b22) !important;border-bottom-color:rgba(216,180,91,.15) !important;
-      }
-      html[data-theme="dark"][data-caixa-theme="christmas"] .caixa-config-kicker{color:#d8b45b !important}
-      html[data-theme="dark"][data-caixa-theme="christmas"] .caixa-config-card,
-      html[data-theme="dark"][data-caixa-theme="christmas"] .caixa-theme-option{
-        background:linear-gradient(145deg,#19372d,#142a22) !important;border-color:rgba(216,180,91,.14) !important;color:#f4ead8 !important;
-      }
-      html[data-theme="dark"][data-caixa-theme="christmas"] .caixa-config-card:hover,
-      html[data-theme="dark"][data-caixa-theme="christmas"] .caixa-theme-option:hover{
-        background:linear-gradient(145deg,#204238,#18362b) !important;border-color:rgba(216,180,91,.34) !important;
-      }
-      html[data-theme="dark"][data-caixa-theme="christmas"] .caixa-config-card.is-active,
-      html[data-theme="dark"][data-caixa-theme="christmas"] .caixa-theme-option.is-active{
-        background:linear-gradient(145deg,#234b3b,#19372d) !important;border-color:rgba(216,180,91,.62) !important;
-        box-shadow:0 0 0 2px rgba(216,180,91,.08),0 10px 24px rgba(0,0,0,.22) !important;
-      }
-      html[data-theme="dark"][data-caixa-theme="christmas"] .caixa-config-card-icon{
-        color:#d8b45b !important;background:linear-gradient(145deg,#1e4435,#173126) !important;border-color:rgba(216,180,91,.20) !important;
-      }
-      html[data-theme="dark"][data-caixa-theme="christmas"] .caixa-config-card strong,
-      html[data-theme="dark"][data-caixa-theme="christmas"] .caixa-theme-option strong{color:#f5ead8 !important}
-      html[data-theme="dark"][data-caixa-theme="christmas"] .caixa-config-card small,
-      html[data-theme="dark"][data-caixa-theme="christmas"] .caixa-theme-option small,
-      html[data-theme="dark"][data-caixa-theme="christmas"] .caixa-config-section-head p{color:#aebdb4 !important}
-      html[data-theme="dark"][data-caixa-theme="christmas"] .caixa-theme-check{
-        background:#d8b45b !important;border-color:#d8b45b !important;color:#183126 !important;
-      }
-
-      /* Popup de adicionar/editar transação */
-      html[data-theme="dark"][data-caixa-theme="christmas"] .modal{
-        background:radial-gradient(circle at 94% 0%,rgba(216,180,91,.09),transparent 25%),linear-gradient(160deg,#1a392f,#11261e) !important;
-        border-color:rgba(216,180,91,.20) !important;color:#f4ead8 !important;
-        box-shadow:0 28px 75px rgba(0,0,0,.52),inset 0 1px 0 rgba(255,255,255,.035) !important;
-      }
-      html[data-theme="dark"][data-caixa-theme="christmas"] .modal::before{background:linear-gradient(90deg,#b92f3b 0 33%,#d8b45b 33% 66%,#236447 66%) !important}
-      html[data-theme="dark"][data-caixa-theme="christmas"] .modal::after{color:#d8b45b !important}
-      html[data-theme="dark"][data-caixa-theme="christmas"] .modal h3,
-      html[data-theme="dark"][data-caixa-theme="christmas"] .modal label,
-      html[data-theme="dark"][data-caixa-theme="christmas"] .modal strong{color:#f5ead8 !important}
-      html[data-theme="dark"][data-caixa-theme="christmas"] .modal-hint,
-      html[data-theme="dark"][data-caixa-theme="christmas"] .confirm-text,
-      html[data-theme="dark"][data-caixa-theme="christmas"] .modal .section-hint{
-        background:rgba(216,180,91,.055) !important;color:#b6c4bb !important;border-left-color:rgba(216,180,91,.48) !important;
-      }
-
-      /* Chat */
-      html[data-theme="dark"][data-caixa-theme="christmas"] .caixa-chat{
-        background:radial-gradient(circle at 90% 0%,rgba(216,180,91,.10),transparent 28%),linear-gradient(160deg,#10271f,#0b1c16) !important;
-        border-color:rgba(216,180,91,.20) !important;
-        box-shadow:0 28px 80px rgba(0,0,0,.58),inset 0 1px 0 rgba(255,255,255,.03) !important;
-      }
-      html[data-theme="dark"][data-caixa-theme="christmas"] .caixa-chat-header{
-        background:linear-gradient(180deg,#19392e,#132b22) !important;border-bottom-color:rgba(216,180,91,.14) !important;
-      }
-      html[data-theme="dark"][data-caixa-theme="christmas"] .caixa-chat-body,
-      html[data-theme="dark"][data-caixa-theme="christmas"] .caixa-chat-thinking{background:#0d2119 !important;color:#f4ead8 !important}
-      html[data-theme="dark"][data-caixa-theme="christmas"] .caixa-chat-action,
-      html[data-theme="dark"][data-caixa-theme="christmas"] .caixa-chat-choice,
-      html[data-theme="dark"][data-caixa-theme="christmas"] .caixa-chat-goal-choice{
-        background:linear-gradient(145deg,#19372d,#142a22) !important;border-color:rgba(216,180,91,.15) !important;color:#f4ead8 !important;
-      }
-      html[data-theme="dark"][data-caixa-theme="christmas"] .caixa-chat-action:hover,
-      html[data-theme="dark"][data-caixa-theme="christmas"] .caixa-chat-choice:hover,
-      html[data-theme="dark"][data-caixa-theme="christmas"] .caixa-chat-goal-choice:hover{
-        background:linear-gradient(145deg,#23483a,#19372d) !important;border-color:rgba(216,180,91,.42) !important;
-      }
-      html[data-theme="dark"][data-caixa-theme="christmas"] .caixa-chat-bubble{
-        background:#19362c !important;border-color:rgba(216,180,91,.13) !important;color:#f4ead8 !important;
-      }
-      html[data-theme="dark"][data-caixa-theme="christmas"] .caixa-chat-message.user .caixa-chat-bubble{
-        background:linear-gradient(145deg,#8f2934,#6e2029) !important;border-color:rgba(216,180,91,.25) !important;color:#fff7eb !important;
-      }
-      html[data-theme="dark"][data-caixa-theme="christmas"] .caixa-chat-welcome{
-        background:linear-gradient(145deg,rgba(216,180,91,.09),rgba(35,100,71,.08)) !important;border-color:rgba(216,180,91,.13) !important;
-      }
-      html[data-theme="dark"][data-caixa-theme="christmas"] .caixa-chat-welcome strong{color:#f5ead8 !important}
-      html[data-theme="dark"][data-caixa-theme="christmas"] .caixa-chat-welcome p,
-      html[data-theme="dark"][data-caixa-theme="christmas"] .caixa-chat-action-text small,
-      html[data-theme="dark"][data-caixa-theme="christmas"] .caixa-chat-choice small,
-      html[data-theme="dark"][data-caixa-theme="christmas"] .caixa-chat-note{color:#aebdb4 !important}
       }
     `;
     document.head.appendChild(style);
