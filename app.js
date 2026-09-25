@@ -4216,7 +4216,7 @@ function renderPendentesDestaque(containerId, lista, tipo, statusKey, toggleFn, 
     <ul class="item-list pendentes-item-list" aria-label="Lançamentos pendentes">
       ${pendentes.map(({ item, idx }, posicao) => {
         const li = `
-          <li class="item-list-row is-pendente pendente-destaque-row" data-idx="${idx}" style="animation-delay:${Math.min(posicao * 35, 250)}ms">
+          <li class="item-list-row is-pendente pendente-destaque-row ${tipo === "income" ? `lancamento-ganho ${ganhoEhBeneficio(item) ? "ganho-beneficio" : "ganho-saldo"}` : "lancamento-gasto"}" data-idx="${idx}" style="animation-delay:${Math.min(posicao * 35, 250)}ms">
             ${ambos ? "" : `<div class="swipe-actions">
               <button class="swipe-btn swipe-edit" aria-label="Editar" data-idx="${idx}"><span class="swipe-btn-icon">${ICONE_LAPIS}</span><span>Editar</span></button>
               <button class="swipe-btn swipe-delete" aria-label="Excluir" data-idx="${idx}"><span class="swipe-btn-icon">${ICONE_X}</span><span>Excluir</span></button>
@@ -4320,7 +4320,7 @@ function renderListaComStatus(ulId, lista, tipo, ops, tipoModal, statusKey, togg
   ordenados.forEach(({ item, idx }, posicao) => {
     const on = item[statusKey] === true;
     const li = document.createElement("li");
-    li.className = "item-list-row" + (on ? "" : " is-pendente") + (tipo === "income" ? (ganhoEhBeneficio(item) ? " ganho-beneficio" : " ganho-saldo") : "");
+    li.className = "item-list-row" + (on ? "" : " is-pendente") + (tipo === "income" ? ` lancamento-ganho ${ganhoEhBeneficio(item) ? "ganho-beneficio" : "ganho-saldo"}` : " lancamento-gasto");
     // O índice também precisa existir nas linhas já concluídas.
     // A animação de Recebidos/Pagos -> Pendentes localiza a linha pelo data-idx;
     // sem ele a transição encontrava a tag, mas não conseguia mover a linha.
@@ -9578,34 +9578,26 @@ function usuarioAtualEhAdmin(){
     hero.appendChild(wrap);
   }
   function gerarPerfilTerrenoHalloween(){
-    // Em vez de uma colina, o Halloween agora usa um varal de bandeirinhas
-    // de festa (bunting) preso no topo do hero — abóbora, ameixa e verde-poção.
+    // Varal fixo: a composição é determinística e não é recalculada a cada clique.
     const largura=1000, altura=92;
+    const pontos=[18,98,178,258,338,418,498,578,658,738,818,898,982].map((x,i)=>({
+      x, y:[10,13,17,19,18,15,13,14,17,19,17,13,10][i]
+    }));
     const cores=["#ff7a3d","#4a1942","#5fb87a","#fdeee0","#e2591a","#6b2d5c"];
-    const n=13, margem=18;
-    const passo=(largura-margem*2)/(n-1);
-    const pontos=[];
-    for(let i=0;i<n;i++){
-      const x=margem+i*passo;
-      const y=9+Math.sin((i/(n-1))*Math.PI)*9;
-      pontos.push({x,y});
-    }
-    let fio=`M ${pontos[0].x.toFixed(1)} ${pontos[0].y.toFixed(1)}`;
+    let fio=`M ${pontos[0].x} ${pontos[0].y}`;
     for(let i=1;i<pontos.length;i++){
-      const a=pontos[i-1], b=pontos[i];
-      fio+=` Q ${((a.x+b.x)/2).toFixed(1)} ${(Math.max(a.y,b.y)+7).toFixed(1)}, ${b.x.toFixed(1)} ${b.y.toFixed(1)}`;
+      const a=pontos[i-1],b=pontos[i];
+      fio+=` Q ${((a.x+b.x)/2).toFixed(1)} ${Math.max(a.y,b.y)+7}, ${b.x} ${b.y}`;
     }
     let bandeiras="";
     pontos.forEach((p,i)=>{
-      const cor=cores[i%cores.length];
-      const w=26+Math.random()*12;
-      const h=36+Math.random()*22;
-      const tilt=(Math.random()*10-5).toFixed(1);
-      bandeiras+=`<g transform="translate(${p.x.toFixed(1)} ${p.y.toFixed(1)}) rotate(${tilt})"><path d="M ${(-w/2).toFixed(1)} 0 L ${(w/2).toFixed(1)} 0 L 0 ${h.toFixed(1)} Z" fill="${cor}" opacity=".97"/></g>`;
+      const cor=cores[i%cores.length], w=30, h=[42,48,39,46][i%4], tilt=[-3,2,4,-2][i%4];
+      bandeiras+=`<g transform="translate(${p.x} ${p.y}) rotate(${tilt})"><path d="M -15 0 H 15 L 0 ${h} Z" fill="${cor}"/><path d="M -15 0 H 15" stroke="#fff3e0" stroke-width="2" opacity=".35"/></g>`;
     });
-    const nos=pontos.map(p=>`<circle cx="${p.x.toFixed(1)}" cy="${p.y.toFixed(1)}" r="2.8" fill="#fdeee0"/>`).join("");
-    const svg=`<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 ${largura} ${altura}" preserveAspectRatio="none"><path d="${fio}" fill="none" stroke="#3a1734" stroke-width="2.6" stroke-linecap="round" opacity=".5"/>${bandeiras}${nos}</svg>`;
-    return `url("data:image/svg+xml;base64,${btoa(svg)}")`;
+    const nos=pontos.map(p=>`<circle cx="${p.x}" cy="${p.y}" r="3" fill="#fdeee0"/>`).join("");
+    const morcegos=`<text x="75" y="58" font-size="24">🦇</text><text x="900" y="62" font-size="24">🦇</text>`;
+    const svg=`<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 ${largura} ${altura}" preserveAspectRatio="none"><path d="${fio}" fill="none" stroke="#1d0b1b" stroke-width="3" stroke-linecap="round" opacity=".8"/>${bandeiras}${nos}${morcegos}</svg>`;
+    return `url("data:image/svg+xml;base64,${btoa(unescape(encodeURIComponent(svg)))}")`;
   }
 
   function gerarPerfilChaoHalloween(){
@@ -9639,7 +9631,10 @@ function usuarioAtualEhAdmin(){
       varal.setAttribute("aria-hidden","true");
       hero.appendChild(varal);
     }
-    varal.style.backgroundImage=gerarPerfilTerrenoHalloween();
+    if(!varal.dataset.halloweenBunting){
+      varal.style.backgroundImage=gerarPerfilTerrenoHalloween();
+      varal.dataset.halloweenBunting="1";
+    }
     let chao=hero.querySelector(".caixa-halloween-chao");
     if(!chao){
       chao=document.createElement("div");
