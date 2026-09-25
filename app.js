@@ -9659,9 +9659,26 @@ function usuarioAtualEhAdmin(){
     }
     hero.dataset.halloweenTerrain="1";
   }
+  function removerTextoBauMagicoHalloween(){
+    try {
+      const remover = () => {
+        document.querySelectorAll("*").forEach(el => {
+          if (el.children.length === 0 && (el.textContent || "").trim().toLowerCase() === "baú mágico") {
+            el.remove();
+          }
+        });
+      };
+      remover();
+      if (!window.__caixaBauMagicoObserver) {
+        const obs = new MutationObserver(() => remover());
+        obs.observe(document.body, { childList: true, subtree: true });
+        window.__caixaBauMagicoObserver = obs;
+      }
+    } catch (_) {}
+  }
   function atualizarCamadaTemaHalloween(){
     const ativo=document.documentElement.dataset.caixaTheme==="halloween"; garantirCssTema("halloween");
-    if(ativo){prepararCenarioHalloween();aplicarTerrenoHalloween()}
+    if(ativo){prepararCenarioHalloween();aplicarTerrenoHalloween();removerTextoBauMagicoHalloween()}
     document.querySelectorAll(".caixa-halloween-scenery").forEach(el=>el.setAttribute("aria-hidden",ativo?"false":"true"));
     if(!ativo){document.querySelectorAll(".caixa-halloween-scenery").forEach(el=>el.remove());document.querySelectorAll("[data-slime-profile]").forEach(el=>{el.style.removeProperty("--slime-image");delete el.dataset.slimeProfile}); document.querySelectorAll(".caixa-halloween-terrain").forEach(el=>el.remove()); document.querySelectorAll(".caixa-halloween-chao").forEach(el=>el.remove()); document.querySelectorAll("[data-halloween-terrain]").forEach(el=>{el.style.removeProperty("--halloween-terrain-image");delete el.dataset.halloweenTerrain})}
   }
