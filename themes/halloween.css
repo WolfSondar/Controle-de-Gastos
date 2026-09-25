@@ -1,42 +1,68 @@
 /*
- * CAIXA — TEMA HALLOWEEN
+ * CAIXA — TEMA HALLOWEEN "BRUXA DOCE"
  *
- * Tema independente: visual de Halloween completo, com identidade própria
- * para claro e escuro. O "gelo" natalino vira uma camada de slime mágico
- * azul/roxo, gerada proceduralmente pelo app.js.
+ * Redesenho completo, mantendo o espírito fofo-assustador mas com uma
+ * identidade nova: abóbora + ameixa profunda + verde-poção no lugar do
+ * roxo neon + ciano da versão anterior. Cartões viram "adesivos" com
+ * borda sólida e sombra sólida (em vez de gradiente/gosma), e o antigo
+ * "terreno" ondulado no rodapé do hero virou um varal de bandeirinhas
+ * de festa no topo, com abóbora/fantasma/morcegos/gato flutuando embaixo.
  */
 html[data-caixa-theme="halloween"] {
-  --gold:#ffb13b;
-  --gold-deep:#e8781a;
-  --ink:#24152f;
-  --on-ink:#fff4e8;
-  --paper:#fff8f0;
-  --paper-deep:#f4e9f8;
-  --ink-text:#2c2035;
-  --muted:#776c7e;
-  --line:rgba(68,42,83,.15);
-  --income:#45a878;
-  --expense:#d85a6a;
-  --income-bg:#e7f7ed;
-  --theme-summary-saved:#70e5ff;
-  --theme-summary-expense:#b979ff;
-  --theme-summary-free:#ffb54a;
-  --theme-summary-rest:#655579;
-  --halloween-purple:#7a38c7;
-  --halloween-blue:#55dfff;
-  --halloween-orange:#ff8a24;
-  --halloween-night:#20112d;
-  --halloween-slime:#62e8ff;
+  --gold:#ff7a3d;
+  --gold-deep:#e2591a;
+  --ink:#3a1734;
+  --on-ink:#fff3e0;
+  --paper:#fff8ef;
+  --paper-deep:#fdeee0;
+  --ink-text:#3a1734;
+  --muted:#8a6a7c;
+  --line:rgba(74,25,66,.18);
+  --income:#3f8f5f;
+  --expense:#d1495b;
+  --income-bg:#e9f6ee;
+  --theme-summary-saved:#5fb87a;
+  --theme-summary-expense:#ff6f61;
+  --theme-summary-free:#ffb648;
+  --theme-summary-rest:#6b3a52;
+  --halloween-plum:#4a1942;
+  --halloween-plum-deep:#2c0f2a;
+  --halloween-green:#5fb87a;
+  --halloween-green-deep:#2f8f57;
+  --halloween-orange:#ff7a3d;
+  --halloween-night:#20101f;
+  --halloween-cream:#fdeee0;
 }
 
+/* ============================================================
+   FUNDO
+   ============================================================ */
 html[data-caixa-theme="halloween"] body {
   background:
-    radial-gradient(circle at 15% 12%,rgba(255,154,53,.13) 0 2px,transparent 3px),
-    radial-gradient(circle at 82% 24%,rgba(103,226,255,.12) 0 2px,transparent 3px),
-    linear-gradient(180deg,#f4edf7 0%,#fff9f0 42%,#f4edf7 100%);
+    radial-gradient(circle at 12% 10%,rgba(255,122,61,.10) 0 2px,transparent 3px),
+    radial-gradient(circle at 85% 20%,rgba(95,184,122,.10) 0 2px,transparent 3px),
+    radial-gradient(circle at 60% 82%,rgba(74,25,66,.08) 0 2px,transparent 3px),
+    linear-gradient(180deg,#fff8ef 0%,#fdeee0 45%,#fff3e4 100%);
   color:var(--ink-text);
 }
+html[data-theme="dark"][data-caixa-theme="halloween"] body{
+  background:
+    radial-gradient(circle at 14% 8%,rgba(95,184,122,.10),transparent 24%),
+    radial-gradient(circle at 86% 22%,rgba(255,122,61,.10),transparent 26%),
+    linear-gradient(180deg,#160a15 0%,#1e0e1c 48%,#130810 100%);
+  color:#fdf3ea;
+}
+html[data-theme="dark"][data-caixa-theme="halloween"]{
+  --ink-text:#fdf3ea;
+  --muted:#c9aebb;
+  --line:rgba(95,184,122,.20);
+  --paper:#20101f;
+  --paper-deep:#2c1330;
+}
 
+/* ============================================================
+   SUPERFÍCIES — cartões viram "adesivos": borda sólida + sombra sólida
+   ============================================================ */
 html[data-caixa-theme="halloween"] .topbar,
 html[data-caixa-theme="halloween"] .caixa-config-drawer,
 html[data-caixa-theme="halloween"] .modal,
@@ -44,125 +70,220 @@ html[data-caixa-theme="halloween"] .card,
 html[data-caixa-theme="halloween"] .caixa-config-card,
 html[data-caixa-theme="halloween"] .caixa-theme-option,
 html[data-caixa-theme="halloween"] .split-card {
-  border-color:rgba(122,56,199,.18);
-  box-shadow:0 12px 32px rgba(61,31,78,.10),0 2px 0 rgba(85,223,255,.05);
+  background:#fff8ef;
+  border:2px solid rgba(74,25,66,.18);
+  border-radius:20px;
+  box-shadow:4px 5px 0 rgba(74,25,66,.08);
+}
+html[data-theme="dark"][data-caixa-theme="halloween"] .topbar,
+html[data-theme="dark"][data-caixa-theme="halloween"] .caixa-config-drawer,
+html[data-theme="dark"][data-caixa-theme="halloween"] .modal,
+html[data-theme="dark"][data-caixa-theme="halloween"] .card,
+html[data-theme="dark"][data-caixa-theme="halloween"] .caixa-config-card,
+html[data-theme="dark"][data-caixa-theme="halloween"] .caixa-theme-option,
+html[data-theme="dark"][data-caixa-theme="halloween"] .split-card{
+  background:#26102a;
+  color:#fdf3ea;
+  border:2px solid rgba(95,184,122,.22);
+  box-shadow:4px 5px 0 rgba(0,0,0,.28);
 }
 
-html[data-caixa-theme="halloween"] .hero {
+/* ============================================================
+   HERO — noite quente de ameixa, sem terreno; o varal fica no topo
+   ============================================================ */
+html[data-caixa-theme="halloween"] .hero,
+html[data-theme="dark"][data-caixa-theme="halloween"] .hero {
   background:
-    radial-gradient(circle at 84% 18%,rgba(85,223,255,.12),transparent 24%),
-    radial-gradient(circle at 14% 78%,rgba(255,138,36,.13),transparent 27%),
-    linear-gradient(145deg,#24132f 0%,#1b152d 58%,#28113a 100%);
-  color:#fff6ed;
-  box-shadow:0 14px 34px rgba(31,15,42,.18);
+    radial-gradient(circle at 85% 80%,rgba(255,122,61,.14),transparent 26%),
+    radial-gradient(circle at 12% 30%,rgba(95,184,122,.12),transparent 24%),
+    linear-gradient(160deg,#3a1734 0%,#20101f 55%,#2c0f2a 100%);
+  color:#fff3e0;
+  border-radius:20px;
+  box-shadow:4px 6px 0 rgba(74,25,66,.10);
+  position:relative;
+  overflow:hidden;
 }
 
-/* A camada inferior do hero vira slime em vez de neve. */
-html[data-caixa-theme="halloween"] .hero::after {
-  content:"";
+/* O varal de bandeirinhas (gerado em app.js) preso no topo do hero. */
+html[data-caixa-theme="halloween"] .caixa-halloween-terrain{
   position:absolute;
-  left:0;right:0;bottom:-1px;height:54px;
-  background-image:var(--slime-image);
-  background-size:100% 100%;
+  left:0;right:0;top:0;
+  height:60px;
   background-repeat:no-repeat;
-  opacity:.98;
+  background-size:100% 100%;
+  background-position:top center;
   pointer-events:none;
   z-index:12;
+  opacity:.98;
+}
+@media(max-width:640px){
+  html[data-caixa-theme="halloween"] .caixa-halloween-terrain{height:48px}
 }
 
 html[data-caixa-theme="halloween"] .btn-gold {
-  background:linear-gradient(135deg,#ff9b2f,#e76522);
-  color:#fffaf1;
-  border-color:#e76522;
-  box-shadow:0 6px 16px rgba(231,101,34,.22);
+  background:linear-gradient(135deg,#ff8a52,#ff7a3d);
+  color:#2c0f2a;
+  font-weight:800;
+  border:2px solid #c4470f;
+  border-radius:14px;
+  box-shadow:3px 4px 0 rgba(58,23,52,.35);
+  transition:transform .12s ease,box-shadow .12s ease,filter .12s ease;
 }
-html[data-caixa-theme="halloween"] .btn-gold:hover{filter:brightness(1.05);transform:translateY(-1px)}
+html[data-caixa-theme="halloween"] .btn-gold:hover{filter:brightness(1.04)}
+html[data-caixa-theme="halloween"] .btn-gold:active{
+  transform:translate(3px,4px);
+  box-shadow:0 0 0 rgba(58,23,52,.35);
+}
 
 html[data-caixa-theme="halloween"] .hero-stats-toggle.collapse-toggle:not(.is-collapsed){
-  background:rgba(255,177,59,.15);border-color:rgba(255,177,59,.5);color:#ffd18a;
+  background:rgba(255,122,61,.18);border-color:rgba(255,122,61,.5);color:#ffcda3;
 }
-html[data-caixa-theme="halloween"] .hero-stat{background:rgba(255,255,255,.055);border-color:rgba(150,229,255,.14)}
-html[data-caixa-theme="halloween"] .hero-stat-label{color:#a8e8f5}
-html[data-caixa-theme="halloween"] .hero-stat-valor.income{color:#75e1ad}
-html[data-caixa-theme="halloween"] .hero-stat-valor.expense{color:#ff9ca9}
-html[data-caixa-theme="halloween"] .hero-stat-valor.gold{color:#ffd17d}
+html[data-caixa-theme="halloween"] .hero-stat{background:rgba(255,255,255,.06);border:1px solid rgba(95,184,122,.22);border-radius:14px}
+html[data-caixa-theme="halloween"] .hero-stat-label{color:#a9d9b8}
+html[data-caixa-theme="halloween"] .hero-stat-valor.income{color:#8adaa4}
+html[data-caixa-theme="halloween"] .hero-stat-valor.expense{color:#ffa9a0}
+html[data-caixa-theme="halloween"] .hero-stat-valor.gold{color:#ffc38a}
 
-/* Cartões: o slime não vira uma faixa larga. Ele aparece só como um detalhe
-   líquido fino, com curvas suaves e sem picos. */
+/* ============================================================
+   CARTÕES DE LANÇAMENTO E CAIXINHAS — estilo adesivo, com "fita" no canto
+   ============================================================ */
 html[data-caixa-theme="halloween"] .item-list-row .swipe-content,
 html[data-caixa-theme="halloween"] .goal-card {
-  background:linear-gradient(180deg,#fffaf4 0%,#f7edf8 100%);
-  border-color:rgba(116,61,150,.18);
+  background:#fff8ef;
+  border:2px solid rgba(74,25,66,.20);
+  border-radius:16px;
+  box-shadow:3px 4px 0 rgba(74,25,66,.08);
   overflow:hidden;
+  position:relative;
 }
+html[data-theme="dark"][data-caixa-theme="halloween"] .item-list-row .swipe-content,
+html[data-theme="dark"][data-caixa-theme="halloween"] .goal-card{
+  background:#26102a;
+  color:#fdf3ea;
+  border:2px solid rgba(95,184,122,.22);
+  box-shadow:3px 4px 0 rgba(0,0,0,.3);
+}
+
+/* "Fita adesiva" listrada no canto superior esquerdo, como decoração de festa. */
 html[data-caixa-theme="halloween"] .item-list-row .swipe-content::before,
-html[data-caixa-theme="halloween"] .goal-card::before {
+html[data-caixa-theme="halloween"] .goal-card::before{
   content:"";
   position:absolute;
-  left:0;right:0;top:0;height:9px;
-  background:
-    radial-gradient(ellipse 38px 10px at 12% 100%,#62dff5 0 72%,transparent 74%),
-    radial-gradient(ellipse 52px 12px at 42% 100%,#648df6 0 70%,transparent 72%),
-    radial-gradient(ellipse 34px 9px at 72% 100%,#7c55dc 0 72%,transparent 74%),
-    linear-gradient(90deg,#61dff4,#638ef7 52%,#7b3ec2);
-  pointer-events:none;
+  left:-14px;top:9px;
+  width:52px;height:15px;
+  background:repeating-linear-gradient(45deg,#ff7a3d 0 6px,#fdeee0 6px 12px);
+  transform:rotate(-40deg);
+  box-shadow:0 2px 4px rgba(58,23,52,.18);
+  opacity:.95;
   z-index:2;
-  opacity:.92;
+  pointer-events:none;
 }
+html[data-caixa-theme="halloween"] .item-list-row:nth-child(even) .swipe-content::before,
+html[data-caixa-theme="halloween"] .goal-card:nth-child(even)::before{
+  background:repeating-linear-gradient(45deg,#5fb87a 0 6px,#fdeee0 6px 12px);
+}
+html[data-caixa-theme="halloween"] .item-list-row .swipe-content::after,
+html[data-caixa-theme="halloween"] .goal-card .goal-head::after{content:none !important;display:none !important}
 html[data-caixa-theme="halloween"] .item-list-row .swipe-content > *,
 html[data-caixa-theme="halloween"] .goal-card > * { position:relative;z-index:3; }
-html[data-caixa-theme="halloween"] .goal-card::before{height:10px}
-html[data-caixa-theme="halloween"] .item-list-row .swipe-content::after,
-html[data-caixa-theme="halloween"] .goal-card .goal-head::after {
-  content:"";
-  position:absolute;
-  left:8%;top:2px;width:22%;height:2px;border-radius:999px;
-  background:rgba(255,255,255,.55);
-  filter:blur(.5px);opacity:.48;pointer-events:none;z-index:4;
-}
 
-/* Caixinhas: líquido azul/roxo, sem amarelo. */
+/* ============================================================
+   CAIXINHAS — barra de progresso abóbora → verde-poção
+   ============================================================ */
 html[data-caixa-theme="halloween"] .goal-bar-track {
-  background:linear-gradient(180deg,rgba(126,231,255,.26),rgba(77,51,115,.14)) !important;
-  border-color:rgba(93,187,228,.34) !important;
-  box-shadow:inset 0 1px 4px rgba(55,32,74,.13),0 1px 0 rgba(255,255,255,.48) !important;
+  background:#fdeee0 !important;
+  border:1.5px solid rgba(74,25,66,.18) !important;
+  box-shadow:inset 0 1px 3px rgba(58,23,52,.12) !important;
+  border-radius:999px !important;
+}
+html[data-theme="dark"][data-caixa-theme="halloween"] .goal-bar-track{
+  background:#1c0c1f !important;
+  border-color:rgba(95,184,122,.20) !important;
 }
 html[data-caixa-theme="halloween"] .goal-bar-fill {
-  background:linear-gradient(90deg,#6cecff 0%,#579dff 42%,#7d58e8 72%,#4a237e 100%) !important;
-  box-shadow:inset 0 1px 0 rgba(255,255,255,.55),0 1px 10px rgba(88,142,255,.30) !important;
+  background:linear-gradient(90deg,#ff7a3d 0%,#ffb648 48%,#5fb87a 100%) !important;
+  box-shadow:inset 0 1px 0 rgba(255,255,255,.4) !important;
+  border-radius:999px !important;
 }
 html[data-caixa-theme="halloween"] .goal-bar-fill.completo {
-  background:linear-gradient(90deg,#73efff 0%,#68b8ff 46%,#825ce9 75%,#321552 100%) !important;
+  background:linear-gradient(90deg,#ff7a3d 0%,#5fb87a 60%,#2f8f57 100%) !important;
 }
 html[data-caixa-theme="halloween"] .goal-icon-ring {
-  background:conic-gradient(#72eaff var(--pct,0%),#4d3564 0) !important;
-  box-shadow:0 0 0 2px rgba(112,234,255,.12),0 4px 14px rgba(105,75,188,.18) !important;
+  background:conic-gradient(#ff7a3d var(--pct,0%),rgba(74,25,66,.16) 0) !important;
+  box-shadow:0 0 0 2px rgba(255,122,61,.14) !important;
 }
-html[data-caixa-theme="halloween"] .goal-icon-ring-inner{background:#f7edf9;color:#6d35b5}
+html[data-theme="dark"][data-caixa-theme="halloween"] .goal-icon-ring{
+  background:conic-gradient(#5fb87a var(--pct,0%),rgba(95,184,122,.14) 0) !important;
+}
+html[data-caixa-theme="halloween"] .goal-icon-ring-inner{background:#fff8ef;color:#4a1942}
+html[data-theme="dark"][data-caixa-theme="halloween"] .goal-icon-ring-inner{background:#20101f;color:#8adaa4}
 
-/* Resumo: neon frio com laranja de abóbora como ponto de contraste. */
-html[data-caixa-theme="halloween"] .split-card{background:linear-gradient(180deg,#fffaf5,#f3e8f7)}
-html[data-caixa-theme="halloween"] .split-donut{box-shadow:0 0 0 1px rgba(91,189,231,.24),0 8px 24px rgba(93,54,126,.14) !important}
-html[data-caixa-theme="halloween"] .split-donut-center{background:#f8eef8}
+/* ============================================================
+   RESUMO / DONUT
+   ============================================================ */
+html[data-caixa-theme="halloween"] .split-donut{box-shadow:0 0 0 2px rgba(255,122,61,.22) !important}
+html[data-theme="dark"][data-caixa-theme="halloween"] .split-donut{box-shadow:0 0 0 2px rgba(95,184,122,.22) !important}
+html[data-caixa-theme="halloween"] .split-donut-center{background:#fff8ef}
+html[data-theme="dark"][data-caixa-theme="halloween"] .split-donut-center{background:#20101f;color:#fdf3ea}
+html[data-caixa-theme="halloween"] #visaoGeralDonut{
+  box-shadow:0 0 0 2px rgba(255,122,61,.28),0 0 0 5px rgba(74,25,66,.10) !important;
+}
 
-/* Aparência/Temas. */
+/* ============================================================
+   SELEÇÃO DE TEMAS — preview em miniatura da nova identidade
+   ============================================================ */
 html[data-caixa-theme="halloween"] .caixa-theme-option.is-active,
 html[data-caixa-theme="halloween"] .caixa-tema-halloween.is-active {
-  border-color:#ff8a24;
-  background:linear-gradient(135deg,#fff2df,#f0e8ff);
-  box-shadow:0 8px 24px rgba(255,138,36,.12);
+  border-color:#ff7a3d !important;
+  background:linear-gradient(135deg,#fff3e4,#fdeee0) !important;
+  box-shadow:3px 4px 0 rgba(255,122,61,.18) !important;
 }
-html[data-caixa-theme="halloween"] .caixa-theme-check{color:#ff8a24}
+html[data-theme="dark"][data-caixa-theme="halloween"] .caixa-theme-option.is-active,
+html[data-theme="dark"][data-caixa-theme="halloween"] .caixa-tema-halloween.is-active{
+  background:linear-gradient(135deg,#2c1330,#20101f) !important;
+  border-color:#ff7a3d !important;
+}
+html[data-caixa-theme="halloween"] .caixa-theme-check{color:#ff7a3d}
 
-/* Modal e diálogos: roxo profundo, laranja e brilho frio. */
-html[data-caixa-theme="halloween"] .modal-backdrop{background:rgba(31,17,43,.52);backdrop-filter:blur(10px)}
-html[data-caixa-theme="halloween"] .modal{background:linear-gradient(180deg,#fffaf4,#f2e7f7);color:#2c2035;position:relative;overflow:hidden}
-html[data-caixa-theme="halloween"] .modal::before{content:"";position:absolute;left:0;right:0;top:0;height:4px;background:linear-gradient(90deg,#ff8a24,#7a38c7,#55dfff)}
-html[data-caixa-theme="halloween"] .caixa-config-head{background:linear-gradient(180deg,#fffaf4,#f2e7f7)}
-html[data-caixa-theme="halloween"] .caixa-config-kicker{color:#7a38c7;letter-spacing:.18em}
+.caixa-tema-halloween .caixa-theme-preview-halloween{
+  position:relative;overflow:hidden;
+  background:linear-gradient(180deg,#3a1734 0%,#20101f 60%,#2c0f2a 100%) !important;
+  border-color:#4a1942 !important;
+}
+.caixa-tema-halloween .caixa-theme-preview-halloween .preview-moon{
+  position:absolute;right:7px;top:5px;color:#fdeee0;font-size:13px;line-height:1;
+  text-shadow:0 0 6px rgba(255,122,61,.6);
+}
+.caixa-tema-halloween .caixa-theme-preview-halloween .preview-pumpkin{
+  position:absolute;left:7px;bottom:3px;font-size:19px;line-height:1;
+}
+.caixa-tema-halloween .caixa-theme-preview-halloween .preview-bat{
+  position:absolute;left:32px;top:13px;font-size:14px;line-height:1;
+  filter:brightness(.5) saturate(.8);
+}
+.caixa-tema-halloween .caixa-theme-preview-halloween .preview-slime{
+  position:absolute;left:0;right:0;top:0;height:6px;
+  background:repeating-linear-gradient(90deg,#ff7a3d 0 5px,#fdeee0 5px 10px,#5fb87a 10px 15px);
+  border-radius:0 0 9px 9px;
+}
 
-/* Cenário: usa os próprios emojis 🎃 e 🦇 do sistema, em vez de SVGs desenhados. */
-.caixa-halloween-scenery{position:absolute;left:0;right:0;bottom:4px;height:92px;z-index:15;pointer-events:none;overflow:visible}
+/* ============================================================
+   MODAIS E DIÁLOGOS
+   ============================================================ */
+html[data-caixa-theme="halloween"] .modal-backdrop{background:rgba(30,10,28,.5);backdrop-filter:blur(10px)}
+html[data-caixa-theme="halloween"] .modal{position:relative;overflow:hidden}
+html[data-caixa-theme="halloween"] .modal::before{
+  content:"";position:absolute;left:0;right:0;top:0;height:6px;
+  background:repeating-linear-gradient(90deg,#ff7a3d 0 14px,#fdeee0 14px 28px,#5fb87a 28px 42px);
+}
+html[data-caixa-theme="halloween"] .caixa-config-head{background:#fff8ef}
+html[data-theme="dark"][data-caixa-theme="halloween"] .caixa-config-head{background:#20101f}
+html[data-caixa-theme="halloween"] .caixa-config-kicker{color:#e2591a;letter-spacing:.18em;font-weight:800}
+
+/* ============================================================
+   CENÁRIO — fantasma, abóbora, morcegos e gato preto flutuando
+   ============================================================ */
+.caixa-halloween-scenery{position:absolute;left:0;right:0;bottom:2px;height:70px;z-index:15;pointer-events:none;overflow:visible}
 html[data-caixa-theme="halloween"] .halloween-scenery-item{
   position:absolute;display:block;
   transform:translateY(2px) scale(var(--scene-scale,1));
@@ -170,619 +291,162 @@ html[data-caixa-theme="halloween"] .halloween-scenery-item{
   line-height:1;
   font-family:"Segoe UI Emoji","Apple Color Emoji","Noto Color Emoji",sans-serif;
   user-select:none;
-  filter:drop-shadow(0 3px 5px rgba(20,8,31,.25));
+  filter:drop-shadow(0 3px 5px rgba(20,8,18,.28));
   opacity:.98;
-}
-html[data-caixa-theme="halloween"] .halloween-scenery-item.pumpkin{font-size:52px;bottom:2px}
-html[data-caixa-theme="halloween"] .halloween-scenery-item.pumpkin.mini{font-size:36px;bottom:2px}
-html[data-caixa-theme="halloween"] .halloween-scenery-item.bat{font-size:46px;animation:halloweenBatFloat 5.6s ease-in-out var(--scene-delay,0s) infinite}
-html[data-caixa-theme="halloween"] .halloween-scenery-item.bat-two{font-size:34px}
-html[data-caixa-theme="halloween"] .halloween-scenery-item.bat-three{font-size:28px}
-@keyframes halloweenBatFloat{0%,100%{transform:translateY(0) scale(var(--scene-scale,1)) rotate(-2deg)}50%{transform:translateY(-7px) scale(var(--scene-scale,1)) rotate(2deg)}}
-
-/* Preview do Halloween na seleção de temas. */
-.caixa-tema-halloween .caixa-theme-preview-halloween{
-  position:relative;overflow:hidden;
-  background:linear-gradient(180deg,#24122f 0%,#1a1630 58%,#3e2570 100%) !important;
-  border-color:#70459c !important;
-}
-.caixa-tema-halloween .caixa-theme-preview-halloween .preview-moon{
-  position:absolute;right:7px;top:5px;color:#dff8ff;font-size:15px;line-height:1;
-  text-shadow:0 0 8px rgba(85,223,255,.7);
-}
-.caixa-tema-halloween .caixa-theme-preview-halloween .preview-pumpkin{
-  position:absolute;left:7px;bottom:3px;font-size:21px;line-height:1;
-}
-.caixa-tema-halloween .caixa-theme-preview-halloween .preview-bat{
-  position:absolute;left:34px;top:10px;font-size:17px;line-height:1;
-  filter:brightness(.45) saturate(.8);
-}
-.caixa-tema-halloween .caixa-theme-preview-halloween .preview-slime{
-  position:absolute;left:0;right:0;bottom:0;height:7px;
-  background:linear-gradient(90deg,#61dff4,#668af5 52%,#793fc2);
-  border-radius:9px 9px 0 0;
-}
-
-/* Escuro: noite de Halloween com roxo, azul elétrico e laranja queimado. */
-html[data-theme="dark"][data-caixa-theme="halloween"] body{background:radial-gradient(circle at 18% 8%,rgba(85,223,255,.10) 0 2px,transparent 3px),radial-gradient(circle at 80% 30%,rgba(255,138,36,.10) 0 2px,transparent 3px),linear-gradient(180deg,#0f0917,#171021 52%,#0e0a14)}
-html[data-theme="dark"][data-caixa-theme="halloween"] .topbar,
-html[data-theme="dark"][data-caixa-theme="halloween"] .caixa-config-drawer,
-html[data-theme="dark"][data-caixa-theme="halloween"] .modal,
-html[data-theme="dark"][data-caixa-theme="halloween"] .card,
-html[data-theme="dark"][data-caixa-theme="halloween"] .caixa-config-card,
-html[data-theme="dark"][data-caixa-theme="halloween"] .caixa-theme-option,
-html[data-theme="dark"][data-caixa-theme="halloween"] .split-card{background:linear-gradient(180deg,#1b1226,#140d1d);border-color:rgba(118,226,255,.16);box-shadow:0 12px 30px rgba(0,0,0,.28)}
-html[data-theme="dark"][data-caixa-theme="halloween"] .item-list-row .swipe-content,
-html[data-theme="dark"][data-caixa-theme="halloween"] .goal-card{background:linear-gradient(180deg,#1b1226,#160f20);border-color:rgba(126,91,164,.28);color:#f2eaf7}
-html[data-theme="dark"][data-caixa-theme="halloween"] .item-nome,
-html[data-theme="dark"][data-caixa-theme="halloween"] .goal-title,
-html[data-theme="dark"][data-caixa-theme="halloween"] .split-donut-center span{color:#f4ecfa}
-html[data-theme="dark"][data-caixa-theme="halloween"] .split-donut-center{background:#1a1124}
-html[data-theme="dark"][data-caixa-theme="halloween"] .caixa-config-head{background:#171020}
-html[data-theme="dark"][data-caixa-theme="halloween"] .modal{color:#f4ecfa}
-html[data-theme="dark"][data-caixa-theme="halloween"] .modal input,
-html[data-theme="dark"][data-caixa-theme="halloween"] .modal select{background:#22162d;color:#f4ecfa;border-color:rgba(126,226,255,.18)}
-html[data-theme="dark"][data-caixa-theme="halloween"] .caixa-theme-option.is-active{background:linear-gradient(135deg,#281a35,#1b2234);border-color:#ff8a24}
-html[data-theme="dark"][data-caixa-theme="halloween"] .caixa-tema-halloween .caixa-theme-preview-halloween{border-color:#7b4ba9 !important}
-html[data-theme="dark"][data-caixa-theme="halloween"] .halloween-scenery-item.pumpkin{filter:drop-shadow(0 0 7px rgba(255,138,36,.20))}
-html[data-theme="dark"][data-caixa-theme="halloween"] .halloween-scenery-item.bat{color:#08050d;filter:drop-shadow(0 2px 5px rgba(0,0,0,.45))}
-
-/* Halloween escuro: mais profundo e legível, sem superfícies acinzentadas. */
-html[data-theme="dark"][data-caixa-theme="halloween"]{
-  --ink-text:#f7effb;
-  --muted:#b7a9c2;
-  --line:rgba(195,157,230,.16);
-  --paper:#17101f;
-  --paper-deep:#21152c;
-}
-html[data-theme="dark"][data-caixa-theme="halloween"] body{
-  background:
-    radial-gradient(circle at 12% 7%,rgba(108,232,255,.08),transparent 24%),
-    radial-gradient(circle at 88% 18%,rgba(255,116,37,.09),transparent 26%),
-    linear-gradient(180deg,#09060e 0%,#100916 45%,#0a0710 100%);
-  color:#f7effb;
-}
-html[data-theme="dark"][data-caixa-theme="halloween"] .topbar,
-html[data-theme="dark"][data-caixa-theme="halloween"] .caixa-config-drawer,
-html[data-theme="dark"][data-caixa-theme="halloween"] .caixa-config-card,
-html[data-theme="dark"][data-caixa-theme="halloween"] .card,
-html[data-theme="dark"][data-caixa-theme="halloween"] .split-card,
-html[data-theme="dark"][data-caixa-theme="halloween"] .modal,
-html[data-theme="dark"][data-caixa-theme="halloween"] .caixa-theme-option{
-  background:linear-gradient(180deg,#1a1024 0%,#100a17 100%) !important;
-  color:#f7effb;
-  border-color:rgba(133,226,255,.13) !important;
-  box-shadow:0 14px 34px rgba(0,0,0,.34),0 1px 0 rgba(255,255,255,.025);
-}
-html[data-theme="dark"][data-caixa-theme="halloween"] .item-list-row .swipe-content,
-html[data-theme="dark"][data-caixa-theme="halloween"] .goal-card{
-  background:linear-gradient(180deg,#1b1026 0%,#120b1b 100%) !important;
-  color:#f7effb;
-  border-color:rgba(133,226,255,.15) !important;
-}
-html[data-theme="dark"][data-caixa-theme="halloween"] .item-nome,
-html[data-theme="dark"][data-caixa-theme="halloween"] .goal-title,
-html[data-theme="dark"][data-caixa-theme="halloween"] h1,
-html[data-theme="dark"][data-caixa-theme="halloween"] h2,
-html[data-theme="dark"][data-caixa-theme="halloween"] h3,
-html[data-theme="dark"][data-caixa-theme="halloween"] h4{
-  color:#fff7ff;
-}
-html[data-theme="dark"][data-caixa-theme="halloween"] .item-meta,
-html[data-theme="dark"][data-caixa-theme="halloween"] .item-data,
-html[data-theme="dark"][data-caixa-theme="halloween"] .goal-subtitle,
-html[data-theme="dark"][data-caixa-theme="halloween"] small{
-  color:#b9a9c5;
-}
-html[data-theme="dark"][data-caixa-theme="halloween"] input,
-html[data-theme="dark"][data-caixa-theme="halloween"] select,
-html[data-theme="dark"][data-caixa-theme="halloween"] textarea{
-  background:#21132c !important;
-  color:#fff7ff !important;
-  border-color:rgba(133,226,255,.18) !important;
-  color-scheme:dark;
-}
-html[data-theme="dark"][data-caixa-theme="halloween"] .caixa-theme-option.is-active,
-html[data-theme="dark"][data-caixa-theme="halloween"] .caixa-tema-halloween.is-active{
-  background:linear-gradient(135deg,#2b1838 0%,#17152c 100%) !important;
-  border-color:#ff8a24 !important;
-  box-shadow:0 0 0 1px rgba(255,138,36,.14),0 10px 28px rgba(255,138,36,.08);
-}
-html[data-theme="dark"][data-caixa-theme="halloween"] .hero{
-  background:
-    radial-gradient(circle at 80% 18%,rgba(91,225,255,.12),transparent 23%),
-    radial-gradient(circle at 14% 72%,rgba(255,117,35,.13),transparent 25%),
-    linear-gradient(145deg,#21102e 0%,#110b1d 55%,#241033 100%);
-  box-shadow:0 18px 42px rgba(0,0,0,.42);
-}
-html[data-theme="dark"][data-caixa-theme="halloween"] .hero-stat{
-  background:rgba(255,255,255,.045);
-  border-color:rgba(127,224,255,.13);
-}
-html[data-theme="dark"][data-caixa-theme="halloween"] .hero-stat-label{color:#9fdcea}
-html[data-theme="dark"][data-caixa-theme="halloween"] .hero-stat-valor.gold{color:#ffc86e}
-html[data-theme="dark"][data-caixa-theme="halloween"] .hero-stat-valor.income{color:#70e2ac}
-html[data-theme="dark"][data-caixa-theme="halloween"] .hero-stat-valor.expense{color:#ff8798}
-html[data-theme="dark"][data-caixa-theme="halloween"] .goal-icon-ring-inner{background:#1b1026;color:#8ceeff}
-html[data-theme="dark"][data-caixa-theme="halloween"] .goal-bar-track{background:#21162e !important;border-color:rgba(103,218,246,.18) !important}
-html[data-theme="dark"][data-caixa-theme="halloween"] .modal-backdrop{background:rgba(4,2,8,.72)}
-
-@media(max-width:640px){
-  html[data-caixa-theme="halloween"] .caixa-halloween-scenery{height:78px}
-  html[data-caixa-theme="halloween"] .halloween-scenery-item.pumpkin{width:44px;height:40px}
-  html[data-caixa-theme="halloween"] .halloween-scenery-item.pumpkin.mini{width:32px;height:29px}
-}
-
-/* ============================================================
-   HALLOWEEN — refinamento v5
-   ============================================================ */
-html[data-caixa-theme="halloween"] .item-list-row .swipe-content::before,
-html[data-caixa-theme="halloween"] .goal-card::before{
-  height:16px;
-  top:-1px;
-  filter:drop-shadow(0 2px 3px rgba(61,30,82,.12));
-  opacity:.92;
-}
-html[data-caixa-theme="halloween"] .goal-card::before{height:18px;}
-html[data-caixa-theme="halloween"] .item-list-row .swipe-content::after,
-html[data-caixa-theme="halloween"] .goal-card .goal-head::after{
-  top:3px;
-  height:3px;
-  width:22%;
-  opacity:.38;
-}
-html[data-caixa-theme="halloween"] .hero::after{height:32px;opacity:.96;}
-
-/* O cenário usa os próprios emojis 🎃 e 🦇, sem SVGs desenhados pelo tema. */
-html[data-caixa-theme="halloween"] .halloween-scenery-item.pumpkin,
-html[data-caixa-theme="halloween"] .halloween-scenery-item.pumpkin.mini{
-  width:auto;height:auto;line-height:1;
-  font-family:"Apple Color Emoji","Segoe UI Emoji","Noto Color Emoji",sans-serif;
-  filter:drop-shadow(0 3px 5px rgba(20,8,31,.28));
-}
-html[data-caixa-theme="halloween"] .halloween-scenery-item.pumpkin{font-size:44px;}
-html[data-caixa-theme="halloween"] .halloween-scenery-item.pumpkin.mini{font-size:30px;}
-html[data-caixa-theme="halloween"] .halloween-scenery-item.bat{
-  width:auto;height:auto;line-height:1;
-  font-family:"Apple Color Emoji","Segoe UI Emoji","Noto Color Emoji",sans-serif;
-  font-size:31px;color:inherit;filter:drop-shadow(0 2px 5px rgba(0,0,0,.32));
-}
-html[data-caixa-theme="halloween"] .halloween-scenery-item.bat-two{font-size:23px;}
-html[data-caixa-theme="halloween"] .halloween-scenery-item.bat-three{font-size:19px;}
-
-/* Escuro: contraste mais limpo e menos "lavado". */
-html[data-theme="dark"][data-caixa-theme="halloween"]{
-  --paper:#130c1b;
-  --paper-deep:#1b1125;
-  --ink-text:#f5effa;
-  --muted:#b9acc4;
-  --line:rgba(191,157,219,.18);
-  --gold:#ff9d36;
-  --gold-deep:#f27620;
-}
-html[data-theme="dark"][data-caixa-theme="halloween"] body{
-  background:
-    radial-gradient(circle at 12% 8%,rgba(93,226,255,.08),transparent 20%),
-    radial-gradient(circle at 88% 18%,rgba(255,130,38,.08),transparent 23%),
-    linear-gradient(180deg,#0b0710 0%,#120a18 48%,#09060d 100%);
-}
-html[data-theme="dark"][data-caixa-theme="halloween"] .caixa-config-drawer,
-html[data-theme="dark"][data-caixa-theme="halloween"] .caixa-config-head{
-  background:linear-gradient(180deg,#130c1b,#0f0915);
-}
-html[data-theme="dark"][data-caixa-theme="halloween"] .caixa-config-view,
-html[data-theme="dark"][data-caixa-theme="halloween"] .caixa-config-card,
-html[data-theme="dark"][data-caixa-theme="halloween"] .caixa-theme-option{
-  color:#f5effa;
-}
-html[data-theme="dark"][data-caixa-theme="halloween"] .caixa-theme-option{
-  background:linear-gradient(180deg,#1b1226,#120b18);
-  border-color:rgba(114,224,255,.14);
-  box-shadow:0 10px 28px rgba(0,0,0,.24);
-}
-html[data-theme="dark"][data-caixa-theme="halloween"] .caixa-theme-option:hover{
-  background:linear-gradient(180deg,#21152e,#160d20);
-  border-color:rgba(255,157,54,.34);
-}
-html[data-theme="dark"][data-caixa-theme="halloween"] .caixa-theme-option.is-active{
-  background:linear-gradient(135deg,#2a1937,#182031);
-  border-color:#ff9d36;
-  box-shadow:0 0 0 2px rgba(255,157,54,.10),0 10px 28px rgba(0,0,0,.30);
-}
-html[data-theme="dark"][data-caixa-theme="halloween"] .caixa-config-section-head h3,
-html[data-theme="dark"][data-caixa-theme="halloween"] .caixa-config-section-head p,
-html[data-theme="dark"][data-caixa-theme="halloween"] .caixa-theme-option strong,
-html[data-theme="dark"][data-caixa-theme="halloween"] .caixa-theme-option small{
-  color:inherit;
-}
-html[data-theme="dark"][data-caixa-theme="halloween"] .caixa-theme-option small{color:#b9acc4;}
-html[data-theme="dark"][data-caixa-theme="halloween"] .item-list-row .swipe-content,
-html[data-theme="dark"][data-caixa-theme="halloween"] .goal-card,
-html[data-theme="dark"][data-caixa-theme="halloween"] .split-card{
-  background:linear-gradient(180deg,#1b1226,#110a17);
-  border-color:rgba(113,224,255,.13);
-  box-shadow:0 10px 26px rgba(0,0,0,.25);
-}
-html[data-theme="dark"][data-caixa-theme="halloween"] .item-list-row .swipe-content::before,
-html[data-theme="dark"][data-caixa-theme="halloween"] .goal-card::before{
-  opacity:.75;
-}
-html[data-theme="dark"][data-caixa-theme="halloween"] .hero{
-  background:
-    radial-gradient(circle at 82% 18%,rgba(89,224,255,.13),transparent 25%),
-    radial-gradient(circle at 16% 82%,rgba(255,138,36,.12),transparent 28%),
-    linear-gradient(145deg,#1a0d25 0%,#100a18 58%,#21102f 100%);
-  box-shadow:0 18px 42px rgba(0,0,0,.38);
-}
-html[data-theme="dark"][data-caixa-theme="halloween"] .hero-stat{
-  background:rgba(255,255,255,.045);
-  border-color:rgba(123,224,255,.12);
-}
-html[data-theme="dark"][data-caixa-theme="halloween"] .modal{
-  background:linear-gradient(180deg,#1a1024,#100a16);
-  color:#f5effa;
-}
-html[data-theme="dark"][data-caixa-theme="halloween"] .modal input,
-html[data-theme="dark"][data-caixa-theme="halloween"] .modal select{
-  background:#21142b;color:#f5effa;border-color:rgba(115,225,255,.16);
-}
-
-@media(max-width:640px){
-  html[data-caixa-theme="halloween"] .halloween-scenery-item.pumpkin{font-size:37px;}
-  html[data-caixa-theme="halloween"] .halloween-scenery-item.pumpkin.mini{font-size:26px;}
-  html[data-caixa-theme="halloween"] .halloween-scenery-item.bat{font-size:25px;}
-  html[data-caixa-theme="halloween"] .halloween-scenery-item.bat-two{font-size:19px;}
-  html[data-caixa-theme="halloween"] .halloween-scenery-item.bat-three{font-size:16px;}
-}
-/* ============================================================
-   HALLOWEEN — refinamento v6
-   ============================================================ */
-html[data-caixa-theme="halloween"] .hero::after{
-  bottom:0;
-  height:34px;
-  background-image:var(--slime-image) !important;
-  background-size:100% 100%;
-  background-repeat:no-repeat;
-  opacity:.98;
-}
-
-/* O detalhe dos cards usa a mesma silhueta orgânica do slime do app,
-   em vez de uma faixa reta/multicolorida. */
-html[data-caixa-theme="halloween"] .item-list-row .swipe-content::before,
-html[data-caixa-theme="halloween"] .goal-card::before{
-  top:-1px;
-  left:0;right:0;
-  height:22px;
-  background-image:var(--slime-image) !important;
-  background-size:100% 100% !important;
-  background-repeat:no-repeat !important;
-  background-color:transparent !important;
-  opacity:.94;
-  filter:drop-shadow(0 2px 3px rgba(56,28,77,.12));
-}
-html[data-caixa-theme="halloween"] .goal-card::before{height:22px;}
-html[data-caixa-theme="halloween"] .item-list-row .swipe-content::after,
-html[data-caixa-theme="halloween"] .goal-card .goal-head::after{
-  left:8%;top:4px;width:20%;height:3px;
-  background:rgba(255,255,255,.40);
-  filter:blur(1px);
-  opacity:.42;
-}
-
-/* Abóboras e morcegos em emoji, com movimento discreto. */
-html[data-caixa-theme="halloween"] .halloween-scenery-item.pumpkin,
-html[data-caixa-theme="halloween"] .halloween-scenery-item.bat{
-  display:block;
-  width:auto;height:auto;
-  transform-origin:center bottom;
-  will-change:transform;
-}
-html[data-caixa-theme="halloween"] .halloween-scenery-item.pumpkin{
-  animation:halloweenPumpkinFloat 5.8s ease-in-out infinite;
-}
-html[data-caixa-theme="halloween"] .halloween-scenery-item.bat{
-  animation:halloweenBatFloat 5.2s ease-in-out infinite;
-}
-html[data-caixa-theme="halloween"] .halloween-scenery-item.bat-two{animation-duration:6.4s;}
-html[data-caixa-theme="halloween"] .halloween-scenery-item.bat-three{animation-duration:5.8s;}
-@keyframes halloweenBatFloat{
-  0%,100%{transform:translate3d(0,0,0) rotate(-2deg);}
-  50%{transform:translate3d(5px,-7px,0) rotate(2deg);}
-}
-@keyframes halloweenPumpkinFloat{
-  0%,100%{transform:translate3d(0,0,0) rotate(-1deg);}
-  50%{transform:translate3d(0,-2px,0) rotate(1deg);}
-}
-
-/* ============================================================
-   HALLOWEEN — refinamento v6
-   ============================================================ */
-
-/* Hero: terreno de Halloween, sem slime. A camada vai até a base do card. */
-html[data-caixa-theme="halloween"] .hero::after{
-  content:"";
-  position:absolute;
-  left:0;
-  right:0;
-  bottom:0;
-  height:58px;
-  background-image:var(--halloween-terrain-image);
-  background-size:100% 100%;
-  background-repeat:no-repeat;
-  opacity:1;
-  pointer-events:none;
-  z-index:12;
-}
-
-/* Cenário fixo: uma árvore morta, uma abóbora, três morcegos e um gato preto. */
-html[data-caixa-theme="halloween"] .caixa-halloween-scenery{bottom:0;height:96px}
-html[data-caixa-theme="halloween"] .halloween-scenery-item{z-index:16}
-html[data-caixa-theme="halloween"] .halloween-scenery-item.dead-tree{
-  font-size:58px;
-  bottom:6px;
-  filter:drop-shadow(0 3px 5px rgba(20,8,31,.32));
 }
 html[data-caixa-theme="halloween"] .halloween-scenery-item.pumpkin-static{
-  font-size:39px;
-  bottom:5px;
-  animation:none;
+  font-size:38px;bottom:4px;
+  animation:halloweenPumpkinFloat 5.8s ease-in-out var(--scene-delay,0s) infinite;
+}
+html[data-caixa-theme="halloween"] .halloween-scenery-item.ghost{
+  font-size:34px;
+  animation:halloweenGhostDrift 6.4s ease-in-out var(--scene-delay,0s) infinite;
+  opacity:.92;
 }
 html[data-caixa-theme="halloween"] .halloween-scenery-item.bat{
-  font-size:31px;
-  animation:halloweenBatFloat 5.8s ease-in-out var(--scene-delay,0s) infinite;
+  font-size:30px;
+  animation:halloweenBatFloat 5.4s ease-in-out var(--scene-delay,0s) infinite;
 }
-html[data-caixa-theme="halloween"] .halloween-scenery-item.bat-two{font-size:23px}
-html[data-caixa-theme="halloween"] .halloween-scenery-item.bat-three{font-size:19px}
+html[data-caixa-theme="halloween"] .halloween-scenery-item.bat-two{font-size:22px;animation-duration:6.2s}
+html[data-caixa-theme="halloween"] .halloween-scenery-item.bat-three{font-size:18px;animation-duration:5.8s}
 html[data-caixa-theme="halloween"] .halloween-scenery-item.black-cat{
-  font-size:34px;
-  bottom:5px;
-  animation:none;
+  font-size:32px;bottom:3px;
+  animation:halloweenCatTailFlick 4.6s ease-in-out var(--scene-delay,0s) infinite;
 }
-
-/* O terreno fica abaixo dos elementos do cenário; os emojis pousam na superfície. */
-html[data-caixa-theme="halloween"] .caixa-halloween-scenery{bottom:0;height:92px;z-index:16}
-html[data-caixa-theme="halloween"] .halloween-scenery-item.dead-tree{bottom:17px}
-html[data-caixa-theme="halloween"] .halloween-scenery-item.pumpkin-static{bottom:13px}
-html[data-caixa-theme="halloween"] .halloween-scenery-item.black-cat{bottom:14px}
-html[data-caixa-theme="halloween"] .halloween-scenery-item.bat{z-index:18}
-
-/* Nos lançamentos e caixinhas, Halloween não usa nenhuma "neve"/slime. */
-html[data-caixa-theme="halloween"] .item-list-row .swipe-content::before,
-html[data-caixa-theme="halloween"] .item-list-row .swipe-content::after,
-html[data-caixa-theme="halloween"] .goal-card::before,
-html[data-caixa-theme="halloween"] .goal-card .goal-head::after{
-  content:none !important;
-  display:none !important;
-}
-html[data-caixa-theme="halloween"] .item-list-row .swipe-content,
-html[data-caixa-theme="halloween"] .goal-card{
-  overflow:hidden;
-  position:relative;
-  border-color:rgba(122,56,199,.22);
-  box-shadow:0 8px 22px rgba(61,31,78,.10), inset 3px 0 0 rgba(255,138,36,.72);
-}
-html[data-caixa-theme="halloween"] .item-list-row .swipe-content::before,
-html[data-caixa-theme="halloween"] .goal-card::before{
-  content:"" !important;display:block !important;
-  position:absolute;left:0;top:10px;bottom:10px;right:auto;
-  width:4px;height:auto;
-  border-radius:0 8px 8px 0;
-  background:linear-gradient(180deg,#ff8a24 0%,#a84bda 48%,#55dfff 100%) !important;
-  box-shadow:0 0 10px rgba(168,75,218,.20);
-  z-index:2;pointer-events:none;
-}
-html[data-caixa-theme="halloween"] .item-list-row .swipe-content::after,
-html[data-caixa-theme="halloween"] .goal-card .goal-head::after{content:none !important;display:none !important;}
-html[data-caixa-theme="halloween"] .item-list-row .swipe-content > *,
-html[data-caixa-theme="halloween"] .goal-card > *{position:relative;z-index:3;}
+@keyframes halloweenPumpkinFloat{0%,100%{transform:translate3d(0,0,0) rotate(-1deg) scale(var(--scene-scale,1))}50%{transform:translate3d(0,-3px,0) rotate(1deg) scale(var(--scene-scale,1))}}
+@keyframes halloweenGhostDrift{0%,100%{transform:translate3d(0,0,0) scale(var(--scene-scale,1));opacity:.86}50%{transform:translate3d(4px,-10px,0) scale(var(--scene-scale,1));opacity:1}}
+@keyframes halloweenBatFloat{0%,100%{transform:translate3d(0,0,0) rotate(-3deg) scale(var(--scene-scale,1))}50%{transform:translate3d(5px,-8px,0) rotate(3deg) scale(var(--scene-scale,1))}}
+@keyframes halloweenCatTailFlick{0%,100%{transform:translate3d(0,0,0) rotate(-1deg) scale(var(--scene-scale,1))}50%{transform:translate3d(0,-2px,0) rotate(1.5deg) scale(var(--scene-scale,1))}}
 
 @media(max-width:640px){
-  html[data-caixa-theme="halloween"] .caixa-halloween-scenery{height:82px}
-  html[data-caixa-theme="halloween"] .halloween-scenery-item.dead-tree{font-size:47px}
-  html[data-caixa-theme="halloween"] .halloween-scenery-item.pumpkin-static{font-size:32px}
-  html[data-caixa-theme="halloween"] .halloween-scenery-item.black-cat{font-size:28px}
-}
-
-/* Visão geral: aro e separadores visíveis também no tema padrão/Natal são
-   reforçados pelo app.js; aqui só damos acabamento ao Halloween. */
-html[data-caixa-theme="halloween"] #visaoGeralDonut{
-  box-shadow:0 0 0 2px rgba(85,223,255,.30),0 0 0 5px rgba(122,56,199,.10),0 8px 24px rgba(61,31,78,.18) !important;
+  html[data-caixa-theme="halloween"] .caixa-halloween-scenery{height:58px}
+  html[data-caixa-theme="halloween"] .halloween-scenery-item.pumpkin-static{font-size:30px}
+  html[data-caixa-theme="halloween"] .halloween-scenery-item.ghost{font-size:26px}
+  html[data-caixa-theme="halloween"] .halloween-scenery-item.black-cat{font-size:25px}
 }
 
 /* ============================================================
-   HALLOWEEN — refinamento v7
+   TOPO — botões e badges com acabamento "adesivo" quente
    ============================================================ */
-/* O terreno agora é uma camada própria, para não disputar com pseudo-elementos
-   usados pelo hero em outros temas. */
-html[data-caixa-theme="halloween"] .hero::after{
-  content:none !important;
-  display:none !important;
-  background:none !important;
-}
-html[data-caixa-theme="halloween"] .caixa-halloween-terrain{
-  position:absolute;
-  left:0;
-  right:0;
-  bottom:0;
-  height:64px;
-  background-repeat:no-repeat;
-  background-size:100% 100%;
-  background-position:center bottom;
-  pointer-events:none;
-  z-index:1;
-}
-
-/* O botão de expandir/recolher precisa permanecer acima do terreno. */
-html[data-caixa-theme="halloween"] .hero-stats-toggle.collapse-toggle{
-  position:relative;
-  z-index:20 !important;
-}
-html[data-theme="dark"][data-caixa-theme="halloween"] .caixa-halloween-terrain{
-  filter:drop-shadow(0 -1px 0 rgba(255,177,70,.10));
-}
-@media(max-width:640px){
-  html[data-caixa-theme="halloween"] .caixa-halloween-terrain{height:56px}
-}
-
-/* O trio de objetos terrestres fica apoiado sobre a superfície do terreno,
-   e não grudado na borda inferior do card. */
-html[data-caixa-theme="halloween"] .halloween-scenery-item.dead-tree{bottom:17px}
-html[data-caixa-theme="halloween"] .halloween-scenery-item.pumpkin-static{bottom:13px}
-html[data-caixa-theme="halloween"] .halloween-scenery-item.black-cat{bottom:14px}
-
-/* Os cards mantêm a lateral temática, sem a antiga faixa superior. */
-html[data-caixa-theme="halloween"] .item-list-row .swipe-content::before,
-html[data-caixa-theme="halloween"] .goal-card::before{
-  content:"" !important;
-  display:block !important;
-  position:absolute !important;
-  left:0 !important;
-  top:10px !important;
-  bottom:10px !important;
-  right:auto !important;
-  width:4px !important;
-  height:auto !important;
-  border-radius:0 8px 8px 0 !important;
-  background:linear-gradient(180deg,#ff8a24 0%,#a84bda 48%,#55dfff 100%) !important;
-  box-shadow:0 0 10px rgba(168,75,218,.20) !important;
-  pointer-events:none !important;
-  z-index:2 !important;
-}
-html[data-caixa-theme="halloween"] .item-list-row .swipe-content::after,
-html[data-caixa-theme="halloween"] .goal-card .goal-head::after{
-  content:none !important;
-  display:none !important;
-}
-
-/* ============================================================
-   HALLOWEEN — refinamento final de navegação e topo
-   ============================================================ */
-
-/* Topo claro: os controles deixam de parecer apagados e passam a ter
-   acabamento de vidro quente, com roxo + laranja da identidade Halloween. */
 html[data-caixa-theme="halloween"] .caixa-config-trigger,
 html[data-caixa-theme="halloween"] .icon-btn,
 html[data-caixa-theme="halloween"] .sync,
 html[data-caixa-theme="halloween"] .mes-atual-badge {
-  background:linear-gradient(145deg,rgba(255,255,255,.88),rgba(250,232,246,.82)) !important;
-  color:#5b2d72 !important;
-  border:1px solid rgba(122,56,199,.24) !important;
-  box-shadow:0 4px 12px rgba(73,35,91,.10),inset 0 1px 0 rgba(255,255,255,.95) !important;
+  background:#fff8ef !important;
+  color:#4a1942 !important;
+  border:2px solid rgba(74,25,66,.20) !important;
+  border-radius:12px !important;
+  box-shadow:2px 3px 0 rgba(74,25,66,.08) !important;
 }
 html[data-caixa-theme="halloween"] .caixa-config-trigger:hover,
 html[data-caixa-theme="halloween"] .icon-btn:hover,
 html[data-caixa-theme="halloween"] .sync:hover,
 html[data-caixa-theme="halloween"] .mes-atual-badge:hover {
-  background:linear-gradient(145deg,#fff8f0,#f7e5ef) !important;
-  color:#e36f1f !important;
-  border-color:rgba(255,138,36,.46) !important;
-  box-shadow:0 6px 16px rgba(122,56,199,.13),inset 0 1px 0 #fff !important;
+  background:#fdeee0 !important;
+  color:#e2591a !important;
+  border-color:rgba(255,122,61,.5) !important;
 }
 html[data-caixa-theme="halloween"] .sync-icone-on,
-html[data-caixa-theme="halloween"] .sync-icone-check { color:#6d3e9d !important; }
-html[data-caixa-theme="halloween"] .sync-icone-off { color:#dc5b4f !important; }
+html[data-caixa-theme="halloween"] .sync-icone-check { color:#3f8f5f !important; }
+html[data-caixa-theme="halloween"] .sync-icone-off { color:#d1495b !important; }
 html[data-caixa-theme="halloween"] .sync-badge:not(:empty) {
-  background:#ff8a24 !important;
+  background:#ff7a3d !important;
   color:#fff !important;
-  box-shadow:0 0 0 2px #fff8f0 !important;
+  box-shadow:0 0 0 2px #fff8ef !important;
 }
 
-/* Topo escuro: controles com superfície roxa profunda e detalhe laranja,
-   sem o aspecto verde do tema base. */
 html[data-theme="dark"][data-caixa-theme="halloween"] .caixa-config-trigger,
 html[data-theme="dark"][data-caixa-theme="halloween"] .icon-btn,
 html[data-theme="dark"][data-caixa-theme="halloween"] .sync,
 html[data-theme="dark"][data-caixa-theme="halloween"] .mes-atual-badge {
-  background:linear-gradient(145deg,#2a1838,#171020) !important;
-  color:#ffe8cf !important;
-  border:1px solid rgba(255,138,36,.28) !important;
-  box-shadow:0 6px 16px rgba(0,0,0,.30),inset 0 1px 0 rgba(255,255,255,.06) !important;
+  background:#26102a !important;
+  color:#fdf3ea !important;
+  border:2px solid rgba(95,184,122,.24) !important;
+  box-shadow:2px 3px 0 rgba(0,0,0,.3) !important;
 }
 html[data-theme="dark"][data-caixa-theme="halloween"] .caixa-config-trigger:hover,
 html[data-theme="dark"][data-caixa-theme="halloween"] .icon-btn:hover,
 html[data-theme="dark"][data-caixa-theme="halloween"] .sync:hover,
 html[data-theme="dark"][data-caixa-theme="halloween"] .mes-atual-badge:hover {
-  background:linear-gradient(145deg,#382044,#21142d) !important;
-  color:#ffb35d !important;
-  border-color:rgba(255,138,36,.62) !important;
-  box-shadow:0 8px 20px rgba(0,0,0,.38),0 0 0 1px rgba(255,138,36,.08) !important;
+  background:#341536 !important;
+  color:#ffb37a !important;
+  border-color:rgba(255,122,61,.5) !important;
 }
 html[data-theme="dark"][data-caixa-theme="halloween"] .sync-icone-on,
-html[data-theme="dark"][data-caixa-theme="halloween"] .sync-icone-check { color:#73e5ff !important; }
-html[data-theme="dark"][data-caixa-theme="halloween"] .sync-icone-off { color:#ff897b !important; }
+html[data-theme="dark"][data-caixa-theme="halloween"] .sync-icone-check { color:#8adaa4 !important; }
+html[data-theme="dark"][data-caixa-theme="halloween"] .sync-icone-off { color:#ff9b90 !important; }
 html[data-theme="dark"][data-caixa-theme="halloween"] .sync-badge:not(:empty) {
-  background:#ff8a24 !important;
-  color:#fff8ef !important;
-  box-shadow:0 0 0 2px #171020 !important;
+  background:#ff7a3d !important;
+  color:#20101f !important;
+  box-shadow:0 0 0 2px #20101f !important;
 }
 
-/* Navegação inferior — Halloween claro. Hover nunca fica preto/escuro.
-   O selecionado usa laranja claro no ícone e no texto. */
+/* ============================================================
+   NAVEGAÇÃO INFERIOR
+   ============================================================ */
 html[data-caixa-theme="halloween"] .tabbar {
-  background:linear-gradient(180deg,#fffaf5 0%,#f4e9f6 100%) !important;
-  color:#6d5876 !important;
-  border-top:1px solid rgba(122,56,199,.14) !important;
-  box-shadow:0 -10px 28px rgba(61,31,78,.13) !important;
+  background:#fff8ef !important;
+  color:#8a5f78 !important;
+  border-top:2px solid rgba(74,25,66,.14) !important;
+  box-shadow:0 -8px 0 rgba(74,25,66,.03) !important;
 }
 html[data-caixa-theme="halloween"] .tabbar::before {
-  background-image:linear-gradient(135deg,#fffaf5 25%,transparent 25.5%),linear-gradient(225deg,#fffaf5 25%,transparent 25.5%) !important;
-  filter:drop-shadow(0 -2px 3px rgba(61,31,78,.08)) !important;
+  background-image:linear-gradient(135deg,#fff8ef 25%,transparent 25.5%),linear-gradient(225deg,#fff8ef 25%,transparent 25.5%) !important;
 }
-html[data-caixa-theme="halloween"] .tabbar::after {
-  border-top-color:rgba(122,56,199,.14) !important;
-}
-html[data-caixa-theme="halloween"] .tab-btn {
-  color:#765f80 !important;
-  border-left-color:rgba(122,56,199,.08) !important;
-}
+html[data-caixa-theme="halloween"] .tabbar::after { border-top-color:rgba(74,25,66,.14) !important; }
+html[data-caixa-theme="halloween"] .tab-btn { color:#8a5f78 !important; }
 html[data-caixa-theme="halloween"] .tab-btn:hover {
-  background:linear-gradient(180deg,#fff1e2,#f7eaf7) !important;
-  color:#a74f24 !important;
-  border-color:rgba(255,138,36,.18) !important;
-  box-shadow:0 3px 10px rgba(122,56,199,.08) !important;
+  background:#fdeee0 !important;
+  color:#e2591a !important;
 }
 html[data-caixa-theme="halloween"] .tab-btn.is-active {
-  background:linear-gradient(145deg,#fff0d9,#ffe1bd) !important;
-  color:#e8781a !important;
-  border-color:rgba(255,138,36,.38) !important;
-  box-shadow:0 5px 14px rgba(255,138,36,.16),inset 0 1px 0 rgba(255,255,255,.9) !important;
+  background:#ffe2c4 !important;
+  color:#e2591a !important;
+  border-radius:12px !important;
+  box-shadow:2px 3px 0 rgba(226,89,26,.16) !important;
 }
-html[data-caixa-theme="halloween"] .tab-btn.is-active svg {
-  stroke:#e8781a !important;
-  color:#e8781a !important;
-}
+html[data-caixa-theme="halloween"] .tab-btn.is-active svg { stroke:#e2591a !important; color:#e2591a !important; }
 
-/* Navegação inferior — Halloween escuro. */
 html[data-theme="dark"][data-caixa-theme="halloween"] .tabbar {
-  background:linear-gradient(180deg,#1c1027 0%,#100a17 100%) !important;
-  color:#b9a7c4 !important;
-  border-top:1px solid rgba(112,224,255,.10) !important;
-  box-shadow:0 -12px 30px rgba(0,0,0,.42) !important;
+  background:#1c0c1f !important;
+  color:#c9aebb !important;
+  border-top:2px solid rgba(95,184,122,.16) !important;
 }
 html[data-theme="dark"][data-caixa-theme="halloween"] .tabbar::before {
-  background-image:linear-gradient(135deg,#1c1027 25%,transparent 25.5%),linear-gradient(225deg,#1c1027 25%,transparent 25.5%) !important;
-  filter:drop-shadow(0 -2px 3px rgba(0,0,0,.25)) !important;
+  background-image:linear-gradient(135deg,#1c0c1f 25%,transparent 25.5%),linear-gradient(225deg,#1c0c1f 25%,transparent 25.5%) !important;
 }
-html[data-theme="dark"][data-caixa-theme="halloween"] .tabbar::after {
-  border-top-color:rgba(112,224,255,.10) !important;
-}
-html[data-theme="dark"][data-caixa-theme="halloween"] .tab-btn {
-  color:#b9a7c4 !important;
-  border-left-color:rgba(112,224,255,.08) !important;
-}
+html[data-theme="dark"][data-caixa-theme="halloween"] .tabbar::after { border-top-color:rgba(95,184,122,.16) !important; }
+html[data-theme="dark"][data-caixa-theme="halloween"] .tab-btn { color:#c9aebb !important; }
 html[data-theme="dark"][data-caixa-theme="halloween"] .tab-btn:hover {
-  background:linear-gradient(180deg,#2b1938,#21132d) !important;
-  color:#ffbd73 !important;
-  border-color:rgba(255,138,36,.18) !important;
+  background:#2c1330 !important;
+  color:#ffb37a !important;
 }
 html[data-theme="dark"][data-caixa-theme="halloween"] .tab-btn.is-active {
-  background:linear-gradient(145deg,#382033,#281522) !important;
-  color:#ffab4f !important;
-  border-color:rgba(255,138,36,.46) !important;
-  box-shadow:0 6px 18px rgba(0,0,0,.32),inset 0 1px 0 rgba(255,255,255,.045),0 0 14px rgba(255,138,36,.07) !important;
+  background:#341536 !important;
+  color:#8adaa4 !important;
+  border-radius:12px !important;
+  box-shadow:2px 3px 0 rgba(0,0,0,.32) !important;
 }
-html[data-theme="dark"][data-caixa-theme="halloween"] .tab-btn.is-active svg {
-  stroke:#ffab4f !important;
-  color:#ffab4f !important;
-}
+html[data-theme="dark"][data-caixa-theme="halloween"] .tab-btn.is-active svg { stroke:#8adaa4 !important; color:#8adaa4 !important; }
 
+/* ============================================================
+   TEXTOS E CAMPOS (herdados de style.css, recoloridos aqui)
+   ============================================================ */
+html[data-theme="dark"][data-caixa-theme="halloween"] .item-nome,
+html[data-theme="dark"][data-caixa-theme="halloween"] .goal-title,
+html[data-theme="dark"][data-caixa-theme="halloween"] h1,
+html[data-theme="dark"][data-caixa-theme="halloween"] h2,
+html[data-theme="dark"][data-caixa-theme="halloween"] h3,
+html[data-theme="dark"][data-caixa-theme="halloween"] h4{ color:#fff3e0; }
+html[data-theme="dark"][data-caixa-theme="halloween"] .item-meta,
+html[data-theme="dark"][data-caixa-theme="halloween"] .item-data,
+html[data-theme="dark"][data-caixa-theme="halloween"] .goal-subtitle,
+html[data-theme="dark"][data-caixa-theme="halloween"] small{ color:#c9aebb; }
+html[data-theme="dark"][data-caixa-theme="halloween"] input,
+html[data-theme="dark"][data-caixa-theme="halloween"] select,
+html[data-theme="dark"][data-caixa-theme="halloween"] textarea{
+  background:#2c1330 !important;
+  color:#fff3e0 !important;
+  border:2px solid rgba(95,184,122,.22) !important;
+  color-scheme:dark;
+}

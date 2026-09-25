@@ -104,8 +104,8 @@
           animation:caixaSnowFloat 5.6s ease-in-out infinite;
         }
         html[data-caixa-theme="halloween"] .caixa-popup-season-float{
-          color:#24152f;
-          filter:drop-shadow(0 5px 9px rgba(65,25,90,.3));
+          color:#4a1942;
+          filter:drop-shadow(0 5px 9px rgba(74,25,66,.3));
           animation:caixaBatFloat 4.2s ease-in-out infinite;
         }
         .caixa-popup-season-float.caixa-popup-float-2{right:58px;top:auto;bottom:14px;font-size:17px;opacity:.45;animation-delay:-2.1s}
@@ -138,20 +138,20 @@
         html[data-caixa-theme="halloween"] .modal,
         html[data-caixa-theme="halloween"] .caixa-chat,
         html[data-caixa-theme="halloween"] .caixa-config-drawer{
-          border-color:rgba(122,56,199,.34) !important;
-          box-shadow:0 20px 52px rgba(35,13,51,.25),0 1px 0 rgba(255,255,255,.05) inset !important;
+          border:2px solid rgba(74,25,66,.5) !important;
+          box-shadow:6px 8px 0 rgba(74,25,66,.16),0 20px 52px rgba(35,13,51,.18) !important;
         }
         html[data-caixa-theme="halloween"] .modal-backdrop,
         html[data-caixa-theme="halloween"] .caixa-config-overlay{
-          background:rgba(23,8,34,.48) !important;
+          background:rgba(30,10,28,.52) !important;
           backdrop-filter:blur(10px);
         }
         html[data-caixa-theme="halloween"] .caixa-chat-header,
         html[data-caixa-theme="halloween"] .caixa-config-head{
-          background:linear-gradient(135deg,#261432,#171021) !important;
+          background:linear-gradient(135deg,#4a1942,#2c0f2a) !important;
         }
         html[data-caixa-theme="halloween"] .caixa-popup-season-float{
-          text-shadow:0 0 8px rgba(116,226,255,.32);
+          text-shadow:0 0 8px rgba(95,184,122,.35);
         }
 
         /* ============================================================
@@ -237,27 +237,27 @@
         html[data-caixa-theme="halloween"] .modal,
         html[data-caixa-theme="halloween"] .caixa-chat,
         html[data-caixa-theme="halloween"] .caixa-config-drawer{
-          --popup-ink:#30203b;
-          --popup-muted:#6f6079;
-          --popup-line:rgba(113,69,151,.23);
-          --popup-soft:#f1e7f7;
-          --popup-soft-2:#fff9fd;
-          --popup-accent:#7a38c7;
-          --popup-accent-strong:#5e249f;
+          --popup-ink:#3a1734;
+          --popup-muted:#8a6a7c;
+          --popup-line:rgba(74,25,66,.20);
+          --popup-soft:#fdeee0;
+          --popup-soft-2:#fff8ef;
+          --popup-accent:#e2591a;
+          --popup-accent-strong:#4a1942;
           --popup-accent-contrast:#ffffff;
           color:var(--popup-ink) !important;
         }
         html[data-theme="dark"][data-caixa-theme="halloween"] .modal,
         html[data-theme="dark"][data-caixa-theme="halloween"] .caixa-chat,
         html[data-theme="dark"][data-caixa-theme="halloween"] .caixa-config-drawer{
-          --popup-ink:#f7effb;
-          --popup-muted:#c6b7cf;
-          --popup-line:rgba(126,226,255,.2);
-          --popup-soft:#21152c;
-          --popup-soft-2:#17101f;
-          --popup-accent:#55dfff;
-          --popup-accent-strong:#ff8a24;
-          --popup-accent-contrast:#130a19;
+          --popup-ink:#fdf3ea;
+          --popup-muted:#c9aebb;
+          --popup-line:rgba(95,184,122,.22);
+          --popup-soft:#2c1330;
+          --popup-soft-2:#1c0c1f;
+          --popup-accent:#5fb87a;
+          --popup-accent-strong:#ff7a3d;
+          --popup-accent-contrast:#171021;
           color:var(--popup-ink) !important;
         }
         html[data-caixa-theme="halloween"] .modal h1,
@@ -269,7 +269,7 @@
         html[data-caixa-theme="halloween"] .caixa-config-drawer h1,
         html[data-caixa-theme="halloween"] .caixa-config-drawer h2,
         html[data-caixa-theme="halloween"] .caixa-config-drawer h3{
-          color:#4b2a62 !important;
+          color:#4a1942 !important;
         }
         html[data-theme="dark"][data-caixa-theme="halloween"] .modal h1,
         html[data-theme="dark"][data-caixa-theme="halloween"] .modal h2,
@@ -280,7 +280,7 @@
         html[data-theme="dark"][data-caixa-theme="halloween"] .caixa-config-drawer h1,
         html[data-theme="dark"][data-caixa-theme="halloween"] .caixa-config-drawer h2,
         html[data-theme="dark"][data-caixa-theme="halloween"] .caixa-config-drawer h3{
-          color:#f8f0fc !important;
+          color:#fdf3ea !important;
         }
         html[data-caixa-theme="halloween"] .modal p,
         html[data-caixa-theme="halloween"] .modal label,
@@ -288,7 +288,7 @@
         html[data-caixa-theme="halloween"] .caixa-chat label,
         html[data-caixa-theme="halloween"] .caixa-config-drawer p,
         html[data-caixa-theme="halloween"] .caixa-config-drawer label{
-          color:#6e6078 !important;
+          color:#8a5f78 !important;
         }
         html[data-theme="dark"][data-caixa-theme="halloween"] .modal p,
         html[data-theme="dark"][data-caixa-theme="halloween"] .modal label,
@@ -296,7 +296,7 @@
         html[data-theme="dark"][data-caixa-theme="halloween"] .caixa-chat label,
         html[data-theme="dark"][data-caixa-theme="halloween"] .caixa-config-drawer p,
         html[data-theme="dark"][data-caixa-theme="halloween"] .caixa-config-drawer label{
-          color:#c5b6ce !important;
+          color:#c9aebb !important;
         }
         html[data-caixa-theme="halloween"] .modal input,
         html[data-caixa-theme="halloween"] .modal select,
@@ -307,9 +307,9 @@
         html[data-caixa-theme="halloween"] .caixa-config-drawer input,
         html[data-caixa-theme="halloween"] .caixa-config-drawer select,
         html[data-caixa-theme="halloween"] .caixa-config-drawer textarea{
-          background:#fff9fd !important;
-          color:#33203f !important;
-          border-color:rgba(113,69,151,.24) !important;
+          background:#fff8ef !important;
+          color:#3a1734 !important;
+          border:2px solid rgba(74,25,66,.20) !important;
         }
         html[data-theme="dark"][data-caixa-theme="halloween"] .modal input,
         html[data-theme="dark"][data-caixa-theme="halloween"] .modal select,
@@ -320,49 +320,49 @@
         html[data-theme="dark"][data-caixa-theme="halloween"] .caixa-config-drawer input,
         html[data-theme="dark"][data-caixa-theme="halloween"] .caixa-config-drawer select,
         html[data-theme="dark"][data-caixa-theme="halloween"] .caixa-config-drawer textarea{
-          background:#24172f !important;
-          color:#f7effb !important;
-          border-color:rgba(126,226,255,.22) !important;
+          background:#2c1330 !important;
+          color:#fdf3ea !important;
+          border:2px solid rgba(95,184,122,.24) !important;
         }
         html[data-caixa-theme="halloween"] .modal input::placeholder,
         html[data-caixa-theme="halloween"] .caixa-chat input::placeholder,
         html[data-caixa-theme="halloween"] .caixa-config-drawer input::placeholder{
-          color:#8a7893 !important;opacity:1;
+          color:#b28ea0 !important;opacity:1;
         }
         html[data-theme="dark"][data-caixa-theme="halloween"] .modal input::placeholder,
         html[data-theme="dark"][data-caixa-theme="halloween"] .caixa-chat input::placeholder,
         html[data-theme="dark"][data-caixa-theme="halloween"] .caixa-config-drawer input::placeholder{
-          color:#a99ab2 !important;opacity:1;
+          color:#a983a1 !important;opacity:1;
         }
         html[data-caixa-theme="halloween"] .modal .btn-secondary,
         html[data-caixa-theme="halloween"] .caixa-chat .btn-secondary,
         html[data-caixa-theme="halloween"] .caixa-config-drawer .btn-secondary{
-          background:#eee2f5 !important;
-          color:#55366a !important;
-          border-color:rgba(113,69,151,.24) !important;
+          background:#fdeee0 !important;
+          color:#4a1942 !important;
+          border:2px solid rgba(74,25,66,.22) !important;
         }
         html[data-theme="dark"][data-caixa-theme="halloween"] .modal .btn-secondary,
         html[data-theme="dark"][data-caixa-theme="halloween"] .caixa-chat .btn-secondary,
         html[data-theme="dark"][data-caixa-theme="halloween"] .caixa-config-drawer .btn-secondary{
-          background:#2b1b37 !important;
-          color:#eadcf1 !important;
-          border-color:rgba(126,226,255,.2) !important;
+          background:#341536 !important;
+          color:#fbe6ee !important;
+          border:2px solid rgba(95,184,122,.26) !important;
         }
         html[data-caixa-theme="halloween"] .modal .btn-gold,
         html[data-caixa-theme="halloween"] .caixa-chat .btn-gold,
         html[data-caixa-theme="halloween"] .caixa-config-drawer .btn-gold{
-          background:linear-gradient(135deg,#7a38c7,#5e249f) !important;
+          background:linear-gradient(135deg,#ff7a3d,#e2591a) !important;
           color:#ffffff !important;
-          border-color:#5e249f !important;
-          box-shadow:0 7px 18px rgba(94,36,159,.22) !important;
+          border-color:#c4470f !important;
+          box-shadow:3px 4px 0 rgba(74,25,66,.22) !important;
         }
         html[data-theme="dark"][data-caixa-theme="halloween"] .modal .btn-gold,
         html[data-theme="dark"][data-caixa-theme="halloween"] .caixa-chat .btn-gold,
         html[data-theme="dark"][data-caixa-theme="halloween"] .caixa-config-drawer .btn-gold{
-          background:linear-gradient(135deg,#ff8a24,#d85a18) !important;
-          color:#fff8ef !important;
-          border-color:#d85a18 !important;
-          box-shadow:0 7px 18px rgba(255,138,36,.2) !important;
+          background:linear-gradient(135deg,#5fb87a,#2f8f57) !important;
+          color:#0e2015 !important;
+          border-color:#2f8f57 !important;
+          box-shadow:3px 4px 0 rgba(0,0,0,.35) !important;
         }
 
         /* Bordas e superfícies internas dos popups acompanham a paleta. */
@@ -375,14 +375,14 @@
         html[data-caixa-theme="halloween"] .modal .card,
         html[data-caixa-theme="halloween"] .caixa-chat .card,
         html[data-caixa-theme="halloween"] .caixa-config-drawer .card{
-          background:linear-gradient(180deg,#fffaff,#f2e8f7) !important;
-          border-color:rgba(113,69,151,.18) !important;
+          background:#fff8ef !important;
+          border:2px solid rgba(74,25,66,.18) !important;
         }
         html[data-theme="dark"][data-caixa-theme="halloween"] .modal .card,
         html[data-theme="dark"][data-caixa-theme="halloween"] .caixa-chat .card,
         html[data-theme="dark"][data-caixa-theme="halloween"] .caixa-config-drawer .card{
-          background:linear-gradient(180deg,#21142b,#170f20) !important;
-          border-color:rgba(126,226,255,.16) !important;
+          background:#26102a !important;
+          border:2px solid rgba(95,184,122,.20) !important;
         }
 
         /* Modal próprio para criação de categoria. */
@@ -428,14 +428,14 @@
         }
         html[data-caixa-theme="christmas"] .caixa-categoria-criacao-card::before{background:linear-gradient(90deg,#8fd8f7,#ffffff,#b9e9ff)}
         html[data-caixa-theme="halloween"] .caixa-categoria-criacao-card{
-          background:linear-gradient(180deg,#24142f,#160d1f);
-          color:#f7effb;border-color:rgba(112,226,255,.2);
-          box-shadow:0 28px 80px rgba(0,0,0,.42),0 1px 0 rgba(255,255,255,.04) inset;
+          background:#20101f;
+          color:#fdf3ea;border:2px solid rgba(95,184,122,.22);
+          box-shadow:6px 8px 0 rgba(0,0,0,.3),0 28px 80px rgba(0,0,0,.42);
         }
-        html[data-caixa-theme="halloween"] .caixa-categoria-criacao-card::before{background:linear-gradient(90deg,#ff8a24,#7a38c7,#55dfff)}
+        html[data-caixa-theme="halloween"] .caixa-categoria-criacao-card::before{background:repeating-linear-gradient(90deg,#ff7a3d 0 16px,#fdeee0 16px 32px)}
         html[data-caixa-theme="halloween"] .caixa-categoria-criacao-name,
-        html[data-caixa-theme="halloween"] .caixa-categoria-criacao-preview{background:#21142b;color:#f7effb;border-color:rgba(126,226,255,.18)}
-        html[data-caixa-theme="halloween"] .caixa-categoria-criacao-name:focus{border-color:#55dfff;box-shadow:0 0 0 4px rgba(85,223,255,.1)}
+        html[data-caixa-theme="halloween"] .caixa-categoria-criacao-preview{background:#2c1330;color:#fdf3ea;border-color:rgba(95,184,122,.22)}
+        html[data-caixa-theme="halloween"] .caixa-categoria-criacao-name:focus{border-color:#5fb87a;box-shadow:0 0 0 4px rgba(95,184,122,.16)}
       `;
       (document.head || document.documentElement).appendChild(style);
     }
@@ -9558,11 +9558,11 @@ function usuarioAtualEhAdmin(){
     if (!hero || hero.querySelector(".caixa-halloween-scenery")) return;
     const wrap = document.createElement("div"); wrap.className = "caixa-halloween-scenery"; wrap.setAttribute("aria-hidden", "true");
     const itens = [
-      { cls:"dead-tree", x:12, s:1.0 },
-      { cls:"pumpkin-static", x:25, s:.86 },
+      { cls:"ghost", x:14, y:10, s:.9 },
+      { cls:"pumpkin-static", x:27, s:.86 },
       { cls:"bat", x:45, y:8, s:.66 },
       { cls:"bat bat-two", x:63, y:17, s:.48 },
-      { cls:"bat bat-three", x:82, y:7, s:.42 },
+      { cls:"bat bat-three", x:80, y:6, s:.42 },
       { cls:"black-cat", x:91, s:.72 }
     ];
     itens.sort(() => Math.random() - .5);
@@ -9571,7 +9571,7 @@ function usuarioAtualEhAdmin(){
       el.style.left=`${item.x + (Math.random()*6-3)}%`;
       if(item.y!=null) el.style.top=`${item.y + Math.random()*7}px`; else el.style.bottom=`${2+Math.random()*2}px`;
       el.style.setProperty("--scene-scale", String(item.s+(Math.random()*.1-.05))); el.style.setProperty("--scene-delay", `${idx*-1.7}s`);
-      if(item.cls === "dead-tree") el.innerHTML=`🪾`;
+      if(item.cls === "ghost") el.innerHTML=`👻`;
       else if(item.cls === "pumpkin-static") el.innerHTML=`🎃`;
       else if(item.cls.includes("bat")) el.innerHTML=`🦇`;
       else el.innerHTML=`🐈‍⬛`;
@@ -9580,20 +9580,33 @@ function usuarioAtualEhAdmin(){
     hero.appendChild(wrap);
   }
   function gerarPerfilTerrenoHalloween(){
-    const largura=1000, altura=58, qtd=18, pontos=[];
-    for(let i=0;i<=qtd;i++){
-      const x=i/qtd*largura;
-      const onda=Math.sin((i/qtd)*Math.PI*2.7+.35)*4.8;
-      const onda2=Math.sin((i/qtd)*Math.PI*6.1+1.2)*1.7;
-      const variacao=(Math.random()-.5)*5.2;
-      const montinho=Math.random()<.22 ? 2+Math.random()*4 : 0;
-      pontos.push({x,y:Math.max(9,17+onda+onda2+variacao+montinho)});
+    // Em vez de uma colina, o Halloween agora usa um varal de bandeirinhas
+    // de festa (bunting) preso no topo do hero — abóbora, ameixa e verde-poção.
+    const largura=1000, altura=92;
+    const cores=["#ff7a3d","#4a1942","#5fb87a","#fdeee0","#e2591a","#6b2d5c"];
+    const n=13, margem=18;
+    const passo=(largura-margem*2)/(n-1);
+    const pontos=[];
+    for(let i=0;i<n;i++){
+      const x=margem+i*passo;
+      const y=9+Math.sin((i/(n-1))*Math.PI)*9;
+      pontos.push({x,y});
     }
-    const curva=(p0,p1,p2,p3)=>{const c1x=p1.x+(p2.x-p0.x)/6,c1y=p1.y+(p2.y-p0.y)/6,c2x=p2.x-(p3.x-p1.x)/6,c2y=p2.y-(p3.y-p1.y)/6;return `C ${c1x.toFixed(1)} ${c1y.toFixed(1)}, ${c2x.toFixed(1)} ${c2y.toFixed(1)}, ${p2.x.toFixed(1)} ${p2.y.toFixed(1)}`};
-    let path=`M 0 ${pontos[0].y.toFixed(1)}`;
-    for(let i=0;i<pontos.length-1;i++){const p0=pontos[Math.max(0,i-1)],p1=pontos[i],p2=pontos[i+1],p3=pontos[Math.min(pontos.length-1,i+2)];path+=` ${curva(p0,p1,p2,p3)}`}
-    path+=` L ${largura} ${altura} L 0 ${altura} Z`;
-    const svg=`<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 ${largura} ${altura}" preserveAspectRatio="none"><defs><linearGradient id="ground" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#684b48"/><stop offset=".34" stop-color="#4a3340"/><stop offset="1" stop-color="#21152b"/></linearGradient><linearGradient id="rim" x1="0" y1="0" x2="1" y2="0"><stop offset="0" stop-color="#8c5a43"/><stop offset=".5" stop-color="#73514f"/><stop offset="1" stop-color="#53366a"/></linearGradient></defs><path d="${path}" fill="url(#ground)"/><path d="${pontos.map((p,i)=>`${i?'L':'M'} ${p.x.toFixed(1)} ${(p.y+.5).toFixed(1)}`).join(' ')}" fill="none" stroke="url(#rim)" stroke-width="2.2" stroke-linecap="round" opacity=".72"/></svg>`;
+    let fio=`M ${pontos[0].x.toFixed(1)} ${pontos[0].y.toFixed(1)}`;
+    for(let i=1;i<pontos.length;i++){
+      const a=pontos[i-1], b=pontos[i];
+      fio+=` Q ${((a.x+b.x)/2).toFixed(1)} ${(Math.max(a.y,b.y)+7).toFixed(1)}, ${b.x.toFixed(1)} ${b.y.toFixed(1)}`;
+    }
+    let bandeiras="";
+    pontos.forEach((p,i)=>{
+      const cor=cores[i%cores.length];
+      const w=26+Math.random()*12;
+      const h=36+Math.random()*22;
+      const tilt=(Math.random()*10-5).toFixed(1);
+      bandeiras+=`<g transform="translate(${p.x.toFixed(1)} ${p.y.toFixed(1)}) rotate(${tilt})"><path d="M ${(-w/2).toFixed(1)} 0 L ${(w/2).toFixed(1)} 0 L 0 ${h.toFixed(1)} Z" fill="${cor}" opacity=".97"/></g>`;
+    });
+    const nos=pontos.map(p=>`<circle cx="${p.x.toFixed(1)}" cy="${p.y.toFixed(1)}" r="2.8" fill="#fdeee0"/>`).join("");
+    const svg=`<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 ${largura} ${altura}" preserveAspectRatio="none"><path d="${fio}" fill="none" stroke="#3a1734" stroke-width="2.6" stroke-linecap="round" opacity=".5"/>${bandeiras}${nos}</svg>`;
     return `url("data:image/svg+xml;base64,${btoa(svg)}")`;
   }
 
