@@ -158,6 +158,15 @@
         html[data-theme="dark"][data-caixa-theme="halloween"] .caixa-config-head *{
           color:#fff8ef !important;
         }
+        /* Halloween claro: o título da aba lateral precisa permanecer claro e legível. */
+        html[data-caixa-theme="halloween"] .caixa-config-head #caixaConfigTitle,
+        html[data-caixa-theme="halloween"] .caixa-config-head h1#caixaConfigTitle,
+        html[data-caixa-theme="halloween"] .caixa-config-head h2#caixaConfigTitle,
+        html[data-caixa-theme="halloween"] .caixa-config-head h3#caixaConfigTitle{
+          color:#fff8ef !important;
+          -webkit-text-fill-color:#fff8ef !important;
+          text-shadow:0 1px 2px rgba(20,6,18,.28) !important;
+        }
         html[data-caixa-theme="halloween"] .caixa-popup-season-float{
           text-shadow:0 0 8px rgba(95,184,122,.35);
         }
