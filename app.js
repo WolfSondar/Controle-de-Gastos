@@ -9671,16 +9671,29 @@ function usuarioAtualEhAdmin(){
   function removerTextoBauMagicoHalloween(){
     try {
       const remover = () => {
-        document.querySelectorAll("*").forEach(el => {
-          if (el.children.length === 0 && (el.textContent || "").trim().toLowerCase() === "baú mágico") {
-            el.remove();
+        const alvo = /baú\s+mágico/gi;
+        const walker = document.createTreeWalker(document.body, NodeFilter.SHOW_TEXT);
+        const nodes = [];
+        let node;
+        while ((node = walker.nextNode())) nodes.push(node);
+        nodes.forEach(textNode => {
+          const texto = textNode.nodeValue || "";
+          if (alvo.test(texto)) {
+            const restante = texto.replace(alvo, "").replace(/\s{2,}/g, " ").trim();
+            if (restante) textNode.nodeValue = restante;
+            else textNode.parentNode?.removeChild(textNode);
           }
+          alvo.lastIndex = 0;
+        });
+        document.querySelectorAll('[aria-label*="Baú Mágico" i],[title*="Baú Mágico" i]').forEach(el => {
+          el.removeAttribute('aria-label');
+          el.removeAttribute('title');
         });
       };
       remover();
       if (!window.__caixaBauMagicoObserver) {
         const obs = new MutationObserver(() => remover());
-        obs.observe(document.body, { childList: true, subtree: true });
+        obs.observe(document.body, { childList: true, subtree: true, characterData: true });
         window.__caixaBauMagicoObserver = obs;
       }
     } catch (_) {}
