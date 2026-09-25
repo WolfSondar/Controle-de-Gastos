@@ -9562,8 +9562,7 @@ function usuarioAtualEhAdmin(){
       { cls:"pumpkin-static", x:27, s:.86 },
       { cls:"bat", x:45, y:8, s:.66 },
       { cls:"bat bat-two", x:63, y:17, s:.48 },
-      { cls:"bat bat-three", x:80, y:6, s:.42 },
-      { cls:"black-cat", x:91, s:.72 }
+      { cls:"bat bat-three", x:80, y:6, s:.42 }
     ];
     itens.sort(() => Math.random() - .5);
     itens.forEach((item, idx) => {
@@ -9573,8 +9572,7 @@ function usuarioAtualEhAdmin(){
       el.style.setProperty("--scene-scale", String(item.s+(Math.random()*.1-.05))); el.style.setProperty("--scene-delay", `${idx*-1.7}s`);
       if(item.cls === "ghost") el.innerHTML=`👻`;
       else if(item.cls === "pumpkin-static") el.innerHTML=`🎃`;
-      else if(item.cls.includes("bat")) el.innerHTML=`🦇`;
-      else el.innerHTML=`🐈‍⬛`;
+      else el.innerHTML=`🦇`;
       wrap.appendChild(el);
     });
     hero.appendChild(wrap);
@@ -9610,25 +9608,53 @@ function usuarioAtualEhAdmin(){
     return `url("data:image/svg+xml;base64,${btoa(svg)}")`;
   }
 
+  function gerarPerfilChaoHalloween(){
+    // O chão volta a existir embaixo, para abóbora/morcegos/fantasma "pousarem",
+    // agora na paleta nova (ameixa + abóbora + verde-poção no lugar de marrom/roxo).
+    const largura=1000, altura=58, qtd=18, pontos=[];
+    for(let i=0;i<=qtd;i++){
+      const x=i/qtd*largura;
+      const onda=Math.sin((i/qtd)*Math.PI*2.7+.35)*4.8;
+      const onda2=Math.sin((i/qtd)*Math.PI*6.1+1.2)*1.7;
+      const variacao=(Math.random()-.5)*5.2;
+      const montinho=Math.random()<.22 ? 2+Math.random()*4 : 0;
+      pontos.push({x,y:Math.max(9,17+onda+onda2+variacao+montinho)});
+    }
+    const curva=(p0,p1,p2,p3)=>{const c1x=p1.x+(p2.x-p0.x)/6,c1y=p1.y+(p2.y-p0.y)/6,c2x=p2.x-(p3.x-p1.x)/6,c2y=p2.y-(p3.y-p1.y)/6;return `C ${c1x.toFixed(1)} ${c1y.toFixed(1)}, ${c2x.toFixed(1)} ${c2y.toFixed(1)}, ${p2.x.toFixed(1)} ${p2.y.toFixed(1)}`};
+    let path=`M 0 ${pontos[0].y.toFixed(1)}`;
+    for(let i=0;i<pontos.length-1;i++){const p0=pontos[Math.max(0,i-1)],p1=pontos[i],p2=pontos[i+1],p3=pontos[Math.min(pontos.length-1,i+2)];path+=` ${curva(p0,p1,p2,p3)}`}
+    path+=` L ${largura} ${altura} L 0 ${altura} Z`;
+    const svg=`<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 ${largura} ${altura}" preserveAspectRatio="none"><defs><linearGradient id="chao" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#6b3a52"/><stop offset=".4" stop-color="#4a1942"/><stop offset="1" stop-color="#20101f"/></linearGradient><linearGradient id="borda" x1="0" y1="0" x2="1" y2="0"><stop offset="0" stop-color="#ff7a3d"/><stop offset=".5" stop-color="#ffb648"/><stop offset="1" stop-color="#5fb87a"/></linearGradient></defs><path d="${path}" fill="url(#chao)"/><path d="${pontos.map((p,i)=>`${i?'L':'M'} ${p.x.toFixed(1)} ${(p.y+.5).toFixed(1)}`).join(' ')}" fill="none" stroke="url(#borda)" stroke-width="2.2" stroke-linecap="round" opacity=".8"/></svg>`;
+    return `url("data:image/svg+xml;base64,${btoa(svg)}")`;
+  }
+
   function aplicarTerrenoHalloween(){
     if(document.documentElement.dataset.caixaTheme!=="halloween") return;
     const hero=document.querySelector(".hero");
     if(!hero) return;
-    let terreno=hero.querySelector(".caixa-halloween-terrain");
-    if(!terreno){
-      terreno=document.createElement("div");
-      terreno.className="caixa-halloween-terrain";
-      terreno.setAttribute("aria-hidden","true");
-      hero.appendChild(terreno);
+    let varal=hero.querySelector(".caixa-halloween-terrain");
+    if(!varal){
+      varal=document.createElement("div");
+      varal.className="caixa-halloween-terrain";
+      varal.setAttribute("aria-hidden","true");
+      hero.appendChild(varal);
     }
-    terreno.style.backgroundImage=gerarPerfilTerrenoHalloween();
+    varal.style.backgroundImage=gerarPerfilTerrenoHalloween();
+    let chao=hero.querySelector(".caixa-halloween-chao");
+    if(!chao){
+      chao=document.createElement("div");
+      chao.className="caixa-halloween-chao";
+      chao.setAttribute("aria-hidden","true");
+      hero.appendChild(chao);
+    }
+    chao.style.backgroundImage=gerarPerfilChaoHalloween();
     hero.dataset.halloweenTerrain="1";
   }
   function atualizarCamadaTemaHalloween(){
     const ativo=document.documentElement.dataset.caixaTheme==="halloween"; garantirCssTema("halloween");
     if(ativo){prepararCenarioHalloween();aplicarTerrenoHalloween()}
     document.querySelectorAll(".caixa-halloween-scenery").forEach(el=>el.setAttribute("aria-hidden",ativo?"false":"true"));
-    if(!ativo){document.querySelectorAll(".caixa-halloween-scenery").forEach(el=>el.remove());document.querySelectorAll("[data-slime-profile]").forEach(el=>{el.style.removeProperty("--slime-image");delete el.dataset.slimeProfile}); document.querySelectorAll(".caixa-halloween-terrain").forEach(el=>el.remove()); document.querySelectorAll("[data-halloween-terrain]").forEach(el=>{el.style.removeProperty("--halloween-terrain-image");delete el.dataset.halloweenTerrain})}
+    if(!ativo){document.querySelectorAll(".caixa-halloween-scenery").forEach(el=>el.remove());document.querySelectorAll("[data-slime-profile]").forEach(el=>{el.style.removeProperty("--slime-image");delete el.dataset.slimeProfile}); document.querySelectorAll(".caixa-halloween-terrain").forEach(el=>el.remove()); document.querySelectorAll(".caixa-halloween-chao").forEach(el=>el.remove()); document.querySelectorAll("[data-halloween-terrain]").forEach(el=>{el.style.removeProperty("--halloween-terrain-image");delete el.dataset.halloweenTerrain})}
   }
   function atualizarCamadasTemas(){atualizarCamadaTemaNatal();atualizarCamadaTemaHalloween()}
   window.CAIXA_ATUALIZAR_CAMADAS_TEMAS = atualizarCamadasTemas;

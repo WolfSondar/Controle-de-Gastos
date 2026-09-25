@@ -120,6 +120,29 @@ html[data-caixa-theme="halloween"] .caixa-halloween-terrain{
   html[data-caixa-theme="halloween"] .caixa-halloween-terrain{height:48px}
 }
 
+/* O chão, embaixo, onde abóbora/morcegos/fantasma "pousam". */
+html[data-caixa-theme="halloween"] .caixa-halloween-chao{
+  position:absolute;
+  left:0;right:0;bottom:0;
+  height:56px;
+  background-repeat:no-repeat;
+  background-size:100% 100%;
+  background-position:bottom center;
+  pointer-events:none;
+  z-index:11;
+}
+@media(max-width:640px){
+  html[data-caixa-theme="halloween"] .caixa-halloween-chao{height:44px}
+}
+
+/* O botão de expandir/recolher precisa permanecer acima do varal e do chão,
+   e a composição do cenário deixa um vão livre no meio para não disputar
+   espaço visual com ele (ver posições x em app.js). */
+html[data-caixa-theme="halloween"] .hero-stats-toggle.collapse-toggle{
+  position:relative;
+  z-index:20 !important;
+}
+
 html[data-caixa-theme="halloween"] .btn-gold {
   background:linear-gradient(135deg,#ff8a52,#ff7a3d);
   color:#2c0f2a;
@@ -283,7 +306,7 @@ html[data-caixa-theme="halloween"] .caixa-config-kicker{color:#e2591a;letter-spa
 /* ============================================================
    CENÁRIO — fantasma, abóbora, morcegos e gato preto flutuando
    ============================================================ */
-.caixa-halloween-scenery{position:absolute;left:0;right:0;bottom:2px;height:70px;z-index:15;pointer-events:none;overflow:visible}
+.caixa-halloween-scenery{position:absolute;left:0;right:0;bottom:2px;height:78px;z-index:15;pointer-events:none;overflow:visible}
 html[data-caixa-theme="halloween"] .halloween-scenery-item{
   position:absolute;display:block;
   transform:translateY(2px) scale(var(--scene-scale,1));
@@ -295,7 +318,7 @@ html[data-caixa-theme="halloween"] .halloween-scenery-item{
   opacity:.98;
 }
 html[data-caixa-theme="halloween"] .halloween-scenery-item.pumpkin-static{
-  font-size:38px;bottom:4px;
+  font-size:38px;bottom:13px;
   animation:halloweenPumpkinFloat 5.8s ease-in-out var(--scene-delay,0s) infinite;
 }
 html[data-caixa-theme="halloween"] .halloween-scenery-item.ghost{
@@ -309,20 +332,14 @@ html[data-caixa-theme="halloween"] .halloween-scenery-item.bat{
 }
 html[data-caixa-theme="halloween"] .halloween-scenery-item.bat-two{font-size:22px;animation-duration:6.2s}
 html[data-caixa-theme="halloween"] .halloween-scenery-item.bat-three{font-size:18px;animation-duration:5.8s}
-html[data-caixa-theme="halloween"] .halloween-scenery-item.black-cat{
-  font-size:32px;bottom:3px;
-  animation:halloweenCatTailFlick 4.6s ease-in-out var(--scene-delay,0s) infinite;
-}
 @keyframes halloweenPumpkinFloat{0%,100%{transform:translate3d(0,0,0) rotate(-1deg) scale(var(--scene-scale,1))}50%{transform:translate3d(0,-3px,0) rotate(1deg) scale(var(--scene-scale,1))}}
 @keyframes halloweenGhostDrift{0%,100%{transform:translate3d(0,0,0) scale(var(--scene-scale,1));opacity:.86}50%{transform:translate3d(4px,-10px,0) scale(var(--scene-scale,1));opacity:1}}
 @keyframes halloweenBatFloat{0%,100%{transform:translate3d(0,0,0) rotate(-3deg) scale(var(--scene-scale,1))}50%{transform:translate3d(5px,-8px,0) rotate(3deg) scale(var(--scene-scale,1))}}
-@keyframes halloweenCatTailFlick{0%,100%{transform:translate3d(0,0,0) rotate(-1deg) scale(var(--scene-scale,1))}50%{transform:translate3d(0,-2px,0) rotate(1.5deg) scale(var(--scene-scale,1))}}
 
 @media(max-width:640px){
-  html[data-caixa-theme="halloween"] .caixa-halloween-scenery{height:58px}
-  html[data-caixa-theme="halloween"] .halloween-scenery-item.pumpkin-static{font-size:30px}
+  html[data-caixa-theme="halloween"] .caixa-halloween-scenery{height:64px}
+  html[data-caixa-theme="halloween"] .halloween-scenery-item.pumpkin-static{font-size:30px;bottom:10px}
   html[data-caixa-theme="halloween"] .halloween-scenery-item.ghost{font-size:26px}
-  html[data-caixa-theme="halloween"] .halloween-scenery-item.black-cat{font-size:25px}
 }
 
 /* ============================================================
@@ -449,4 +466,136 @@ html[data-theme="dark"][data-caixa-theme="halloween"] textarea{
   color:#fff3e0 !important;
   border:2px solid rgba(95,184,122,.22) !important;
   color-scheme:dark;
+}
+
+/* ============================================================
+   LATERAL DE CONFIGURAÇÕES — correção de contraste
+   O style.css base tem um CSS antigo (herdado do tema roxo/ciano) que
+   força o título "Configurações" para uma cor quase branca sobre fundo
+   claro, deixando o texto quase invisível. As regras abaixo têm a mesma
+   especificidade + !important e vêm depois no documento, então vencem
+   a cascata e corrigem o contraste com a paleta nova em todo o painel.
+   ============================================================ */
+html[data-caixa-theme="halloween"] .caixa-config-drawer{
+  color:#3a1734 !important;
+}
+html[data-caixa-theme="halloween"] .caixa-config-head{
+  background:#fff8ef !important;
+  color:#3a1734 !important;
+  border-color:rgba(74,25,66,.18) !important;
+  box-shadow:inset 0 -2px 0 rgba(74,25,66,.10) !important;
+}
+html[data-caixa-theme="halloween"] .caixa-config-head h2,
+html[data-caixa-theme="halloween"] .caixa-config-head.caixa-config-inner::before{
+  color:#3a1734 !important;
+  text-shadow:none !important;
+}
+html[data-caixa-theme="halloween"] .caixa-config-kicker{
+  color:#e2591a !important;
+  opacity:1 !important;
+  font-weight:900 !important;
+  text-shadow:none !important;
+}
+html[data-caixa-theme="halloween"] .caixa-config-section-head h3,
+html[data-caixa-theme="halloween"] .caixa-theme-option strong{
+  color:#3a1734 !important;
+}
+html[data-caixa-theme="halloween"] .caixa-config-intro,
+html[data-caixa-theme="halloween"] .caixa-config-section-head p,
+html[data-caixa-theme="halloween"] .caixa-theme-option small,
+html[data-caixa-theme="halloween"] .caixa-config-card small{
+  color:#8a5f78 !important;
+  opacity:1 !important;
+}
+html[data-caixa-theme="halloween"] .caixa-config-back,
+html[data-caixa-theme="halloween"] .caixa-config-close{
+  color:#4a1942 !important;
+  border:2px solid rgba(74,25,66,.20) !important;
+  background:#fdeee0 !important;
+}
+html[data-caixa-theme="halloween"] .caixa-config-back:hover,
+html[data-caixa-theme="halloween"] .caixa-config-close:hover{
+  background:#ffe2c4 !important;
+  color:#e2591a !important;
+}
+html[data-caixa-theme="halloween"] .caixa-config-card,
+html[data-caixa-theme="halloween"] .caixa-theme-option,
+html[data-caixa-theme="halloween"] .caixa-config-row{
+  background:#fff8ef !important;
+  border:2px solid rgba(74,25,66,.18) !important;
+}
+html[data-caixa-theme="halloween"] .caixa-config-card-icon{
+  background:#fdeee0 !important;
+  color:#4a1942 !important;
+}
+html[data-caixa-theme="halloween"] .caixa-theme-option.is-active{
+  background:#fff3e4 !important;
+  border-color:#ff7a3d !important;
+  box-shadow:2px 3px 0 rgba(255,122,61,.18) !important;
+}
+html[data-caixa-theme="halloween"] .caixa-theme-option.is-active .caixa-theme-check{
+  background:#ff7a3d !important;
+  border-color:#c4470f !important;
+  color:#fff !important;
+}
+
+/* Mesma correção no escuro, para manter a paleta nova consistente. */
+html[data-theme="dark"][data-caixa-theme="halloween"] .caixa-config-drawer{
+  color:#fdf3ea !important;
+}
+html[data-theme="dark"][data-caixa-theme="halloween"] .caixa-config-head{
+  background:#20101f !important;
+  color:#fdf3ea !important;
+  border-color:rgba(95,184,122,.20) !important;
+}
+html[data-theme="dark"][data-caixa-theme="halloween"] .caixa-config-head h2,
+html[data-theme="dark"][data-caixa-theme="halloween"] .caixa-config-head.caixa-config-inner::before{
+  color:#fdf3ea !important;
+  text-shadow:none !important;
+}
+html[data-theme="dark"][data-caixa-theme="halloween"] .caixa-config-kicker{
+  color:#ff9b6b !important;
+  opacity:1 !important;
+  font-weight:900 !important;
+}
+html[data-theme="dark"][data-caixa-theme="halloween"] .caixa-config-section-head h3,
+html[data-theme="dark"][data-caixa-theme="halloween"] .caixa-theme-option strong{
+  color:#fdf3ea !important;
+}
+html[data-theme="dark"][data-caixa-theme="halloween"] .caixa-config-intro,
+html[data-theme="dark"][data-caixa-theme="halloween"] .caixa-config-section-head p,
+html[data-theme="dark"][data-caixa-theme="halloween"] .caixa-theme-option small,
+html[data-theme="dark"][data-caixa-theme="halloween"] .caixa-config-card small{
+  color:#c9aebb !important;
+  opacity:1 !important;
+}
+html[data-theme="dark"][data-caixa-theme="halloween"] .caixa-config-back,
+html[data-theme="dark"][data-caixa-theme="halloween"] .caixa-config-close{
+  color:#fdf3ea !important;
+  border:2px solid rgba(95,184,122,.24) !important;
+  background:#2c1330 !important;
+}
+html[data-theme="dark"][data-caixa-theme="halloween"] .caixa-config-back:hover,
+html[data-theme="dark"][data-caixa-theme="halloween"] .caixa-config-close:hover{
+  background:#341536 !important;
+  color:#ffb37a !important;
+}
+html[data-theme="dark"][data-caixa-theme="halloween"] .caixa-config-card,
+html[data-theme="dark"][data-caixa-theme="halloween"] .caixa-theme-option,
+html[data-theme="dark"][data-caixa-theme="halloween"] .caixa-config-row{
+  background:#26102a !important;
+  border:2px solid rgba(95,184,122,.22) !important;
+}
+html[data-theme="dark"][data-caixa-theme="halloween"] .caixa-config-card-icon{
+  background:#341536 !important;
+  color:#8adaa4 !important;
+}
+html[data-theme="dark"][data-caixa-theme="halloween"] .caixa-theme-option.is-active{
+  background:#2c1330 !important;
+  border-color:#ff7a3d !important;
+}
+html[data-theme="dark"][data-caixa-theme="halloween"] .caixa-theme-option.is-active .caixa-theme-check{
+  background:#5fb87a !important;
+  border-color:#2f8f57 !important;
+  color:#0e2015 !important;
 }
