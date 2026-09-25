@@ -149,6 +149,14 @@
         html[data-caixa-theme="halloween"] .caixa-chat-header,
         html[data-caixa-theme="halloween"] .caixa-config-head{
           background:linear-gradient(135deg,#4a1942,#2c0f2a) !important;
+          color:#fff8ef !important;
+        }
+        html[data-caixa-theme="halloween"] .caixa-config-head *{
+          color:#fff8ef !important;
+        }
+        html[data-theme="dark"][data-caixa-theme="halloween"] .caixa-config-head,
+        html[data-theme="dark"][data-caixa-theme="halloween"] .caixa-config-head *{
+          color:#fff8ef !important;
         }
         html[data-caixa-theme="halloween"] .caixa-popup-season-float{
           text-shadow:0 0 8px rgba(95,184,122,.35);
