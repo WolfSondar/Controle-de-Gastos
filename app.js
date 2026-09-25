@@ -2530,7 +2530,9 @@ async function carregarDados() {
     // (sem ícone de erro em vermelho, que é pra falha de verdade).
     setSyncState(ehErroDeRede(err) || !navigator.onLine ? "offline" : "error");
     if (!cache) {
-      if (err?.apiEndpointMissing || Number(err?.status) === 404) {
+      if (String(err?.code || "").includes("permission-denied")) {
+        showToast("O Firestore bloqueou o acesso. Publique o firestore.rules atualizado no Firebase.");
+      } else if (err?.apiEndpointMissing || Number(err?.status) === 404) {
         showToast("O Firebase recusou a leitura. Confira a configuração do Firebase e tente novamente.");
       } else {
         showToast("Não consegui carregar os dados do Firebase agora. Tente novamente.");
@@ -2619,7 +2621,10 @@ async function salvarBloco(action, payload) {
 
 let flushEmAndamento = false;
 
-function ehErroDeRede(err) { return err instanceof TypeError; }
+function ehErroDeRede(err) {
+  if (String(err?.code || "").includes("permission-denied")) return false;
+  return err instanceof TypeError || String(err?.code || "").startsWith("unavailable");
+}
 
 async function enfileirarOffline(pessoa, action, payload) {
   const chave = `${pessoa}:${action}`;

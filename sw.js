@@ -6,7 +6,7 @@
 
 // IMPORTANTE: altere esta versão sempre que publicar uma nova versão do app.
 // A ativação remove TODOS os caches "caixa-*" de versões anteriores.
-const CACHE_VERSION = "caixa-v60";
+const CACHE_VERSION = "caixa-v61";
 const CACHE_SHELL = `${CACHE_VERSION}-shell`;
 const CACHE_RUNTIME = `${CACHE_VERSION}-runtime`;
 
@@ -104,7 +104,7 @@ function ehAppShell(url) {
 function responderRedePrimeiro(req, fallbackRequest = req) {
   return fetch(req)
     .then((res) => {
-      if (res && res.ok) {
+      if (res && res.status === 200) {
         // Atualiza o cache da versão ATUAL somente depois de receber a rede.
         caches.open(CACHE_SHELL).then((cache) => {
           cache.put(fallbackRequest, res.clone()).catch(() => {});
@@ -209,7 +209,7 @@ self.addEventListener("fetch", (event) => {
 
           return fetch(req)
             .then((res) => {
-              if (res && res.ok) cache.put(req, res.clone());
+              if (res && res.status === 200) cache.put(req, res.clone());
               return res;
             })
             .catch(() => cacheado);
@@ -225,7 +225,7 @@ self.addEventListener("fetch", (event) => {
     event.respondWith(
       fetch(req)
         .then((res) => {
-          if (res && res.ok) {
+          if (res && res.status === 200) {
             caches.open(CACHE_SHELL).then((cache) => {
               cache.put("./index.html", res.clone()).catch(() => {});
             });
@@ -254,7 +254,7 @@ self.addEventListener("fetch", (event) => {
       cache.match(req).then((cacheado) => {
         const buscaNaRede = fetch(req)
           .then((res) => {
-            if (res && res.ok) cache.put(req, res.clone());
+            if (res && res.status === 200) cache.put(req, res.clone());
             return res;
           })
           .catch(() => cacheado);

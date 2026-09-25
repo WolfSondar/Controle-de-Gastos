@@ -77,7 +77,25 @@ if (!cfg.apiKey || cfg.apiKey.includes("COLE_")) {
   // Juntos, configurações, histórico e backups. A conta do Gabriel mantém
   // sua própria autenticação, mas acessa o mesmo conjunto de dados.
   const DATA_OWNER_UID = ADMIN_UID;
+  // O conteúdo financeiro é compartilhado e fica no espaço do Davi.
+  // Gabriel autentica com a própria conta, mas as regras do Firestore precisam
+  // permitir explicitamente que o UID do Gabriel leia/escreva este espaço.
   function dataOwnerUid() { return DATA_OWNER_UID; }
+
+  function erroFirestoreLegivel(err) {
+    const code = String(err?.code || "");
+    if (code.includes("permission-denied")) {
+      const e = new Error("O Firestore bloqueou o acesso aos dados compartilhados. Publique o firestore.rules atualizado no projeto Firebase.");
+      e.code = "firestore/permission-denied";
+      e.originalError = err;
+      return e;
+    }
+    if (code.includes("failed-precondition")) {
+      const e = new Error("O Firestore não conseguiu abrir o banco local. Feche outras abas do Caixa e tente novamente.");
+      e.code = code; e.originalError = err; return e;
+    }
+    return err;
+  }
   let currentUser = null;
   let authResolve;
   let authReject;
@@ -491,10 +509,16 @@ if (!cfg.apiKey || cfg.apiKey.includes("COLE_")) {
     return respostaJson({ok:true});
   }
   async function get({pessoa}){
-    await window.CAIXA_FIREBASE_READY;if(!currentUser)return respostaJson({ok:false,error:"Faça login para usar o Caixa."},401);const uid=dataOwnerUid();
-    if(pessoa==="historico")return respostaJson(await lerHistorico(uid));
-    if(pessoa==="ambos"){const [a,b]=await Promise.all([lerPerfil(uid,"davi"),lerPerfil(uid,"gabriel")]);return respostaJson(mergeAmbos(a,b));}
-    const d=await lerPerfil(uid,pessoa);return respostaJson({ok:true,...d});
+    await window.CAIXA_FIREBASE_READY;
+    if(!currentUser)return respostaJson({ok:false,error:"Faça login para usar o Caixa."},401);
+    const uid=dataOwnerUid();
+    try {
+      if(pessoa==="historico")return respostaJson(await lerHistorico(uid));
+      if(pessoa==="ambos"){const [a,b]=await Promise.all([lerPerfil(uid,"davi"),lerPerfil(uid,"gabriel")]);return respostaJson(mergeAmbos(a,b));}
+      const d=await lerPerfil(uid,pessoa);return respostaJson({ok:true,...d});
+    } catch (err) {
+      throw erroFirestoreLegivel(err);
+    }
   }
   function isAdmin(){
     return !!currentUser && currentUser.uid === ADMIN_UID;
@@ -801,8 +825,13 @@ if (!cfg.apiKey || cfg.apiKey.includes("COLE_")) {
       const btn = el.querySelector("#caixaFirebaseGoogle");
       const erro = el.querySelector("#caixaFirebaseLoginErro");
       btn.disabled = true; btn.classList.add("caixa-firebase-login-google-loading"); btn.textContent = "Entrando…"; erro.textContent = "";
-      try { await loginGoogle(); location.reload(); }
-      catch (e) { erro.textContent = e?.code === "auth/user-not-allowed" ? "Esta conta não tem autorização para acessar o Caixa." : "Não foi possível entrar agora. Tente novamente."; btn.disabled = false; btn.classList.remove("caixa-firebase-login-google-loading"); btn.innerHTML = `<svg class="caixa-google-icon" viewBox="0 0 24 24" aria-hidden="true"><path fill="#4285F4" d="M21.35 12.27c0-.73-.07-1.43-.2-2.1H12v3.98h5.24a4.48 4.48 0 0 1-1.94 2.94v2.45h3.14c1.84-1.7 2.91-4.2 2.91-7.27Z"/><path fill="#34A853" d="M12 21.7c2.63 0 4.84-.87 6.45-2.36l-3.14-2.45c-.87.58-1.98.92-3.31.92-2.54 0-4.69-1.72-5.46-4.03H3.3v2.53A9.74 9.74 0 0 0 12 21.7Z"/><path fill="#FBBC05" d="M6.54 13.78A5.86 5.86 0 0 1 6.23 12c0-.62.11-1.22.31-1.78V7.69H3.3A9.73 9.73 0 0 0 2.26 12c0 1.57.38 3.05 1.04 4.31l3.24-2.53Z"/><path fill="#EA4335" d="M12 6.19c1.43 0 2.72.49 3.73 1.45l2.8-2.8C16.84 3.27 14.63 2.3 12 2.3a9.74 9.74 0 0 0-8.7 5.39l3.24 2.53C7.31 7.91 9.46 6.19 12 6.19Z"/></svg><span>Continuar com Google</span>`; }
+      try {
+        const resultado = await loginGoogle();
+        // signInWithRedirect não retorna uma credencial: o navegador sai da página
+        // e volta por getRedirectResult/onAuthStateChanged. Não recarregamos aqui.
+        if (resultado?.user) location.reload();
+      }
+      catch (e) { erro.textContent = e?.code === "auth/user-not-allowed" ? "Esta conta não tem autorização para acessar o Caixa." : "Não foi possível entrar agora. Tente novamente."; btn.disabled = false; btn.classList.remove("caixa-firebase-login-google-loading"); btn.innerHTML = `<svg class="caixa-google-icon" viewBox="0 0 24 24" aria-hidden="true"><path fill="#4285F4" d="M21.35 12.27c0-.73-.07-1.43-.2-2.1H12v3.98h5.24a4.48 4.48 0 0 1-1.94 2.94v2.45h3.14c1.84-1.7 2.91-4.2 2.91-7.27Z"/><path fill="#34A853" d="M12 21.7c2.63 0 4.84-.87 6.45-2.36l-3.14-2.45c-.87.58-1.98.92-3.31.92-2.54 0-4.69-1.72-5.46-4.03H3.3v2.53A9.74 9.74 0 0 0 12 21.7Z"/><path fill="#FBBC05" d="M6.54 13.78A5.86 5.86 0 0 1 6.23 12c0-.62.11-1.22.31-1.78V7.69H3.3A9.73 9.73 0 0 0 2.26 12c0 1.57.38 3.05 1.04 4.31l3.24-2.53Z"/><path fill="#EA4335" d="M12 6.19c1.43 0 2.72.49 3.73 1.45l2.8-2.8C16.84 3.27 14.63 2.3 12 2.3a9.74 9.74 0 0 0-8.7 5.39l3.24 2.53C7.31 7.91 9.46 7.91 12 6.19Z"/></svg><span>Continuar com Google</span>`; }
     });
   }
   // Finaliza o fluxo de login por redirecionamento (principalmente útil no mobile).
