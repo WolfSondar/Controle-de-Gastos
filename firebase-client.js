@@ -70,6 +70,12 @@ if (!cfg.apiKey || cfg.apiKey.includes("COLE_")) {
 
   const provider = new GoogleAuthProvider();
   const ADMIN_UID = "rMURmjHzuVdfaQyeikEAAYdAJxi1";
+  // Os dados do Caixa são compartilhados entre as duas contas autorizadas.
+  // A conta do Davi é o proprietário canônico dos perfis Davi, Gabriel,
+  // Juntos, configurações, histórico e backups. A conta do Gabriel mantém
+  // sua própria autenticação, mas acessa o mesmo conjunto de dados.
+  const DATA_OWNER_UID = ADMIN_UID;
+  function dataOwnerUid() { return DATA_OWNER_UID; }
   let currentUser = null;
   let authResolve;
   let authReject;
@@ -441,7 +447,7 @@ if (!cfg.apiKey || cfg.apiKey.includes("COLE_")) {
   async function request({method="POST",body}){
     await window.CAIXA_FIREBASE_READY;
     if(!currentUser) return respostaJson({ok:false,error:"Faça login para usar o Caixa."},401);
-    const uid=currentUser.uid;
+    const uid=dataOwnerUid();
     if(method==="GET") return get({pessoa:body?.pessoa||"davi"});
     const action=body?.action;
     if(action==="fecharMes") return respostaJson(await fecharMes(uid,body));
@@ -483,7 +489,7 @@ if (!cfg.apiKey || cfg.apiKey.includes("COLE_")) {
     return respostaJson({ok:true});
   }
   async function get({pessoa}){
-    await window.CAIXA_FIREBASE_READY;if(!currentUser)return respostaJson({ok:false,error:"Faça login para usar o Caixa."},401);const uid=currentUser.uid;
+    await window.CAIXA_FIREBASE_READY;if(!currentUser)return respostaJson({ok:false,error:"Faça login para usar o Caixa."},401);const uid=dataOwnerUid();
     if(pessoa==="historico")return respostaJson(await lerHistorico(uid));
     if(pessoa==="ambos"){const [a,b]=await Promise.all([lerPerfil(uid,"davi"),lerPerfil(uid,"gabriel")]);return respostaJson(mergeAmbos(a,b));}
     const d=await lerPerfil(uid,pessoa);return respostaJson({ok:true,...d});
@@ -549,7 +555,7 @@ if (!cfg.apiKey || cfg.apiKey.includes("COLE_")) {
   async function verificarMigracaoFirebase() {
     await window.CAIXA_FIREBASE_READY;
     if (!currentUser) throw new Error("Faça login antes de verificar a migração.");
-    const uid = currentUser.uid;
+    const uid = dataOwnerUid();
     const [dSnap, gSnap, hSnap, estadoSnap] = await Promise.all([
       getDoc(perfilRef(uid, "davi")),
       getDoc(perfilRef(uid, "gabriel")),
@@ -582,7 +588,7 @@ if (!cfg.apiKey || cfg.apiKey.includes("COLE_")) {
   async function criarBackupFirebase() {
     await window.CAIXA_FIREBASE_READY;
     if (!currentUser) throw new Error("Faça login antes de criar um backup.");
-    const uid = currentUser.uid;
+    const uid = dataOwnerUid();
     const [dSnap, gSnap, hSnap, cSnap] = await Promise.all([
       getDoc(perfilRef(uid, "davi")),
       getDoc(perfilRef(uid, "gabriel")),
@@ -616,7 +622,7 @@ if (!cfg.apiKey || cfg.apiKey.includes("COLE_")) {
   async function listarBackupsFirebase() {
     await window.CAIXA_FIREBASE_READY;
     if (!currentUser) throw new Error("Faça login antes de listar os backups.");
-    const uid = currentUser.uid;
+    const uid = dataOwnerUid();
     const snap = await getDocs(backupsCollectionRef(uid));
     const backups = snap.docs.map(s => {
       const d = s.data() || {};
@@ -636,7 +642,7 @@ if (!cfg.apiKey || cfg.apiKey.includes("COLE_")) {
   async function restaurarBackupFirebase(id) {
     await window.CAIXA_FIREBASE_READY;
     if (!currentUser) throw new Error("Faça login antes de restaurar um backup.");
-    const uid = currentUser.uid;
+    const uid = dataOwnerUid();
     const backupId = String(id || "").trim();
     if (!backupId) throw new Error("Informe o ID do backup que deseja restaurar.");
 
@@ -672,7 +678,7 @@ if (!cfg.apiKey || cfg.apiKey.includes("COLE_")) {
   async function importarDados({fonte,historico,resumoMigracao}) {
     await window.CAIXA_FIREBASE_READY;
     if(!currentUser) throw new Error("Faça login antes de importar os dados.");
-    const uid=currentUser.uid;
+    const uid=dataOwnerUid();
     const d=fonte?.davi||{}, g=fonte?.gabriel||{};
     const config={
       categorias:d.categorias||g.categorias||[],

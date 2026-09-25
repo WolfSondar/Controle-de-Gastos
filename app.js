@@ -2173,13 +2173,8 @@ function caixaAtualizarIconeTema() {
       christmas: "IMG/Icon-Christmas.png",
       halloween: "IMG/Icon-Halloween.png"
     };
-    const manifests = {
-      default: "manifest.json",
-      christmas: "manifest-christmas.json",
-      halloween: "manifest-halloween.json"
-    };
+    const manifest = "manifest.json";
     const icon = mapa[tema] || mapa.default;
-    const manifest = manifests[tema] || manifests.default;
     document.querySelectorAll('link[data-caixa-theme-icon="favicon"]').forEach(link => {
       link.href = new URL(icon, document.baseURI).href + `?theme=${encodeURIComponent(tema)}`;
     });
@@ -2188,7 +2183,7 @@ function caixaAtualizarIconeTema() {
     });
     const manifestLink = document.querySelector('link[rel="manifest"]');
     if (manifestLink) {
-      const atual = new URL(manifest, document.baseURI).href;
+      const atual = new URL(manifest, document.baseURI).href + `?theme=${encodeURIComponent(tema)}&v=60`;
       if (manifestLink.href !== atual) manifestLink.href = atual;
     }
   } catch (_) {}
@@ -2217,14 +2212,14 @@ try { window.CAIXA_ATUALIZAR_ICONE_TEMA?.(); } catch (_) {}
 
 function caixaGarantirPlayerMusica() {
   if (caixaMusicaAudio) {
-    caixaMusicaAudio.volume = 0.055;
+    caixaMusicaAudio.volume = 0.025;
     return caixaMusicaAudio;
   }
   const audio = document.createElement("audio");
   audio.id = "caixaTemaMusicPlayer";
   audio.preload = "auto";
   audio.loop = true;
-  audio.volume = 0.055;
+  audio.volume = 0.025;
   audio.setAttribute("aria-hidden", "true");
   audio.style.display = "none";
   document.body.appendChild(audio);
@@ -2277,7 +2272,7 @@ async function caixaIniciarMusicaTema(forcarTroca = false) {
   if (mesmaFaixa) {
     if (!audio.paused && !audio.ended) return;
     try {
-      audio.volume = 0.055;
+      audio.volume = 0.025;
       await audio.play();
     } catch (_) {
       caixaArmarInteracaoMusica();
@@ -2286,7 +2281,7 @@ async function caixaIniciarMusicaTema(forcarTroca = false) {
   }
 
   const estavaTocando = !audio.paused && !audio.ended;
-  const volumeAlvo = 0.055;
+  const volumeAlvo = 0.025;
   ++caixaMusicaTransicaoId;
 
   // Se já existe uma faixa tocando, faz fade-out antes de trocar o arquivo.

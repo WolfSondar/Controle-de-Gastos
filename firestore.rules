@@ -14,8 +14,16 @@ service cloud.firestore {
       allow read, write: if false;
     }
 
+    // Davi é o proprietário canônico dos dados compartilhados do Caixa.
+    // As duas contas autorizadas podem usar o mesmo conjunto de perfis,
+    // histórico, configurações e backups. O botão/área de Admin continua
+    // protegido no aplicativo pelo UID de administrador.
     match /users/{uid}/{document=**} {
-      allow read, write: if usuarioAutorizado() && request.auth.uid == uid;
+      allow read, write: if usuarioAutorizado()
+        && (
+          request.auth.uid == uid
+          || uid == "rMURmjHzuVdfaQyeikEAAYdAJxi1"
+        );
     }
   }
 }
