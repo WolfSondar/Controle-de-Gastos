@@ -9642,7 +9642,13 @@ function usuarioAtualEhAdmin(){
       chao.setAttribute("aria-hidden","true");
       hero.appendChild(chao);
     }
-    chao.style.backgroundImage=gerarPerfilChaoHalloween();
+    // O chão é gerado apenas na primeira montagem. O MutationObserver do app
+    // chama este controlador quando novos elementos aparecem (inclusive após
+    // cliques), então regenerá-lo aqui faria o relevo mudar a cada interação.
+    if(!chao.dataset.halloweenGround){
+      chao.style.backgroundImage=gerarPerfilChaoHalloween();
+      chao.dataset.halloweenGround="1";
+    }
     hero.dataset.halloweenTerrain="1";
   }
   function atualizarCamadaTemaHalloween(){
