@@ -2173,8 +2173,13 @@ function caixaAtualizarIconeTema() {
       christmas: "IMG/Icon-Christmas.png",
       halloween: "IMG/Icon-Halloween.png"
     };
-    const manifest = "manifest.json";
+    const manifests = {
+      default: "manifest.json",
+      christmas: "manifest-christmas.json",
+      halloween: "manifest-halloween.json"
+    };
     const icon = mapa[tema] || mapa.default;
+    const manifest = manifests[tema] || manifests.default;
     document.querySelectorAll('link[data-caixa-theme-icon="favicon"]').forEach(link => {
       link.href = new URL(icon, document.baseURI).href + `?theme=${encodeURIComponent(tema)}`;
     });
@@ -2183,7 +2188,7 @@ function caixaAtualizarIconeTema() {
     });
     const manifestLink = document.querySelector('link[rel="manifest"]');
     if (manifestLink) {
-      const atual = new URL(manifest, document.baseURI).href + `?theme=${encodeURIComponent(tema)}&v=60`;
+      const atual = new URL(manifest, document.baseURI).href;
       if (manifestLink.href !== atual) manifestLink.href = atual;
     }
   } catch (_) {}

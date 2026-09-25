@@ -9,6 +9,8 @@ import {
   onAuthStateChanged,
   GoogleAuthProvider,
   signInWithPopup,
+  signInWithRedirect,
+  getRedirectResult,
   signOut,
 } from "https://www.gstatic.com/firebasejs/12.15.0/firebase-auth.js";
 import {
@@ -497,15 +499,37 @@ if (!cfg.apiKey || cfg.apiKey.includes("COLE_")) {
   function isAdmin(){
     return !!currentUser && currentUser.uid === ADMIN_UID;
   }
-  async function loginGoogle(){
-    const cred = await signInWithPopup(auth, provider);
-    if (!USUARIOS_AUTORIZADOS.has(cred.user.uid)) {
-      await signOut(auth);
+  async function validarUsuarioAutorizado(user){
+    if (!user || !USUARIOS_AUTORIZADOS.has(user.uid)) {
+      try { await signOut(auth); } catch (_) {}
       const err = new Error("USUARIO_NAO_AUTORIZADO");
       err.code = "auth/user-not-allowed";
       throw err;
     }
-    return cred;
+    return user;
+  }
+
+  async function loginGoogle(){
+    try {
+      const cred = await signInWithPopup(auth, provider);
+      await validarUsuarioAutorizado(cred.user);
+      return cred;
+    } catch (e) {
+      // No celular, alguns navegadores bloqueiam/limitam o popup do Google.
+      // Nesses casos, usa o fluxo por redirecionamento, que volta para o
+      // próprio Caixa depois da autenticação.
+      const fallback = new Set([
+        "auth/popup-blocked",
+        "auth/popup-cancelled-by-user",
+        "auth/operation-not-supported-in-this-environment",
+        "auth/web-storage-unsupported"
+      ]);
+      if (fallback.has(e?.code)) {
+        await signInWithRedirect(auth, provider);
+        return null;
+      }
+      throw e;
+    }
   }
   async function testarFirestore() {
     await window.CAIXA_FIREBASE_READY;
@@ -781,6 +805,21 @@ if (!cfg.apiKey || cfg.apiKey.includes("COLE_")) {
       catch (e) { erro.textContent = e?.code === "auth/user-not-allowed" ? "Esta conta não tem autorização para acessar o Caixa." : "Não foi possível entrar agora. Tente novamente."; btn.disabled = false; btn.classList.remove("caixa-firebase-login-google-loading"); btn.innerHTML = `<svg class="caixa-google-icon" viewBox="0 0 24 24" aria-hidden="true"><path fill="#4285F4" d="M21.35 12.27c0-.73-.07-1.43-.2-2.1H12v3.98h5.24a4.48 4.48 0 0 1-1.94 2.94v2.45h3.14c1.84-1.7 2.91-4.2 2.91-7.27Z"/><path fill="#34A853" d="M12 21.7c2.63 0 4.84-.87 6.45-2.36l-3.14-2.45c-.87.58-1.98.92-3.31.92-2.54 0-4.69-1.72-5.46-4.03H3.3v2.53A9.74 9.74 0 0 0 12 21.7Z"/><path fill="#FBBC05" d="M6.54 13.78A5.86 5.86 0 0 1 6.23 12c0-.62.11-1.22.31-1.78V7.69H3.3A9.73 9.73 0 0 0 2.26 12c0 1.57.38 3.05 1.04 4.31l3.24-2.53Z"/><path fill="#EA4335" d="M12 6.19c1.43 0 2.72.49 3.73 1.45l2.8-2.8C16.84 3.27 14.63 2.3 12 2.3a9.74 9.74 0 0 0-8.7 5.39l3.24 2.53C7.31 7.91 9.46 6.19 12 6.19Z"/></svg><span>Continuar com Google</span>`; }
     });
   }
+  // Finaliza o fluxo de login por redirecionamento (principalmente útil no mobile).
+  getRedirectResult(auth).then(async result => {
+    if (result?.user) {
+      try {
+        await validarUsuarioAutorizado(result.user);
+      } catch (e) {
+        montarLogin();
+        const erro = document.getElementById("caixaFirebaseLoginErro");
+        if (erro) erro.textContent = e?.code === "auth/user-not-allowed"
+          ? "Esta conta não tem autorização para acessar o Caixa."
+          : "Não foi possível concluir o login.";
+      }
+    }
+  }).catch(() => {});
+
   onAuthStateChanged(auth, async user=>{
     if (user && !USUARIOS_AUTORIZADOS.has(user.uid)) {
       currentUser = null;

@@ -11,19 +11,19 @@
   "lang": "pt-BR",
   "icons": [
     {
-      "src": "IMG/Icon.jpg",
+      "src": "IMG/Icon.jpg?v=61",
       "sizes": "192x192",
       "type": "image/jpeg",
       "purpose": "any"
     },
     {
-      "src": "IMG/Icon.jpg",
+      "src": "IMG/Icon.jpg?v=61",
       "sizes": "512x512",
       "type": "image/jpeg",
       "purpose": "any"
     },
     {
-      "src": "IMG/Icon.jpg",
+      "src": "IMG/Icon.jpg?v=61",
       "sizes": "180x180",
       "type": "image/jpeg",
       "purpose": "maskable"

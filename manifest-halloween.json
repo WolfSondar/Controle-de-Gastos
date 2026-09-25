@@ -11,8 +11,18 @@
   "theme_color": "#12091a",
   "lang": "pt-BR",
   "icons": [
-    {"src":"IMG/Icon-Halloween-192.png","sizes":"192x192","type":"image/png","purpose":"any"},
-    {"src":"IMG/Icon-Halloween.png","sizes":"512x512","type":"image/png","purpose":"any maskable"}
+    {
+      "src": "IMG/Icon-Halloween-192.png?v=61",
+      "sizes": "192x192",
+      "type": "image/png",
+      "purpose": "any"
+    },
+    {
+      "src": "IMG/Icon-Halloween.png?v=61",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "any maskable"
+    }
   ],
   "shortcuts": []
 }
