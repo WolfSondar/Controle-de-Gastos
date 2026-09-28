@@ -420,12 +420,6 @@ function aplicarMascaraMoedaEmTodos() {
   }
 }
 
-function on(id, evento, handler) {
-  const el = document.getElementById(id);
-  if (!el) return;
-  el.addEventListener(evento, handler);
-}
-
 on("formGanhos", "submit", (e) => {
   e.preventDefault();
   if (isAmbos()) return;

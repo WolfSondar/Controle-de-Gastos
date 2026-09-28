@@ -467,7 +467,7 @@ function renderSplitSkeleton() {
   if (legend) legend.innerHTML = [0, 1, 2].map(() => `<div class="split-legend-item"><span class="skeleton" style="width:100%;height:14px;">.</span></div>`).join("");
 }
 
-let suprimirEntradaNoProximoRenderAll = false;
+var suprimirEntradaNoProximoRenderAll = false;
 
 function colecaoMudou(antes, depois) {
   try { return JSON.stringify(antes || []) !== JSON.stringify(depois || []); }
@@ -719,15 +719,6 @@ function restaurarPaginaCarrossel(wrapId, dotsId, indice) {
   if (dotsEl) marcarDotAtivo(wrap, dotsEl);
 }
 
-const PALETA_CATEGORIAS = [
-  "#b9862f", "#3c6e4f", "#a8482e", "#5c8aa6", "#8a6bb5",
-  "#c99a3f", "#4d9e8a", "#c46a8f", "#7a9e4d", "#a67a4d",
-  "#d96a53", "#6c8c77", "#b59b52", "#5b778c", "#9678a3", 
-  "#80705a", "#a15a4b", "#4a7866", "#c2a36b", "#6a5c78", 
-  "#8b7e66", "#588f82", "#b5725c", "#7d8c85", "#6e7580",
-  "#4f5d8a", "#9e5a3f", "#5a8a5e", "#8a4f7a", "#c9885c",
-  "#d35400", "#34495e", "#4b6584", "#eb3b5a", "#20bf6b"
-];
 
 // Formata a % de uma categoria pro legend. Sem isso, uma categoria com
 // gasto real mas fatia pequena (ex: 0,3% do total) aparecia como "0%"
