@@ -827,8 +827,9 @@
         if (tema === "christmas") aplicarNeveProcedural(node);
         // Halloween não usa mais slime nos cards; o cenário/terreno é reaplicado pelo
         // controlador do tema quando necessário.
-        if (tema === "halloween") window.CAIXA_ATUALIZAR_CAMADAS_TEMAS?.();
-    window.CAIXA_ATUALIZAR_DECORACAO_POPUPS?.();
+        // Halloween não deve redesenhar a interface a cada mutação do DOM.
+        // Esse observer recebe as próprias mutações causadas por renderVisaoGeral(),
+        // o que criava um ciclo infinito e travava a aplicação.
       });
     }
   });
