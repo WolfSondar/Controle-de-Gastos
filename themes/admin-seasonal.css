@@ -167,3 +167,49 @@ html[data-theme="dark"] .caixa-admin-seasonal-fields input[type="date"]{
   .caixa-admin-seasonal-shell{padding:13px !important;border-radius:16px !important;}
   .caixa-admin-seasonal-fields{grid-template-columns:1fr;}
 }
+
+
+/* Migrado de app.js — painel administrativo sazonal */
+.caixa-admin-seasonal-root{
+        width:100%;box-sizing:border-box;display:flex;flex-direction:column;gap:12px;
+      }
+      .caixa-admin-seasonal-force-wrap{
+        display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:12px;width:100%;
+      }
+      .caixa-admin-seasonal-card{
+        width:100%;box-sizing:border-box;margin:0;padding:16px;
+        border:1px solid rgba(60,110,79,.18);border-radius:16px;
+        background:rgba(255,255,255,.42);box-shadow:0 8px 22px rgba(22,51,44,.05);
+      }
+      html[data-theme="dark"] .caixa-admin-seasonal-card{
+        border-color:rgba(111,187,140,.18);background:rgba(255,255,255,.035);
+      }
+      .caixa-admin-seasonal-head{display:flex;align-items:center;gap:11px;margin-bottom:13px}
+      .caixa-admin-seasonal-emoji{font-size:26px;line-height:1;flex:0 0 auto}
+      .caixa-admin-seasonal-title{font-size:14px;font-weight:800;line-height:1.2}
+      .caixa-admin-seasonal-sub{font-size:10px;line-height:1.4;opacity:.58;margin-top:3px}
+      .caixa-admin-seasonal-force{
+        display:flex;align-items:flex-start;gap:10px;cursor:pointer;
+        padding-top:12px;border-top:1px solid rgba(60,110,79,.10);
+      }
+      html[data-theme="dark"] .caixa-admin-seasonal-force{border-top-color:rgba(111,187,140,.12)}
+      .caixa-admin-seasonal-force input{
+        width:18px !important;height:18px !important;min-width:18px !important;
+        margin:1px 0 0;accent-color:#3f9c72;cursor:pointer;
+      }
+      .caixa-admin-seasonal-force-text{display:flex;flex-direction:column;gap:2px}
+      .caixa-admin-seasonal-force-title{font-size:12px;font-weight:800}
+      .caixa-admin-seasonal-force-sub{font-size:10px;line-height:1.35;opacity:.56}
+      /* A configuração de calendário é fixa no app.js, portanto qualquer
+         campo legado vindo do HTML antigo deve desaparecer do Admin. */
+      #temaNatalInicio,#temaNatalFim,#temaHalloweenInicio,#temaHalloweenFim,
+      #temaNatalPermanente,#temaHalloweenPermanente,
+      #btnSalvarAdminTemas,#btnSalvarAdminHalloween{display:none !important}
+      /* O título Recebidos/Pagos nunca pode ficar acima da barra de abas.
+         A barra continua sendo a camada de navegação superior em todos os temas. */
+      .tabbar{position:fixed;z-index:1200!important;}
+      .status-list-title-row{position:relative!important;z-index:1!important;}
+      .status-list-title{position:relative;z-index:1;}
+      @media(max-width:700px){
+        .caixa-admin-seasonal-force-wrap{grid-template-columns:1fr}
+      }
