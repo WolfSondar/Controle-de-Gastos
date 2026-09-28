@@ -1270,3 +1270,463 @@ html[data-theme="light"][data-caixa-theme="halloween"] .fechamento-mes-caixinha-
   background:linear-gradient(145deg,#fffdf9,#fff0e1) !important;
   border-color:#dfc5b5 !important;
 }
+
+/* ============================================================
+   HALLOWEEN REWORK 2026 — atmosfera sofisticada
+   Mais profundidade e pequenos detalhes; sem excesso decorativo.
+   ============================================================ */
+html[data-caixa-theme="halloween"] body::before {
+  content:"";
+  position:fixed;
+  inset:0;
+  pointer-events:none;
+  z-index:0;
+  opacity:.45;
+  background-image:
+    radial-gradient(circle at 18% 24%, rgba(255,122,61,.14) 0 1px, transparent 2px),
+    radial-gradient(circle at 72% 12%, rgba(95,184,122,.12) 0 1px, transparent 2px),
+    radial-gradient(circle at 84% 68%, rgba(74,25,66,.10) 0 1px, transparent 2px);
+  background-size:150px 150px, 190px 190px, 220px 220px;
+}
+html[data-theme="dark"][data-caixa-theme="halloween"] body::before { opacity:.7; }
+
+html[data-caixa-theme="halloween"] .hero::after {
+  content:"";
+  position:absolute;
+  width:118px;height:118px;
+  right:28px;top:24px;
+  border-radius:50%;
+  background:radial-gradient(circle at 38% 34%,#fff4d6 0 3%,#ffd89a 42%,#e9a95e 68%,rgba(233,169,94,0) 70%);
+  box-shadow:0 0 42px rgba(255,194,116,.18);
+  opacity:.8;
+  z-index:1;
+  pointer-events:none;
+}
+html[data-theme="dark"][data-caixa-theme="halloween"] .hero::after { opacity:.92; }
+html[data-theme="light"][data-caixa-theme="halloween"] .hero::after {
+  opacity:.72;
+  box-shadow:0 0 38px rgba(255,173,92,.16);
+}
+
+/* Névoa baixa: dá profundidade ao terreno sem competir com os dados. */
+html[data-caixa-theme="halloween"] .hero .caixa-halloween-chao::after {
+  content:"";
+  position:absolute;
+  left:-5%; right:-5%; bottom:8px;
+  height:28px;
+  background:radial-gradient(ellipse at 50% 100%, rgba(255,247,235,.16), transparent 68%);
+  filter:blur(5px);
+}
+html[data-theme="light"][data-caixa-theme="halloween"] .hero .caixa-halloween-chao::after {
+  background:radial-gradient(ellipse at 50% 100%, rgba(255,255,255,.46), transparent 68%);
+}
+
+/* Hero: luz interna e vinheta, deixando o cenário mais cinematográfico. */
+html[data-caixa-theme="halloween"] .hero {
+  box-shadow:4px 7px 0 rgba(74,25,66,.10), inset 0 1px 0 rgba(255,255,255,.08), inset 0 -30px 70px rgba(20,5,18,.14) !important;
+}
+html[data-theme="light"][data-caixa-theme="halloween"] .hero {
+  box-shadow:4px 7px 0 rgba(74,25,66,.09), inset 0 1px 0 rgba(255,255,255,.42), inset 0 -24px 60px rgba(74,25,66,.08) !important;
+}
+
+/* Pequena textura de papel/poeira sobre superfícies, quase imperceptível. */
+html[data-caixa-theme="halloween"] .card,
+html[data-caixa-theme="halloween"] .goal-card,
+html[data-caixa-theme="halloween"] .item-list-row .swipe-content {
+  background-image:radial-gradient(rgba(74,25,66,.055) .7px, transparent .8px);
+  background-size:9px 9px;
+}
+html[data-theme="dark"][data-caixa-theme="halloween"] .card,
+html[data-theme="dark"][data-caixa-theme="halloween"] .goal-card,
+html[data-theme="dark"][data-caixa-theme="halloween"] .item-list-row .swipe-content {
+  background-image:radial-gradient(rgba(255,255,255,.035) .7px, transparent .8px);
+}
+
+/* Cards do resumo: mais limpos, com uma única assinatura temática. */
+html[data-caixa-theme="halloween"] .hero-stat-ganhos,
+html[data-caixa-theme="halloween"] .hero-stats > .hero-stat:nth-child(3),
+html[data-caixa-theme="halloween"] .hero-stats > .hero-stat:nth-child(4) {
+  box-shadow:inset 0 1px 0 rgba(255,255,255,.10), 0 8px 18px rgba(38,10,35,.10) !important;
+}
+html[data-theme="dark"][data-caixa-theme="halloween"] .hero-stat-ganhos,
+html[data-theme="dark"][data-caixa-theme="halloween"] .hero-stats > .hero-stat:nth-child(3),
+html[data-theme="dark"][data-caixa-theme="halloween"] .hero-stats > .hero-stat:nth-child(4) {
+  background:rgba(20,7,19,.72) !important;
+  box-shadow:inset 0 1px 0 rgba(255,255,255,.07), 0 10px 22px rgba(0,0,0,.24) !important;
+}
+
+/* Ícones de estado recebem um halo mínimo em vez de mais ornamentos. */
+html[data-caixa-theme="halloween"] .hero-stat-valor {
+  text-shadow:0 1px 12px rgba(255,122,61,.12);
+}
+html[data-theme="dark"][data-caixa-theme="halloween"] .hero-stat-valor {
+  text-shadow:0 2px 14px rgba(255,122,61,.16);
+}
+
+/* ============================================================
+   HALLOWEEN v7 — REFINOS FINAIS DO HERO + CERIMÔNIA
+   ============================================================ */
+
+/* Pessoas: seletor mais elegante, com pequenas marcas de identidade. */
+html[data-caixa-theme="halloween"] .person-switch {
+  position:relative;
+  gap:5px;
+  padding:4px;
+  border:1px solid rgba(255,255,255,.16) !important;
+  border-radius:16px !important;
+  background:rgba(20,8,24,.22) !important;
+  box-shadow:inset 0 1px 0 rgba(255,255,255,.08), 0 8px 20px rgba(0,0,0,.10);
+  backdrop-filter:blur(10px);
+}
+html[data-caixa-theme="halloween"] .person-btn {
+  position:relative;
+  display:inline-flex !important;
+  align-items:center;
+  justify-content:center;
+  gap:7px;
+  min-height:35px;
+  border-radius:12px !important;
+  color:rgba(255,245,235,.72) !important;
+  transition:transform .18s ease, background .18s ease, color .18s ease, box-shadow .18s ease;
+}
+html[data-caixa-theme="halloween"] .person-btn::before {
+  content:"";
+  width:19px;
+  height:19px;
+  display:grid;
+  place-items:center;
+  border-radius:50%;
+  font:800 9px/1 Inter,sans-serif;
+  color:currentColor;
+  background:rgba(255,255,255,.09);
+  border:1px solid rgba(255,255,255,.10);
+}
+html[data-caixa-theme="halloween"] .person-btn[data-pessoa="davi"]::before { content:"D"; }
+html[data-caixa-theme="halloween"] .person-btn[data-pessoa="gabriel"]::before { content:"G"; }
+html[data-caixa-theme="halloween"] .person-btn[data-pessoa="ambos"]::before { content:"D+G"; font-size:7px; }
+html[data-caixa-theme="halloween"] .person-btn.is-active {
+  background:linear-gradient(135deg,#8d4fca,#6531a5) !important;
+  color:#fff !important;
+  box-shadow:0 7px 18px rgba(86,38,128,.28), inset 0 1px 0 rgba(255,255,255,.18);
+}
+html[data-caixa-theme="halloween"] .person-btn.is-active::before {
+  background:rgba(255,255,255,.16);
+  border-color:rgba(255,255,255,.22);
+}
+html[data-theme="light"][data-caixa-theme="halloween"] .person-switch {
+  border-color:rgba(73,32,63,.14) !important;
+  background:rgba(73,32,63,.055) !important;
+  box-shadow:inset 0 1px 0 rgba(255,255,255,.75), 0 8px 20px rgba(73,32,63,.07);
+}
+html[data-theme="light"][data-caixa-theme="halloween"] .person-btn { color:#765f72 !important; }
+html[data-theme="light"][data-caixa-theme="halloween"] .person-btn::before {
+  background:rgba(73,32,63,.055);
+  border-color:rgba(73,32,63,.09);
+}
+html[data-theme="light"][data-caixa-theme="halloween"] .person-btn.is-active {
+  background:linear-gradient(135deg,#7d3e69,#5d2853) !important;
+  color:#fff9f4 !important;
+  box-shadow:0 7px 18px rgba(73,32,63,.20), inset 0 1px 0 rgba(255,255,255,.20);
+}
+
+/* Guardado recebe o mesmo acabamento de destaque dos outros cards. */
+html[data-caixa-theme="halloween"] .hero-stats > .hero-stat:nth-child(2) {
+  position:relative;
+  overflow:hidden;
+  border-radius:17px !important;
+  padding:15px 14px 14px !important;
+  background:rgba(255,250,244,.085) !important;
+  border:1px solid rgba(255,255,255,.15) !important;
+  box-shadow:inset 0 1px 0 rgba(255,255,255,.10), 0 9px 20px rgba(0,0,0,.10) !important;
+}
+html[data-caixa-theme="halloween"] .hero-stats > .hero-stat:nth-child(2)::before {
+  content:"";
+  position:absolute;
+  left:0; right:0; top:0;
+  height:4px;
+  background:linear-gradient(90deg,#ffc46e,#e7a14d);
+}
+html[data-caixa-theme="halloween"] .hero-stats > .hero-stat:nth-child(2)::after {
+  content:"";
+  position:absolute;
+  width:82px; height:82px;
+  right:-25px; bottom:-34px;
+  border-radius:50%;
+  background:rgba(255,190,101,.13);
+  filter:blur(3px);
+  pointer-events:none;
+}
+html[data-theme="dark"][data-caixa-theme="halloween"] .hero-stats > .hero-stat:nth-child(2) {
+  background:rgba(24,10,24,.62) !important;
+  border-color:rgba(255,255,255,.12) !important;
+}
+html[data-theme="light"][data-caixa-theme="halloween"] .hero-stats > .hero-stat:nth-child(2) {
+  background:rgba(255,250,244,.105) !important;
+  border-color:rgba(255,231,213,.22) !important;
+}
+
+/* Cerimônia: as classes da revelação vivem no default.css, portanto precisam
+   de uma camada sazonal explícita para não herdarem o texto claro do padrão. */
+html[data-theme="light"][data-caixa-theme="halloween"] .fechamento-mes-suspense-card {
+  border-color:#e6cdbd !important;
+  background:radial-gradient(circle at 50% 42%,rgba(232,93,28,.10),transparent 35%),linear-gradient(145deg,#fffaf5,#fff2e7) !important;
+  box-shadow:inset 0 1px 0 #fff,0 18px 45px rgba(73,32,63,.12) !important;
+}
+html[data-theme="light"][data-caixa-theme="halloween"] .fechamento-mes-suspense-card::before {
+  border-color:rgba(216,91,28,.12) !important;
+  box-shadow:0 0 0 28px rgba(216,91,28,.035),0 0 0 56px rgba(73,32,63,.025) !important;
+}
+html[data-theme="light"][data-caixa-theme="halloween"] .fechamento-mes-suspense-orbita {
+  border-color:#efbb82 !important;
+  background:#fff0df !important;
+  color:#c44b14 !important;
+  box-shadow:0 0 30px rgba(216,91,28,.12),inset 0 1px 0 #fff !important;
+}
+html[data-theme="light"][data-caixa-theme="halloween"] .fechamento-mes-suspense-linha {
+  color:#876d7c !important;
+}
+html[data-theme="light"][data-caixa-theme="halloween"] .fechamento-mes-suspense-linha i {
+  background:linear-gradient(90deg,transparent,#d9824d) !important;
+}
+html[data-theme="light"][data-caixa-theme="halloween"] .fechamento-mes-suspense-linha i:last-child {
+  background:linear-gradient(90deg,#d9824d,transparent) !important;
+}
+html[data-theme="light"][data-caixa-theme="halloween"] .fechamento-mes-suspense-card > strong {
+  color:#4b2842 !important;
+  text-shadow:none !important;
+}
+html[data-theme="light"][data-caixa-theme="halloween"] .fechamento-mes-categoria-revelacao {
+  border-color:#e3c8b7 !important;
+  background:radial-gradient(circle at 50% 22%,rgba(232,93,28,.10),transparent 38%),linear-gradient(160deg,#fffaf5,#fff1e5) !important;
+  box-shadow:inset 0 1px 0 #fff,0 18px 50px rgba(73,32,63,.12) !important;
+}
+html[data-theme="light"][data-caixa-theme="halloween"] .fechamento-mes-categoria-icone {
+  border-color:#edc39f !important;
+  background:#fff0df !important;
+  color:#c44b14 !important;
+  box-shadow:0 8px 24px rgba(73,32,63,.10) !important;
+}
+html[data-theme="light"][data-caixa-theme="halloween"] .fechamento-mes-categoria-label { color:#a84416 !important; }
+html[data-theme="light"][data-caixa-theme="halloween"] .fechamento-mes-categoria-revelacao > strong { color:#4b2842 !important; }
+html[data-theme="light"][data-caixa-theme="halloween"] .fechamento-mes-categoria-revelacao > b { color:#c44b14 !important; }
+html[data-theme="light"][data-caixa-theme="halloween"] .fechamento-mes-categoria-revelacao > em { color:#75606d !important; }
+
+/* Admin de temas: dois cards quadrados por linha, sem opção Padrão. */
+.caixa-admin-seasonal-force-wrap {
+  grid-template-columns:repeat(2,minmax(0,1fr)) !important;
+  gap:14px !important;
+}
+.caixa-admin-seasonal-card {
+  min-height:178px !important;
+  border-radius:22px !important;
+  padding:18px !important;
+  position:relative;
+  overflow:hidden;
+}
+.caixa-admin-seasonal-card::after {
+  content:"";
+  position:absolute;
+  width:110px;height:110px;
+  right:-38px;bottom:-42px;
+  border-radius:50%;
+  background:color-mix(in srgb,var(--gold,#d9ae61) 9%,transparent);
+  pointer-events:none;
+}
+.caixa-admin-seasonal-card[data-caixa-seasonal-force-card="christmas"]::after { background:rgba(84,173,204,.12); }
+.caixa-admin-seasonal-card[data-caixa-seasonal-force-card="halloween"]::after { background:rgba(216,91,28,.13); }
+.caixa-admin-seasonal-head { grid-template-columns:48px minmax(0,1fr) 28px !important; gap:12px !important; }
+.caixa-admin-seasonal-emoji { width:48px !important; height:48px !important; border-radius:15px !important; font-size:25px !important; }
+.caixa-admin-seasonal-title { font-size:16px !important; }
+.caixa-admin-seasonal-sub { font-size:11px !important; }
+.caixa-admin-seasonal-status { width:28px !important; height:28px !important; }
+.caixa-admin-seasonal-action { min-height:39px !important; border-radius:12px !important; font-size:10px !important; position:relative; z-index:1; }
+html[data-theme="light"][data-caixa-theme="halloween"] .caixa-admin-seasonal-card[data-caixa-seasonal-force-card="halloween"] {
+  background:linear-gradient(145deg,#fff7ef,#fff0e3) !important;
+  border-color:#e2c2af !important;
+}
+html[data-theme="dark"][data-caixa-theme="halloween"] .caixa-admin-seasonal-card[data-caixa-seasonal-force-card="halloween"] {
+  background:linear-gradient(145deg,#2c1330,#1e0d20) !important;
+  border-color:rgba(216,91,28,.28) !important;
+}
+html[data-theme="light"][data-caixa-theme="halloween"] .caixa-admin-seasonal-card[data-caixa-seasonal-force-card="christmas"] {
+  background:linear-gradient(145deg,#f8fcff,#edf7fb) !important;
+}
+@media(max-width:760px){
+  .caixa-admin-seasonal-force-wrap { grid-template-columns:repeat(2,minmax(0,1fr)) !important; gap:10px !important; }
+  .caixa-admin-seasonal-card { min-height:160px !important; padding:14px !important; }
+  .caixa-admin-seasonal-head { grid-template-columns:40px minmax(0,1fr) 24px !important; gap:9px !important; }
+  .caixa-admin-seasonal-emoji { width:40px !important; height:40px !important; font-size:21px !important; }
+}
+
+
+/* ============================================================
+   HALLOWEEN v8 — HERO REFINADO
+   Pessoas mais elegantes no claro, Guardado integrado ao conjunto
+   e nenhum voo de morcegos no hero.
+   ============================================================ */
+
+/* Pessoas: o seletor deve parecer parte do hero, não um controle solto. */
+html[data-caixa-theme="halloween"] .person-switch {
+  display:grid !important;
+  grid-template-columns:repeat(3,minmax(0,1fr));
+  width:min(100%,390px);
+  margin:0 auto 18px !important;
+  gap:4px !important;
+  padding:4px !important;
+  border-radius:18px !important;
+  background:rgba(25,9,27,.28) !important;
+  border:1px solid rgba(255,255,255,.14) !important;
+  box-shadow:inset 0 1px 0 rgba(255,255,255,.08),0 8px 22px rgba(0,0,0,.12) !important;
+}
+html[data-caixa-theme="halloween"] .person-btn {
+  min-height:42px !important;
+  padding:7px 10px !important;
+  border:1px solid transparent !important;
+  border-radius:13px !important;
+  color:rgba(255,245,237,.72) !important;
+  font-weight:700 !important;
+  letter-spacing:.01em;
+  background:transparent !important;
+  box-shadow:none !important;
+}
+html[data-caixa-theme="halloween"] .person-btn:hover {
+  background:rgba(255,255,255,.075) !important;
+  color:#fff7ef !important;
+  transform:translateY(-1px);
+}
+html[data-caixa-theme="halloween"] .person-btn::before {
+  width:22px !important;
+  height:22px !important;
+  flex:0 0 22px;
+  background:rgba(255,255,255,.075) !important;
+  border-color:rgba(255,255,255,.12) !important;
+  box-shadow:inset 0 1px 0 rgba(255,255,255,.08);
+}
+html[data-caixa-theme="halloween"] .person-btn.is-active {
+  background:linear-gradient(145deg,#8c4e7d,#5e2d55) !important;
+  border-color:rgba(255,214,188,.18) !important;
+  color:#fffaf6 !important;
+  box-shadow:0 7px 18px rgba(44,15,41,.24),inset 0 1px 0 rgba(255,255,255,.18) !important;
+}
+html[data-caixa-theme="halloween"] .person-btn.is-active::before {
+  background:rgba(255,255,255,.15) !important;
+  border-color:rgba(255,255,255,.22) !important;
+}
+
+/* Claro: mais leve, mais limpo e com contraste realmente alto. */
+html[data-theme="light"][data-caixa-theme="halloween"] .person-switch {
+  background:rgba(255,249,244,.72) !important;
+  border-color:rgba(73,32,63,.15) !important;
+  box-shadow:0 7px 20px rgba(73,32,63,.08),inset 0 1px 0 #fff !important;
+  backdrop-filter:blur(12px);
+}
+html[data-theme="light"][data-caixa-theme="halloween"] .person-btn {
+  color:#654f61 !important;
+}
+html[data-theme="light"][data-caixa-theme="halloween"] .person-btn:hover {
+  background:rgba(93,40,83,.055) !important;
+  color:#4b2944 !important;
+}
+html[data-theme="light"][data-caixa-theme="halloween"] .person-btn::before {
+  background:#fffaf6 !important;
+  border-color:rgba(73,32,63,.13) !important;
+  color:#69445f !important;
+}
+html[data-theme="light"][data-caixa-theme="halloween"] .person-btn.is-active {
+  background:linear-gradient(145deg,#6f3a61,#4e2948) !important;
+  color:#fffaf7 !important;
+  border-color:rgba(73,32,63,.16) !important;
+  box-shadow:0 8px 18px rgba(73,32,63,.18),inset 0 1px 0 rgba(255,255,255,.24) !important;
+}
+html[data-theme="light"][data-caixa-theme="halloween"] .person-btn.is-active::before {
+  background:rgba(255,255,255,.14) !important;
+  color:#fffaf7 !important;
+  border-color:rgba(255,255,255,.25) !important;
+}
+
+/* Guardado: mesma linguagem visual dos outros cards. Só a cor do valor e a
+   pequena assinatura superior diferenciam o tipo. */
+html[data-caixa-theme="halloween"] .hero-stats > .hero-stat:nth-child(2) {
+  background:rgba(255,250,244,.085) !important;
+  border:1px solid rgba(255,255,255,.15) !important;
+  box-shadow:inset 0 1px 0 rgba(255,255,255,.10),0 8px 18px rgba(38,10,35,.10) !important;
+}
+html[data-caixa-theme="halloween"] .hero-stats > .hero-stat:nth-child(2)::after {
+  width:60px;height:60px;right:-28px;bottom:-28px;
+  background:rgba(255,190,101,.07) !important;
+  filter:blur(5px);
+}
+html[data-theme="dark"][data-caixa-theme="halloween"] .hero-stats > .hero-stat:nth-child(2) {
+  background:rgba(20,7,19,.72) !important;
+  border-color:rgba(255,255,255,.12) !important;
+}
+html[data-theme="light"][data-caixa-theme="halloween"] .hero-stats > .hero-stat:nth-child(2) {
+  background:rgba(255,250,244,.105) !important;
+  border-color:rgba(255,231,213,.22) !important;
+  box-shadow:inset 0 1px 0 rgba(255,255,255,.72),0 8px 18px rgba(73,32,63,.09) !important;
+}
+
+/* O claro usa o mesmo fundo dos outros três cards; Guardado não vira um
+   cartão dourado separado. */
+html[data-theme="light"][data-caixa-theme="halloween"] .hero-stats > .hero-stat:nth-child(2) .hero-stat-label {
+  color:#5f4a5b !important;
+}
+html[data-theme="light"][data-caixa-theme="halloween"] .hero-stats > .hero-stat:nth-child(2) .hero-stat-valor.gold {
+  color:#a96827 !important;
+  text-shadow:none !important;
+}
+html[data-theme="light"][data-caixa-theme="halloween"] .hero-stats > .hero-stat:nth-child(2) .hero-stat-subvalor.gold {
+  color:#7b6675 !important;
+}
+
+/* Remoção total dos voos de morcegos no hero, inclusive se algum markup antigo
+   estiver presente por cache ou por uma versão anterior do script. */
+html[data-caixa-theme="halloween"] .halloween-bat-flight { display:none !important; }
+
+/* ============================================================
+   v9 — refinamento final
+   ============================================================ */
+/* Pessoas: mantém o modelo aprovado, mas elimina diferenças entre temas. */
+html[data-caixa-theme="halloween"] .person-switch { padding:4px !important; border-radius:16px !important; }
+html[data-caixa-theme="halloween"] .person-btn { min-height:35px; padding:8px 12px !important; border-radius:12px !important; }
+
+/* Guardado é estruturalmente igual a Ganhos/Fixos/Variáveis.
+   Apenas a barra superior e os textos ficam dourados. */
+html[data-caixa-theme="halloween"] .hero-stats > .hero-stat:nth-child(2) {
+  background:rgba(255,250,244,.085) !important;
+  border:1px solid rgba(255,255,255,.15) !important;
+  box-shadow:inset 0 1px 0 rgba(255,255,255,.10),0 8px 18px rgba(38,10,35,.10) !important;
+}
+html[data-caixa-theme="halloween"] .hero-stats > .hero-stat:nth-child(2)::after { content:none !important; display:none !important; }
+html[data-caixa-theme="halloween"] .hero-stats > .hero-stat:nth-child(2)::before {
+  content:"" !important; left:0; right:0; top:0; height:4px;
+  background:#e3b55e !important;
+}
+html[data-caixa-theme="halloween"] .hero-stats > .hero-stat:nth-child(2) .hero-stat-label { color:#e3b55e !important; }
+html[data-caixa-theme="halloween"] .hero-stats > .hero-stat:nth-child(2) .hero-stat-valor.gold { color:#e3b55e !important; text-shadow:none !important; }
+html[data-caixa-theme="halloween"] .hero-stats > .hero-stat:nth-child(2) .hero-stat-subvalor.gold { color:#c7a66a !important; }
+html[data-theme="light"][data-caixa-theme="halloween"] .hero-stats > .hero-stat:nth-child(2) {
+  background:rgba(255,250,244,.105) !important;
+  border:1px solid rgba(255,231,213,.22) !important;
+  box-shadow:inset 0 1px 0 rgba(255,255,255,.72),0 8px 18px rgba(73,32,63,.09) !important;
+}
+html[data-theme="light"][data-caixa-theme="halloween"] .hero-stats > .hero-stat:nth-child(2) .hero-stat-label { color:#9b682a !important; }
+html[data-theme="light"][data-caixa-theme="halloween"] .hero-stats > .hero-stat:nth-child(2) .hero-stat-valor.gold { color:#a96827 !important; }
+html[data-theme="light"][data-caixa-theme="halloween"] .hero-stats > .hero-stat:nth-child(2) .hero-stat-subvalor.gold { color:#7b6675 !important; }
+
+/* Cerimônia: contraste alto e sem herança de texto claro no suspense. */
+html[data-theme="light"][data-caixa-theme="halloween"] .fechamento-mes-suspense-card .fechamento-mes-suspense-linha,
+html[data-theme="light"][data-caixa-theme="halloween"] .fechamento-mes-suspense-card .fechamento-mes-suspense-linha span {
+  color:#5c4055 !important;
+  opacity:1 !important;
+  text-shadow:none !important;
+}
+html[data-theme="light"][data-caixa-theme="halloween"] .fechamento-mes-suspense-card > strong {
+  color:#3d2337 !important;
+  opacity:1 !important;
+  text-shadow:none !important;
+  font-weight:700 !important;
+}
+html[data-theme="light"][data-caixa-theme="halloween"] .fechamento-mes-suspense-card {
+  color:#3d2337 !important;
+}

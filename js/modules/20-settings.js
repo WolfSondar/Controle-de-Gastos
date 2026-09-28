@@ -518,7 +518,6 @@
     if (!raiz) return;
 
     const temasForcaveis = [
-      { id: "default", emoji: "☀️", titulo: "Padrão", subtitulo: "Volta ao visual original do Caixa.", acao: "Usar Padrão" },
       { id: "christmas", emoji: "🎄", titulo: "Natal", subtitulo: "Ativa o visual natalino imediatamente.", acao: "Forçar Natal" },
       { id: "halloween", emoji: "🎃", titulo: "Halloween", subtitulo: "Ativa o visual de Halloween imediatamente.", acao: "Forçar Halloween" }
     ];
@@ -532,7 +531,7 @@
     }
 
     const cfg = state.temasConfig || {};
-    const ativoForcado = cfg.christmas?.forcarAgora ? "christmas" : (cfg.halloween?.forcarAgora ? "halloween" : "default");
+    const ativoForcado = cfg.christmas?.forcarAgora ? "christmas" : (cfg.halloween?.forcarAgora ? "halloween" : "");
     wrap.innerHTML = temasForcaveis.map(t => `
       <button type="button" class="caixa-admin-seasonal-card${ativoForcado === t.id ? " is-active" : ""}" data-caixa-seasonal-force-card="${t.id}" aria-pressed="${ativoForcado === t.id}">
         <span class="caixa-admin-seasonal-head">
@@ -549,6 +548,7 @@
       card.addEventListener("click", () => {
         const id = card.dataset.caixaSeasonalForceCard;
         const jaAtivo = card.classList.contains("is-active");
+        // Clicar no tema ativo desliga o forçamento e devolve o comportamento padrão.
         salvarForcamentoTema(id, !jaAtivo).catch(() => {});
       });
     });

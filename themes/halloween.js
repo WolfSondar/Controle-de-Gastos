@@ -17,4 +17,5 @@
       seasonal: { month: 10, startDay: 1, endDay: 31 }
     }
   });
+
 })();

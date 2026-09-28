@@ -10323,3 +10323,77 @@ html[data-caixa-theme="halloween"] #fecharMesBackdrop #fecharMesSubmit:hover {
   background:linear-gradient(135deg,#9a50d2,#7137aa) !important;
 }
 
+
+/* ============================================================
+   PERSON SWITCH — padrão visual compartilhado entre todos os temas
+   ============================================================ */
+html[data-caixa-theme="default"] .person-switch,
+html[data-caixa-theme="christmas"] .person-switch,
+html[data-caixa-theme="halloween"] .person-switch {
+  display:flex !important;
+  align-items:center;
+  gap:5px !important;
+  padding:4px !important;
+  border-radius:16px !important;
+  backdrop-filter:blur(12px);
+}
+html[data-caixa-theme="default"] .person-btn,
+html[data-caixa-theme="christmas"] .person-btn,
+html[data-caixa-theme="halloween"] .person-btn {
+  position:relative;
+  display:inline-flex !important;
+  align-items:center;
+  justify-content:center;
+  gap:7px;
+  min-height:35px;
+  border-radius:12px !important;
+  border:1px solid transparent !important;
+  padding:8px 12px !important;
+  font-size:13px !important;
+  font-weight:700 !important;
+  transition:transform .18s ease,background .18s ease,color .18s ease,box-shadow .18s ease,border-color .18s ease;
+}
+html[data-caixa-theme="default"] .person-btn::before,
+html[data-caixa-theme="christmas"] .person-btn::before,
+html[data-caixa-theme="halloween"] .person-btn::before {
+  content:"";
+  width:20px;
+  height:20px;
+  flex:0 0 20px;
+  display:grid;
+  place-items:center;
+  border-radius:50%;
+  font:800 9px/1 Inter,sans-serif;
+}
+html[data-caixa-theme="default"] .person-btn[data-pessoa="davi"]::before,
+html[data-caixa-theme="christmas"] .person-btn[data-pessoa="davi"]::before,
+html[data-caixa-theme="halloween"] .person-btn[data-pessoa="davi"]::before { content:"D"; }
+html[data-caixa-theme="default"] .person-btn[data-pessoa="gabriel"]::before,
+html[data-caixa-theme="christmas"] .person-btn[data-pessoa="gabriel"]::before,
+html[data-caixa-theme="halloween"] .person-btn[data-pessoa="gabriel"]::before { content:"G"; }
+html[data-caixa-theme="default"] .person-btn[data-pessoa="ambos"]::before,
+html[data-caixa-theme="christmas"] .person-btn[data-pessoa="ambos"]::before,
+html[data-caixa-theme="halloween"] .person-btn[data-pessoa="ambos"]::before { content:"D+G"; font-size:7px; }
+
+/* Tema padrão */
+html[data-caixa-theme="default"] .person-switch {
+  background:rgba(255,255,255,.10) !important;
+  border:1px solid rgba(255,255,255,.14) !important;
+  box-shadow:inset 0 1px 0 rgba(255,255,255,.08),0 6px 16px rgba(0,0,0,.08);
+}
+html[data-caixa-theme="default"] .person-btn { color:#a7c7b7 !important; }
+html[data-caixa-theme="default"] .person-btn::before { background:rgba(255,255,255,.08); border:1px solid rgba(255,255,255,.12); }
+html[data-caixa-theme="default"] .person-btn.is-active { background:linear-gradient(145deg,#4a7866,#315d4e) !important; color:#fff !important; box-shadow:0 6px 16px rgba(49,93,78,.25),inset 0 1px 0 rgba(255,255,255,.16); }
+html[data-caixa-theme="default"] .person-btn.is-active::before { background:rgba(255,255,255,.14); border-color:rgba(255,255,255,.22); }
+html[data-theme="light"][data-caixa-theme="default"] .person-switch { background:rgba(255,255,255,.76) !important; border-color:rgba(50,86,73,.16) !important; box-shadow:0 7px 20px rgba(42,77,64,.08),inset 0 1px 0 #fff; }
+html[data-theme="light"][data-caixa-theme="default"] .person-btn { color:#557065 !important; }
+html[data-theme="light"][data-caixa-theme="default"] .person-btn::before { background:#fff; border-color:rgba(50,86,73,.13); color:#4a7866; }
+html[data-theme="light"][data-caixa-theme="default"] .person-btn.is-active { background:linear-gradient(145deg,#4a7866,#315d4e) !important; color:#fff !important; box-shadow:0 7px 17px rgba(49,93,78,.18); }
+
+/* Guardado: mesma estrutura dos demais cards; só a barra e o texto mudam. */
+html[data-caixa-theme="default"] .hero-stats > .hero-stat:nth-child(2),
+html[data-caixa-theme="christmas"] .hero-stats > .hero-stat:nth-child(2),
+html[data-caixa-theme="halloween"] .hero-stats > .hero-stat:nth-child(2) {
+  position:relative;
+  overflow:hidden;
+}

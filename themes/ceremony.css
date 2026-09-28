@@ -308,3 +308,23 @@ html[data-theme="light"] .caixa-admin-seasonal-card.is-active { border-color: #c
 html[data-theme="light"][data-caixa-theme="halloween"] .caixa-admin-seasonal-card.is-active { border-color: #d85b1c; box-shadow: inset 0 0 0 1px rgba(216,91,28,.18), 0 12px 28px rgba(73,32,63,.10); }
 html[data-theme="light"][data-caixa-theme="halloween"] .caixa-admin-seasonal-emoji { background: rgba(216,91,28,.09); }
 @media (max-width: 760px) { .caixa-admin-seasonal-force-wrap { grid-template-columns: 1fr; } }
+
+/* ============================================================
+   HALLOWEEN CLARO — CONTRASTE DEFINITIVO DA CAMADA INFERIOR
+   ============================================================ */
+html[data-theme="light"][data-caixa-theme="halloween"] .fechamento-mes-cena .fechamento-mes-texto,
+html[data-theme="light"][data-caixa-theme="halloween"] .fechamento-mes-cena #fechamentoMesTexto,
+html[data-theme="light"][data-caixa-theme="halloween"] .fechamento-mes-cena .fechamento-mes-meta small,
+html[data-theme="light"][data-caixa-theme="halloween"] .fechamento-mes-cena .fechamento-mes-proximo small,
+html[data-theme="light"][data-caixa-theme="halloween"] .fechamento-mes-cena .fechamento-mes-proximo strong,
+html[data-theme="light"][data-caixa-theme="halloween"] .fechamento-mes-cena .fechamento-mes-final small {
+  color:#6a5363 !important;
+  opacity:1 !important;
+}
+html[data-theme="light"][data-caixa-theme="halloween"] .fechamento-mes-cena .fechamento-mes-proximo strong {
+  color:#4e684f !important;
+}
+html[data-theme="light"][data-caixa-theme="halloween"] .fechamento-mes-cena .fechamento-mes-final p {
+  color:#5e4658 !important;
+  opacity:1 !important;
+}
