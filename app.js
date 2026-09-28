@@ -1,7 +1,18 @@
 // =====================================================================
 // CAIXA — app.js
-// Banco e sincronização: Firebase / Firestore
+// Núcleo da aplicação: dados, Firebase, cálculos e comportamento.
+// O visual de cada tema vive em themes/*.css e os pontos de entrada JS em
+// themes/*.js. A integração sazonal legada abaixo permanece por compatibilidade.
 // =====================================================================
+
+(function prepararArquiteturaDeTemas() {
+  try {
+    window.CAIXA_TEMA_CORE = {
+      obter: (id) => window.CAIXA_OBTER_TEMA?.(id),
+      atual: () => window.CAIXA_TEMA_ATUAL?.()
+    };
+  } catch (_) {}
+})();
 
 // Bootstrap visual síncrono do tema: impede o "flash" do Padrão antes de o cache
 // e o Firebase decidirem o tema atual. O último tema conhecido é apenas um
