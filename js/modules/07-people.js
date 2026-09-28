@@ -16,8 +16,18 @@ async function trocarPessoa(pessoa) {
   // causa de um GET no meio da navegação.
   const pessoaAnterior = state.pessoaAtual;
   state.pessoaAtual = pessoa;
-  if (pessoa === "davi" && state.mesAtualDavi && state.anoAtualDavi) { state.mesAtual = state.mesAtualDavi; state.anoAtual = state.anoAtualDavi; }
-  if (pessoa === "gabriel" && state.mesAtualGabriel && state.anoAtualGabriel) { state.mesAtual = state.mesAtualGabriel; state.anoAtual = state.anoAtualGabriel; }
+
+  // Cada perfil possui seu próprio ciclo mensal. Ao trocar de pessoa,
+  // primeiro trocamos o ponteiro visual para o mês já carregado daquele
+  // perfil e só depois renderizamos os dados. Assim o cabeçalho nunca
+  // mostra, por um instante, o mês do usuário anterior.
+  if (pessoa === "davi") {
+    state.mesAtual = Number(state.mesAtualDavi) || null;
+    state.anoAtual = Number(state.anoAtualDavi) || null;
+  } else if (pessoa === "gabriel") {
+    state.mesAtual = Number(state.mesAtualGabriel) || null;
+    state.anoAtual = Number(state.anoAtualGabriel) || null;
+  }
   localStorage.setItem(PESSOA_STORAGE_KEY, pessoa);
   atualizarVisibilidadeFab();
   document.dispatchEvent(new CustomEvent("caixa:perfil-trocado", { detail: { pessoa } }));
@@ -65,18 +75,22 @@ async function trocarPessoa(pessoa) {
     });
     renderMesAtual();
 
-    // Cache criado antes do fechamento individual não possui o mês/ano do
-    // perfil. Nesse caso, busca somente a configuração atual desse perfil
-    // antes de permitir um novo fechamento.
-    if (!cache.mesAtual || !cache.anoAtual) {
+    // O mês é uma propriedade individual do perfil no Firebase. Mesmo com
+    // cache de lançamentos, se ainda não temos o mês/ano desse perfil em
+    // memória, buscamos a configuração do próprio perfil. Isso impede que
+    // Gabriel herde visualmente o mês do Davi (e vice-versa).
+    const mesPerfilCarregado = pessoa === "davi"
+      ? Number(state.mesAtualDavi) > 0 && Number(state.anoAtualDavi) > 0
+      : Number(state.mesAtualGabriel) > 0 && Number(state.anoAtualGabriel) > 0;
+    if (!mesPerfilCarregado && navigator.onLine) {
       try {
         const res = await fetchApiGet({ pessoa });
         const data = await res.json();
         if (data && data.ok !== false && state.pessoaAtual === pessoa) {
-          if (data.mesAtual) state.mesAtual = data.mesAtual;
-          if (data.anoAtual) state.anoAtual = data.anoAtual;
-          if (pessoa === "davi") { state.mesAtualDavi = Number(data.mesAtual) || null; state.anoAtualDavi = Number(data.anoAtual) || null; }
-          if (pessoa === "gabriel") { state.mesAtualGabriel = Number(data.mesAtual) || null; state.anoAtualGabriel = Number(data.anoAtual) || null; }
+          state.mesAtual = Number(data.mesAtual) || null;
+          state.anoAtual = Number(data.anoAtual) || null;
+          if (pessoa === "davi") { state.mesAtualDavi = state.mesAtual; state.anoAtualDavi = state.anoAtual; }
+          if (pessoa === "gabriel") { state.mesAtualGabriel = state.mesAtual; state.anoAtualGabriel = state.anoAtual; }
           setCache(pessoa, data);
           renderMesAtual();
         }

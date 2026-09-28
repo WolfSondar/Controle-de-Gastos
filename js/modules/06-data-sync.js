@@ -144,10 +144,10 @@ async function carregarDados() {
       state.mesAtual = state.mesAtualDavi;
       state.anoAtual = state.anoAtualDavi;
     } else {
-      if (data.mesAtual) state.mesAtual = data.mesAtual;
-      if (data.anoAtual) state.anoAtual = data.anoAtual;
-      if (pessoaRequisitada === "davi") { state.mesAtualDavi = Number(data.mesAtual) || null; state.anoAtualDavi = Number(data.anoAtual) || null; }
-      if (pessoaRequisitada === "gabriel") { state.mesAtualGabriel = Number(data.mesAtual) || null; state.anoAtualGabriel = Number(data.anoAtual) || null; }
+      state.mesAtual = Number(data.mesAtual) || null;
+      state.anoAtual = Number(data.anoAtual) || null;
+      if (pessoaRequisitada === "davi") { state.mesAtualDavi = state.mesAtual; state.anoAtualDavi = state.anoAtual; }
+      if (pessoaRequisitada === "gabriel") { state.mesAtualGabriel = state.mesAtual; state.anoAtualGabriel = state.anoAtual; }
     }
     renderMesAtual();
 

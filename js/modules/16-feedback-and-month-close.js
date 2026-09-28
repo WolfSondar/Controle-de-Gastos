@@ -684,7 +684,23 @@ function mostrarFechamentoMes(dados, { resultadoPromessa = null } = {}) {
 
   if (dados.maiorCaixinha && dados.maiorCaixinha.valor > 0) {
     etapas.push(async () => {
-      await trocarTela({ titulo: "Qual caixinha recebeu mais este mês?", texto: "Seu maior aporte foi para esta caixinha.", html: `<div class="fechamento-mes-meta"><span class="fechamento-mes-caixinha-icone">${dados.maiorCaixinha.icone ? `<img src="${escapeHtml(urlIconeCaixinha(normalizarNomeIcone(dados.maiorCaixinha.icone)))}" alt="" loading="lazy" onerror="this.onerror=null;this.style.display='none';this.nextElementSibling.style.display='inline-flex';"><span class="fechamento-mes-caixinha-icone-fallback">↓</span>` : "↓"}</span><p><strong>${escapeHtml(dados.maiorCaixinha.nome)}</strong></p><strong class="fechamento-mes-destaque-valor">${fmt(dados.maiorCaixinha.valor)} guardados</strong></div>` });
+      const iconeCaixinha = dados.maiorCaixinha.icone
+        ? `<img src="${escapeHtml(urlIconeCaixinha(normalizarNomeIcone(dados.maiorCaixinha.icone)))}" alt="" loading="lazy" onerror="this.onerror=null;this.style.display='none';this.nextElementSibling.style.display='inline-flex';"><span class="fechamento-mes-caixinha-icone-fallback">✦</span>`
+        : `<span class="fechamento-mes-caixinha-icone-fallback" style="display:inline-flex">✦</span>`;
+      await trocarTela({
+        titulo: "Qual caixinha recebeu mais este mês?",
+        texto: "Foi aqui que você colocou a maior parte do seu dinheiro guardado.",
+        html: `<div class="fechamento-mes-caixinha-card">
+          <div class="fechamento-mes-caixinha-glow" aria-hidden="true"></div>
+          <div class="fechamento-mes-caixinha-icone">${iconeCaixinha}</div>
+          <div class="fechamento-mes-caixinha-info">
+            <span class="fechamento-mes-caixinha-label">MAIOR APORTE DO MÊS</span>
+            <strong class="fechamento-mes-caixinha-nome">${escapeHtml(dados.maiorCaixinha.nome)}</strong>
+            <span class="fechamento-mes-caixinha-valor">${fmt(dados.maiorCaixinha.valor)}</span>
+            <span class="fechamento-mes-caixinha-caption">guardados nesta caixinha</span>
+          </div>
+        </div>`
+      });
       await esperar(4500);
     });
   }

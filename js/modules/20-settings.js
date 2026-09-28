@@ -517,11 +517,10 @@
     const raiz = encontrarRaizAdminSazonalidade();
     if (!raiz) return;
 
-    // A antiga seção "Sazonalidade dos temas" não existe mais. O Admin agora
-    // possui uma área simples e direta para forçar os temas disponíveis.
     const temasForcaveis = [
-      { id: "christmas", emoji: "🎄", titulo: "Natal", subtitulo: "Ativa o tema imediatamente para todos os usuários." },
-      { id: "halloween", emoji: "🎃", titulo: "Halloween", subtitulo: "Ativa o tema imediatamente para todos os usuários." }
+      { id: "default", emoji: "☀️", titulo: "Padrão", subtitulo: "Volta ao visual original do Caixa.", acao: "Usar Padrão" },
+      { id: "christmas", emoji: "🎄", titulo: "Natal", subtitulo: "Ativa o visual natalino imediatamente.", acao: "Forçar Natal" },
+      { id: "halloween", emoji: "🎃", titulo: "Halloween", subtitulo: "Ativa o visual de Halloween imediatamente.", acao: "Forçar Halloween" }
     ];
 
     let wrap = document.getElementById("caixaAdminSazonalForcar");
@@ -532,35 +531,34 @@
       raiz.appendChild(wrap);
     }
 
+    const cfg = state.temasConfig || {};
+    const ativoForcado = cfg.christmas?.forcarAgora ? "christmas" : (cfg.halloween?.forcarAgora ? "halloween" : "default");
     wrap.innerHTML = temasForcaveis.map(t => `
-      <div class="caixa-admin-seasonal-card" data-caixa-seasonal-force-card="${t.id}">
-        <div class="caixa-admin-seasonal-head">
+      <button type="button" class="caixa-admin-seasonal-card${ativoForcado === t.id ? " is-active" : ""}" data-caixa-seasonal-force-card="${t.id}" aria-pressed="${ativoForcado === t.id}">
+        <span class="caixa-admin-seasonal-head">
           <span class="caixa-admin-seasonal-emoji" aria-hidden="true">${t.emoji}</span>
-          <div><div class="caixa-admin-seasonal-title">${t.titulo}</div><div class="caixa-admin-seasonal-sub">${t.subtitulo}</div></div>
-        </div>
-        <label class="caixa-admin-seasonal-force">
-          <input type="checkbox" id="tema${t.id === "christmas" ? "Natal" : "Halloween"}Forcar">
-          <span class="caixa-admin-seasonal-force-text"><span class="caixa-admin-seasonal-force-title">Forçar ${t.titulo} agora</span><span class="caixa-admin-seasonal-force-sub">Use apenas para teste.</span></span>
-        </label>
-      </div>`).join("");
+          <span class="caixa-admin-seasonal-copy"><span class="caixa-admin-seasonal-title">${t.titulo}</span><span class="caixa-admin-seasonal-sub">${t.subtitulo}</span></span>
+          <span class="caixa-admin-seasonal-status" aria-hidden="true">${ativoForcado === t.id ? "✓" : ""}</span>
+        </span>
+        <span class="caixa-admin-seasonal-action">${ativoForcado === t.id ? "Ativo agora" : t.acao}</span>
+      </button>`).join("");
 
-    ["temaNatalForcar", "temaHalloweenForcar"].forEach(id => {
-      const cb = document.getElementById(id);
-      if (!cb || cb.dataset.forceBound === "1") return;
-      cb.dataset.forceBound = "1";
-      cb.addEventListener("change", () => {
-        const outro = id === "temaNatalForcar" ? "temaHalloweenForcar" : "temaNatalForcar";
-        const outroCb = document.getElementById(outro);
-        if (cb.checked && outroCb) outroCb.checked = false;
-        salvarForcamentoTema(id === "temaNatalForcar" ? "christmas" : "halloween", cb.checked).catch(() => {});
+    wrap.querySelectorAll("[data-caixa-seasonal-force-card]").forEach(card => {
+      if (card.dataset.forceBound === "1") return;
+      card.dataset.forceBound = "1";
+      card.addEventListener("click", () => {
+        const id = card.dataset.caixaSeasonalForceCard;
+        const jaAtivo = card.classList.contains("is-active");
+        salvarForcamentoTema(id, !jaAtivo).catch(() => {});
       });
     });
   }
 
   async function salvarForcamentoTema(id, forcar) {
     const atual = clone(state.temasConfig || {});
-    atual.christmas = {...(atual.christmas || {}), forcarAgora: id === "christmas" ? !!forcar : false};
-    atual.halloween = {...(atual.halloween || {}), forcarAgora: id === "halloween" ? !!forcar : false};
+    const alvo = forcar ? id : "";
+    atual.christmas = {...(atual.christmas || {}), forcarAgora: alvo === "christmas"};
+    atual.halloween = {...(atual.halloween || {}), forcarAgora: alvo === "halloween"};
     state.temasConfig = atual;
     await salvarConfig({temasConfig: atual}, forcar ? `Tema ${id === "christmas" ? "Natal" : "Halloween"} forçado para todos.` : "Forçamento do tema removido.");
     const ativo = sincronizarTemaSazonal();
@@ -593,11 +591,6 @@
     if (!usuarioAtualEhAdmin()) return;
     renderAdminIcones();
     garantirCardAdminHalloween();
-    const cfg = state.temasConfig || {};
-    const natalForcar = document.getElementById("temaNatalForcar");
-    const halloweenForcar = document.getElementById("temaHalloweenForcar");
-    if (natalForcar) natalForcar.checked = cfg.christmas?.forcarAgora === true;
-    if (halloweenForcar) halloweenForcar.checked = cfg.halloween?.forcarAgora === true;
   }
 
   function renderAdminIcones() {

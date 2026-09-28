@@ -1,119 +1,310 @@
+/*
+ * CAIXA — CERIMÔNIA DE FECHAMENTO
+ * Camada visual independente do conteúdo da cerimônia.
+ * O tema sazonal é lido de html[data-caixa-theme] e o claro/escuro de
+ * html[data-theme]. Assim Natal/Halloween acompanham o restante do app.
+ */
 
-/* Visual layer of the monthly closing ceremony. Logic remains in JS. */
-
-#monthlyClosingCeremony,
-.month-closing-ceremony,
-.closing-ceremony {
-  --ceremony-accent: var(--primary-color, var(--accent-color, #7c5cff));
-  --ceremony-surface: var(--card-bg, var(--surface-color, #fff));
-  --ceremony-text: var(--text-color, #202124);
-  --ceremony-muted: var(--muted-text, #6b7280);
-  --ceremony-border: var(--border-color, rgba(0,0,0,.08));
-}
-
-.month-closing-ceremony .ceremony-step,
-.closing-ceremony .ceremony-step {
-  border: 1px solid var(--ceremony-border);
-  background: var(--ceremony-surface);
-  color: var(--ceremony-text);
-  border-radius: 24px;
-  box-shadow: 0 18px 50px rgba(0,0,0,.11);
-}
-
-.month-closing-ceremony .ceremony-goal-card,
-.closing-ceremony .ceremony-goal-card {
-  display: grid;
-  grid-template-columns: 72px minmax(0,1fr) auto;
-  gap: 16px;
-  align-items: center;
-  padding: 18px;
-  border-radius: 22px;
-  border: 1px solid var(--ceremony-border);
-  background:
-    radial-gradient(circle at 12% 0%, color-mix(in srgb, var(--ceremony-accent) 16%, transparent), transparent 45%),
-    var(--ceremony-surface);
-  color: var(--ceremony-text);
-}
-
-.month-closing-ceremony .ceremony-goal-icon,
-.closing-ceremony .ceremony-goal-icon {
-  width: 72px;
-  height: 72px;
+.fechamento-mes-cena {
+  --ceremony-bg-1: #071711;
+  --ceremony-bg-2: #0d241c;
+  --ceremony-bg-3: #091a14;
+  --ceremony-surface: rgba(10,29,22,.94);
+  --ceremony-surface-2: rgba(255,255,255,.045);
+  --ceremony-text: #fff5df;
+  --ceremony-muted: rgba(248,242,229,.62);
+  --ceremony-border: rgba(217,174,97,.18);
+  --ceremony-accent: #d9ae61;
+  --ceremony-accent-2: #f2ce84;
+  --ceremony-positive: #bfe4c7;
+  --ceremony-negative: #f0b29f;
+  position: fixed;
+  inset: 0;
+  z-index: 99999;
   display: grid;
   place-items: center;
-  border-radius: 22px;
-  background: color-mix(in srgb, var(--ceremony-accent) 14%, transparent);
-  border: 1px solid color-mix(in srgb, var(--ceremony-accent) 24%, transparent);
-  font-size: 34px;
-}
-
-.month-closing-ceremony .ceremony-goal-name,
-.closing-ceremony .ceremony-goal-name {
-  font-size: 18px;
-  line-height: 1.2;
-  font-weight: 850;
+  padding: 28px;
+  overflow: hidden;
+  isolation: isolate;
   color: var(--ceremony-text);
-}
-
-.month-closing-ceremony .ceremony-goal-amount,
-.closing-ceremony .ceremony-goal-amount {
-  font-size: 21px;
-  line-height: 1;
-  font-weight: 900;
-  color: var(--ceremony-accent);
-  white-space: nowrap;
-}
-
-.month-closing-ceremony .ceremony-goal-caption,
-.closing-ceremony .ceremony-goal-caption {
-  margin-top: 6px;
-  color: var(--ceremony-muted);
-  font-size: 13px;
-}
-
-.month-closing-ceremony .ceremony-highlight,
-.closing-ceremony .ceremony-highlight {
-  padding: 22px;
-  border-radius: 26px;
   background:
-    radial-gradient(circle at 15% 10%, color-mix(in srgb, var(--ceremony-accent) 20%, transparent), transparent 44%),
-    var(--ceremony-surface);
+    radial-gradient(circle at 50% 15%, color-mix(in srgb, var(--ceremony-accent) 16%, transparent), transparent 32%),
+    linear-gradient(180deg, var(--ceremony-bg-1), var(--ceremony-bg-2) 52%, var(--ceremony-bg-3));
+  opacity: 0;
+  visibility: hidden;
+  pointer-events: none;
+  transition: opacity .55s ease, visibility .55s ease;
+}
+.fechamento-mes-cena.is-visible { opacity: 1; visibility: visible; pointer-events: auto; }
+.fechamento-mes-cena.fechamento-mes-finalizando { opacity: 0; visibility: hidden; pointer-events: none; }
+.fechamento-mes-cena::after {
+  content: "";
+  position: absolute;
+  inset: 18px;
+  z-index: 0;
+  border: 1px solid color-mix(in srgb, var(--ceremony-accent) 22%, transparent);
+  border-radius: 28px;
+  pointer-events: none;
+}
+
+.fechamento-mes-card {
+  position: relative;
+  z-index: 1;
+  width: min(100%, 560px);
+  min-height: 420px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: flex-start;
+  padding: 48px 38px 42px;
   border: 1px solid var(--ceremony-border);
+  border-radius: 30px;
+  color: var(--ceremony-text);
+  text-align: center;
+  background:
+    linear-gradient(155deg, rgba(255,255,255,.075), transparent 45%),
+    var(--ceremony-surface);
+  box-shadow: 0 38px 100px rgba(0,0,0,.50), inset 0 1px 0 rgba(255,255,255,.08);
+  transform: translateY(14px) scale(.985);
+  transition: transform .65s cubic-bezier(.16,1,.3,1);
+}
+.fechamento-mes-cena.is-visible .fechamento-mes-card { transform: translateY(0) scale(1); }
+
+.fechamento-mes-orb {
+  position: absolute;
+  top: -37px;
+  left: 50%;
+  display: grid;
+  place-items: center;
+  width: 74px;
+  height: 74px;
+  border: 1px solid color-mix(in srgb, var(--ceremony-accent) 60%, transparent);
+  border-radius: 50%;
+  background: radial-gradient(circle at 35% 25%, #fff5d7, var(--ceremony-accent) 50%, color-mix(in srgb, var(--ceremony-accent) 45%, #111));
+  box-shadow: 0 0 0 9px color-mix(in srgb, var(--ceremony-accent) 8%, transparent), 0 15px 42px color-mix(in srgb, var(--ceremony-accent) 28%, transparent);
+  transform: translateX(-50%);
+}
+.fechamento-mes-orb::before { content: "✦"; color: #4e381a; font-size: 29px; line-height: 1; }
+.fechamento-mes-orb span { display: none; }
+.fechamento-mes-etapa { width: 100%; margin-top: 5px; transition: opacity .28s ease, transform .28s ease, filter .28s ease; }
+.fechamento-mes-etapa.is-trocando { opacity: 0; transform: translateY(7px); filter: blur(3px); }
+.fechamento-mes-kicker { margin-bottom: 12px; color: color-mix(in srgb, var(--ceremony-accent-2) 82%, white); font: 800 9px/1.3 Inter, sans-serif; letter-spacing: .24em; text-transform: uppercase; }
+.fechamento-mes-etapa h2 { margin: 0 auto; max-width: 470px; color: var(--ceremony-text); font: 600 clamp(29px, 5vw, 38px)/1.02 var(--font-display, Georgia, serif); text-wrap: balance; }
+.fechamento-mes-etapa p { max-width: 420px; margin: 14px auto 0; color: var(--ceremony-muted); font: 400 12.5px/1.65 var(--font-body, sans-serif); }
+.fechamento-mes-resumo { width: 100%; min-height: 160px; margin-top: 9px; display: flex; flex-direction: column; justify-content: center; }
+
+/* ==========================================================
+   DESTAQUE — CAIXINHA QUE RECEBEU O MAIOR APORTE
+   ========================================================== */
+.fechamento-mes-caixinha-card {
+  position: relative;
+  width: min(100%, 430px);
+  min-height: 188px;
+  margin: 16px auto 0;
+  padding: 22px 24px;
+  display: grid;
+  grid-template-columns: 94px minmax(0,1fr);
+  gap: 20px;
+  align-items: center;
+  overflow: hidden;
+  text-align: left;
+  border: 1px solid color-mix(in srgb, var(--ceremony-accent) 35%, transparent);
+  border-radius: 24px;
+  background:
+    radial-gradient(circle at 16% 20%, color-mix(in srgb, var(--ceremony-accent) 19%, transparent), transparent 31%),
+    linear-gradient(145deg, color-mix(in srgb, var(--ceremony-accent) 9%, transparent), rgba(255,255,255,.025));
+  box-shadow: inset 0 1px 0 rgba(255,255,255,.07), 0 18px 40px rgba(0,0,0,.16);
+  animation: fechamentoConteudoEntrar .65s cubic-bezier(.16,1,.3,1) both;
+}
+.fechamento-mes-caixinha-glow {
+  position: absolute;
+  width: 160px;
+  height: 160px;
+  left: -65px;
+  top: -55px;
+  border-radius: 50%;
+  background: color-mix(in srgb, var(--ceremony-accent) 12%, transparent);
+  filter: blur(4px);
+  pointer-events: none;
+}
+.fechamento-mes-caixinha-icone {
+  position: relative;
+  z-index: 1;
+  width: 94px;
+  height: 94px;
+  display: grid;
+  place-items: center;
+  border-radius: 27px;
+  border: 1px solid color-mix(in srgb, var(--ceremony-accent) 34%, transparent);
+  background: color-mix(in srgb, var(--ceremony-accent) 13%, transparent);
+  box-shadow: inset 0 1px 0 rgba(255,255,255,.08), 0 12px 28px color-mix(in srgb, var(--ceremony-accent) 12%, transparent);
+}
+.fechamento-mes-caixinha-icone img { width: 58px; height: 58px; object-fit: contain; filter: drop-shadow(0 6px 9px rgba(0,0,0,.18)); }
+.fechamento-mes-caixinha-icone-fallback { display: none; align-items: center; justify-content: center; color: var(--ceremony-accent-2); font-size: 32px; }
+.fechamento-mes-caixinha-info { position: relative; z-index: 1; min-width: 0; display: flex; flex-direction: column; }
+.fechamento-mes-caixinha-label { color: color-mix(in srgb, var(--ceremony-accent-2) 86%, white); font: 800 9px/1.3 Inter, sans-serif; letter-spacing: .16em; }
+.fechamento-mes-caixinha-nome { margin-top: 7px; overflow: hidden; text-overflow: ellipsis; color: var(--ceremony-text); font: 650 clamp(21px, 5vw, 29px)/1.08 var(--font-display, Fraunces, Georgia, serif); }
+.fechamento-mes-caixinha-valor { margin-top: 12px; color: var(--ceremony-accent-2); font: 800 clamp(24px, 6vw, 32px)/1 var(--font-mono, monospace); letter-spacing: -.03em; }
+.fechamento-mes-caixinha-caption { margin-top: 6px; color: var(--ceremony-muted); font: 500 11px/1.35 Inter, sans-serif; }
+
+/* Base dos demais conteúdos da cerimônia. */
+.fechamento-mes-meta, .fechamento-mes-categoria, .fechamento-mes-proximo, .fechamento-mes-comparacao, .fechamento-mes-final { animation: fechamentoConteudoEntrar .6s cubic-bezier(.16,1,.3,1) both; }
+@keyframes fechamentoConteudoEntrar { from { opacity: 0; transform: translateY(10px) scale(.985); } to { opacity: 1; transform: translateY(0) scale(1); } }
+.fechamento-mes-meta { width: min(100%, 390px); margin: 12px auto 0; padding: 17px 18px; border: 1px solid var(--ceremony-border); border-radius: 18px; background: color-mix(in srgb, var(--ceremony-accent) 7%, transparent); }
+.fechamento-mes-meta > span { display: block; margin-bottom: 8px; color: var(--ceremony-accent-2); font-size: 23px; }
+.fechamento-mes-meta p { margin: 0; color: var(--ceremony-muted); font: 400 12px/1.55 var(--font-body, sans-serif); }
+.fechamento-mes-destaque-valor { display: block; margin-top: 5px; color: var(--ceremony-accent-2) !important; font: 800 clamp(21px,5vw,28px)/1.05 var(--font-mono,monospace) !important; }
+
+.fechamento-mes-metricas { display: grid; grid-template-columns: repeat(3,minmax(0,1fr)); gap: 10px; width: 100%; }
+.fechamento-mes-metrica { min-width: 0; display: flex; flex-direction: column; align-items: center; justify-content: center; padding: 16px 10px 14px; border: 1px solid rgba(255,255,255,.08); border-radius: 15px; background: rgba(255,255,255,.035); }
+.fechamento-mes-metrica span, .fechamento-mes-saldo span { color: var(--ceremony-muted); font: 800 9px/1.4 Inter,sans-serif; letter-spacing:.11em; text-transform:uppercase; }
+.fechamento-mes-metrica strong { margin-top:5px; color:var(--ceremony-text); font:700 clamp(12px,3.3vw,17px)/1.2 var(--font-mono,monospace); }
+.fechamento-mes-metrica.destaque { border-color:color-mix(in srgb,var(--ceremony-accent) 28%,transparent); background:color-mix(in srgb,var(--ceremony-accent) 8%,transparent); }
+.fechamento-mes-saldo { display:flex; align-items:center; justify-content:space-between; gap:12px; margin-top:11px; padding:13px 15px; border:1px solid rgba(255,255,255,.06); border-radius:14px; background:rgba(255,255,255,.025); }
+.fechamento-mes-saldo strong { font:700 15px/1.3 var(--font-mono,monospace); }
+.fechamento-mes-saldo strong.positivo { color:var(--ceremony-positive); }
+.fechamento-mes-saldo strong.negativo { color:var(--ceremony-negative); }
+.fechamento-mes-proximo { display:flex; flex-direction:column; align-items:center; gap:5px; width:min(100%,390px); margin:14px auto 0; padding:20px 22px; border:1px solid rgba(157,213,173,.16); border-radius:18px; background:rgba(157,213,173,.06); }
+.fechamento-mes-proximo span { color:#d0ecd5; font:700 clamp(23px,6vw,31px)/1 var(--font-mono,monospace); }
+.fechamento-mes-proximo strong { color:rgba(224,241,226,.70); font:600 12px/1.35 var(--font-body,sans-serif); text-align:center; }
+.fechamento-mes-final { width:min(100%,400px); margin:10px auto 0; padding:21px 22px; border-top:1px solid var(--ceremony-border); border-bottom:1px solid color-mix(in srgb,var(--ceremony-accent) 12%,transparent); }
+.fechamento-mes-final p { margin:0; color:var(--ceremony-muted); font:400 14px/1.8 var(--font-display,Fraunces,serif); }
+
+/* ==========================================================
+   NATAL
+   ========================================================== */
+html[data-caixa-theme="christmas"] .fechamento-mes-cena {
+  --ceremony-bg-1:#071d29; --ceremony-bg-2:#103a42; --ceremony-bg-3:#071a25;
+  --ceremony-surface:rgba(10,34,42,.95); --ceremony-text:#fffaf1; --ceremony-muted:rgba(238,249,249,.68);
+  --ceremony-border:rgba(216,180,91,.25); --ceremony-accent:#d8b45b; --ceremony-accent-2:#f2d68d;
+}
+html[data-caixa-theme="christmas"] .fechamento-mes-cena::before { content:"✦  •  ✦  •  ✦"; position:absolute; top:6%; color:rgba(255,255,255,.42); letter-spacing:12px; font-size:12px; }
+
+/* ==========================================================
+   HALLOWEEN — claro e escuro
+   ========================================================== */
+html[data-caixa-theme="halloween"] .fechamento-mes-cena {
+  --ceremony-bg-1:#241026; --ceremony-bg-2:#3a1734; --ceremony-bg-3:#170b18;
+  --ceremony-surface:rgba(39,16,43,.96); --ceremony-text:#fff3e0; --ceremony-muted:rgba(253,243,234,.68);
+  --ceremony-border:rgba(255,122,61,.28); --ceremony-accent:#ff7a3d; --ceremony-accent-2:#ffbd8d;
+}
+html[data-caixa-theme="halloween"] .fechamento-mes-orb::before { content:"♛"; color:#3a1734; }
+html[data-caixa-theme="halloween"] .fechamento-mes-cena::before { content:"☾  ·  🦇  ·  ☾"; position:absolute; top:5%; color:rgba(255,189,141,.35); font-size:16px; letter-spacing:8px; }
+html[data-theme="light"][data-caixa-theme="halloween"] .fechamento-mes-cena {
+  --ceremony-bg-1:#ead8f7; --ceremony-bg-2:#f7e9dc; --ceremony-bg-3:#fff3e4;
+  --ceremony-surface:rgba(255,250,246,.97); --ceremony-text:#3a1734; --ceremony-muted:rgba(74,25,66,.66);
+  --ceremony-border:rgba(74,25,66,.18); --ceremony-accent:#e2591a; --ceremony-accent-2:#b84917;
+  box-shadow:inset 0 0 100px rgba(74,25,66,.05);
+}
+html[data-theme="light"][data-caixa-theme="halloween"] .fechamento-mes-card { box-shadow:0 30px 80px rgba(74,25,66,.18), inset 0 1px 0 rgba(255,255,255,.95); }
+html[data-theme="light"][data-caixa-theme="halloween"] .fechamento-mes-metrica { border-color:rgba(74,25,66,.12); background:rgba(74,25,66,.035); }
+html[data-theme="light"][data-caixa-theme="halloween"] .fechamento-mes-saldo { border-color:rgba(74,25,66,.10); background:rgba(74,25,66,.035); }
+html[data-theme="light"][data-caixa-theme="halloween"] .fechamento-mes-caixinha-card { background:linear-gradient(145deg,rgba(255,255,255,.92),rgba(255,240,223,.92)); box-shadow:0 16px 34px rgba(74,25,66,.13), inset 0 1px 0 #fff; }
+
+@media (max-width:560px) {
+  .fechamento-mes-cena { padding:15px; }
+  .fechamento-mes-cena::after { inset:10px; border-radius:23px; }
+  .fechamento-mes-card { min-height:380px; padding:43px 18px 31px; border-radius:23px; }
+  .fechamento-mes-etapa h2 { font-size:29px; }
+  .fechamento-mes-etapa p { font-size:12px; }
+  .fechamento-mes-caixinha-card { grid-template-columns:72px minmax(0,1fr); gap:14px; padding:17px; min-height:158px; border-radius:20px; }
+  .fechamento-mes-caixinha-icone { width:72px; height:72px; border-radius:21px; }
+  .fechamento-mes-caixinha-icone img { width:47px; height:47px; }
+  .fechamento-mes-caixinha-nome { font-size:20px; }
+  .fechamento-mes-caixinha-valor { margin-top:9px; font-size:23px; }
+  .fechamento-mes-metricas { gap:7px; }
 }
 
-[data-theme="dark"] #monthlyClosingCeremony,
-[data-theme="dark"] .month-closing-ceremony,
-[data-theme="dark"] .closing-ceremony {
-  --ceremony-surface: var(--card-bg, #15171c);
-  --ceremony-text: var(--text-color, #f5f7fb);
-  --ceremony-muted: var(--muted-text, #a7adba);
-  --ceremony-border: var(--border-color, rgba(255,255,255,.09));
+/* v11 — Halloween claro: reforço definitivo de contraste para textos secundários. */
+html[data-theme="light"][data-caixa-theme="halloween"] .fechamento-mes-cena .fechamento-mes-etapa p,
+html[data-theme="light"][data-caixa-theme="halloween"] .fechamento-mes-cena .fechamento-mes-caixinha-caption,
+html[data-theme="light"][data-caixa-theme="halloween"] .fechamento-mes-cena .fechamento-mes-meta p,
+html[data-theme="light"][data-caixa-theme="halloween"] .fechamento-mes-cena .fechamento-mes-metrica span,
+html[data-theme="light"][data-caixa-theme="halloween"] .fechamento-mes-cena .fechamento-mes-saldo span,
+html[data-theme="light"][data-caixa-theme="halloween"] .fechamento-mes-cena .fechamento-mes-proximo strong,
+html[data-theme="light"][data-caixa-theme="halloween"] .fechamento-mes-cena .fechamento-mes-final p {
+  color: #4f3a49 !important;
+  opacity: 1 !important;
+}
+html[data-theme="light"][data-caixa-theme="halloween"] .fechamento-mes-cena .fechamento-mes-metrica strong,
+html[data-theme="light"][data-caixa-theme="halloween"] .fechamento-mes-cena .fechamento-mes-saldo strong {
+  color: #351d31 !important;
+}
+html[data-theme="light"][data-caixa-theme="halloween"] .fechamento-mes-cena .fechamento-mes-kicker,
+html[data-theme="light"][data-caixa-theme="halloween"] .fechamento-mes-cena .fechamento-mes-caixinha-label,
+html[data-theme="light"][data-caixa-theme="halloween"] .fechamento-mes-cena .fechamento-mes-meta > span {
+  color: #a33d12 !important;
+}
+html[data-theme="light"][data-caixa-theme="halloween"] .fechamento-mes-cena .fechamento-mes-proximo span,
+html[data-theme="light"][data-caixa-theme="halloween"] .fechamento-mes-cena .fechamento-mes-destaque-valor,
+html[data-theme="light"][data-caixa-theme="halloween"] .fechamento-mes-cena .fechamento-mes-caixinha-valor {
+  color: #a33d12 !important;
 }
 
-[data-theme="christmas"] #monthlyClosingCeremony,
-[data-theme="christmas"] .month-closing-ceremony {
-  --ceremony-accent: var(--christmas-accent, #d84a4a);
+/* v11 — Cards do Hero: menos ornamento, mais informação. */
+html[data-caixa-theme="halloween"] .hero-stat-ganhos,
+html[data-caixa-theme="halloween"] .hero-stats > .hero-stat:nth-child(3),
+html[data-caixa-theme="halloween"] .hero-stats > .hero-stat:nth-child(4) {
+  padding: 12px 13px !important;
+  border-radius: 14px !important;
+  box-shadow: none !important;
+  background: rgba(255,255,255,.055) !important;
+}
+html[data-caixa-theme="halloween"] .hero-stat-ganhos::before,
+html[data-caixa-theme="halloween"] .hero-stats > .hero-stat:nth-child(3)::before,
+html[data-caixa-theme="halloween"] .hero-stats > .hero-stat:nth-child(4)::before { height: 3px; }
+html[data-caixa-theme="halloween"] .hero-stat-ganhos .hero-stat-label::before,
+html[data-caixa-theme="halloween"] .hero-stats > .hero-stat:nth-child(3) .hero-stat-label::before,
+html[data-caixa-theme="halloween"] .hero-stats > .hero-stat:nth-child(4) .hero-stat-label::before { content: none !important; }
+html[data-caixa-theme="halloween"] .hero-stat-label { font-size: 9.5px !important; letter-spacing: .08em !important; }
+html[data-caixa-theme="halloween"] .hero-stat-valor { font-size: 14px !important; }
+html[data-theme="light"][data-caixa-theme="halloween"] .hero-stat-ganhos,
+html[data-theme="light"][data-caixa-theme="halloween"] .hero-stats > .hero-stat:nth-child(3),
+html[data-theme="light"][data-caixa-theme="halloween"] .hero-stats > .hero-stat:nth-child(4) {
+  background: rgba(73,32,63,.07) !important;
+  border-color: rgba(73,32,63,.13) !important;
 }
 
-[data-theme="halloween"] #monthlyClosingCeremony,
-[data-theme="halloween"] .month-closing-ceremony {
-  --ceremony-accent: var(--halloween-accent, #ff8a1f);
+/* v11 — Admin: temas como cards de ação, sem checkbox. */
+.caixa-admin-seasonal-force-wrap {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0,1fr));
+  gap: 12px;
+  margin-top: 14px;
 }
-
-@media (max-width: 520px) {
-  .month-closing-ceremony .ceremony-goal-card,
-  .closing-ceremony .ceremony-goal-card {
-    grid-template-columns: 56px minmax(0,1fr);
-  }
-  .month-closing-ceremony .ceremony-goal-icon,
-  .closing-ceremony .ceremony-goal-icon {
-    width: 56px;
-    height: 56px;
-    border-radius: 17px;
-    font-size: 28px;
-  }
-  .month-closing-ceremony .ceremony-goal-amount,
-  .closing-ceremony .ceremony-goal-amount {
-    grid-column: 2;
-  }
+.caixa-admin-seasonal-card {
+  appearance: none;
+  width: 100%;
+  min-height: 154px;
+  display: flex;
+  flex-direction: column;
+  justify-content: space-between;
+  gap: 14px;
+  padding: 17px;
+  text-align: left;
+  color: var(--text, #eef6f1);
+  background: var(--surface-2, rgba(255,255,255,.055));
+  border: 1px solid var(--line, rgba(255,255,255,.10));
+  border-radius: 18px;
+  cursor: pointer;
+  transition: transform .18s ease, border-color .18s ease, box-shadow .18s ease, background .18s ease;
 }
+.caixa-admin-seasonal-card:hover { transform: translateY(-2px); box-shadow: 0 12px 26px rgba(0,0,0,.12); }
+.caixa-admin-seasonal-card:focus-visible { outline: 2px solid var(--gold, #d9ae61); outline-offset: 2px; }
+.caixa-admin-seasonal-card.is-active { border-color: var(--gold, #d9ae61); box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--gold, #d9ae61) 30%, transparent), 0 10px 26px rgba(0,0,0,.10); }
+.caixa-admin-seasonal-head { display: grid; grid-template-columns: 42px minmax(0,1fr) 24px; align-items: center; gap: 11px; }
+.caixa-admin-seasonal-emoji { width: 42px; height: 42px; display: grid; place-items: center; border-radius: 13px; font-size: 22px; background: color-mix(in srgb, var(--gold, #d9ae61) 12%, transparent); }
+.caixa-admin-seasonal-copy { min-width: 0; display: flex; flex-direction: column; gap: 4px; }
+.caixa-admin-seasonal-title { font-size: 14px; font-weight: 800; }
+.caixa-admin-seasonal-sub { font-size: 10.5px; line-height: 1.45; color: var(--muted, #9db0a7); }
+.caixa-admin-seasonal-status { width: 24px; height: 24px; display: grid; place-items: center; border-radius: 50%; color: transparent; border: 1px solid var(--line, rgba(255,255,255,.10)); font-weight: 900; }
+.caixa-admin-seasonal-card.is-active .caixa-admin-seasonal-status { color: #fff; background: var(--gold, #d9ae61); border-color: var(--gold, #d9ae61); }
+.caixa-admin-seasonal-action { align-self: stretch; display: flex; align-items: center; justify-content: center; min-height: 35px; padding: 8px 10px; border-radius: 11px; background: rgba(255,255,255,.045); color: var(--muted, #a8b9b1); font-size: 10.5px; font-weight: 800; letter-spacing: .04em; }
+.caixa-admin-seasonal-card.is-active .caixa-admin-seasonal-action { color: var(--text, #fff); background: color-mix(in srgb, var(--gold, #d9ae61) 15%, transparent); }
+html[data-theme="light"] .caixa-admin-seasonal-card { color: #352333; background: #fffaf5; border-color: #e4d7cd; }
+html[data-theme="light"] .caixa-admin-seasonal-sub { color: #725f69; }
+html[data-theme="light"] .caixa-admin-seasonal-action { color: #67545f; background: #f5eee8; }
+html[data-theme="light"] .caixa-admin-seasonal-card.is-active { border-color: #c58b48; }
+html[data-theme="light"][data-caixa-theme="halloween"] .caixa-admin-seasonal-card.is-active { border-color: #d85b1c; box-shadow: inset 0 0 0 1px rgba(216,91,28,.18), 0 12px 28px rgba(73,32,63,.10); }
+html[data-theme="light"][data-caixa-theme="halloween"] .caixa-admin-seasonal-emoji { background: rgba(216,91,28,.09); }
+@media (max-width: 760px) { .caixa-admin-seasonal-force-wrap { grid-template-columns: 1fr; } }

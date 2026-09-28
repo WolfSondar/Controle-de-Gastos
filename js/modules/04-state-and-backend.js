@@ -51,8 +51,10 @@ function renderMesAtual() {
   if (pessoa === "ambos") {
     const davi = formato(state.mesAtualDavi, state.anoAtualDavi);
     const gabriel = formato(state.mesAtualGabriel, state.anoAtualGabriel);
+    // Se os dois perfis estiverem no mesmo ciclo, o título fica limpo e mostra
+    // apenas um mês. Só exibimos os dois nomes quando os ciclos realmente diferem.
     el.textContent = davi && gabriel
-      ? `Davi · ${davi}  •  Gabriel · ${gabriel}`
+      ? (davi === gabriel ? davi : `Davi · ${davi}  •  Gabriel · ${gabriel}`)
       : davi || gabriel || "";
     el.classList.add("is-disabled");
     el.disabled = true;
@@ -67,6 +69,13 @@ function renderMesAtual() {
   }
 
   el.hidden = !el.textContent;
+
+  // O mês exibido no cabeçalho acompanha sempre o perfil ativo.
+  // Davi e Gabriel possuem ciclos independentes no Firebase; nunca
+  // reutilizamos o título do perfil anterior durante a troca.
+  if (typeof window.atualizarTituloMesPessoa === "function" && state.pessoaAtual !== "ambos") {
+    window.atualizarTituloMesPessoa(state.mesAtual, state.anoAtual);
+  }
   try {
     if (state.mesAtual && state.anoAtual) {
       localStorage.setItem(MES_ATUAL_STORAGE_KEY + ":" + state.pessoaAtual, JSON.stringify({ mes: state.mesAtual, ano: state.anoAtual }));
