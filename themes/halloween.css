@@ -1938,3 +1938,101 @@ html[data-theme="light"][data-caixa-theme="halloween"] .fechamento-mes-final {
 }
 html[data-theme="light"][data-caixa-theme="halloween"] .fechamento-mes-saldo strong.positivo { color:#2f7050 !important; }
 html[data-theme="light"][data-caixa-theme="halloween"] .fechamento-mes-saldo strong.negativo { color:#a9424c !important; }
+
+/* ============================================================
+   HALLOWEEN v12 — BORDA UNIFICADA DOS CARDS DO HERO (CLARO)
+   Todos os quatro cards usam exatamente o mesmo acabamento externo.
+   As únicas diferenças permanecem na barrinha superior e nas cores
+   dos valores/títulos temáticos.
+   ============================================================ */
+html[data-theme="light"][data-caixa-theme="halloween"] .hero-stats > .hero-stat {
+  border:1px solid rgba(255,255,255,.72) !important;
+  box-shadow:inset 0 1px 0 rgba(255,255,255,.72), 0 8px 18px rgba(73,32,63,.09) !important;
+}
+html[data-theme="light"][data-caixa-theme="halloween"] .hero-stats > .hero-stat:nth-child(2) {
+  border:1px solid rgba(255,255,255,.72) !important;
+  box-shadow:inset 0 1px 0 rgba(255,255,255,.72), 0 8px 18px rgba(73,32,63,.09) !important;
+}
+
+/* ============================================================
+   HALLOWEEN v13 — BORDA REALMENTE UNIFICADA NOS 4 CARDS DO HERO
+   A borda externa deve ser igualmente perceptível em Ganhos,
+   Guardado, Fixos e Variáveis no Halloween claro.
+   ============================================================ */
+html[data-theme="light"][data-caixa-theme="halloween"] .hero-stats > .hero-stat,
+html[data-theme="light"][data-caixa-theme="halloween"] .hero-stats > .hero-stat.hero-stat-ganhos,
+html[data-theme="light"][data-caixa-theme="halloween"] .hero-stats > .hero-stat:nth-child(2),
+html[data-theme="light"][data-caixa-theme="halloween"] .hero-stats > .hero-stat:nth-child(3),
+html[data-theme="light"][data-caixa-theme="halloween"] .hero-stats > .hero-stat:nth-child(4) {
+  border:1px solid rgba(255,255,255,.82) !important;
+  outline:1px solid rgba(255,255,255,.18) !important;
+  box-shadow:
+    inset 0 1px 0 rgba(255,255,255,.78),
+    0 8px 18px rgba(73,32,63,.09) !important;
+}
+
+/* ============================================================
+   HALLOWEEN v14 — HERO: ACABAMENTO NEUTRO E REALMENTE UNIFORME
+   O Guardado não deve parecer um card diferente. Os quatro cards
+   compartilham exatamente a mesma superfície, borda e sombra.
+   Só a barrinha superior e a cor do conteúdo diferenciam cada um.
+   ============================================================ */
+html[data-theme="light"][data-caixa-theme="halloween"] .hero-stats > .hero-stat,
+html[data-theme="light"][data-caixa-theme="halloween"] .hero-stats > .hero-stat.hero-stat-ganhos,
+html[data-theme="light"][data-caixa-theme="halloween"] .hero-stats > .hero-stat:nth-child(2),
+html[data-theme="light"][data-caixa-theme="halloween"] .hero-stats > .hero-stat:nth-child(3),
+html[data-theme="light"][data-caixa-theme="halloween"] .hero-stats > .hero-stat:nth-child(4) {
+  background:rgba(255,250,244,.085) !important;
+  border:1px solid rgba(255,255,255,.28) !important;
+  outline:none !important;
+  box-shadow:inset 0 1px 0 rgba(255,255,255,.10), 0 8px 18px rgba(38,10,35,.10) !important;
+}
+
+/* Remove completamente o halo/efeito esbranquiçado exclusivo do Guardado. */
+html[data-theme="light"][data-caixa-theme="halloween"] .hero-stats > .hero-stat:nth-child(2)::after {
+  content:none !important;
+  display:none !important;
+  background:none !important;
+  box-shadow:none !important;
+  filter:none !important;
+}
+
+/* Mantém apenas a assinatura dourada do Guardado. */
+html[data-theme="light"][data-caixa-theme="halloween"] .hero-stats > .hero-stat:nth-child(2)::before {
+  content:"" !important;
+  left:0 !important;
+  right:0 !important;
+  top:0 !important;
+  height:4px !important;
+  background:#e6c47c !important;
+}
+
+/* ============================================================
+   HALLOWEEN v15 — BORDAS DOS 4 CARDS DO HERO SEM SUMIR
+   A borda é desenhada também como inset para permanecer visível
+   em todas as extremidades, inclusive nos cards inferiores sobre
+   o terreno do Hero. O Guardado não recebe qualquer halo extra.
+   ============================================================ */
+html[data-theme="light"][data-caixa-theme="halloween"] .hero-stats > .hero-stat,
+html[data-theme="light"][data-caixa-theme="halloween"] .hero-stats > .hero-stat.hero-stat-ganhos,
+html[data-theme="light"][data-caixa-theme="halloween"] .hero-stats > .hero-stat:nth-child(2),
+html[data-theme="light"][data-caixa-theme="halloween"] .hero-stats > .hero-stat:nth-child(3),
+html[data-theme="light"][data-caixa-theme="halloween"] .hero-stats > .hero-stat:nth-child(4) {
+  border:1px solid rgba(255,255,255,.30) !important;
+  outline:none !important;
+  box-shadow:
+    inset 0 0 0 1px rgba(255,255,255,.14),
+    inset 0 1px 0 rgba(255,255,255,.10),
+    0 8px 18px rgba(38,10,35,.10) !important;
+}
+
+/* Todos os cards têm o mesmo acabamento externo; somente a faixa
+   superior e as cores dos valores permanecem temáticas. */
+html[data-theme="light"][data-caixa-theme="halloween"] .hero-stats > .hero-stat:nth-child(2)::after {
+  content:none !important;
+  display:none !important;
+  opacity:0 !important;
+  background:none !important;
+  box-shadow:none !important;
+  filter:none !important;
+}
