@@ -85,3 +85,36 @@ function corDaCategoria(nome, idxFallback) {
   return PALETA_CATEGORIAS[idxFallback % PALETA_CATEGORIAS.length];
 }
 
+
+
+/* ─────────────────────────────────────────────────────────────
+   MÊS DA PESSOA ATIVA
+   ───────────────────────────────────────────────────────────── */
+(function () {
+  function formatarMesAnoPessoa(dataOuChave) {
+    if (!dataOuChave) return null;
+    var d = dataOuChave instanceof Date ? dataOuChave : new Date(dataOuChave);
+    if (isNaN(d.getTime())) return null;
+    return d.toLocaleDateString('pt-BR', { month: 'long', year: 'numeric' })
+      .replace(/^./, function (c) { return c.toUpperCase(); });
+  }
+
+  function atualizarTituloMesPessoa(mes, ano) {
+    if (mes == null || ano == null) return;
+    var data = new Date(Number(ano), Number(mes) - 1, 1);
+    var titulo = formatarMesAnoPessoa(data);
+    if (!titulo) return;
+
+    document.querySelectorAll(
+      '[data-mes-titulo], #mesTitulo, #tituloMes, .mes-titulo, .month-title'
+    ).forEach(function (el) {
+      el.textContent = titulo;
+    });
+
+    window.mesTituloAtual = titulo;
+    window.mesAnoTituloAtual = { mes: Number(mes), ano: Number(ano) };
+  }
+
+  window.formatarMesAnoPessoa = formatarMesAnoPessoa;
+  window.atualizarTituloMesPessoa = atualizarTituloMesPessoa;
+})();

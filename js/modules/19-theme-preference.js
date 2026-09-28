@@ -60,3 +60,13 @@ function usuarioAtualEhAdmin(){
   try { return window.CAIXA_FIREBASE?.isAdmin?.() === true; } catch (_) { return false; }
 }
 
+
+
+/* Mantém a camada visual da cerimônia sincronizada com o tema ativo. */
+(function () {
+  window.sincronizarTemaCerimonia = function (tema, modo) {
+    var root = document.documentElement;
+    if (tema) root.setAttribute('data-theme', String(tema).toLowerCase());
+    if (modo) root.setAttribute('data-mode', String(modo).toLowerCase());
+  };
+})();
