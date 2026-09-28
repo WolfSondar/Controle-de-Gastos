@@ -347,3 +347,19 @@ function caixaGarantirCssTemaGlobal(id) {
   window.CAIXA_TEMA_CORE?.aplicarEstilos?.(tema);
 }
 
+
+// ---------------------------------------------------------------------
+// API central — compatibilidade + nova arquitetura
+// ---------------------------------------------------------------------
+window.CAIXA_STATE = state;
+window.CAIXA_FMT = fmt;
+window.CAIXA_FMT_CAMPO = fmtCampo;
+window.CAIXA_CORE?.registerModule("state", {
+  state,
+  fmt,
+  fmtCampo,
+  isAmbos,
+  temBackendDados,
+  caixaApiRequest,
+  fetchApiGet,
+});
