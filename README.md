@@ -135,23 +135,3 @@ Navegador
 ```
 
 **Google Sheets e Google Apps Script não são mais necessários para o funcionamento do sistema.**
-<<<<<<< HEAD
-=======
-
-
-## Organização de temas
-
-A estrutura visual agora segue uma separação por camadas:
-
-- `index.html` — estrutura/HTML da aplicação.
-- `app.js` — núcleo funcional: dados, Firebase, cálculos e interações.
-- `themes/default.css` — visual do tema padrão.
-- `themes/christmas.css` — visual do tema Natal.
-- `themes/halloween.css` — visual do tema Halloween.
-- `themes/default.js` — ponto de entrada JS do tema padrão.
-- `themes/christmas.js` — ponto de entrada JS do tema Natal.
-- `themes/halloween.js` — ponto de entrada JS do tema Halloween.
-- `themes/registry.js` — registro comum dos módulos de tema.
-
-**Importante:** a lógica sazonal existente no `app.js` foi mantida nesta primeira etapa para evitar regressões. Os módulos por tema já estão preparados como fronteira para a próxima migração das rotinas específicas de Natal/Halloween, sem duplicar o núcleo financeiro.
->>>>>>> c7ff2e87fd6cedd6c418952594959742b86a5313
