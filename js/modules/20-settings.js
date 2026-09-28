@@ -482,6 +482,19 @@
 
   window.CAIXA_ATUALIZAR_CAMADAS_TEMAS = atualizarCamadasTemas;
 
+  // API de compatibilidade para módulos e listeners antigos que ainda chamam
+  // aplicarTemaCaixa() diretamente. A implementação continua centralizada
+  // neste módulo, enquanto a atualização visual é delegada ao motor de temas.
+  function aplicarTemaCaixa(id) {
+    const ativo = sincronizarTemaSazonal();
+    garantirCssTema(ativo);
+    window.CAIXA_ATUALIZAR_CAMADAS_TEMAS?.();
+    window.CAIXA_ATUALIZAR_DECORACAO_POPUPS?.();
+    if (typeof renderVisaoGeral === "function") renderVisaoGeral();
+    return ativo;
+  }
+  window.aplicarTemaCaixa = aplicarTemaCaixa;
+
   function renderTemas() {
     const ativo = sincronizarTemaSazonal();
     garantirCssTema(ativo);
