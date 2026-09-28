@@ -43,7 +43,7 @@
       for (const [id, src] of CORE) {
         await new Promise((resolve, reject) => {
           const script = document.createElement("script");
-          script.src = `${src}?v=5`;
+          script.src = `${src}?v=6`;
           script.async = false;
           script.dataset.caixaModule = id;
           script.onload = resolve;

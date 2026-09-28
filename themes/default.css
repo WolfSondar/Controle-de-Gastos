@@ -7815,6 +7815,321 @@ html[data-theme="dark"] .chat-comparacao-pendentes strong {
 
 
 /* ==========================================================
+   BASE DA CERIMÔNIA DE FECHAMENTO DO MÊS
+   Estrutura e animações essenciais compartilhadas por todos os temas.
+   As regras V22+ abaixo refinam a aparência do cartão.
+   ========================================================== */
+.fechamento-mes-cena {
+  position: fixed;
+  inset: 0;
+  z-index: 99999;
+  display: grid;
+  place-items: center;
+  padding: 28px;
+  overflow: hidden;
+  isolation: isolate;
+  color: #f8f2e5;
+  background: linear-gradient(180deg, #071711, #0d241c 52%, #091a14);
+  opacity: 0;
+  visibility: hidden;
+  pointer-events: none;
+  transition: opacity .55s ease, visibility .55s ease;
+}
+.fechamento-mes-cena.is-visible {
+  opacity: 1;
+  visibility: visible;
+  pointer-events: auto;
+}
+.fechamento-mes-cena.fechamento-mes-finalizando {
+  opacity: 0;
+  visibility: hidden;
+  pointer-events: none;
+}
+.fechamento-mes-cena::after {
+  content: "";
+  position: absolute;
+  inset: 18px;
+  z-index: 0;
+  border: 1px solid rgba(217,174,97,.09);
+  border-radius: 28px;
+  pointer-events: none;
+}
+.fechamento-mes-linhas,
+.fechamento-mes-brilhos {
+  position: absolute;
+  inset: 0;
+  overflow: hidden;
+  pointer-events: none;
+}
+.fechamento-mes-linhas { z-index: 0; }
+.fechamento-mes-linhas span {
+  position: absolute;
+  top: -10%;
+  left: var(--x, 50%);
+  width: 1px;
+  height: var(--altura, 80vh);
+  opacity: var(--op, .12);
+  background: linear-gradient(180deg, transparent, rgba(230,196,125,.8), transparent);
+  animation: fechamentoLinhaDescer var(--dur, 5s) linear var(--delay, 0s) infinite;
+}
+.fechamento-mes-brilhos { z-index: 0; }
+.fechamento-mes-brilhos i {
+  position: absolute;
+  left: var(--x, 50%);
+  top: var(--y, 50%);
+  width: 3px;
+  height: 3px;
+  border-radius: 50%;
+  background: #f4d28b;
+  box-shadow: 0 0 12px 3px rgba(244,210,139,.25);
+  animation: fechamentoBrilhoPulsar var(--dur, 3s) ease-in-out var(--delay, 0s) infinite;
+}
+@keyframes fechamentoLinhaDescer {
+  from { transform: translateY(-12vh); }
+  to { transform: translateY(125vh); }
+}
+@keyframes fechamentoBrilhoPulsar {
+  0%, 100% { opacity: .18; transform: scale(.7); }
+  50% { opacity: .9; transform: scale(1.35); }
+}
+.fechamento-mes-card {
+  position: relative;
+  z-index: 1;
+  width: min(100%, 520px);
+  min-height: 410px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: flex-start;
+  padding: 48px 38px 42px;
+  border: 1px solid rgba(217,174,97,.18);
+  border-radius: 28px;
+  color: #f8f2e5;
+  text-align: center;
+  background: rgba(10,29,22,.92);
+  box-shadow: 0 38px 100px rgba(0,0,0,.52), inset 0 1px 0 rgba(255,255,255,.08);
+  transform: translateY(14px) scale(.985);
+  transition: transform .65s cubic-bezier(.16,1,.3,1);
+}
+.fechamento-mes-cena.is-visible .fechamento-mes-card {
+  transform: translateY(0) scale(1);
+}
+.fechamento-mes-orb {
+  position: absolute;
+  top: -37px;
+  left: 50%;
+  display: grid;
+  place-items: center;
+  width: 74px;
+  height: 74px;
+  border: 1px solid rgba(244,210,139,.45);
+  border-radius: 50%;
+  background: radial-gradient(circle at 35% 25%, #fff1c9, #d9ae61 48%, #8e6427);
+  box-shadow: 0 0 0 9px rgba(217,174,97,.07), 0 15px 42px rgba(217,174,97,.32);
+  transform: translateX(-50%);
+}
+.fechamento-mes-orb::before {
+  content: "✦";
+  color: #5c421e;
+  font-size: 29px;
+  line-height: 1;
+  text-shadow: 0 1px 0 rgba(255,255,255,.45);
+}
+.fechamento-mes-orb span { display: none; }
+.fechamento-mes-etapa {
+  width: 100%;
+  margin-top: 5px;
+  transition: opacity .28s ease, transform .28s ease, filter .28s ease;
+}
+.fechamento-mes-etapa.is-trocando {
+  opacity: 0;
+  transform: translateY(7px);
+  filter: blur(3px);
+}
+.fechamento-mes-kicker {
+  margin-bottom: 12px;
+  color: rgba(244,210,139,.78);
+  font: 700 9px/1.3 Inter, sans-serif;
+  letter-spacing: .24em;
+  text-transform: uppercase;
+}
+.fechamento-mes-etapa h2 {
+  margin: 0 auto;
+  max-width: 430px;
+  color: #fff5df;
+  font: 600 clamp(29px, 5vw, 38px)/1.02 var(--font-display, Georgia, serif);
+  text-wrap: balance;
+}
+.fechamento-mes-etapa p {
+  max-width: 390px;
+  margin: 14px auto 0;
+  color: rgba(248,242,229,.60);
+  font: 400 12.5px/1.65 var(--font-body, sans-serif);
+}
+.fechamento-mes-resumo {
+  width: 100%;
+  min-height: 150px;
+  margin-top: 9px;
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+}
+.fechamento-mes-preparando {
+  display: grid;
+  justify-items: center;
+  gap: 13px;
+  color: rgba(248,242,229,.72);
+}
+.fechamento-mes-preparando span {
+  color: #f2ce84;
+  font-size: 27px;
+  animation: fechamentoBrilhoPulsar 1.8s ease-in-out infinite;
+}
+.fechamento-mes-preparando p { margin: 0; font: 500 14px/1.5 var(--font-display, Georgia, serif); }
+.fechamento-mes-metricas {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 10px;
+  width: 100%;
+}
+.fechamento-mes-metrica {
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  padding: 16px 10px 14px;
+  border: 1px solid rgba(255,255,255,.075);
+  border-radius: 15px;
+  background: rgba(255,255,255,.035);
+}
+.fechamento-mes-metrica span,
+.fechamento-mes-saldo span {
+  color: rgba(248,242,229,.52);
+  font: 700 9px/1.4 Inter, sans-serif;
+  letter-spacing: .11em;
+  text-transform: uppercase;
+}
+.fechamento-mes-metrica strong {
+  margin-top: 5px;
+  color: #f8f2e5;
+  font: 700 clamp(12px, 3.3vw, 17px)/1.2 var(--font-mono, monospace);
+}
+.fechamento-mes-metrica.destaque {
+  border-color: rgba(217,174,97,.28);
+  background: rgba(217,174,97,.07);
+}
+.fechamento-mes-saldo {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  margin-top: 11px;
+  padding: 13px 15px;
+  border: 1px solid rgba(255,255,255,.06);
+  border-radius: 14px;
+  background: rgba(255,255,255,.025);
+}
+.fechamento-mes-saldo strong { font: 700 15px/1.3 var(--font-mono, monospace); }
+.fechamento-mes-saldo strong.positivo { color: #bfe4c7; }
+.fechamento-mes-saldo strong.negativo { color: #f0b29f; }
+.fechamento-mes-meta,
+.fechamento-mes-categoria,
+.fechamento-mes-proximo,
+.fechamento-mes-comparacao,
+.fechamento-mes-final {
+  animation: fechamentoConteudoEntrar .6s cubic-bezier(.16,1,.3,1) both;
+}
+@keyframes fechamentoConteudoEntrar {
+  from { opacity: 0; transform: translateY(10px) scale(.985); }
+  to { opacity: 1; transform: translateY(0) scale(1); }
+}
+.fechamento-mes-meta {
+  width: min(100%, 390px);
+  margin: 12px auto 0;
+  padding: 15px 16px;
+  border: 1px solid rgba(217,174,97,.12);
+  border-radius: 16px;
+  background: linear-gradient(135deg, rgba(217,174,97,.075), rgba(255,255,255,.025));
+}
+.fechamento-mes-meta > span { display: block; margin-bottom: 8px; color: #f2ce84; font-size: 23px; }
+.fechamento-mes-meta p { margin: 0; color: rgba(248,242,229,.72); font: 400 12px/1.55 var(--font-body, sans-serif); }
+.fechamento-mes-proximo {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 5px;
+  width: min(100%, 390px);
+  margin: 14px auto 0;
+  padding: 20px 22px;
+  border: 1px solid rgba(157,213,173,.16);
+  border-radius: 18px;
+  background: linear-gradient(145deg, rgba(157,213,173,.075), rgba(255,255,255,.022));
+}
+.fechamento-mes-proximo span { color: #d0ecd5; font: 700 clamp(23px, 6vw, 31px)/1 var(--font-mono, monospace); }
+.fechamento-mes-proximo strong { color: rgba(224,241,226,.68); font: 600 12px/1.35 var(--font-body, sans-serif); text-align: center; }
+.fechamento-mes-comparacao {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 8px;
+  width: min(100%, 300px);
+  margin: 14px auto 0;
+  padding: 18px;
+  border: 1px solid rgba(157,213,173,.13);
+  border-radius: 18px;
+  background: rgba(157,213,173,.045);
+}
+.fechamento-mes-comparacao strong { color: #cde7d1; font: 700 24px/1.15 var(--font-mono, monospace); }
+.fechamento-mes-comparacao span { color: rgba(224,241,226,.48); font: 600 10px/1.4 var(--font-body, sans-serif); letter-spacing: .12em; text-transform: uppercase; }
+.fechamento-mes-final {
+  width: min(100%, 400px);
+  margin: 10px auto 0;
+  padding: 21px 22px;
+  border-top: 1px solid rgba(217,174,97,.18);
+  border-bottom: 1px solid rgba(217,174,97,.10);
+}
+.fechamento-mes-final p { margin: 0; color: rgba(248,242,229,.76); font: 400 14px/1.8 var(--font-display, Georgia, serif); }
+.fechamento-mes-progresso {
+  position: absolute;
+  left: 38px;
+  right: 38px;
+  bottom: 20px;
+  height: 2px;
+  overflow: hidden;
+  border-radius: 99px;
+  background: rgba(255,255,255,.055);
+}
+.fechamento-mes-progresso span {
+  display: block;
+  width: 5%;
+  height: 100%;
+  border-radius: inherit;
+  background: linear-gradient(90deg, #a77a35, #f4d28b);
+  box-shadow: 0 0 12px rgba(244,210,139,.35);
+  transition: width .7s cubic-bezier(.16,1,.3,1);
+}
+.fechamento-mes-ano {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 8px;
+  padding: 16px;
+}
+.fechamento-mes-ano strong { color: #f2ce84; font: 700 clamp(26px, 6vw, 36px)/1.1 var(--font-mono, monospace); }
+.fechamento-mes-ano span { color: rgba(248,242,229,.65); font-size: 12px; }
+.fechamento-mes-ano em { margin-top: 10px; color: rgba(248,242,229,.48); font: italic 13px/1.5 var(--font-display, Georgia, serif); }
+body.fechamento-mes-ativo { overflow: hidden; }
+@media (max-width: 560px) {
+  .fechamento-mes-cena { padding: 15px; }
+  .fechamento-mes-cena::after { inset: 10px; border-radius: 23px; }
+  .fechamento-mes-card { min-height: 380px; padding: 43px 18px 31px; border-radius: 23px; }
+  .fechamento-mes-etapa h2 { font-size: 29px; }
+  .fechamento-mes-etapa p { font-size: 12px; }
+  .fechamento-mes-progresso { left: 23px; right: 23px; }
+}
+
+/* ==========================================================
    V22 — REFINO VISUAL DA CERIMÔNIA
    Mais editorial, menos "dashboard": o fechamento deve parecer
    uma página especial do livro-caixa.
