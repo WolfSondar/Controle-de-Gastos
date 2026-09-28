@@ -1669,14 +1669,17 @@ html[data-theme="light"][data-caixa-theme="halloween"] .hero-stats > .hero-stat:
 /* O claro usa o mesmo fundo dos outros três cards; Guardado não vira um
    cartão dourado separado. */
 html[data-theme="light"][data-caixa-theme="halloween"] .hero-stats > .hero-stat:nth-child(2) .hero-stat-label {
-  color:#5f4a5b !important;
+  /* Igual aos demais títulos dos cards no Hero. */
+  color:#f5d6bf !important;
+  opacity:1 !important;
+  text-shadow:none !important;
 }
 html[data-theme="light"][data-caixa-theme="halloween"] .hero-stats > .hero-stat:nth-child(2) .hero-stat-valor.gold {
   color:#a96827 !important;
   text-shadow:none !important;
 }
 html[data-theme="light"][data-caixa-theme="halloween"] .hero-stats > .hero-stat:nth-child(2) .hero-stat-subvalor.gold {
-  color:#7b6675 !important;
+  color:#cbb8c4 !important;
 }
 
 /* Remoção total dos voos de morcegos no hero, inclusive se algum markup antigo
@@ -1730,3 +1733,208 @@ html[data-theme="light"][data-caixa-theme="halloween"] .fechamento-mes-suspense-
 html[data-theme="light"][data-caixa-theme="halloween"] .fechamento-mes-suspense-card {
   color:#3d2337 !important;
 }
+
+/* ============================================================
+   HALLOWEEN v11 — GUARDADO LEGÍVEL NO TEMA CLARO
+   ============================================================ */
+
+/* Guardado no Halloween claro: mesma hierarquia dos demais cards.
+   Só o título permanece neutro como os outros e o número recebe ouro pastel. */
+html[data-theme="light"][data-caixa-theme="halloween"] .hero-stats > .hero-stat:nth-child(2) .hero-stat-label {
+  /* Igual aos demais títulos dos cards no Hero. */
+  color:#f5d6bf !important;
+  opacity:1 !important;
+  text-shadow:none !important;
+}
+html[data-theme="light"][data-caixa-theme="halloween"] .hero-stats > .hero-stat:nth-child(2) .hero-stat-valor.gold {
+  /* Ouro pastel, mais luminoso sobre o ameixa do Hero. */
+  color:#e6c47c !important;
+  text-shadow:none !important;
+}
+html[data-theme="light"][data-caixa-theme="halloween"] .hero-stats > .hero-stat:nth-child(2) .hero-stat-subvalor.gold {
+  color:#cbb8c4 !important;
+}
+html[data-theme="light"][data-caixa-theme="halloween"] .hero-stats > .hero-stat:nth-child(2)::before {
+  background:#e6c47c !important;
+}
+
+/* ============================================================
+   CERIMÔNIA HALLOWEEN CLARO — REDESIGN COMPLETO
+   Parchment quente + ameixa escura + cobre. Nenhum texto depende
+   de transparência clara para ficar legível.
+   ============================================================ */
+html[data-theme="light"][data-caixa-theme="halloween"] .fechamento-mes-cena {
+  --ceremony-bg-1:#f6e5d5;
+  --ceremony-bg-2:#f3ddd0;
+  --ceremony-bg-3:#ead3df;
+  --ceremony-surface:#fffaf4;
+  --ceremony-surface-2:#f7eee7;
+  --ceremony-text:#3d2337;
+  --ceremony-muted:#6b5363;
+  --ceremony-border:#dcc8c1;
+  --ceremony-accent:#b75d34;
+  --ceremony-accent-2:#9b4c2b;
+  --ceremony-positive:#2f7050;
+  --ceremony-negative:#a9424c;
+  color:#3d2337 !important;
+  background:
+    radial-gradient(circle at 50% 8%, rgba(183,93,52,.13), transparent 27%),
+    radial-gradient(circle at 12% 82%, rgba(103,55,93,.09), transparent 30%),
+    linear-gradient(135deg,#f7e8d9 0%,#f5e0d5 52%,#ead5e0 100%) !important;
+}
+html[data-theme="light"][data-caixa-theme="halloween"] .fechamento-mes-cena::before {
+  content:"" !important;
+  position:absolute;
+  inset:0;
+  background:
+    radial-gradient(circle at 18% 20%, rgba(255,255,255,.65) 0 1px, transparent 2px),
+    radial-gradient(circle at 82% 27%, rgba(183,93,52,.16) 0 1px, transparent 2px),
+    radial-gradient(circle at 74% 78%, rgba(103,55,93,.13) 0 1px, transparent 2px);
+  background-size:120px 120px,170px 170px,210px 210px;
+  pointer-events:none;
+  opacity:.8;
+}
+html[data-theme="light"][data-caixa-theme="halloween"] .fechamento-mes-cena::after {
+  inset:16px !important;
+  border:1px solid rgba(61,35,55,.13) !important;
+  border-radius:28px !important;
+}
+html[data-theme="light"][data-caixa-theme="halloween"] .fechamento-mes-card {
+  width:min(100%,580px);
+  min-height:430px;
+  padding:52px 38px 42px;
+  border:1px solid #d9c4bc !important;
+  border-radius:30px !important;
+  background:
+    linear-gradient(145deg,rgba(255,255,255,.96),rgba(255,249,243,.98) 55%,rgba(250,239,235,.98)) !important;
+  color:#3d2337 !important;
+  box-shadow:
+    0 34px 90px rgba(76,43,66,.18),
+    inset 0 1px 0 rgba(255,255,255,.98),
+    inset 0 -1px 0 rgba(103,55,93,.05) !important;
+}
+html[data-theme="light"][data-caixa-theme="halloween"] .fechamento-mes-orb {
+  border-color:#c8784c !important;
+  background:radial-gradient(circle at 34% 24%,#fff4df,#e29a63 48%,#a95034 100%) !important;
+  box-shadow:0 0 0 9px rgba(183,93,52,.08),0 16px 38px rgba(129,68,48,.20) !important;
+}
+html[data-theme="light"][data-caixa-theme="halloween"] .fechamento-mes-orb::before {
+  color:#542b3f !important;
+}
+html[data-theme="light"][data-caixa-theme="halloween"] .fechamento-mes-kicker {
+  color:#a34e2d !important;
+}
+html[data-theme="light"][data-caixa-theme="halloween"] .fechamento-mes-etapa h2 {
+  color:#3d2337 !important;
+  text-shadow:none !important;
+}
+html[data-theme="light"][data-caixa-theme="halloween"] .fechamento-mes-etapa p {
+  color:#6b5363 !important;
+  opacity:1 !important;
+}
+
+/* Suspense: reconstruído para o claro, com hierarquia escura e superfícies sólidas. */
+html[data-theme="light"][data-caixa-theme="halloween"] .fechamento-mes-suspense-card {
+  min-height:190px !important;
+  margin-top:18px;
+  padding:24px 22px !important;
+  border:1px solid #ddc9bd !important;
+  border-radius:24px !important;
+  background:
+    radial-gradient(circle at 50% 42%,rgba(183,93,52,.10),transparent 34%),
+    linear-gradient(145deg,#fffdf9,#f9eee6) !important;
+  box-shadow:0 18px 42px rgba(75,42,62,.12),inset 0 1px 0 #fff !important;
+}
+html[data-theme="light"][data-caixa-theme="halloween"] .fechamento-mes-suspense-card::before {
+  border-color:rgba(183,93,52,.14) !important;
+  box-shadow:0 0 0 28px rgba(183,93,52,.035),0 0 0 56px rgba(103,55,93,.025) !important;
+}
+html[data-theme="light"][data-caixa-theme="halloween"] .fechamento-mes-suspense-orbita {
+  border-color:#d9a274 !important;
+  background:#fff3e6 !important;
+  color:#a64e2d !important;
+  box-shadow:0 0 28px rgba(183,93,52,.12),inset 0 1px 0 #fff !important;
+}
+html[data-theme="light"][data-caixa-theme="halloween"] .fechamento-mes-suspense-linha,
+html[data-theme="light"][data-caixa-theme="halloween"] .fechamento-mes-suspense-linha span {
+  color:#705566 !important;
+  opacity:1 !important;
+}
+html[data-theme="light"][data-caixa-theme="halloween"] .fechamento-mes-suspense-linha i {
+  background:linear-gradient(90deg,transparent,#c88761) !important;
+}
+html[data-theme="light"][data-caixa-theme="halloween"] .fechamento-mes-suspense-linha i:last-child {
+  background:linear-gradient(90deg,#c88761,transparent) !important;
+}
+html[data-theme="light"][data-caixa-theme="halloween"] .fechamento-mes-suspense-card > strong {
+  color:#3d2337 !important;
+  opacity:1 !important;
+  text-shadow:none !important;
+  font-weight:700 !important;
+}
+
+/* Categoria revelada: cartão editorial, alto contraste. */
+html[data-theme="light"][data-caixa-theme="halloween"] .fechamento-mes-categoria-revelacao {
+  min-height:220px !important;
+  margin-top:18px;
+  padding:26px 22px !important;
+  border:1px solid #dcc6b9 !important;
+  border-radius:24px !important;
+  background:
+    radial-gradient(circle at 50% 15%,rgba(183,93,52,.11),transparent 36%),
+    linear-gradient(160deg,#fffdf9,#f8ece3) !important;
+  box-shadow:0 18px 45px rgba(75,42,62,.12),inset 0 1px 0 #fff !important;
+}
+html[data-theme="light"][data-caixa-theme="halloween"] .fechamento-mes-categoria-icone {
+  border-color:#e0b998 !important;
+  background:#fff2e5 !important;
+  color:#a64e2d !important;
+  box-shadow:0 8px 22px rgba(75,42,62,.10) !important;
+}
+html[data-theme="light"][data-caixa-theme="halloween"] .fechamento-mes-categoria-label {
+  color:#a34e2d !important;
+}
+html[data-theme="light"][data-caixa-theme="halloween"] .fechamento-mes-categoria-revelacao > strong {
+  color:#3d2337 !important;
+  text-shadow:none !important;
+}
+html[data-theme="light"][data-caixa-theme="halloween"] .fechamento-mes-categoria-revelacao > b {
+  color:#a64e2d !important;
+}
+html[data-theme="light"][data-caixa-theme="halloween"] .fechamento-mes-categoria-revelacao > em {
+  color:#6b5363 !important;
+  opacity:1 !important;
+}
+
+/* Demais cartões: o claro sempre usa texto escuro, inclusive nos menores detalhes. */
+html[data-theme="light"][data-caixa-theme="halloween"] .fechamento-mes-meta,
+html[data-theme="light"][data-caixa-theme="halloween"] .fechamento-mes-proximo,
+html[data-theme="light"][data-caixa-theme="halloween"] .fechamento-mes-saldo,
+html[data-theme="light"][data-caixa-theme="halloween"] .fechamento-mes-metrica,
+html[data-theme="light"][data-caixa-theme="halloween"] .fechamento-mes-final {
+  border-color:#ddcbc2 !important;
+  background:#fffaf6 !important;
+  color:#3d2337 !important;
+}
+html[data-theme="light"][data-caixa-theme="halloween"] .fechamento-mes-meta p,
+html[data-theme="light"][data-caixa-theme="halloween"] .fechamento-mes-final p,
+html[data-theme="light"][data-caixa-theme="halloween"] .fechamento-mes-metrica span,
+html[data-theme="light"][data-caixa-theme="halloween"] .fechamento-mes-saldo span,
+html[data-theme="light"][data-caixa-theme="halloween"] .fechamento-mes-proximo strong {
+  color:#6b5363 !important;
+  opacity:1 !important;
+}
+html[data-theme="light"][data-caixa-theme="halloween"] .fechamento-mes-metrica strong,
+html[data-theme="light"][data-caixa-theme="halloween"] .fechamento-mes-saldo strong {
+  color:#3d2337 !important;
+}
+html[data-theme="light"][data-caixa-theme="halloween"] .fechamento-mes-proximo span,
+html[data-theme="light"][data-caixa-theme="halloween"] .fechamento-mes-destaque-valor {
+  color:#a64e2d !important;
+}
+html[data-theme="light"][data-caixa-theme="halloween"] .fechamento-mes-final {
+  border-top-color:#ddcbc2 !important;
+  border-bottom-color:#e4d2ca !important;
+}
+html[data-theme="light"][data-caixa-theme="halloween"] .fechamento-mes-saldo strong.positivo { color:#2f7050 !important; }
+html[data-theme="light"][data-caixa-theme="halloween"] .fechamento-mes-saldo strong.negativo { color:#a9424c !important; }

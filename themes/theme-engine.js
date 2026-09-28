@@ -34,7 +34,7 @@
 
   function themeCssHref(theme) {
     if (theme === "christmas") return "themes/christmas.css";
-    if (theme === "halloween") return "themes/halloween.css?v=12";
+    if (theme === "halloween") return "themes/halloween.css?v=13";
     return null;
   }
 
