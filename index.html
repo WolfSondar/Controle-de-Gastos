@@ -32,10 +32,8 @@
   } catch(e) { document.documentElement.setAttribute("data-theme", "light"); document.documentElement.dataset.themePreference = "device"; }
 })();
 </script>
-<script src="themes/theme-engine.js"></script>
-<link rel="stylesheet" href="themes/default.css" data-caixa-theme-css="default" />
-<link rel="stylesheet" href="themes/seasonal-shared.css" data-caixa-theme-css="shared" />
-  <link rel="stylesheet" href="themes/ceremony.css?v=7">
+<link rel="stylesheet" href="style.css" />
+<link rel="stylesheet" href="themes/christmas.css" />
 </head>
 <body>
 
@@ -660,10 +658,6 @@
 <script src="firebase-config.js"></script>
 <!-- Firebase precisa carregar antes do app. O arquivo é um ES module. -->
 <script type="module" src="firebase-client.js"></script>
-<script defer src="themes/registry.js"></script>
-<script defer src="themes/default.js"></script>
-<script defer src="themes/christmas.js"></script>
-<script defer src="themes/halloween.js"></script>
 <script defer src="app.js"></script>
 
 
