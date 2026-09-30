@@ -328,6 +328,9 @@ function renderHistorico() {
 
   atualizarCarrosselGraficos("historicoGraficosCarousel", "historicoGraficosDots");
   restaurarPaginaCarrossel("historicoGraficosCarousel", "historicoGraficosDots", paginaAnterior);
+  // Os cards são renderizados dinamicamente; inicializamos as gavetas depois
+  // de inserir o HTML para que cada cabeçalho receba seu clique.
+  initGavetas();
 }
 
 function getColapsoState() {

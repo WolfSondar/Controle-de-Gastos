@@ -10487,3 +10487,130 @@ html[data-caixa-theme="halloween"] .hero-stats > .hero-stat:nth-child(2) {
 .caixa-admin-seasonal-action { min-height:39px; display:flex; align-items:center; justify-content:center; padding:8px 10px; border-radius:12px; background:color-mix(in srgb,var(--paper-deep) 82%,transparent); color:var(--muted); font-size:10px; font-weight:800; position:relative; z-index:1; }
 .caixa-admin-seasonal-card.is-active .caixa-admin-seasonal-action { color:var(--ink-text); background:color-mix(in srgb,var(--gold) 14%,var(--paper)); }
 @media(max-width:760px){ .caixa-admin-seasonal-force-wrap{grid-template-columns:1fr;} .caixa-admin-seasonal-card{min-height:160px;padding:14px;} }
+
+
+/* ============================================================
+   AJUSTES FINAIS — HISTÓRICO, MÚSICA E ADMIN
+   ============================================================ */
+/* O cabeçalho e o conteúdo pertencem ao mesmo card: ao abrir, o próprio
+   card cresce, sem parecer que surgiu um segundo bloco por fora. */
+.historico-mes-card {
+  padding: 0 !important;
+  overflow: hidden !important;
+  border-radius: var(--radius-m, 16px) !important;
+}
+.historico-mes-head {
+  min-height: 62px;
+  padding: 14px 16px !important;
+  box-sizing: border-box;
+}
+.historico-mes-content {
+  margin: 0 !important;
+  padding: 0 16px 14px !important;
+  border-top: 1px solid color-mix(in srgb, var(--line) 78%, transparent);
+  box-sizing: border-box;
+}
+.historico-mes-content.is-collapsed {
+  padding-top: 0 !important;
+  padding-bottom: 0 !important;
+  border-top-color: transparent;
+}
+.historico-mes-chevron {
+  width: 28px !important;
+  height: 28px !important;
+  flex-basis: 28px !important;
+  border-radius: 9px !important;
+  box-shadow: none !important;
+}
+.historico-mes-chevron svg { width: 15px !important; height: 15px !important; }
+.historico-mes-head:hover .historico-mes-chevron { transform: translateY(-1px); }
+
+/* A coluna do toggle tinha 20px enquanto o switch mede 44px; isso fazia o
+   controle escapar do card. Agora ele tem uma coluna própria e nunca invade
+   o texto/volume. */
+.caixa-config-music-card {
+  grid-template-columns: 44px minmax(0, 1fr) 44px !important;
+  align-items: center !important;
+}
+.caixa-config-music-card .caixa-config-switch {
+  justify-self: end;
+  align-self: center;
+  margin: 0 !important;
+}
+.caixa-config-music-main { min-width: 0 !important; }
+.caixa-config-volume-wrap { min-width: 0; }
+.caixa-config-volume { min-width: 0; width: min(180px, 100%); }
+@media (max-width: 430px) {
+  .caixa-config-music-card { grid-template-columns: 38px minmax(0, 1fr) 44px !important; gap: 9px !important; padding: 13px 11px !important; }
+  .caixa-config-music-card .caixa-config-card-icon { width: 38px; height: 38px; }
+  .caixa-config-volume { width: min(150px, 100%); }
+}
+
+/* Admin: linguagem visual inspirada no painel de Halloween — superfícies em
+   camadas, acentos temáticos, status circular e ações em cápsulas. */
+#caixaConfigAdmin .caixa-config-admin-panel { gap: 16px; }
+#caixaConfigAdmin .caixa-config-admin-group {
+  position: relative;
+  overflow: hidden;
+  padding: 18px !important;
+  border-radius: 20px !important;
+  background: linear-gradient(145deg, var(--paper), var(--paper-deep)) !important;
+  box-shadow: 0 10px 26px rgba(20,30,25,.07) !important;
+}
+#caixaConfigAdmin .caixa-config-admin-group::before {
+  content: "";
+  position: absolute;
+  width: 120px; height: 120px;
+  right: -48px; bottom: -58px;
+  border-radius: 50%;
+  background: color-mix(in srgb, var(--gold) 10%, transparent);
+  pointer-events: none;
+}
+#caixaConfigAdmin .caixa-config-admin-group > * { position: relative; z-index: 1; }
+#caixaConfigAdmin .caixa-config-row {
+  border-radius: 14px !important;
+  background: color-mix(in srgb, var(--paper-deep) 72%, var(--paper)) !important;
+  border-color: color-mix(in srgb, var(--line) 82%, var(--gold)) !important;
+  transition: transform .16s ease, border-color .16s ease, box-shadow .16s ease;
+}
+#caixaConfigAdmin .caixa-config-row:hover {
+  transform: translateY(-1px);
+  border-color: color-mix(in srgb, var(--gold) 45%, var(--line)) !important;
+  box-shadow: 0 7px 18px rgba(20,30,25,.07);
+}
+#caixaConfigAdmin .caixa-config-mini-btn,
+#caixaConfigAdmin .caixa-config-icon-category-select {
+  border-radius: 10px !important;
+}
+#caixaConfigAdmin .caixa-config-mini-btn:hover {
+  background: color-mix(in srgb, var(--gold) 12%, transparent) !important;
+}
+
+/* Padrão */
+html[data-caixa-theme="default"] #caixaConfigAdmin .caixa-config-admin-group {
+  border-color: rgba(74,120,102,.18) !important;
+}
+/* Natal */
+html[data-caixa-theme="christmas"] #caixaConfigAdmin .caixa-config-admin-group {
+  background: linear-gradient(145deg,#fffdf8,#f1f7f2) !important;
+  border-color: rgba(35,100,71,.18) !important;
+  box-shadow: 0 10px 26px rgba(40,70,58,.09) !important;
+}
+html[data-caixa-theme="christmas"] #caixaConfigAdmin .caixa-config-admin-group::before { background: rgba(185,47,59,.09); }
+html[data-theme="dark"][data-caixa-theme="christmas"] #caixaConfigAdmin .caixa-config-admin-group {
+  background: linear-gradient(145deg,#102b24,#0d211c) !important;
+  border-color: rgba(121,207,226,.16) !important;
+}
+/* Halloween — a referência visual do Admin */
+html[data-caixa-theme="halloween"] #caixaConfigAdmin .caixa-config-admin-group {
+  background: linear-gradient(145deg,#fffafd,#f3e8f8) !important;
+  border-color: rgba(122,56,199,.20) !important;
+  box-shadow: 0 10px 28px rgba(81,39,105,.10) !important;
+}
+html[data-caixa-theme="halloween"] #caixaConfigAdmin .caixa-config-admin-group::before { background: rgba(216,91,28,.12); }
+html[data-theme="dark"][data-caixa-theme="halloween"] #caixaConfigAdmin .caixa-config-admin-group {
+  background: linear-gradient(145deg,#21132d,#140c1c) !important;
+  border-color: rgba(112,224,255,.16) !important;
+  box-shadow: 0 12px 30px rgba(0,0,0,.30) !important;
+}
+html[data-theme="dark"][data-caixa-theme="halloween"] #caixaConfigAdmin .caixa-config-admin-group::before { background: rgba(255,122,61,.10); }
