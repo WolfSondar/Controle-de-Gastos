@@ -274,11 +274,20 @@ if (!cfg.apiKey || cfg.apiKey.includes("COLE_")) {
       const pref=perfilRef(uid,pessoa), href=historicoRef(uid); const ps=await tx.get(pref), hs=await tx.get(href);
       const dados=ps.exists()?ps.data():{}; if(Number(dados.mesAtual)!==mes||Number(dados.anoAtual)!==ano)throw new Error(`O mês informado não é o mês atual de ${pessoa}.`);
       const ganhos=somaRecebidos(dados.ganhos),debitos=somaPagos(dados.gastosFixos)+somaVariaveisReais(dados.gastosVariaveis);
+      const ganhosPorOrigem=separarGanhos(dados.ganhos);
+      const gastosBeneficios=(dados.gastosVariaveis||[]).reduce((a,g)=>a+(g?.pago===true&&g?.lembrete!==true&&!ehCaixinhaLancamento(g?.nome)&&String(g?.origem||"saldo").toLowerCase()==="beneficio"?(Number(g.valor)||0):0),0);
+      const gastosSaldo=Math.max(0,debitos-gastosBeneficios);
+      const ganhosBeneficios=Number(ganhosPorOrigem.beneficios)||0;
+      const ganhosSaldo=Math.max(0,ganhos-ganhosBeneficios);
       const saldos=calcularSaldosDisponiveis(dados),saldo=saldos.total;
       const guardado=(dados.caixinhas||[]).reduce((a,c)=>a+totalCaixinha(c),0),guardadoMes=somaCampo(dados.caixinhas,"valorGuardadoMes"),rendimento=somaCampo(dados.caixinhas,"rendimentoTotal"),categorias=categoriasDoMes(dados);
       const hv=hs.exists()?hs.data():{};const anos=Array.isArray(hv.anos)?structuredClone(hv.anos):[];let bloco=anos.find(x=>Number(x.ano)===ano);if(!bloco){bloco={ano,meses:[]};anos.push(bloco);}
       let m=bloco.meses.find(x=>Number(x.mes)===mes);if(!m){m={mes,nome:tituloMes(mes)};bloco.meses.push(m);}const suf=pessoa==="davi"?"Davi":"Gabriel";
       m[`ganhos${suf}`]=ganhos;m[`debitos${suf}`]=-debitos;m[`saldo${suf}`]=saldo;m[`guardado${suf}`]=guardado;
+      m[`ganhosBeneficios${suf}`]=ganhosBeneficios;
+      m[`ganhosSaldo${suf}`]=ganhosSaldo;
+      m[`debitosBeneficios${suf}`]=-gastosBeneficios;
+      m[`debitosSaldo${suf}`]=-gastosSaldo;
       // O campo mensal precisa ficar como guardadoMesDavi/Gabriel,
       // exatamente no formato que o histórico e o gráfico consomem.
       m[`guardadoMes${suf}`]=guardadoMes;

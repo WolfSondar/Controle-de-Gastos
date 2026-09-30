@@ -54,17 +54,9 @@ function construirGraficoHistoricoMultiSvg(mesesAsc, pessoa) {
   const W = 320, H = 190, padL = 14, padR = 14, padT = 18, padB = 30;
 
   const getVal = (m, campo) => {
-    const valorPessoa = (sufixo) => {
-      const atual = Number(m[`${campo}${sufixo}`]);
-      if (Number.isFinite(atual)) return atual;
-      // Compatibilidade com o formato antigo salvo pelo fechamento:
-      // guardadoDaviMes / guardadoGabrielMes.
-      if (campo === "guardadoMes") return Number(m[`guardado${sufixo}Mes`]) || 0;
-      return 0;
-    };
-    if (pessoa === 'ambos') return valorPessoa("Davi") + valorPessoa("Gabriel");
+    if (pessoa === 'ambos') return (m[`${campo}Davi`] || 0) + (m[`${campo}Gabriel`] || 0);
     const sufixo = pessoa.charAt(0).toUpperCase() + pessoa.slice(1);
-    return valorPessoa(sufixo);
+    return m[`${campo}${sufixo}`] || 0;
   };
 
   const ptsGanhos = mesesAsc.map(m => getVal(m, 'ganhos'));
@@ -167,6 +159,21 @@ function renderHistorico() {
   const selectAno = document.getElementById("historicoAnoSelect");
   if (!wrap) return;
 
+  if (!wrap.dataset.historicoToggleBound) {
+    wrap.addEventListener("click", (event) => {
+      const toggle = event.target.closest("[data-historico-toggle]");
+      if (!toggle || !wrap.contains(toggle)) return;
+      const card = toggle.closest("[data-historico-card]");
+      const body = card?.querySelector(".historico-mes-body");
+      if (!body) return;
+      const aberto = toggle.getAttribute("aria-expanded") === "true";
+      toggle.setAttribute("aria-expanded", String(!aberto));
+      body.hidden = aberto;
+      card.classList.toggle("is-expanded", !aberto);
+    });
+    wrap.dataset.historicoToggleBound = "true";
+  }
+
   const anos = (state.historico && state.historico.anos) || [];
   if (anos.length === 0) {
     if (controles) controles.style.display = "none";
@@ -202,23 +209,15 @@ function renderHistorico() {
 
   const pessoa = state.pessoaAtual;
   const getVal = (m, campo) => {
-    const valorPessoa = (sufixo) => {
-      const atual = Number(m[`${campo}${sufixo}`]);
-      if (Number.isFinite(atual)) return atual;
-      // Compatibilidade com o formato antigo salvo pelo fechamento:
-      // guardadoDaviMes / guardadoGabrielMes.
-      if (campo === "guardadoMes") return Number(m[`guardado${sufixo}Mes`]) || 0;
-      return 0;
-    };
-    if (pessoa === 'ambos') return valorPessoa("Davi") + valorPessoa("Gabriel");
+    if (pessoa === 'ambos') return (m[`${campo}Davi`] || 0) + (m[`${campo}Gabriel`] || 0);
     const sufixo = pessoa.charAt(0).toUpperCase() + pessoa.slice(1);
-    return valorPessoa(sufixo);
+    return m[`${campo}${sufixo}`] || 0;
   };
 
   const paginaAnterior = paginaCarrosselAtiva("historicoGraficosCarousel");
 
   // Novo: Inclusão dos campos de rendimento para calcular "Todos os anos" perfeitamente
-  const camposSoma = ["ganhosDavi", "ganhosGabriel", "debitosDavi", "debitosGabriel", "guardadoMesDavi", "guardadoMesGabriel", "saldoDavi", "saldoGabriel", "rendimentoDavi", "rendimentoGabriel"];
+  const camposSoma = ["ganhosDavi", "ganhosGabriel", "debitosDavi", "debitosGabriel", "ganhosBeneficiosDavi", "ganhosBeneficiosGabriel", "ganhosSaldoDavi", "ganhosSaldoGabriel", "debitosBeneficiosDavi", "debitosBeneficiosGabriel", "debitosSaldoDavi", "debitosSaldoGabriel", "guardadoMesDavi", "guardadoMesGabriel", "saldoDavi", "saldoGabriel", "rendimentoDavi", "rendimentoGabriel"];
   
   const agregarAnoComoRegistro = (bloco) => {
     const registro = { nome: String(bloco.ano), mes: bloco.ano };
@@ -243,34 +242,57 @@ function renderHistorico() {
   const grafico = construirGraficoHistoricoMultiSvg(mesesAscendentes, pessoa);
   const paginaCategorias = construirPaginaCategoriasHistorico(mesesParaCategorias, pessoa, modoTodos ? "todos" : anoAlvo);
 
-  const cards = mesesOrdenados.map((m) => {
+  const cards = mesesOrdenados.map((m, cardIndex) => {
     const ganhos = getVal(m, 'ganhos');
     const debitos = getVal(m, 'debitos');
+    const ganhosBeneficios = getVal(m, 'ganhosBeneficios');
+    const ganhosSaldo = getVal(m, 'ganhosSaldo');
+    const debitosBeneficios = getVal(m, 'debitosBeneficios');
+    const debitosSaldo = getVal(m, 'debitosSaldo');
     const guardado = getVal(m, 'guardadoMes');
-    const rendimento = getVal(m, 'rendimento'); // Busca o novo rendimento
+    const rendimento = getVal(m, 'rendimento');
     const saldo = getVal(m, 'saldo');
     const nomeMes = modoTodos ? `Ano ${m.nome}` : (m.nome.charAt(0) + m.nome.slice(1).toLowerCase());
+    const temDetalhamento = [ganhosBeneficios, ganhosSaldo, debitosBeneficios, debitosSaldo].some(v => Number(v) !== 0);
+    const fallbackGanhos = !temDetalhamento && ganhos !== 0 ? ganhos : ganhosSaldo;
+    const fallbackGastos = !temDetalhamento && debitos !== 0 ? Math.abs(debitos) : Math.abs(debitosSaldo);
+    const beneficioResumo = ganhosBeneficios - Math.abs(debitosBeneficios);
+    const saldoResumo = ganhosSaldo - Math.abs(debitosSaldo);
+    const cardId = `historico-mes-${anoAlvo}-${m.mes}-${cardIndex}`;
 
     return `
-    <div class="historico-mes-card">
-      <div class="historico-mes-head">
+    <article class="historico-mes-card" data-historico-card>
+      <button class="historico-mes-head" type="button" aria-expanded="false" aria-controls="${cardId}" data-historico-toggle>
         <span class="historico-mes-nome">${nomeMes}</span>
-        <span class="historico-mes-saldo ${saldo < 0 ? "negative" : ""}">${fmt(saldo)}</span>
+        <span class="historico-mes-resumo">
+          <span class="historico-resumo-tag beneficio"><span>Benefícios</span><strong>${fmt(beneficioResumo)}</strong></span>
+          <span class="historico-resumo-tag saldo"><span>Saldo</span><strong>${fmt(saldoResumo)}</strong></span>
+          <span class="historico-mes-chevron" aria-hidden="true">⌄</span>
+        </span>
+      </button>
+      <div class="historico-mes-body" id="${cardId}" hidden>
+        <div class="historico-mes-linha">
+          <span>Ganhos Benefícios</span><span class="income">${fmt(temDetalhamento ? ganhosBeneficios : 0)}</span>
+        </div>
+        <div class="historico-mes-linha">
+          <span>Gastos Benefícios</span><span class="expense">${fmt(temDetalhamento ? Math.abs(debitosBeneficios) : 0)}</span>
+        </div>
+        <div class="historico-mes-separador"></div>
+        <div class="historico-mes-linha">
+          <span>Ganhos Saldo</span><span class="income">${fmt(temDetalhamento ? ganhosSaldo : fallbackGanhos)}</span>
+        </div>
+        <div class="historico-mes-linha">
+          <span>Gastos Saldo</span><span class="expense">${fmt(temDetalhamento ? Math.abs(debitosSaldo) : fallbackGastos)}</span>
+        </div>
+        ${guardado > 0 ? `<div class="historico-mes-linha"><span>Guardado</span><span class="gold">${fmt(guardado)}</span></div>` : ""}
+        ${rendimento > 0 ? `<div class="historico-mes-linha"><span>Rendeu no Mês</span><span class="income">+ ${fmt(rendimento)}</span></div>` : ""}
+        ${pessoa === 'ambos' ? `
+        <div class="historico-mes-pessoas">
+          <span class="pessoa-tag pessoa-davi">Davi ${fmt(m.saldoDavi)}</span>
+          <span class="pessoa-tag pessoa-gabriel">Gabriel ${fmt(m.saldoGabriel)}</span>
+        </div>` : ''}
       </div>
-      <div class="historico-mes-linha">
-        <span>Ganhos</span><span class="income">${fmt(ganhos)}</span>
-      </div>
-      <div class="historico-mes-linha">
-        <span>Débitos</span><span class="expense">${fmt(Math.abs(debitos))}</span>
-      </div>
-      ${guardado > 0 ? `<div class="historico-mes-linha"><span>Guardado</span><span class="gold">${fmt(guardado)}</span></div>` : ""}
-      ${rendimento > 0 ? `<div class="historico-mes-linha"><span>Rendeu no mês</span><span class="income">+ ${fmt(rendimento)}</span></div>` : ""}
-      ${pessoa === 'ambos' ? `
-      <div class="historico-mes-pessoas">
-        <span class="pessoa-tag pessoa-davi">Davi ${fmt(m.saldoDavi)}</span>
-        <span class="pessoa-tag pessoa-gabriel">Gabriel ${fmt(m.saldoGabriel)}</span>
-      </div>` : ''}
-    </div>`;
+    </article>`;
   }).join("");
 
   let alturaFixa = "";
@@ -445,7 +467,7 @@ on("formGanhos", "submit", (e) => {
   if (!nome || !(valor > 0)) return;
   const recebido = f.recebido ? f.recebido.checked : false;
   const data = dataDoLancamento(f.data ? f.data.value : "");
-  opGanhos.add(nome, valor, { recebido, data, oculto: lancamentoEhOculto(nome) });
+  opGanhos.add(nome, valor, { recebido, data });
   f.reset();
   if (typeof fecharCriacaoFlutuante === "function") fecharCriacaoFlutuante();
   preencherDatasComHoje();
@@ -484,7 +506,7 @@ on("formFixos", "submit", (e) => {
   }
 
   const novoFixo = { nome, valor, pago, tipo, data, parcela };
-  opFixos.add(nome, valor, { pago, tipo, data, parcela, oculto: lancamentoEhOculto(nome) });
+  opFixos.add(nome, valor, { pago, tipo, data, parcela });
   if (pago) sincronizarGanhoCorrespondenteFixo(state.pessoaAtual, novoFixo, true);
   f.reset();
   if (typeof fecharCriacaoFlutuante === "function") fecharCriacaoFlutuante();
@@ -502,7 +524,7 @@ on("formVariaveis", "submit", (e) => {
   const tipo = f.tipo ? f.tipo.value : "";
   const data = dataDoLancamento(f.data ? f.data.value : "");
   const origem = f.origem && f.origem.value === "beneficio" ? "beneficio" : "saldo";
-  opVariaveis.add(nome, valor, { pago, tipo, data, origem, oculto: lancamentoEhOculto(nome) });
+  opVariaveis.add(nome, valor, { pago, tipo, data, origem });
   f.reset();
   if (typeof fecharCriacaoFlutuante === "function") fecharCriacaoFlutuante();
   preencherDatasComHoje();
@@ -738,14 +760,14 @@ on("formEditar", "submit", (e) => {
 
   if (tipo === "ganhos") {
     const data = document.getElementById("editData").value;
-    opGanhos.edit(idx, nome, valor, { data, oculto: lancamentoEhOculto(nome) });
+    opGanhos.edit(idx, nome, valor, { data });
   } else if (tipo === "fixos") {
     const categoria = document.getElementById("editCategoria").value;
     const data = document.getElementById("editData").value;
     const parcela = document.getElementById("editParcela").value.trim();
     const itemAtual = state.gastosFixos[idx];
     const nomeSalvo = itemEhFatura(itemAtual) ? nomeInternoFatura(nome) : nome;
-    opFixos.edit(idx, nomeSalvo, valor, { tipo: categoria, data, parcela, fatura: itemEhFatura(itemAtual), faturaId: itemAtual?.faturaId || "", oculto: lancamentoEhOculto(nome) });
+    opFixos.edit(idx, nomeSalvo, valor, { tipo: categoria, data, parcela, fatura: itemEhFatura(itemAtual), faturaId: itemAtual?.faturaId || "" });
   } else if (tipo === "variaveis") {
     const categoria = document.getElementById("editCategoria").value;
     const data = document.getElementById("editData").value;
@@ -755,7 +777,7 @@ on("formEditar", "submit", (e) => {
     // Editar manualmente tira o item do modo "lembrete" (compra adiantada) —
     // a partir daqui ele volta a contar normalmente no saldo, com a nova
     // data/categoria/origem que a pessoa escolheu.
-    opVariaveis.edit(idx, nomeSalvo, valor, { tipo: categoria, data, origem, lembrete: false, fatura: itemEhFatura(itemAtual), faturaId: itemAtual?.faturaId || "", oculto: lancamentoEhOculto(nome) });
+    opVariaveis.edit(idx, nomeSalvo, valor, { tipo: categoria, data, origem, lembrete: false, fatura: itemEhFatura(itemAtual), faturaId: itemAtual?.faturaId || "" });
   } else if (tipo === "caixinhas") {
     const icone = normalizarNomeIcone(document.getElementById("editIcone")?.value || "");
     const data = document.getElementById("editData").value;

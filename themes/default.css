@@ -2901,27 +2901,95 @@ html[data-theme="dark"] {
 }
 
 .historico-mes-head {
+  width: 100%;
+  display: flex;
   align-items: center;
-  margin: 0 0 14px;
-  padding: 0 0 12px 1px;
-  border-bottom: 1px dashed rgba(122,111,88,.24);
+  justify-content: space-between;
+  gap: 12px;
+  margin: 0;
+  padding: 0 0 0 1px;
+  border: 0;
+  background: transparent;
+  color: inherit;
+  text-align: left;
+  cursor: pointer;
 }
 
 .historico-mes-nome {
+  min-width: 0;
   font-size: 18px;
   font-weight: 700;
   letter-spacing: -.015em;
 }
 
-.historico-mes-saldo {
-  font-size: 15px;
-  padding: 5px 9px;
-  border-radius: 999px;
-  background: rgba(72,137,101,.09);
+.historico-mes-resumo {
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 6px;
+  flex-shrink: 0;
 }
 
-.historico-mes-saldo.negative {
-  background: rgba(173,73,53,.09);
+.historico-resumo-tag {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  min-height: 29px;
+  padding: 4px 8px;
+  border: 1px solid var(--line);
+  border-radius: 999px;
+  background: var(--paper-deep);
+  font-size: 10px;
+  line-height: 1;
+  white-space: nowrap;
+}
+
+.historico-resumo-tag span {
+  color: var(--muted);
+  font-weight: 600;
+}
+
+.historico-resumo-tag strong {
+  font-family: var(--font-mono);
+  font-size: 11px;
+  font-weight: 750;
+}
+
+.historico-resumo-tag.beneficio strong { color: var(--gold-deep); }
+.historico-resumo-tag.saldo strong { color: var(--income); }
+
+.historico-mes-chevron {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 28px;
+  height: 28px;
+  border: 1px solid var(--line);
+  border-radius: 50%;
+  color: var(--muted);
+  font-size: 16px;
+  line-height: 1;
+  transition: transform .2s ease, background .2s ease;
+}
+
+.historico-mes-head:hover .historico-mes-chevron {
+  background: var(--paper-deep);
+}
+
+.historico-mes-card.is-expanded .historico-mes-chevron {
+  transform: rotate(180deg);
+}
+
+.historico-mes-body {
+  margin-top: 14px;
+  padding-top: 9px;
+  border-top: 1px dashed rgba(122,111,88,.24);
+}
+
+.historico-mes-separador {
+  height: 1px;
+  margin: 7px 1px;
+  background: rgba(122,111,88,.12);
 }
 
 .historico-mes-linha {
@@ -2987,6 +3055,28 @@ html[data-theme="dark"] {
 
   .historico-mes-nome {
     font-size: 17px;
+  }
+
+  .historico-mes-resumo {
+    gap: 4px;
+  }
+
+  .historico-resumo-tag {
+    min-height: 27px;
+    padding: 4px 6px;
+  }
+
+  .historico-resumo-tag span {
+    display: none;
+  }
+
+  .historico-resumo-tag strong {
+    font-size: 10px;
+  }
+
+  .historico-mes-chevron {
+    width: 27px;
+    height: 27px;
   }
 }
 
