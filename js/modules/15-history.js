@@ -55,12 +55,18 @@ function construirGraficoHistoricoMultiSvg(mesesAsc, pessoa) {
 
   const getVal = (m, campo) => {
     const valorPessoa = (sufixo) => {
+      if (campo === "guardadoMes") {
+        // O histórico já teve duas grafias para o mesmo campo mensal.
+        // Alguns registros podem conter uma delas como 0 e a outra com o valor real.
+        // Use o maior valor mensal disponível entre as grafias conhecidas.
+        const candidatos = [
+          m[`guardadoMes${sufixo}`],
+          m[`guardado${sufixo}Mes`]
+        ].map(Number).filter(Number.isFinite).map(v => Math.max(0, v));
+        return candidatos.length ? Math.max(...candidatos) : 0;
+      }
       const atual = Number(m[`${campo}${sufixo}`]);
-      if (Number.isFinite(atual)) return atual;
-      // Compatibilidade com o formato antigo salvo pelo fechamento:
-      // guardadoDaviMes / guardadoGabrielMes.
-      if (campo === "guardadoMes") return Number(m[`guardado${sufixo}Mes`]) || 0;
-      return 0;
+      return Number.isFinite(atual) ? atual : 0;
     };
     if (pessoa === 'ambos') return valorPessoa("Davi") + valorPessoa("Gabriel");
     const sufixo = pessoa.charAt(0).toUpperCase() + pessoa.slice(1);
@@ -203,12 +209,18 @@ function renderHistorico() {
   const pessoa = state.pessoaAtual;
   const getVal = (m, campo) => {
     const valorPessoa = (sufixo) => {
+      if (campo === "guardadoMes") {
+        // O histórico já teve duas grafias para o mesmo campo mensal.
+        // Alguns registros podem conter uma delas como 0 e a outra com o valor real.
+        // Use o maior valor mensal disponível entre as grafias conhecidas.
+        const candidatos = [
+          m[`guardadoMes${sufixo}`],
+          m[`guardado${sufixo}Mes`]
+        ].map(Number).filter(Number.isFinite).map(v => Math.max(0, v));
+        return candidatos.length ? Math.max(...candidatos) : 0;
+      }
       const atual = Number(m[`${campo}${sufixo}`]);
-      if (Number.isFinite(atual)) return atual;
-      // Compatibilidade com o formato antigo salvo pelo fechamento:
-      // guardadoDaviMes / guardadoGabrielMes.
-      if (campo === "guardadoMes") return Number(m[`guardado${sufixo}Mes`]) || 0;
-      return 0;
+      return Number.isFinite(atual) ? atual : 0;
     };
     if (pessoa === 'ambos') return valorPessoa("Davi") + valorPessoa("Gabriel");
     const sufixo = pessoa.charAt(0).toUpperCase() + pessoa.slice(1);
@@ -223,7 +235,22 @@ function renderHistorico() {
   const agregarAnoComoRegistro = (bloco) => {
     const registro = { nome: String(bloco.ano), mes: bloco.ano };
     camposSoma.forEach((c) => { registro[c] = 0; });
-    bloco.meses.forEach((m) => camposSoma.forEach((c) => { registro[c] += (m[c] || 0); }));
+    bloco.meses.forEach((m) => {
+      registro.ganhosDavi += Number(m.ganhosDavi) || 0;
+      registro.ganhosGabriel += Number(m.ganhosGabriel) || 0;
+      registro.debitosDavi += Number(m.debitosDavi) || 0;
+      registro.debitosGabriel += Number(m.debitosGabriel) || 0;
+      registro.saldoDavi += Number(m.saldoDavi) || 0;
+      registro.saldoGabriel += Number(m.saldoGabriel) || 0;
+      registro.rendimentoDavi += Number(m.rendimentoDavi) || 0;
+      registro.rendimentoGabriel += Number(m.rendimentoGabriel) || 0;
+      // Usa a mesma normalização dos meses individuais para não perder
+      // históricos antigos que usam guardadoDaviMes/GabrielMes.
+      const gd = Math.max(Number(m.guardadoMesDavi) || 0, Number(m.guardadoDaviMes) || 0);
+      const gg = Math.max(Number(m.guardadoMesGabriel) || 0, Number(m.guardadoGabrielMes) || 0);
+      registro.guardadoMesDavi += gd;
+      registro.guardadoMesGabriel += gg;
+    });
     return registro;
   };
 
@@ -251,26 +278,34 @@ function renderHistorico() {
     const saldo = getVal(m, 'saldo');
     const nomeMes = modoTodos ? `Ano ${m.nome}` : (m.nome.charAt(0) + m.nome.slice(1).toLowerCase());
 
+    const chaveCard = `historico-${modoTodos ? `ano-${m.nome}` : `${m.ano || anoAlvo}-${m.mes}`}-${pessoa}`.replace(/[^a-zA-Z0-9_-]/g, "-");
     return `
-    <div class="historico-mes-card">
-      <div class="historico-mes-head">
-        <span class="historico-mes-nome">${nomeMes}</span>
-        <span class="historico-mes-saldo ${saldo < 0 ? "negative" : ""}">${fmt(saldo)}</span>
+    <article class="historico-mes-card" data-historico-card="${chaveCard}">
+      <button type="button" class="historico-mes-head collapse-toggle is-collapsed" data-collapse="${chaveCard}" aria-expanded="false" aria-controls="collapsible-${chaveCard}">
+        <span class="historico-mes-nome">${escapeHtml(nomeMes)}</span>
+        <span class="historico-mes-head-right">
+          <span class="historico-mes-saldo ${saldo < 0 ? "negative" : ""}">${fmt(saldo)}</span>
+          <span class="historico-mes-chevron" aria-hidden="true">
+            <svg viewBox="0 0 24 24" fill="none"><path d="m7 10 5 5 5-5" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>
+          </span>
+        </span>
+      </button>
+      <div class="historico-mes-content collapsible is-collapsed" id="collapsible-${chaveCard}">
+        <div class="historico-mes-linha">
+          <span>Ganhos</span><span class="income">${fmt(ganhos)}</span>
+        </div>
+        <div class="historico-mes-linha">
+          <span>Débitos</span><span class="expense">${fmt(Math.abs(debitos))}</span>
+        </div>
+        ${guardado > 0 ? `<div class="historico-mes-linha"><span>Guardado</span><span class="gold">${fmt(guardado)}</span></div>` : ""}
+        ${rendimento > 0 ? `<div class="historico-mes-linha"><span>Rendeu no mês</span><span class="income">+ ${fmt(rendimento)}</span></div>` : ""}
+        ${pessoa === 'ambos' ? `
+        <div class="historico-mes-pessoas">
+          <span class="pessoa-tag pessoa-davi">Davi ${fmt(m.saldoDavi)}</span>
+          <span class="pessoa-tag pessoa-gabriel">Gabriel ${fmt(m.saldoGabriel)}</span>
+        </div>` : ''}
       </div>
-      <div class="historico-mes-linha">
-        <span>Ganhos</span><span class="income">${fmt(ganhos)}</span>
-      </div>
-      <div class="historico-mes-linha">
-        <span>Débitos</span><span class="expense">${fmt(Math.abs(debitos))}</span>
-      </div>
-      ${guardado > 0 ? `<div class="historico-mes-linha"><span>Guardado</span><span class="gold">${fmt(guardado)}</span></div>` : ""}
-      ${rendimento > 0 ? `<div class="historico-mes-linha"><span>Rendeu no mês</span><span class="income">+ ${fmt(rendimento)}</span></div>` : ""}
-      ${pessoa === 'ambos' ? `
-      <div class="historico-mes-pessoas">
-        <span class="pessoa-tag pessoa-davi">Davi ${fmt(m.saldoDavi)}</span>
-        <span class="pessoa-tag pessoa-gabriel">Gabriel ${fmt(m.saldoGabriel)}</span>
-      </div>` : ''}
-    </div>`;
+    </article>`;
   }).join("");
 
   let alturaFixa = "";

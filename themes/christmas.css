@@ -2815,3 +2815,17 @@ html[data-theme="dark"][data-caixa-theme="christmas"] .historico-mes-chevron {
   border-color: var(--noite-borda-suave, rgba(224,247,253,.16)) !important;
   color: #c8dbe4 !important;
 }
+
+/* Admin natalino — mesma estrutura refinada do Halloween, com paleta de Natal. */
+html[data-caixa-theme="christmas"] .caixa-admin-seasonal-card { background:linear-gradient(145deg,#fffdf8,#f1f7f2) !important; border-color:rgba(35,100,71,.18) !important; box-shadow:0 9px 24px rgba(40,70,58,.09) !important; }
+html[data-caixa-theme="christmas"] .caixa-admin-seasonal-card::after { background:rgba(185,47,59,.10) !important; }
+html[data-caixa-theme="christmas"] .caixa-admin-seasonal-card[data-caixa-seasonal-force-card="christmas"]::after { background:rgba(35,100,71,.13) !important; }
+html[data-caixa-theme="christmas"] .caixa-admin-seasonal-card:hover { border-color:rgba(35,100,71,.34) !important; box-shadow:0 12px 28px rgba(40,70,58,.13) !important; }
+html[data-caixa-theme="christmas"] .caixa-admin-seasonal-card.is-active { border-color:var(--christmas-green,#236447) !important; box-shadow:inset 0 0 0 1px rgba(35,100,71,.18),0 12px 28px rgba(40,70,58,.13) !important; }
+html[data-caixa-theme="christmas"] .caixa-admin-seasonal-card[data-caixa-seasonal-force-card="christmas"].is-active { border-color:var(--christmas-green,#236447) !important; }
+html[data-caixa-theme="christmas"] .caixa-admin-seasonal-card[data-caixa-seasonal-force-card="halloween"].is-active { border-color:var(--christmas-red,#b92f3b) !important; }
+html[data-caixa-theme="christmas"] .caixa-admin-seasonal-card.is-active .caixa-admin-seasonal-status { background:var(--christmas-green,#236447); border-color:var(--christmas-green,#236447); }
+html[data-caixa-theme="christmas"] .caixa-admin-seasonal-card[data-caixa-seasonal-force-card="halloween"].is-active .caixa-admin-seasonal-status { background:var(--christmas-red,#b92f3b); border-color:var(--christmas-red,#b92f3b); }
+html[data-theme="dark"][data-caixa-theme="christmas"] .caixa-admin-seasonal-card { background:linear-gradient(145deg,#102b24,#0d211c) !important; border-color:rgba(121,207,226,.16) !important; box-shadow:0 12px 28px rgba(0,0,0,.28) !important; }
+html[data-theme="dark"][data-caixa-theme="christmas"] .caixa-admin-seasonal-card[data-caixa-seasonal-force-card="christmas"]::after { background:rgba(121,207,226,.12) !important; }
+html[data-theme="dark"][data-caixa-theme="christmas"] .caixa-admin-seasonal-card[data-caixa-seasonal-force-card="halloween"]::after { background:rgba(216,91,28,.10) !important; }

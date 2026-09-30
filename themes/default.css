@@ -10441,3 +10441,49 @@ html[data-caixa-theme="halloween"] .hero-stats > .hero-stat:nth-child(2) {
   background: var(--paper-deep) !important;
   border-color: var(--line) !important;
 }
+
+/* ============================================================
+   HISTÓRICO + MÚSICA + ADMIN — acabamento compartilhado
+   ============================================================ */
+.historico-mes-card { overflow: hidden; }
+.historico-mes-head { width: 100%; border: 0; background: transparent; color: inherit; padding: 0; cursor: pointer; text-align: left; }
+.historico-mes-head-right { display:flex; align-items:center; gap:10px; margin-left:auto; }
+.historico-mes-chevron { width:30px; height:30px; display:grid; place-items:center; flex:0 0 30px; border:1px solid var(--line); border-radius:10px; background:var(--paper); color:var(--muted); transition:transform .22s ease, background .22s ease, border-color .22s ease, color .22s ease; }
+.historico-mes-chevron svg { width:16px; height:16px; transition:transform .24s cubic-bezier(.4,0,.2,1); }
+.historico-mes-head:hover .historico-mes-chevron { border-color:var(--gold); color:var(--gold-deep); background:var(--paper-deep); }
+.historico-mes-head:not(.is-collapsed) .historico-mes-chevron { color:var(--gold-deep); border-color:color-mix(in srgb, var(--gold) 45%, var(--line)); background:color-mix(in srgb, var(--gold) 10%, var(--paper)); }
+.historico-mes-head:not(.is-collapsed) .historico-mes-chevron svg { transform:rotate(180deg); }
+.historico-mes-content { max-height:420px; opacity:1; overflow:hidden; transition:max-height .28s ease, opacity .2s ease, padding-top .28s ease; padding-top:8px; }
+.historico-mes-content.is-collapsed { max-height:0; opacity:0; padding-top:0; }
+.historico-mes-head:focus-visible { outline:2px solid var(--gold); outline-offset:4px; border-radius:8px; }
+
+.caixa-config-music-card { cursor:default; }
+.caixa-config-music-main { min-width:0; display:flex; flex-direction:column; gap:5px; flex:1; }
+.caixa-config-volume-wrap { display:flex; align-items:center; gap:9px; margin-top:4px; }
+.caixa-config-volume { width:min(180px, 100%); accent-color:var(--gold); cursor:pointer; }
+.caixa-config-volume:disabled { opacity:.4; cursor:not-allowed; }
+.caixa-config-volume-wrap > span { min-width:34px; font-family:var(--font-mono); font-size:10px; color:var(--muted); }
+.caixa-config-switch { position:relative; width:44px; height:25px; flex:0 0 44px; cursor:pointer; }
+.caixa-config-switch input { position:absolute; opacity:0; pointer-events:none; }
+.caixa-config-switch span { position:absolute; inset:0; border-radius:999px; background:var(--paper-deep); border:1px solid var(--line); transition:.2s ease; }
+.caixa-config-switch span::after { content:""; position:absolute; width:19px; height:19px; left:2px; top:2px; border-radius:50%; background:var(--muted); box-shadow:0 2px 5px rgba(0,0,0,.12); transition:.2s ease; }
+.caixa-config-switch input:checked + span { background:color-mix(in srgb, var(--gold) 22%, var(--paper)); border-color:var(--gold); }
+.caixa-config-switch input:checked + span::after { transform:translateX(19px); background:var(--gold); }
+
+/* Admin com a mesma linguagem visual dos cards de Halloween, adaptada ao Padrão. */
+.caixa-admin-seasonal-force-wrap { display:grid; grid-template-columns:repeat(2,minmax(0,1fr)); gap:14px; }
+.caixa-admin-seasonal-card { min-height:178px; border:1px solid var(--line); border-radius:22px; padding:18px; background:linear-gradient(145deg,var(--paper),var(--paper-deep)); color:var(--ink-text); text-align:left; display:flex; flex-direction:column; justify-content:space-between; position:relative; overflow:hidden; cursor:pointer; transition:transform .2s ease, border-color .2s ease, box-shadow .2s ease; }
+.caixa-admin-seasonal-card::after { content:""; position:absolute; width:110px; height:110px; right:-38px; bottom:-42px; border-radius:50%; background:color-mix(in srgb,var(--gold) 12%,transparent); pointer-events:none; }
+.caixa-admin-seasonal-card:hover { transform:translateY(-2px); box-shadow:0 12px 26px rgba(22,51,44,.10); }
+.caixa-admin-seasonal-card:focus-visible { outline:2px solid var(--gold); outline-offset:2px; }
+.caixa-admin-seasonal-head { display:grid; grid-template-columns:48px minmax(0,1fr) 28px; align-items:center; gap:12px; position:relative; z-index:1; }
+.caixa-admin-seasonal-emoji { width:48px; height:48px; display:grid; place-items:center; border-radius:15px; font-size:25px; background:color-mix(in srgb,var(--gold) 12%,transparent); }
+.caixa-admin-seasonal-copy { min-width:0; display:flex; flex-direction:column; gap:4px; }
+.caixa-admin-seasonal-title { font-size:16px; font-weight:800; }
+.caixa-admin-seasonal-sub { font-size:11px; line-height:1.45; color:var(--muted); }
+.caixa-admin-seasonal-status { width:28px; height:28px; display:grid; place-items:center; border-radius:50%; color:transparent; border:1px solid var(--line); font-weight:900; }
+.caixa-admin-seasonal-card.is-active { border-color:var(--gold); box-shadow:inset 0 0 0 1px color-mix(in srgb,var(--gold) 25%,transparent),0 12px 28px rgba(22,51,44,.10); }
+.caixa-admin-seasonal-card.is-active .caixa-admin-seasonal-status { color:#fff; background:var(--gold); border-color:var(--gold); }
+.caixa-admin-seasonal-action { min-height:39px; display:flex; align-items:center; justify-content:center; padding:8px 10px; border-radius:12px; background:color-mix(in srgb,var(--paper-deep) 82%,transparent); color:var(--muted); font-size:10px; font-weight:800; position:relative; z-index:1; }
+.caixa-admin-seasonal-card.is-active .caixa-admin-seasonal-action { color:var(--ink-text); background:color-mix(in srgb,var(--gold) 14%,var(--paper)); }
+@media(max-width:760px){ .caixa-admin-seasonal-force-wrap{grid-template-columns:1fr;} .caixa-admin-seasonal-card{min-height:160px;padding:14px;} }

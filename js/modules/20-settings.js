@@ -724,7 +724,22 @@
     }
   }
 
+  function renderMusicaConfig() {
+    const cfg = window.CAIXA_MUSICA_CONFIG;
+    const toggle = document.getElementById("caixaConfigMusicaToggle");
+    const volume = document.getElementById("caixaConfigMusicaVolume");
+    const label = document.getElementById("caixaConfigMusicaVolumeLabel");
+    if (!cfg || !toggle || !volume) return;
+    const ativa = !!cfg.enabled();
+    const valor = Math.round((Number(cfg.volume()) || 0) * 100);
+    toggle.checked = ativa;
+    volume.value = String(valor);
+    volume.disabled = !ativa;
+    if (label) label.textContent = `${valor}%`;
+  }
+
   function renderTudo() {
+    renderMusicaConfig();
     if (viewAtual === "categorias") renderCategorias();
     if (viewAtual === "faturas") renderFaturas();
     if (viewAtual === "tema") renderTema();
@@ -747,6 +762,16 @@
       if (view === "admin" && !usuarioAtualEhAdmin()) return;
       mostrarView(view);
     });
+  });
+  document.getElementById("caixaConfigMusicaToggle")?.addEventListener("change", (e) => {
+    window.CAIXA_MUSICA_CONFIG?.setEnabled?.(e.target.checked);
+    renderMusicaConfig();
+  });
+  document.getElementById("caixaConfigMusicaVolume")?.addEventListener("input", (e) => {
+    const valor = Number(e.target.value) / 100;
+    window.CAIXA_MUSICA_CONFIG?.setVolume?.(valor);
+    const label = document.getElementById("caixaConfigMusicaVolumeLabel");
+    if (label) label.textContent = `${Math.round(valor * 100)}%`;
   });
   document.getElementById("btnNovaCategoria")?.addEventListener("click", novaCategoria);
   document.getElementById("btnNovaFatura")?.addEventListener("click", novaFatura);

@@ -17,6 +17,39 @@ let caixaMusicaSrcAtual = "";
 let caixaMusicaInteracaoArmada = false;
 let caixaMusicaRelogio = null;
 let caixaMusicaTransicaoId = 0;
+const CAIXA_MUSICA_ENABLED_KEY = "caixa-musica-enabled-v1";
+const CAIXA_MUSICA_VOLUME_KEY = "caixa-musica-volume-v1";
+
+function caixaMusicaHabilitada() {
+  try { return localStorage.getItem(CAIXA_MUSICA_ENABLED_KEY) !== "0"; } catch (_) { return true; }
+}
+function caixaMusicaVolume() {
+  try {
+    const n = Number(localStorage.getItem(CAIXA_MUSICA_VOLUME_KEY));
+    return Number.isFinite(n) ? Math.min(1, Math.max(0, n)) : 0.025;
+  } catch (_) { return 0.025; }
+}
+function caixaSalvarPreferenciaMusica(ativa, volume) {
+  try {
+    localStorage.setItem(CAIXA_MUSICA_ENABLED_KEY, ativa ? "1" : "0");
+    localStorage.setItem(CAIXA_MUSICA_VOLUME_KEY, String(Math.min(1, Math.max(0, Number(volume) || 0))));
+  } catch (_) {}
+}
+window.CAIXA_MUSICA_CONFIG = {
+  enabled: caixaMusicaHabilitada,
+  volume: caixaMusicaVolume,
+  setEnabled(ativa) {
+    const audio = caixaMusicaAudio;
+    caixaSalvarPreferenciaMusica(ativa, caixaMusicaVolume());
+    if (!ativa) { if (audio && !audio.paused) audio.pause(); return; }
+    caixaIniciarMusicaTema(false);
+  },
+  setVolume(volume) {
+    const v = Math.min(1, Math.max(0, Number(volume) || 0));
+    caixaSalvarPreferenciaMusica(caixaMusicaHabilitada(), v);
+    if (caixaMusicaAudio) caixaMusicaAudio.volume = v;
+  }
+};
 
 function caixaPeriodoMusical() {
   const hora = new Date().getHours();
@@ -92,14 +125,14 @@ try { window.CAIXA_ATUALIZAR_ICONE_TEMA?.(); } catch (_) {}
 
 function caixaGarantirPlayerMusica() {
   if (caixaMusicaAudio) {
-    caixaMusicaAudio.volume = 0.025;
+    caixaMusicaAudio.volume = caixaMusicaVolume();
     return caixaMusicaAudio;
   }
   const audio = document.createElement("audio");
   audio.id = "caixaTemaMusicPlayer";
   audio.preload = "auto";
   audio.loop = true;
-  audio.volume = 0.025;
+  audio.volume = caixaMusicaVolume();
   audio.setAttribute("aria-hidden", "true");
   audio.style.display = "none";
   document.body.appendChild(audio);
@@ -143,6 +176,10 @@ function caixaMusicaFade(audio, de, para, duracao = 650) {
 
 async function caixaIniciarMusicaTema(forcarTroca = false) {
   const audio = caixaGarantirPlayerMusica();
+  if (!caixaMusicaHabilitada()) {
+    if (!audio.paused) audio.pause();
+    return;
+  }
   // A música só toca enquanto esta página/aba estiver ativa.
   // Se o navegador ocultar a aba, pausamos sem perder a posição da faixa.
   if (document.hidden || !document.hasFocus?.()) {
@@ -158,7 +195,7 @@ async function caixaIniciarMusicaTema(forcarTroca = false) {
   if (mesmaFaixa) {
     if (!audio.paused && !audio.ended) return;
     try {
-      audio.volume = 0.025;
+      audio.volume = caixaMusicaVolume();
       await audio.play();
     } catch (_) {
       caixaArmarInteracaoMusica();
@@ -167,7 +204,7 @@ async function caixaIniciarMusicaTema(forcarTroca = false) {
   }
 
   const estavaTocando = !audio.paused && !audio.ended;
-  const volumeAlvo = 0.025;
+  const volumeAlvo = caixaMusicaVolume();
   ++caixaMusicaTransicaoId;
 
   // Se já existe uma faixa tocando, faz fade-out antes de trocar o arquivo.
