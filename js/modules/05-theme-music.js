@@ -17,7 +17,6 @@ let caixaMusicaSrcAtual = "";
 let caixaMusicaInteracaoArmada = false;
 let caixaMusicaRelogio = null;
 let caixaMusicaTransicaoId = 0;
-let caixaMusicaTocavaAntesDeSair = false;
 
 function caixaPeriodoMusical() {
   const hora = new Date().getHours();
@@ -144,6 +143,12 @@ function caixaMusicaFade(audio, de, para, duracao = 650) {
 
 async function caixaIniciarMusicaTema(forcarTroca = false) {
   const audio = caixaGarantirPlayerMusica();
+  // A música só toca enquanto esta página/aba estiver ativa.
+  // Se o navegador ocultar a aba, pausamos sem perder a posição da faixa.
+  if (document.hidden || !document.hasFocus?.()) {
+    if (!audio.paused) audio.pause();
+    return;
+  }
   const srcAbs = new URL(caixaArquivoMusicaTema(), document.baseURI).href;
   const mesmaFaixa = caixaMusicaSrcAtual === srcAbs;
 
@@ -189,52 +194,37 @@ async function caixaIniciarMusicaTema(forcarTroca = false) {
 
 function atualizarMusicaTema() {
   // Atualização idempotente: só troca se o tema/período apontar para outro MP3.
-  if (document.hidden) return;
   caixaIniciarMusicaTema(false);
 }
 
-// A música acompanha a página: ao sair da aba/janela, ela pausa; ao voltar,
-// retoma somente se estava tocando antes.
-function sincronizarMusicaComVisibilidadePagina() {
-  const audio = caixaMusicaAudio;
-  if (!audio) return;
-
-  if (document.hidden) {
-    caixaMusicaTocavaAntesDeSair = !audio.paused && !audio.ended;
-    if (caixaMusicaTocavaAntesDeSair) {
-      ++caixaMusicaTransicaoId;
-      audio.pause();
+// Pausa imediatamente ao sair da aba/janela e retoma ao voltar.
+(function configurarMusicaPaginaAtiva(){
+  let configurado = false;
+  const atualizar = () => {
+    const audio = caixaMusicaAudio;
+    const ativa = !document.hidden && (document.hasFocus?.() ?? true);
+    if (!ativa) {
+      if (audio && !audio.paused) audio.pause();
+      return;
     }
-    return;
-  }
-
-  if (caixaMusicaTocavaAntesDeSair) {
-    caixaMusicaTocavaAntesDeSair = false;
-    caixaIniciarMusicaTema(false);
-  }
-}
-
-document.addEventListener("visibilitychange", sincronizarMusicaComVisibilidadePagina);
-window.addEventListener("blur", () => {
-  const audio = caixaMusicaAudio;
-  if (!audio || document.hidden) return;
-  caixaMusicaTocavaAntesDeSair = !audio.paused && !audio.ended;
-  if (caixaMusicaTocavaAntesDeSair) {
-    ++caixaMusicaTransicaoId;
-    audio.pause();
-  }
-});
-window.addEventListener("focus", () => {
-  if (!document.hidden && caixaMusicaTocavaAntesDeSair) {
-    caixaMusicaTocavaAntesDeSair = false;
-    caixaIniciarMusicaTema(false);
-  }
-});
+    if (audio && audio.src) {
+      caixaIniciarMusicaTema(false);
+    }
+  };
+  const configurar = () => {
+    if (configurado) return;
+    configurado = true;
+    document.addEventListener("visibilitychange", atualizar);
+    window.addEventListener("focus", atualizar);
+    window.addEventListener("blur", atualizar);
+  };
+  if (document.readyState === "loading") document.addEventListener("DOMContentLoaded", configurar, {once:true});
+  else configurar();
+})();
 
 function iniciarRelogioMusicaTema() {
   if (caixaMusicaRelogio) return;
   caixaMusicaRelogio = setInterval(() => {
-    if (document.hidden) return;
     const esperado = new URL(caixaArquivoMusicaTema(), document.baseURI).href;
     if (esperado !== caixaMusicaSrcAtual) caixaIniciarMusicaTema(true);
   }, 60000);

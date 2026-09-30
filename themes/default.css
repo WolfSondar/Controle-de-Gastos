@@ -1473,14 +1473,6 @@ body.sem-entrada-listas .item-list-row { animation: none !important; }
   display: block;
 }
 
-
-/* Histórico mensal: contraste adaptativo para todos os temas/modos. */
-.historico-mes-card { background: var(--paper); color: var(--ink-text); }
-.historico-mes-head:focus-visible { outline: 2px solid color-mix(in srgb, var(--gold) 70%, transparent); outline-offset: 3px; border-radius: 10px; }
-.historico-mes-total { color: var(--income); }
-.historico-mes-chevron { background: color-mix(in srgb, var(--paper-deep) 58%, transparent); border-color: color-mix(in srgb, var(--line) 88%, transparent); }
-.historico-mes-head:hover .historico-mes-chevron,
-.historico-mes-head:focus-visible .historico-mes-chevron { background: var(--paper-deep); border-color: color-mix(in srgb, var(--gold) 42%, var(--line)); color: var(--ink-text); }
 @media (max-width: 560px) {
   .caixinha-icon-picker-menu {
     padding: 9px;
@@ -2884,10 +2876,10 @@ html[data-theme="dark"] {
   position: relative;
   overflow: hidden;
   background: var(--paper);
-  border: 1px solid color-mix(in srgb, var(--line) 72%, transparent);
+  border: 1px solid rgba(122,111,88,.19);
   border-radius: 20px;
   padding: 17px 17px 15px;
-  box-shadow: 0 7px 20px color-mix(in srgb, var(--ink) 5%, transparent);
+  box-shadow: 0 7px 20px rgba(22,51,44,.045);
   transition: transform .18s ease, box-shadow .18s ease, border-color .18s ease;
 }
 
@@ -2904,80 +2896,32 @@ html[data-theme="dark"] {
 
 .historico-mes-card:hover {
   transform: translateY(-1px);
-  border-color: color-mix(in srgb, var(--gold) 42%, var(--line));
-  box-shadow: 0 10px 24px color-mix(in srgb, var(--ink) 9%, transparent);
+  border-color: rgba(185,134,47,.28);
+  box-shadow: 0 10px 24px rgba(22,51,44,.075);
 }
 
 .historico-mes-head {
-  width: 100%;
-  display: flex;
   align-items: center;
-  justify-content: space-between;
-  gap: 12px;
-  margin: 0;
-  padding: 0 0 0 1px;
-  border: 0;
-  background: transparent;
-  color: inherit;
-  text-align: left;
-  cursor: pointer;
+  margin: 0 0 14px;
+  padding: 0 0 12px 1px;
+  border-bottom: 1px dashed rgba(122,111,88,.24);
 }
 
 .historico-mes-nome {
-  min-width: 0;
   font-size: 18px;
   font-weight: 700;
   letter-spacing: -.015em;
 }
 
-.historico-mes-resumo {
-  display: flex;
-  align-items: center;
-  justify-content: flex-end;
-  gap: 6px;
-  flex-shrink: 0;
+.historico-mes-saldo {
+  font-size: 15px;
+  padding: 5px 9px;
+  border-radius: 999px;
+  background: rgba(72,137,101,.09);
 }
 
-.historico-mes-total {
-  font-family: var(--font-mono);
-  font-size: 14px;
-  font-weight: 750;
-  color: var(--income);
-  white-space: nowrap;
-}
-
-.historico-mes-chevron {
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  width: 28px;
-  height: 28px;
-  border: 1px solid var(--line);
-  border-radius: 50%;
-  color: var(--muted);
-  font-size: 16px;
-  line-height: 1;
-  transition: transform .2s ease, background .2s ease;
-}
-
-.historico-mes-head:hover .historico-mes-chevron {
-  background: var(--paper-deep);
-}
-
-.historico-mes-card.is-expanded .historico-mes-chevron {
-  transform: rotate(180deg);
-}
-
-.historico-mes-body {
-  margin-top: 14px;
-  padding-top: 9px;
-  border-top: 1px dashed color-mix(in srgb, var(--line) 86%, transparent);
-}
-
-.historico-mes-separador {
-  height: 1px;
-  margin: 7px 1px;
-  background: color-mix(in srgb, var(--line) 58%, transparent);
+.historico-mes-saldo.negative {
+  background: rgba(173,73,53,.09);
 }
 
 .historico-mes-linha {
@@ -3043,19 +2987,6 @@ html[data-theme="dark"] {
 
   .historico-mes-nome {
     font-size: 17px;
-  }
-
-  .historico-mes-resumo {
-    gap: 4px;
-  }
-
-  .historico-mes-total {
-    font-size: 12px;
-  }
-
-  .historico-mes-chevron {
-    width: 27px;
-    height: 27px;
   }
 }
 
@@ -10465,4 +10396,48 @@ html[data-caixa-theme="christmas"] .hero-stats > .hero-stat:nth-child(2),
 html[data-caixa-theme="halloween"] .hero-stats > .hero-stat:nth-child(2) {
   position:relative;
   overflow:hidden;
+}
+
+/* ============================================================
+   HISTÓRICO — cards recolhíveis: acabamento adaptável aos temas
+   ============================================================ */
+.historico-mes-card {
+  background: var(--paper) !important;
+  border-color: var(--line) !important;
+  color: var(--ink-text) !important;
+  box-shadow: 0 8px 22px rgba(0,0,0,.045) !important;
+}
+.historico-mes-card::before { background: var(--gold) !important; }
+.historico-mes-card:hover {
+  border-color: color-mix(in srgb, var(--gold) 38%, var(--line)) !important;
+  box-shadow: 0 11px 26px rgba(0,0,0,.075) !important;
+}
+.historico-mes-head {
+  color: var(--ink-text) !important;
+  border-bottom-color: var(--line) !important;
+}
+.historico-mes-nome { color: var(--ink-text) !important; }
+.historico-mes-total {
+  color: var(--income) !important;
+  background: color-mix(in srgb, var(--income) 10%, transparent) !important;
+}
+.historico-mes-total.negative {
+  color: var(--expense) !important;
+  background: color-mix(in srgb, var(--expense) 10%, transparent) !important;
+}
+.historico-mes-chevron {
+  color: var(--muted) !important;
+  background: var(--paper-deep) !important;
+  border-color: var(--line) !important;
+}
+.historico-mes-card.is-expanded .historico-mes-chevron {
+  color: var(--gold) !important;
+  border-color: color-mix(in srgb, var(--gold) 30%, var(--line)) !important;
+  background: color-mix(in srgb, var(--gold) 10%, var(--paper-deep)) !important;
+}
+.historico-mes-linha { color: var(--ink-text); }
+.historico-mes-linha > span:first-child { color: var(--muted) !important; }
+.historico-mes-pessoas .pessoa-tag {
+  background: var(--paper-deep) !important;
+  border-color: var(--line) !important;
 }

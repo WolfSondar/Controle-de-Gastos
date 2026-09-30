@@ -2036,3 +2036,66 @@ html[data-theme="light"][data-caixa-theme="halloween"] .hero-stats > .hero-stat:
   box-shadow:none !important;
   filter:none !important;
 }
+
+/* Histórico — acabamento Halloween claro/escuro */
+html[data-caixa-theme="halloween"] .historico-mes-card {
+  background: #fff8ef !important;
+  border-color: rgba(74,25,66,.18) !important;
+  color: var(--ink-text) !important;
+  box-shadow: 0 9px 0 rgba(74,25,66,.08), 0 14px 25px rgba(74,25,66,.08) !important;
+}
+html[data-caixa-theme="halloween"] .historico-mes-card::before { background: var(--halloween-orange) !important; }
+html[data-caixa-theme="halloween"] .historico-mes-card:hover {
+  border-color: rgba(255,122,61,.45) !important;
+  box-shadow: 0 10px 0 rgba(74,25,66,.10), 0 16px 28px rgba(74,25,66,.11) !important;
+}
+html[data-caixa-theme="halloween"] .historico-mes-head {
+  color: var(--ink-text) !important;
+  border-bottom-color: rgba(74,25,66,.16) !important;
+}
+html[data-caixa-theme="halloween"] .historico-mes-nome { color: var(--ink-text) !important; }
+html[data-caixa-theme="halloween"] .historico-mes-total {
+  color: var(--halloween-green-deep) !important;
+  background: rgba(95,184,122,.12) !important;
+}
+html[data-caixa-theme="halloween"] .historico-mes-total.negative {
+  color: #c33e50 !important;
+  background: rgba(209,73,91,.12) !important;
+}
+html[data-caixa-theme="halloween"] .historico-mes-chevron {
+  color: var(--muted) !important;
+  background: #fdeee0 !important;
+  border-color: rgba(74,25,66,.16) !important;
+}
+html[data-caixa-theme="halloween"] .historico-mes-card.is-expanded .historico-mes-chevron {
+  color: var(--halloween-orange) !important;
+  background: rgba(255,122,61,.12) !important;
+  border-color: rgba(255,122,61,.28) !important;
+}
+html[data-theme="dark"][data-caixa-theme="halloween"] .historico-mes-card {
+  background: #20101f !important;
+  border-color: rgba(95,184,122,.20) !important;
+  color: #fdf3ea !important;
+  box-shadow: 0 10px 0 rgba(0,0,0,.24), 0 16px 28px rgba(0,0,0,.30) !important;
+}
+html[data-theme="dark"][data-caixa-theme="halloween"] .historico-mes-card::before { background: var(--halloween-orange) !important; }
+html[data-theme="dark"][data-caixa-theme="halloween"] .historico-mes-head { color: #fdf3ea !important; border-bottom-color: rgba(95,184,122,.20) !important; }
+html[data-theme="dark"][data-caixa-theme="halloween"] .historico-mes-nome { color: #fdf3ea !important; }
+html[data-theme="dark"][data-caixa-theme="halloween"] .historico-mes-total {
+  color: #8adaa4 !important;
+  background: rgba(95,184,122,.12) !important;
+}
+html[data-theme="dark"][data-caixa-theme="halloween"] .historico-mes-total.negative {
+  color: #ffa9a0 !important;
+  background: rgba(255,111,97,.13) !important;
+}
+html[data-theme="dark"][data-caixa-theme="halloween"] .historico-mes-chevron {
+  color: #c9aebb !important;
+  background: rgba(255,255,255,.06) !important;
+  border-color: rgba(95,184,122,.20) !important;
+}
+html[data-theme="dark"][data-caixa-theme="halloween"] .historico-mes-card.is-expanded .historico-mes-chevron {
+  color: #ff9b63 !important;
+  background: rgba(255,122,61,.12) !important;
+  border-color: rgba(255,122,61,.30) !important;
+}

@@ -1,0 +1,29 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+    function usuarioAutorizado() {
+      return request.auth != null
+        && request.auth.uid in [
+          "rMURmjHzuVdfaQyeikEAAYdAJxi1",
+          "r247UAqRExd3cSU2gslgacjWRO23"
+        ];
+    }
+
+    // Área de sistema reservada; clientes não têm acesso.
+    match /system/{document=**} {
+      allow read, write: if false;
+    }
+
+    // Davi é o proprietário canônico dos dados compartilhados do Caixa.
+    // As duas contas autorizadas podem usar o mesmo conjunto de perfis,
+    // histórico, configurações e backups. O botão/área de Admin continua
+    // protegido no aplicativo pelo UID de administrador.
+    match /users/{uid}/{document=**} {
+      allow read, write: if usuarioAutorizado()
+        && (
+          request.auth.uid == uid
+          || uid == "rMURmjHzuVdfaQyeikEAAYdAJxi1"
+        );
+    }
+  }
+}

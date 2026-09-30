@@ -60,11 +60,6 @@ if (!cfg.apiKey || cfg.apiKey.includes("COLE_")) {
   window.CAIXA_FIREBASE_READY = Promise.resolve(null);
 } else {
   const app = initializeApp(cfg);
-  const USUARIOS_AUTORIZADOS = new Set([
-    "rMURmjHzuVdfaQyeikEAAYdAJxi1",
-    "r5yVCCMatXPVsCiiJcMKWM613gq1",
-  ]);
-
   const auth = getAuth(app);
   const db = initializeFirestore(app, {
     localCache: persistentLocalCache({ tabManager: persistentMultipleTabManager() }),
@@ -280,22 +275,16 @@ if (!cfg.apiKey || cfg.apiKey.includes("COLE_")) {
       const dados=ps.exists()?ps.data():{}; if(Number(dados.mesAtual)!==mes||Number(dados.anoAtual)!==ano)throw new Error(`O mês informado não é o mês atual de ${pessoa}.`);
       const ganhos=somaRecebidos(dados.ganhos),debitos=somaPagos(dados.gastosFixos)+somaVariaveisReais(dados.gastosVariaveis);
       const saldos=calcularSaldosDisponiveis(dados),saldo=saldos.total;
-      const guardado=(dados.caixinhas||[]).reduce((a,c)=>a+totalCaixinha(c),0);
-      // O valor mensal precisa ser capturado antes da limpeza das caixinhas.
-      // Se uma versão anterior do app perdeu o campo valorGuardadoMes, recuperamos
-      // o aporte real do próprio lançamento "Guardado:" feito naquele mês.
-      const guardadoMesCaixinhas=somaCampo(dados.caixinhas,"valorGuardadoMes");
-      const guardadoMesLancamentos=(dados.gastosVariaveis||[]).reduce((total,item)=>{
-        if(!item || item.pago!==true || !/^Guardado:\s*/i.test(String(item.nome||""))) return total;
-        const data=String(item.data||"");
-        const bateMes=new RegExp(`^${String(ano).replace(/[.*+?^${}()|[\]\\]/g,'\\$&')}-${String(mes).padStart(2,"0")}(?:-|$)`).test(data);
-        return bateMes ? total + (Number(item.valor)||0) : total;
-      },0);
-      const guardadoMes=guardadoMesCaixinhas>0 ? guardadoMesCaixinhas : guardadoMesLancamentos;
-      const rendimento=somaCampo(dados.caixinhas,"rendimentoTotal"),categorias=categoriasDoMes(dados);
+      const guardado=(dados.caixinhas||[]).reduce((a,c)=>a+totalCaixinha(c),0),guardadoMes=somaCampo(dados.caixinhas,"valorGuardadoMes"),rendimento=somaCampo(dados.caixinhas,"rendimentoTotal"),categorias=categoriasDoMes(dados);
       const hv=hs.exists()?hs.data():{};const anos=Array.isArray(hv.anos)?structuredClone(hv.anos):[];let bloco=anos.find(x=>Number(x.ano)===ano);if(!bloco){bloco={ano,meses:[]};anos.push(bloco);}
       let m=bloco.meses.find(x=>Number(x.mes)===mes);if(!m){m={mes,nome:tituloMes(mes)};bloco.meses.push(m);}const suf=pessoa==="davi"?"Davi":"Gabriel";
-      m[`ganhos${suf}`]=ganhos;m[`debitos${suf}`]=-debitos;m[`saldo${suf}`]=saldo;m[`guardado${suf}`]=guardado;m[`guardado${suf}Mes`]=guardadoMes;m[`categorias${suf}`]=categorias;m[`rendimento${suf}`]=rendimento;
+      m[`ganhos${suf}`]=ganhos;m[`debitos${suf}`]=-debitos;m[`saldo${suf}`]=saldo;m[`guardado${suf}`]=guardado;
+      // O campo mensal precisa ficar como guardadoMesDavi/Gabriel,
+      // exatamente no formato que o histórico e o gráfico consomem.
+      m[`guardadoMes${suf}`]=guardadoMes;
+      // Mantém o nome antigo para compatibilidade com históricos já gravados.
+      m[`guardado${suf}Mes`]=guardadoMes;
+      m[`categorias${suf}`]=categorias;m[`rendimento${suf}`]=rendimento;
       const ganhosProx=[];(dados.ganhos||[]).forEach(g=>{
         if(g.recebido===false||ehGanhoRecorrente(g.nome)){
           const ganhoProx={nome:g.nome,valor:g.valor,data:proximaDataMesmoDia(g.data),recebido:false};
@@ -535,20 +524,9 @@ if (!cfg.apiKey || cfg.apiKey.includes("COLE_")) {
   function isAdmin(){
     return !!currentUser && currentUser.uid === ADMIN_UID;
   }
-  async function validarUsuarioAutorizado(user){
-    if (!user || !USUARIOS_AUTORIZADOS.has(user.uid)) {
-      try { await signOut(auth); } catch (_) {}
-      const err = new Error("USUARIO_NAO_AUTORIZADO");
-      err.code = "auth/user-not-allowed";
-      throw err;
-    }
-    return user;
-  }
-
   async function loginGoogle(){
     try {
       const cred = await signInWithPopup(auth, provider);
-      await validarUsuarioAutorizado(cred.user);
       return cred;
     } catch (e) {
       // No celular, alguns navegadores bloqueiam/limitam o popup do Google.
@@ -849,30 +827,11 @@ if (!cfg.apiKey || cfg.apiKey.includes("COLE_")) {
   // Finaliza o fluxo de login por redirecionamento (principalmente útil no mobile).
   getRedirectResult(auth).then(async result => {
     if (result?.user) {
-      try {
-        await validarUsuarioAutorizado(result.user);
-      } catch (e) {
-        montarLogin();
-        const erro = document.getElementById("caixaFirebaseLoginErro");
-        if (erro) erro.textContent = e?.code === "auth/user-not-allowed"
-          ? "Esta conta não tem autorização para acessar o Caixa."
-          : "Não foi possível concluir o login.";
-      }
+
     }
   }).catch(() => {});
 
   onAuthStateChanged(auth, async user=>{
-    if (user && !USUARIOS_AUTORIZADOS.has(user.uid)) {
-      currentUser = null;
-      document.documentElement.classList.remove("firebase-authenticated");
-      try { await signOut(auth); } catch (_) {}
-      montarLogin();
-      const erro = document.getElementById("caixaFirebaseLoginErro");
-      if (erro) erro.textContent = "Esta conta não tem autorização para acessar o Caixa.";
-      document.dispatchEvent(new CustomEvent("caixa:firebase-unauthorized",{detail:{user}}));
-      if(authResolve){authResolve(null);authResolve=null;authReject=null;}
-      return;
-    }
     currentUser=user||null;
     document.documentElement.classList.toggle("firebase-authenticated",!!user);
     if (!user) montarLogin();

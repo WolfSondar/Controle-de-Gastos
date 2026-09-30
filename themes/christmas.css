@@ -2762,3 +2762,56 @@ html[data-caixa-theme="christmas"] .person-btn.is-active::before { background:rg
 
 /* Guardado segue exatamente a mesma superfície dos outros cards. */
 html[data-caixa-theme="christmas"] .hero-stats > .hero-stat:nth-child(2)::after { content:none !important; display:none !important; }
+
+/* Histórico — acabamento natalino claro/escuro */
+html[data-caixa-theme="christmas"] .historico-mes-card {
+  background: var(--paper) !important;
+  border-color: rgba(35,100,71,.18) !important;
+  color: var(--ink-text) !important;
+  box-shadow: 0 9px 24px rgba(40,70,58,.09) !important;
+}
+html[data-caixa-theme="christmas"] .historico-mes-card::before { background: var(--christmas-red) !important; }
+html[data-caixa-theme="christmas"] .historico-mes-card:hover {
+  border-color: rgba(185,47,59,.34) !important;
+  box-shadow: 0 12px 28px rgba(40,70,58,.13) !important;
+}
+html[data-caixa-theme="christmas"] .historico-mes-head {
+  color: var(--ink-text) !important;
+  border-bottom-color: rgba(35,100,71,.16) !important;
+}
+html[data-caixa-theme="christmas"] .historico-mes-nome { color: var(--ink-text) !important; }
+html[data-caixa-theme="christmas"] .historico-mes-total {
+  color: var(--christmas-green) !important;
+  background: rgba(35,100,71,.10) !important;
+}
+html[data-caixa-theme="christmas"] .historico-mes-total.negative {
+  color: var(--christmas-red) !important;
+  background: rgba(185,47,59,.10) !important;
+}
+html[data-caixa-theme="christmas"] .historico-mes-chevron {
+  color: var(--muted) !important;
+  background: var(--paper-deep) !important;
+  border-color: rgba(35,100,71,.16) !important;
+}
+html[data-caixa-theme="christmas"] .historico-mes-card.is-expanded .historico-mes-chevron {
+  color: var(--christmas-red) !important;
+  background: rgba(185,47,59,.10) !important;
+  border-color: rgba(185,47,59,.24) !important;
+}
+html[data-theme="dark"][data-caixa-theme="christmas"] .historico-mes-card {
+  box-shadow: 0 12px 28px rgba(0,0,0,.30), inset 0 1px 0 rgba(224,247,253,.06) !important;
+}
+html[data-theme="dark"][data-caixa-theme="christmas"] .historico-mes-card::before { background: var(--christmas-red) !important; }
+html[data-theme="dark"][data-caixa-theme="christmas"] .historico-mes-total {
+  color: #79cfe2 !important;
+  background: rgba(121,207,226,.12) !important;
+}
+html[data-theme="dark"][data-caixa-theme="christmas"] .historico-mes-total.negative {
+  color: #ff9aa2 !important;
+  background: rgba(217,92,103,.14) !important;
+}
+html[data-theme="dark"][data-caixa-theme="christmas"] .historico-mes-chevron {
+  background: rgba(255,255,255,.06) !important;
+  border-color: var(--noite-borda-suave, rgba(224,247,253,.16)) !important;
+  color: #c8dbe4 !important;
+}
