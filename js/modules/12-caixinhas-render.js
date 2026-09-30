@@ -338,7 +338,7 @@ function renderPendentesDestaque(containerId, lista, tipo, statusKey, toggleFn, 
   const el = document.getElementById(containerId);
   if (!el) return;
   const pendentes = (lista || []).map((item, idx) => ({ item, idx }))
-    .filter(({ item }) => item[statusKey] !== true)
+    .filter(({ item }) => !lancamentoEhOculto(item) && item[statusKey] !== true)
     .sort((a, b) => compararDataAscendente(a.item.data, b.item.data));
 
   if (!pendentes.length) {
@@ -436,7 +436,7 @@ function renderListaComStatus(ulId, lista, tipo, ops, tipoModal, statusKey, togg
   // ficam visualmente separadas no bloco acima, sem repetir os mesmos itens.
   const ordenados = lista
     .map((item, idx) => ({ item, idx }))
-    .filter(({ item }) => item[statusKey] === true)
+    .filter(({ item }) => !lancamentoEhOculto(item) && item[statusKey] === true)
     .sort((a, b) => compararDataAscendente(a.item.data, b.item.data));
 
   const tituloPago = document.createElement("li");

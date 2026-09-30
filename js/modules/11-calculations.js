@@ -5,6 +5,16 @@
 // =====================================================================
 
 function soma(lista) { return lista.reduce((acc, i) => acc + (Number(i.valor) || 0), 0); }
+
+// "Oculto:" é somente uma regra de apresentação. O lançamento continua
+// existindo e participando normalmente de todos os cálculos, saldos e histórico.
+function lancamentoEhOculto(itemOuNome) {
+  const nome = typeof itemOuNome === "object"
+    ? String(itemOuNome?.nome || "")
+    : String(itemOuNome || "");
+  return itemOuNome?.oculto === true || /oculto\s*:/i.test(nome);
+}
+
 function somaComStatus(lista, campo) { return lista.reduce((acc, i) => acc + (i[campo] === true ? Number(i.valor) || 0 : 0), 0); }
 function somaFixosPagos(lista) { return somaComStatus(lista, "pago"); }
 function somaCampo(lista, campo) { return lista.reduce((acc, i) => acc + (Number(i[campo]) || 0), 0); }

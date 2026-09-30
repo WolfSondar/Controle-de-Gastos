@@ -54,9 +54,17 @@ function construirGraficoHistoricoMultiSvg(mesesAsc, pessoa) {
   const W = 320, H = 190, padL = 14, padR = 14, padT = 18, padB = 30;
 
   const getVal = (m, campo) => {
-    if (pessoa === 'ambos') return (m[`${campo}Davi`] || 0) + (m[`${campo}Gabriel`] || 0);
+    const valorPessoa = (sufixo) => {
+      const atual = Number(m[`${campo}${sufixo}`]);
+      if (Number.isFinite(atual)) return atual;
+      // Compatibilidade com o formato antigo salvo pelo fechamento:
+      // guardadoDaviMes / guardadoGabrielMes.
+      if (campo === "guardadoMes") return Number(m[`guardado${sufixo}Mes`]) || 0;
+      return 0;
+    };
+    if (pessoa === 'ambos') return valorPessoa("Davi") + valorPessoa("Gabriel");
     const sufixo = pessoa.charAt(0).toUpperCase() + pessoa.slice(1);
-    return m[`${campo}${sufixo}`] || 0;
+    return valorPessoa(sufixo);
   };
 
   const ptsGanhos = mesesAsc.map(m => getVal(m, 'ganhos'));
@@ -194,9 +202,17 @@ function renderHistorico() {
 
   const pessoa = state.pessoaAtual;
   const getVal = (m, campo) => {
-    if (pessoa === 'ambos') return (m[`${campo}Davi`] || 0) + (m[`${campo}Gabriel`] || 0);
+    const valorPessoa = (sufixo) => {
+      const atual = Number(m[`${campo}${sufixo}`]);
+      if (Number.isFinite(atual)) return atual;
+      // Compatibilidade com o formato antigo salvo pelo fechamento:
+      // guardadoDaviMes / guardadoGabrielMes.
+      if (campo === "guardadoMes") return Number(m[`guardado${sufixo}Mes`]) || 0;
+      return 0;
+    };
+    if (pessoa === 'ambos') return valorPessoa("Davi") + valorPessoa("Gabriel");
     const sufixo = pessoa.charAt(0).toUpperCase() + pessoa.slice(1);
-    return m[`${campo}${sufixo}`] || 0;
+    return valorPessoa(sufixo);
   };
 
   const paginaAnterior = paginaCarrosselAtiva("historicoGraficosCarousel");
@@ -429,7 +445,7 @@ on("formGanhos", "submit", (e) => {
   if (!nome || !(valor > 0)) return;
   const recebido = f.recebido ? f.recebido.checked : false;
   const data = dataDoLancamento(f.data ? f.data.value : "");
-  opGanhos.add(nome, valor, { recebido, data });
+  opGanhos.add(nome, valor, { recebido, data, oculto: lancamentoEhOculto(nome) });
   f.reset();
   if (typeof fecharCriacaoFlutuante === "function") fecharCriacaoFlutuante();
   preencherDatasComHoje();
@@ -468,7 +484,7 @@ on("formFixos", "submit", (e) => {
   }
 
   const novoFixo = { nome, valor, pago, tipo, data, parcela };
-  opFixos.add(nome, valor, { pago, tipo, data, parcela });
+  opFixos.add(nome, valor, { pago, tipo, data, parcela, oculto: lancamentoEhOculto(nome) });
   if (pago) sincronizarGanhoCorrespondenteFixo(state.pessoaAtual, novoFixo, true);
   f.reset();
   if (typeof fecharCriacaoFlutuante === "function") fecharCriacaoFlutuante();
@@ -486,7 +502,7 @@ on("formVariaveis", "submit", (e) => {
   const tipo = f.tipo ? f.tipo.value : "";
   const data = dataDoLancamento(f.data ? f.data.value : "");
   const origem = f.origem && f.origem.value === "beneficio" ? "beneficio" : "saldo";
-  opVariaveis.add(nome, valor, { pago, tipo, data, origem });
+  opVariaveis.add(nome, valor, { pago, tipo, data, origem, oculto: lancamentoEhOculto(nome) });
   f.reset();
   if (typeof fecharCriacaoFlutuante === "function") fecharCriacaoFlutuante();
   preencherDatasComHoje();
@@ -722,14 +738,14 @@ on("formEditar", "submit", (e) => {
 
   if (tipo === "ganhos") {
     const data = document.getElementById("editData").value;
-    opGanhos.edit(idx, nome, valor, { data });
+    opGanhos.edit(idx, nome, valor, { data, oculto: lancamentoEhOculto(nome) });
   } else if (tipo === "fixos") {
     const categoria = document.getElementById("editCategoria").value;
     const data = document.getElementById("editData").value;
     const parcela = document.getElementById("editParcela").value.trim();
     const itemAtual = state.gastosFixos[idx];
     const nomeSalvo = itemEhFatura(itemAtual) ? nomeInternoFatura(nome) : nome;
-    opFixos.edit(idx, nomeSalvo, valor, { tipo: categoria, data, parcela, fatura: itemEhFatura(itemAtual), faturaId: itemAtual?.faturaId || "" });
+    opFixos.edit(idx, nomeSalvo, valor, { tipo: categoria, data, parcela, fatura: itemEhFatura(itemAtual), faturaId: itemAtual?.faturaId || "", oculto: lancamentoEhOculto(nome) });
   } else if (tipo === "variaveis") {
     const categoria = document.getElementById("editCategoria").value;
     const data = document.getElementById("editData").value;
@@ -739,7 +755,7 @@ on("formEditar", "submit", (e) => {
     // Editar manualmente tira o item do modo "lembrete" (compra adiantada) —
     // a partir daqui ele volta a contar normalmente no saldo, com a nova
     // data/categoria/origem que a pessoa escolheu.
-    opVariaveis.edit(idx, nomeSalvo, valor, { tipo: categoria, data, origem, lembrete: false, fatura: itemEhFatura(itemAtual), faturaId: itemAtual?.faturaId || "" });
+    opVariaveis.edit(idx, nomeSalvo, valor, { tipo: categoria, data, origem, lembrete: false, fatura: itemEhFatura(itemAtual), faturaId: itemAtual?.faturaId || "", oculto: lancamentoEhOculto(nome) });
   } else if (tipo === "caixinhas") {
     const icone = normalizarNomeIcone(document.getElementById("editIcone")?.value || "");
     const data = document.getElementById("editData").value;

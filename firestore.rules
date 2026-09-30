@@ -5,7 +5,7 @@ service cloud.firestore {
       return request.auth != null
         && request.auth.uid in [
           "rMURmjHzuVdfaQyeikEAAYdAJxi1",
-          "r5yVCCMatXPVsCiiJcMKWM613gq1"
+          "r247UAqRExd3cSU2gslgacjWRO23"
         ];
     }
 

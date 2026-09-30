@@ -62,7 +62,7 @@ if (!cfg.apiKey || cfg.apiKey.includes("COLE_")) {
   const app = initializeApp(cfg);
   const USUARIOS_AUTORIZADOS = new Set([
     "rMURmjHzuVdfaQyeikEAAYdAJxi1",
-    "r5yVCCMatXPVsCiiJcMKWM613gq1",
+    "r247UAqRExd3cSU2gslgacjWRO23",
   ]);
 
   const auth = getAuth(app);
@@ -283,7 +283,13 @@ if (!cfg.apiKey || cfg.apiKey.includes("COLE_")) {
       const guardado=(dados.caixinhas||[]).reduce((a,c)=>a+totalCaixinha(c),0),guardadoMes=somaCampo(dados.caixinhas,"valorGuardadoMes"),rendimento=somaCampo(dados.caixinhas,"rendimentoTotal"),categorias=categoriasDoMes(dados);
       const hv=hs.exists()?hs.data():{};const anos=Array.isArray(hv.anos)?structuredClone(hv.anos):[];let bloco=anos.find(x=>Number(x.ano)===ano);if(!bloco){bloco={ano,meses:[]};anos.push(bloco);}
       let m=bloco.meses.find(x=>Number(x.mes)===mes);if(!m){m={mes,nome:tituloMes(mes)};bloco.meses.push(m);}const suf=pessoa==="davi"?"Davi":"Gabriel";
-      m[`ganhos${suf}`]=ganhos;m[`debitos${suf}`]=-debitos;m[`saldo${suf}`]=saldo;m[`guardado${suf}`]=guardado;m[`guardado${suf}Mes`]=guardadoMes;m[`categorias${suf}`]=categorias;m[`rendimento${suf}`]=rendimento;
+      m[`ganhos${suf}`]=ganhos;m[`debitos${suf}`]=-debitos;m[`saldo${suf}`]=saldo;m[`guardado${suf}`]=guardado;
+      // O campo mensal precisa ficar como guardadoMesDavi/Gabriel,
+      // exatamente no formato que o histórico e o gráfico consomem.
+      m[`guardadoMes${suf}`]=guardadoMes;
+      // Mantém o nome antigo para compatibilidade com históricos já gravados.
+      m[`guardado${suf}Mes`]=guardadoMes;
+      m[`categorias${suf}`]=categorias;m[`rendimento${suf}`]=rendimento;
       const ganhosProx=[];(dados.ganhos||[]).forEach(g=>{
         if(g.recebido===false||ehGanhoRecorrente(g.nome)){
           const ganhoProx={nome:g.nome,valor:g.valor,data:proximaDataMesmoDia(g.data),recebido:false};
