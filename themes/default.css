@@ -1473,6 +1473,14 @@ body.sem-entrada-listas .item-list-row { animation: none !important; }
   display: block;
 }
 
+
+/* Histórico mensal: contraste adaptativo para todos os temas/modos. */
+.historico-mes-card { background: var(--paper); color: var(--ink-text); }
+.historico-mes-head:focus-visible { outline: 2px solid color-mix(in srgb, var(--gold) 70%, transparent); outline-offset: 3px; border-radius: 10px; }
+.historico-mes-total { color: var(--income); }
+.historico-mes-chevron { background: color-mix(in srgb, var(--paper-deep) 58%, transparent); border-color: color-mix(in srgb, var(--line) 88%, transparent); }
+.historico-mes-head:hover .historico-mes-chevron,
+.historico-mes-head:focus-visible .historico-mes-chevron { background: var(--paper-deep); border-color: color-mix(in srgb, var(--gold) 42%, var(--line)); color: var(--ink-text); }
 @media (max-width: 560px) {
   .caixinha-icon-picker-menu {
     padding: 9px;
@@ -2876,10 +2884,10 @@ html[data-theme="dark"] {
   position: relative;
   overflow: hidden;
   background: var(--paper);
-  border: 1px solid rgba(122,111,88,.19);
+  border: 1px solid color-mix(in srgb, var(--line) 72%, transparent);
   border-radius: 20px;
   padding: 17px 17px 15px;
-  box-shadow: 0 7px 20px rgba(22,51,44,.045);
+  box-shadow: 0 7px 20px color-mix(in srgb, var(--ink) 5%, transparent);
   transition: transform .18s ease, box-shadow .18s ease, border-color .18s ease;
 }
 
@@ -2896,8 +2904,8 @@ html[data-theme="dark"] {
 
 .historico-mes-card:hover {
   transform: translateY(-1px);
-  border-color: rgba(185,134,47,.28);
-  box-shadow: 0 10px 24px rgba(22,51,44,.075);
+  border-color: color-mix(in srgb, var(--gold) 42%, var(--line));
+  box-shadow: 0 10px 24px color-mix(in srgb, var(--ink) 9%, transparent);
 }
 
 .historico-mes-head {
@@ -2963,13 +2971,13 @@ html[data-theme="dark"] {
 .historico-mes-body {
   margin-top: 14px;
   padding-top: 9px;
-  border-top: 1px dashed rgba(122,111,88,.24);
+  border-top: 1px dashed color-mix(in srgb, var(--line) 86%, transparent);
 }
 
 .historico-mes-separador {
   height: 1px;
   margin: 7px 1px;
-  background: rgba(122,111,88,.12);
+  background: color-mix(in srgb, var(--line) 58%, transparent);
 }
 
 .historico-mes-linha {

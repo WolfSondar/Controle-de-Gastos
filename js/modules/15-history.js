@@ -245,19 +245,10 @@ function renderHistorico() {
   const cards = mesesOrdenados.map((m, cardIndex) => {
     const ganhos = getVal(m, 'ganhos');
     const debitos = getVal(m, 'debitos');
-    const ganhosBeneficios = getVal(m, 'ganhosBeneficios');
-    const ganhosSaldo = getVal(m, 'ganhosSaldo');
-    const debitosBeneficios = getVal(m, 'debitosBeneficios');
-    const debitosSaldo = getVal(m, 'debitosSaldo');
     const guardado = getVal(m, 'guardadoMes');
     const rendimento = getVal(m, 'rendimento');
     const saldo = getVal(m, 'saldo');
     const nomeMes = modoTodos ? `Ano ${m.nome}` : (m.nome.charAt(0) + m.nome.slice(1).toLowerCase());
-    const temDetalhamento = [ganhosBeneficios, ganhosSaldo, debitosBeneficios, debitosSaldo].some(v => Number(v) !== 0);
-    const fallbackGanhos = !temDetalhamento && ganhos !== 0 ? ganhos : ganhosSaldo;
-    const fallbackGastos = !temDetalhamento && debitos !== 0 ? Math.abs(debitos) : Math.abs(debitosSaldo);
-    const beneficioResumo = ganhosBeneficios - Math.abs(debitosBeneficios);
-    const saldoResumo = ganhosSaldo - Math.abs(debitosSaldo);
     const cardId = `historico-mes-${anoAlvo}-${m.mes}-${cardIndex}`;
 
     return `
@@ -265,26 +256,19 @@ function renderHistorico() {
       <button class="historico-mes-head" type="button" aria-expanded="false" aria-controls="${cardId}" data-historico-toggle>
         <span class="historico-mes-nome">${nomeMes}</span>
         <span class="historico-mes-resumo">
-          <span class="historico-mes-total">${fmt(beneficioResumo + saldoResumo)}</span>
+          <span class="historico-mes-total ${saldo < 0 ? "negative" : ""}">${fmt(ganhos + debitos)}</span>
           <span class="historico-mes-chevron" aria-hidden="true">⌄</span>
         </span>
       </button>
       <div class="historico-mes-body" id="${cardId}" hidden>
         <div class="historico-mes-linha">
-          <span>Ganhos Benefícios</span><span class="income">${fmt(temDetalhamento ? ganhosBeneficios : 0)}</span>
+          <span>Ganhos</span><span class="income">${fmt(ganhos)}</span>
         </div>
         <div class="historico-mes-linha">
-          <span>Gastos Benefícios</span><span class="expense">${fmt(temDetalhamento ? Math.abs(debitosBeneficios) : 0)}</span>
-        </div>
-        <div class="historico-mes-separador"></div>
-        <div class="historico-mes-linha">
-          <span>Ganhos Saldo</span><span class="income">${fmt(temDetalhamento ? ganhosSaldo : fallbackGanhos)}</span>
-        </div>
-        <div class="historico-mes-linha">
-          <span>Gastos Saldo</span><span class="expense">${fmt(temDetalhamento ? Math.abs(debitosSaldo) : fallbackGastos)}</span>
+          <span>Débitos</span><span class="expense">${fmt(Math.abs(debitos))}</span>
         </div>
         ${guardado > 0 ? `<div class="historico-mes-linha"><span>Guardado</span><span class="gold">${fmt(guardado)}</span></div>` : ""}
-        ${rendimento > 0 ? `<div class="historico-mes-linha"><span>Rendeu no Mês</span><span class="income">+ ${fmt(rendimento)}</span></div>` : ""}
+        ${rendimento > 0 ? `<div class="historico-mes-linha"><span>Rendeu no mês</span><span class="income">+ ${fmt(rendimento)}</span></div>` : ""}
         ${pessoa === 'ambos' ? `
         <div class="historico-mes-pessoas">
           <span class="pessoa-tag pessoa-davi">Davi ${fmt(m.saldoDavi)}</span>
