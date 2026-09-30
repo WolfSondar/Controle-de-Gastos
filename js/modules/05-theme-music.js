@@ -17,6 +17,7 @@ let caixaMusicaSrcAtual = "";
 let caixaMusicaInteracaoArmada = false;
 let caixaMusicaRelogio = null;
 let caixaMusicaTransicaoId = 0;
+let caixaMusicaTocavaAntesDeSair = false;
 
 function caixaPeriodoMusical() {
   const hora = new Date().getHours();
@@ -188,12 +189,52 @@ async function caixaIniciarMusicaTema(forcarTroca = false) {
 
 function atualizarMusicaTema() {
   // Atualização idempotente: só troca se o tema/período apontar para outro MP3.
+  if (document.hidden) return;
   caixaIniciarMusicaTema(false);
 }
+
+// A música acompanha a página: ao sair da aba/janela, ela pausa; ao voltar,
+// retoma somente se estava tocando antes.
+function sincronizarMusicaComVisibilidadePagina() {
+  const audio = caixaMusicaAudio;
+  if (!audio) return;
+
+  if (document.hidden) {
+    caixaMusicaTocavaAntesDeSair = !audio.paused && !audio.ended;
+    if (caixaMusicaTocavaAntesDeSair) {
+      ++caixaMusicaTransicaoId;
+      audio.pause();
+    }
+    return;
+  }
+
+  if (caixaMusicaTocavaAntesDeSair) {
+    caixaMusicaTocavaAntesDeSair = false;
+    caixaIniciarMusicaTema(false);
+  }
+}
+
+document.addEventListener("visibilitychange", sincronizarMusicaComVisibilidadePagina);
+window.addEventListener("blur", () => {
+  const audio = caixaMusicaAudio;
+  if (!audio || document.hidden) return;
+  caixaMusicaTocavaAntesDeSair = !audio.paused && !audio.ended;
+  if (caixaMusicaTocavaAntesDeSair) {
+    ++caixaMusicaTransicaoId;
+    audio.pause();
+  }
+});
+window.addEventListener("focus", () => {
+  if (!document.hidden && caixaMusicaTocavaAntesDeSair) {
+    caixaMusicaTocavaAntesDeSair = false;
+    caixaIniciarMusicaTema(false);
+  }
+});
 
 function iniciarRelogioMusicaTema() {
   if (caixaMusicaRelogio) return;
   caixaMusicaRelogio = setInterval(() => {
+    if (document.hidden) return;
     const esperado = new URL(caixaArquivoMusicaTema(), document.baseURI).href;
     if (esperado !== caixaMusicaSrcAtual) caixaIniciarMusicaTema(true);
   }, 60000);

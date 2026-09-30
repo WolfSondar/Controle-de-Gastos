@@ -60,11 +60,6 @@ if (!cfg.apiKey || cfg.apiKey.includes("COLE_")) {
   window.CAIXA_FIREBASE_READY = Promise.resolve(null);
 } else {
   const app = initializeApp(cfg);
-  const USUARIOS_AUTORIZADOS = new Set([
-    "rMURmjHzuVdfaQyeikEAAYdAJxi1",
-    "r247UAqRExd3cSU2gslgacjWRO23",
-  ]);
-
   const auth = getAuth(app);
   const db = initializeFirestore(app, {
     localCache: persistentLocalCache({ tabManager: persistentMultipleTabManager() }),
@@ -529,20 +524,9 @@ if (!cfg.apiKey || cfg.apiKey.includes("COLE_")) {
   function isAdmin(){
     return !!currentUser && currentUser.uid === ADMIN_UID;
   }
-  async function validarUsuarioAutorizado(user){
-    if (!user || !USUARIOS_AUTORIZADOS.has(user.uid)) {
-      try { await signOut(auth); } catch (_) {}
-      const err = new Error("USUARIO_NAO_AUTORIZADO");
-      err.code = "auth/user-not-allowed";
-      throw err;
-    }
-    return user;
-  }
-
   async function loginGoogle(){
     try {
       const cred = await signInWithPopup(auth, provider);
-      await validarUsuarioAutorizado(cred.user);
       return cred;
     } catch (e) {
       // No celular, alguns navegadores bloqueiam/limitam o popup do Google.
@@ -841,32 +825,13 @@ if (!cfg.apiKey || cfg.apiKey.includes("COLE_")) {
     });
   }
   // Finaliza o fluxo de login por redirecionamento (principalmente útil no mobile).
-  getRedirectResult(auth).then(async result => {
-    if (result?.user) {
-      try {
-        await validarUsuarioAutorizado(result.user);
-      } catch (e) {
-        montarLogin();
-        const erro = document.getElementById("caixaFirebaseLoginErro");
-        if (erro) erro.textContent = e?.code === "auth/user-not-allowed"
-          ? "Esta conta não tem autorização para acessar o Caixa."
-          : "Não foi possível concluir o login.";
-      }
-    }
+  getRedirectResult(auth).then(() => {
+    // A autorização de dados é validada pelo firestore.rules.
   }).catch(() => {});
 
   onAuthStateChanged(auth, async user=>{
-    if (user && !USUARIOS_AUTORIZADOS.has(user.uid)) {
-      currentUser = null;
-      document.documentElement.classList.remove("firebase-authenticated");
-      try { await signOut(auth); } catch (_) {}
-      montarLogin();
-      const erro = document.getElementById("caixaFirebaseLoginErro");
-      if (erro) erro.textContent = "Esta conta não tem autorização para acessar o Caixa.";
-      document.dispatchEvent(new CustomEvent("caixa:firebase-unauthorized",{detail:{user}}));
-      if(authResolve){authResolve(null);authResolve=null;authReject=null;}
-      return;
-    }
+    // Login é tratado pelo Firebase Authentication; autorização de dados fica
+    // exclusivamente no firestore.rules. O cliente não mantém uma whitelist.
     currentUser=user||null;
     document.documentElement.classList.toggle("firebase-authenticated",!!user);
     if (!user) montarLogin();

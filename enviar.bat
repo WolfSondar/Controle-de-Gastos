@@ -1,0 +1,9 @@
+@echo off
+echo Adicionando arquivos...
+git add .
+echo Criando commit...
+git commit -m "Upload automatico: %date% %time%"
+echo Enviando para o GitHub...
+git push origin main
+echo Concluido!
+pause
