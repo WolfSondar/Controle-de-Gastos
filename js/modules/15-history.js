@@ -265,8 +265,7 @@ function renderHistorico() {
       <button class="historico-mes-head" type="button" aria-expanded="false" aria-controls="${cardId}" data-historico-toggle>
         <span class="historico-mes-nome">${nomeMes}</span>
         <span class="historico-mes-resumo">
-          <span class="historico-resumo-tag beneficio"><span>Benefícios</span><strong>${fmt(beneficioResumo)}</strong></span>
-          <span class="historico-resumo-tag saldo"><span>Saldo</span><strong>${fmt(saldoResumo)}</strong></span>
+          <span class="historico-mes-total">${fmt(beneficioResumo + saldoResumo)}</span>
           <span class="historico-mes-chevron" aria-hidden="true">⌄</span>
         </span>
       </button>
