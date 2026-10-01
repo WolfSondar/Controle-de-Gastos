@@ -2913,3 +2913,17 @@ html[data-caixa-theme="christmas"] .historico-mes-head:active {
   background-image: none !important;
   box-shadow: none !important;
 }
+
+/* Rendimento das caixinhas + Histórico: uma única cor semântica por tema/modo. */
+html[data-caixa-theme="christmas"] {
+  --yield: #4b9fca;
+  --yield-bg: #e8f6fc;
+}
+html[data-theme="dark"][data-caixa-theme="christmas"] {
+  --yield: #8bd9ef;
+  --yield-bg: #102a35;
+}
+html[data-caixa-theme="christmas"] .item-tag-rendimento {
+  color: var(--yield) !important;
+  background: var(--yield-bg) !important;
+}

@@ -367,7 +367,23 @@ async function flushFilaOffline() {
   }
 }
 
-window.addEventListener("online", () => flushFilaOffline());
+window.addEventListener("online", async () => {
+  // A volta da internet precisa ser visível mesmo quando não existe fila
+  // offline. Mostra sincronizando imediatamente, envia pendências e depois
+  // faz uma leitura fresca do Firebase para atualizar a tela.
+  if (!temBackendDados()) {
+    setSyncState("idle");
+    return;
+  }
+  setSyncState("syncing");
+  try {
+    await flushFilaOffline();
+    if (navigator.onLine) await carregarDados();
+  } catch (err) {
+    console.error("Reconexão/sincronização:", err);
+    if (navigator.onLine) setSyncState("error");
+  }
+});
 window.addEventListener("offline", () => {
   // Reflete na hora — não espera uma tentativa falhar pra só então mostrar
   // o ícone de sem internet.

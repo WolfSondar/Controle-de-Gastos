@@ -2183,3 +2183,17 @@ html[data-caixa-theme="halloween"] .historico-mes-head:active {
   background-image: none !important;
   box-shadow: none !important;
 }
+
+/* Rendimento das caixinhas + Histórico: cor de poção própria do tema. */
+html[data-caixa-theme="halloween"] {
+  --yield: #4f9f70;
+  --yield-bg: #e6f4ea;
+}
+html[data-theme="dark"][data-caixa-theme="halloween"] {
+  --yield: #8bd6a2;
+  --yield-bg: #193525;
+}
+html[data-caixa-theme="halloween"] .item-tag-rendimento {
+  color: var(--yield) !important;
+  background: var(--yield-bg) !important;
+}

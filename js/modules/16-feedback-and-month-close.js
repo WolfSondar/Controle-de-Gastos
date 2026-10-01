@@ -309,6 +309,10 @@ on("formTransferir", "submit", async (e) => {
 const fecharMesBackdrop = document.getElementById("fecharMesBackdrop");
 
 function abrirFecharMes() {
+  if (!navigator.onLine) {
+    showToast("É preciso estar conectado à internet para fechar o mês.");
+    return;
+  }
   if (state.pessoaAtual === "ambos") {
     showToast("Juntos é somente leitura. Feche o mês pelo perfil Davi ou Gabriel.");
     return;
@@ -378,6 +382,10 @@ async function verificarFechamentoMes(mes, ano, pessoa, tentativas = 8) {
 }
 
 async function fecharMesRequisicao(mes, ano, pessoa) {
+  if (!navigator.onLine) {
+    showToast("É preciso estar conectado à internet para fechar o mês.");
+    return null;
+  }
   if (!temBackendDados()) {
     showToast("Configure o Firebase antes de fechar o mês.");
     return null;
@@ -410,7 +418,15 @@ async function fecharMesRequisicao(mes, ano, pessoa) {
     console.error("Fechamento Firebase:", err);
   }
 
+  if (!navigator.onLine) {
+    showToast("A conexão caiu. O mês não foi fechado.");
+    return null;
+  }
   await espera(900);
+  if (!navigator.onLine) {
+    showToast("A conexão caiu. O mês não foi fechado.");
+    return null;
+  }
   return await verificarFechamentoMes(mes, ano, pessoa, 10);
 }
 
@@ -485,6 +501,10 @@ on("formFecharMes", "submit", async (e) => {
   const ano = Number(state.anoAtual);
   const badgeAntes = document.getElementById("mesAtualBadge")?.textContent || "";
   const pessoaFechamento = state.pessoaAtual;
+  if (!navigator.onLine) {
+    showToast("É preciso estar conectado à internet para fechar o mês.");
+    return;
+  }
   if (!mes || !ano || (pessoaFechamento !== "davi" && pessoaFechamento !== "gabriel")) {
     if (pessoaFechamento === "ambos") showToast("Juntos é somente leitura. Selecione Davi ou Gabriel para fechar o mês.");
     return;

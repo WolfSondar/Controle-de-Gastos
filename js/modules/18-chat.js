@@ -769,48 +769,14 @@
         cadastroAtivo.nome = nome;
         campoValorCadastro("Qual foi o valor?", valor => {
           cadastroAtivo.valor = valor;
-          appendMensagem("De onde saiu esse dinheiro?");
+          appendMensagem("Esse gasto acontece <strong>só este mês</strong> ou vai <strong>se repetir nos próximos meses</strong>?");
           escolhaChat([
-            ["saldo", "Saldo em conta", "Sai do saldo normal"],
-            ["beneficio", "Benefício", "Sai do saldo do benefício"]
-          ], origem => {
-            cadastroAtivo.origem = origem;
-            // Benefício é sempre um gasto já pago, sem recorrência e sem fatura.
-            if (origem === "beneficio") {
-              cadastroAtivo.tipoGasto = "variavel";
-              cadastroAtivo.fatura = false;
-              cadastroAtivo.faturaId = "";
-              cadastroAtivo.faturaNome = "";
-              categoriasEscolhiveis(cat => {
-                cadastroAtivo.categoria = cat;
-                perguntaDataCadastro(data => {
-                  cadastroAtivo.data = data;
-                  opVariaveis.add(cadastroAtivo.nome, cadastroAtivo.valor, {
-                    pago: true,
-                    tipo: cadastroAtivo.categoria,
-                    data: dataDoLancamento(cadastroAtivo.data),
-                    origem: "beneficio",
-                    fatura: false,
-                    faturaId: ""
-                  });
-                  finalizarCadastro("Gasto adicionado", `${esc(cadastroAtivo.nome)} · <span class="chat-valor chat-valor-neg">${chatFmt(cadastroAtivo.valor)}</span>.`);
-                });
-              });
-              return;
-            }
-
-            categoriasEscolhiveis(cat => {
-              cadastroAtivo.categoria = cat;
-              appendMensagem("Esse gasto acontece <strong>só este mês</strong> ou vai <strong>se repetir nos próximos meses</strong>?");
-              escolhaChat([
-                ["fixo", "Vai se repetir", "Entra como gasto fixo"],
-                ["variavel", "Só este mês", "Entra como gasto variável"]
-              ], tipoGasto => {
-                cadastroAtivo.tipoGasto = tipoGasto;
-                if (tipoGasto === "fixo") fluxoGastoFixo();
-                else fluxoGastoVariavel();
-              });
-            });
+            ["fixo", "Vai se repetir", "Entra como gasto fixo"],
+            ["variavel", "Só este mês", "Entra como gasto variável"]
+          ], tipoGasto => {
+            cadastroAtivo.tipoGasto = tipoGasto;
+            if (tipoGasto === "fixo") fluxoGastoFixo();
+            else fluxoGastoVariavel();
           });
         });
       }, { formatarNome: true });
@@ -854,14 +820,31 @@
     }
 
     function fluxoGastoFixo() {
-      // A categoria já foi escolhida na ordem principal do fluxo.
-      // Mantemos o gasto recorrente sem inserir perguntas extras antes de fatura/data.
-      cadastroAtivo.parcelas = 0;
-      perguntarFaturaAntesDaData(data => { cadastroAtivo.data = data; statusFixo(); });
+      categoriasEscolhiveis(cat => {
+        cadastroAtivo.categoria = cat;
+        appendMensagem("Esse gasto será <strong>à vista</strong> ou <strong>parcelado</strong>?");
+        escolhaChat([
+          ["avista", "À vista"],
+          ["parcelado", "Parcelado", "Dividido em parcelas"]
+        ], modalidade => {
+          cadastroAtivo.modalidade = modalidade;
+          if (modalidade === "parcelado") {
+            selectChat("Em quantas parcelas?", Array.from({length:23}, (_,i)=>[String(i+2), `${i+2}x`]), qtd => {
+              cadastroAtivo.parcelas = Number(qtd);
+              perguntarFaturaAntesDaData(data => { cadastroAtivo.data = data; statusFixo(); });
+            }, { placeholder: "Escolha o número de parcelas…" });
+          } else {
+            // Gasto fixo à vista continua recorrente; sem número de parcelas,
+            // o backend cria o mesmo gasto no mês seguinte.
+            cadastroAtivo.parcelas = 0;
+            perguntarFaturaAntesDaData(data => { cadastroAtivo.data = data; statusFixo(); });
+          }
+        });
+      });
     }
 
     function statusFixo() {
-      perguntaStatusCadastro("Essa compra já foi paga?", "Sim, já paguei", "Não, está pendente", pago => {
+      perguntaStatusCadastro("Essa conta já foi paga?", "Sim, já paguei", "Não, está pendente", pago => {
         const n = cadastroAtivo.parcelas || 0;
         const valor = n > 0 ? Math.round((cadastroAtivo.valor / n) * 100) / 100 : cadastroAtivo.valor;
         const parcela = n > 0 ? `1/${n}` : "";
@@ -872,12 +855,22 @@
     }
 
     function fluxoGastoVariavel() {
-      perguntarFaturaAntesDaData(data => {
-        cadastroAtivo.data = data;
-        perguntaStatusCadastro("Essa compra já foi paga?", "Sim, já paguei", "Não, está pendente", pago => {
-          const nomeSalvo = cadastroAtivo.fatura ? nomeInternoFatura(cadastroAtivo.nome) : cadastroAtivo.nome;
-          opVariaveis.add(nomeSalvo, cadastroAtivo.valor, { pago, tipo: cadastroAtivo.categoria, data: dataDoLancamento(cadastroAtivo.data), origem: cadastroAtivo.origem, fatura: cadastroAtivo.fatura === true, faturaId: cadastroAtivo.faturaId || "" });
-          finalizarCadastro("Gasto adicionado", `${esc(cadastroAtivo.nome)} · <span class="chat-valor chat-valor-neg">${chatFmt(cadastroAtivo.valor)}</span>.`);
+      categoriasEscolhiveis(cat => {
+        cadastroAtivo.categoria = cat;
+        appendMensagem("De onde saiu esse dinheiro?");
+        escolhaChat([
+          ["saldo", "Saldo em conta", "Sai do saldo normal"],
+          ["beneficio", "Benefício", "Sai do saldo do benefício"]
+        ], origem => {
+          cadastroAtivo.origem = origem;
+          perguntarFaturaAntesDaData(data => {
+            cadastroAtivo.data = data;
+            perguntaStatusCadastro("Essa compra já foi paga?", "Sim, já paguei", "Não, está pendente", pago => {
+              const nomeSalvo = cadastroAtivo.fatura ? nomeInternoFatura(cadastroAtivo.nome) : cadastroAtivo.nome;
+              opVariaveis.add(nomeSalvo, cadastroAtivo.valor, { pago, tipo: cadastroAtivo.categoria, data: dataDoLancamento(cadastroAtivo.data), origem: cadastroAtivo.origem, fatura: cadastroAtivo.fatura === true, faturaId: cadastroAtivo.faturaId || "" });
+              finalizarCadastro("Gasto adicionado", `${esc(cadastroAtivo.nome)} · <span class="chat-valor chat-valor-neg">${chatFmt(cadastroAtivo.valor)}</span>.`);
+            });
+          });
         });
       });
     }
