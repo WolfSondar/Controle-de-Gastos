@@ -34,7 +34,10 @@ function separarGanhosPorOrigem(lista) {
 // como pago, mas não deve contar de novo no saldo nem nos gastos por
 // categoria deste mês — já foi debitado no mês em que a compra foi paga.
 function variavelContaNoSaldo(item) { return item.pago === true && item.lembrete !== true; }
-function variavelEhBeneficio(item) { return String(item && item.origem || "saldo").toLowerCase() === "beneficio"; }
+function variavelEhBeneficio(item) {
+  const origem = String(item && item.origem || "saldo").normalize("NFD").replace(/[\u0300-\u036f]/g, "").toLowerCase().trim();
+  return origem === "beneficio" || origem === "saira do beneficio" || origem === "saira do beneficio" || origem.includes("beneficio");
+}
 
 function atualizarLinhaStatus(ulId, idx, ligado, rotuloOn, rotuloOff) {
   const ul = document.getElementById(ulId);
@@ -152,6 +155,8 @@ function capturarPosicoesStatus(listaId, pendingId) {
         row,
       });
     });
+    const heading = el.querySelector(".status-list-title-row");
+    if (heading) mapa.set(`${containerId}:__heading`, { rect: heading.getBoundingClientRect(), row: heading });
   });
   return mapa;
 }
@@ -172,17 +177,19 @@ function animarReencaixeStatus(listaId, pendingId, antes, origemKey, destinoKey,
 
     novo.row.style.animation = "none";
     novo.row.style.transition = "none";
+    novo.row.style.willChange = "transform";
     novo.row.style.transform = `translate3d(${dx}px, ${dy}px, 0)`;
     requestAnimationFrame(() => {
-      novo.row.style.transition = "transform 420ms cubic-bezier(.22,.8,.2,1)";
+      novo.row.style.transition = "transform 520ms cubic-bezier(.22,.72,.18,1)";
       novo.row.style.transform = "translate3d(0,0,0)";
       window.setTimeout(() => {
         novo.row.style.transition = "";
+        novo.row.style.willChange = "";
         // Mantém a animação CSS desativada nesta linha.
         // Limpar animation aqui fazia a animação de entrada da lista
         // disparar novamente no fim do FLIP, causando o "pisca".
         novo.row.style.animation = "none";
-      }, 440);
+      }, 545);
     });
   });
 
@@ -201,9 +208,10 @@ function animarReencaixeStatus(listaId, pendingId, antes, origemKey, destinoKey,
   // percorrer o caminho. Isso evita o efeito de "teleporte" quando ele
   // vai para o final de uma lista longa.
   const distancia = Math.hypot(dx, dy);
-  const duracaoMovimento = Math.min(1400, Math.max(800, 800 + distancia * 0.35));
+  const duracaoMovimento = Math.min(760, Math.max(460, 460 + distancia * 0.12));
 
   novaLinha.style.animation = "none";
+  novaLinha.classList.add("status-row-over-title");
   novaLinha.style.transition = "none";
   novaLinha.style.transform = `translate3d(${dx}px, ${dy}px, 0)`;
   novaLinha.style.opacity = "0.72";
@@ -218,6 +226,7 @@ function animarReencaixeStatus(listaId, pendingId, antes, origemKey, destinoKey,
   });
 
   window.setTimeout(() => {
+    novaLinha.classList.remove("status-row-over-title");
     novaLinha.style.transition = "";
     novaLinha.style.transform = "";
     novaLinha.style.opacity = "";

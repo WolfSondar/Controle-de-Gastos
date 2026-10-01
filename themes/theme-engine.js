@@ -22,9 +22,9 @@
     try {
       const dark = document.documentElement.dataset.theme === "dark";
       const colors = {
-        default: dark ? "#0d1e19" : "#16332c",
-        christmas: dark ? "#0b1d28" : "#b8dfea",
-        halloween: dark ? "#12091a" : "#eadcf3"
+        default: dark ? "#0d1e19" : "#f7f0e5",
+        christmas: dark ? "#0b1d28" : "#e8f5f8",
+        halloween: dark ? "#12091a" : "#f2e9f8"
       };
       document.querySelectorAll('meta[name="theme-color"]').forEach(meta => {
         meta.setAttribute("content", colors[theme] || colors.default);

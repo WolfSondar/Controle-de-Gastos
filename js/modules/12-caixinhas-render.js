@@ -108,12 +108,17 @@ function nomeExibicaoItem(itemOuNome) {
   const nome = typeof itemOuNome === "object"
     ? String(itemOuNome?.nome || "")
     : String(itemOuNome || "");
-  return nome.replace(/^Fatura:\s*/i, "").trim();
+  return nome.replace(/^(?:Fatura|Benef[ií]cio):\s*/i, "").trim();
 }
 
 function nomeInternoFatura(nome) {
   const limpo = nomeExibicaoItem(nome);
   return limpo ? `Fatura: ${limpo}` : limpo;
+}
+
+function nomeInternoBeneficio(nome) {
+  const limpo = nomeExibicaoItem(nome);
+  return limpo ? `Benefício: ${limpo}` : limpo;
 }
 
 function proximaDataVencimentoFatura(pessoa, base = new Date(), faturaId = "") {
@@ -153,7 +158,9 @@ function metaInfoHtml(item) {
     const cfgFatura = faturaPorId(item.faturaId);
     const nomeFaturaTag = cfgFatura?.nome || "Fatura";
     const diaFaturaTag = Number(cfgFatura?.dia) || 1;
-    partes.push(`<span class="item-tag item-tag-fatura" title="${escapeHtml(nomeFaturaTag)} · vencimento dia ${diaFaturaTag}">${escapeHtml(nomeFaturaTag)}</span>`);
+    const nomeBanco = String(nomeFaturaTag).normalize("NFD").replace(/[\u0300-\u036f]/g, "").toLowerCase();
+    const classeBanco = nomeBanco.includes("nubank") ? "fatura-nubank" : nomeBanco.includes("itau") ? "fatura-itau" : nomeBanco.includes("mercado pago") || nomeBanco.includes("mercadopago") ? "fatura-mercadopago" : nomeBanco.includes("bradesco") ? "fatura-bradesco" : "fatura-personalizada";
+    partes.push(`<span class="item-tag item-tag-fatura ${classeBanco}" title="${escapeHtml(nomeFaturaTag)} · vencimento dia ${diaFaturaTag}">${escapeHtml(nomeFaturaTag)}</span>`);
   } else if (item.lembrete) {
     partes.push(`<span class="item-tag item-tag-lembrete" title="Pago no mês anterior, adiantado — não conta no saldo deste mês">Pago adiantado</span>`);
   } else if (ehDoProximoMes(item)) {
@@ -230,7 +237,7 @@ function habilitarSwipe(ul) {
     const content=ativo.li.querySelector(".swipe-content");
     if (content) {
       content.style.transition="none";
-      content.style.transform=`translateX(${Math.max(-112,Math.min(112,dx))}px)`;
+      content.style.transform=`translateX(${Math.max(-98,Math.min(98,dx))}px)`;
     }
   };
   const finalizar = (e) => {
@@ -303,14 +310,14 @@ function renderPendentesDestaque(containerId, lista, tipo, statusKey, toggleFn, 
     <ul class="item-list pendentes-item-list" aria-label="Lançamentos pendentes">
       ${pendentes.map(({ item, idx }, posicao) => {
         const li = `
-          <li class="item-list-row is-pendente pendente-destaque-row ${tipo === "income" ? `lancamento-ganho ${ganhoEhBeneficio(item) ? "ganho-beneficio" : "ganho-saldo"}` : "lancamento-gasto"}" data-idx="${idx}" style="animation-delay:${Math.min(posicao * 35, 250)}ms">
+          <li class="item-list-row is-pendente pendente-destaque-row ${tipo === "income" ? `lancamento-ganho ${ganhoEhBeneficio(item) ? "ganho-beneficio" : "ganho-saldo"}` : `lancamento-gasto ${variavelEhBeneficio(item) ? "gasto-beneficio" : "gasto-saldo"}`}" data-idx="${idx}" style="animation-delay:${Math.min(posicao * 35, 250)}ms">
             ${ambos ? "" : `<div class="swipe-actions">
               <button class="swipe-btn swipe-edit" aria-label="Editar" data-idx="${idx}"><span class="swipe-btn-icon">${ICONE_LAPIS}</span><span>Editar</span></button>
               <button class="swipe-btn swipe-delete" aria-label="Excluir" data-idx="${idx}"><span class="swipe-btn-icon">${ICONE_X}</span><span>Excluir</span></button>
             </div>`}
             <div class="swipe-content">
               <span class="item-nome">${nomeComParcela(item)}${parcelaInlineHtml(item, tipo)} ${tagPessoa(item)}</span>
-              <span class="item-valor ${tipo}${tipo === "income" && ganhoEhBeneficio(item) ? " income-beneficio" : ""}">${fmt(item.valor)}</span>
+              <span class="item-valor ${tipo}${tipo === "income" && ganhoEhBeneficio(item) ? " income-beneficio" : tipo === "expense" && variavelEhBeneficio(item) ? " expense-beneficio" : ""}">${fmt(item.valor)}</span>
               ${metaInfoHtml(item) || `<div class="item-meta"></div>`}
               ${ambos
                 ? `<span class="pago-toggle" aria-disabled="true"><span class="dot"></span>${escapeHtml(rotuloOff)}</span>`
@@ -407,7 +414,7 @@ function renderListaComStatus(ulId, lista, tipo, ops, tipoModal, statusKey, togg
   ordenados.forEach(({ item, idx }, posicao) => {
     const on = item[statusKey] === true;
     const li = document.createElement("li");
-    li.className = "item-list-row" + (on ? "" : " is-pendente") + (tipo === "income" ? ` lancamento-ganho ${ganhoEhBeneficio(item) ? "ganho-beneficio" : "ganho-saldo"}` : " lancamento-gasto");
+    li.className = "item-list-row" + (on ? "" : " is-pendente") + (tipo === "income" ? ` lancamento-ganho ${ganhoEhBeneficio(item) ? "ganho-beneficio" : "ganho-saldo"}` : ` lancamento-gasto ${variavelEhBeneficio(item) ? "gasto-beneficio" : "gasto-saldo"}`);
     // O índice também precisa existir nas linhas já concluídas.
     // A animação de Recebidos/Pagos -> Pendentes localiza a linha pelo data-idx;
     // sem ele a transição encontrava a tag, mas não conseguia mover a linha.
@@ -421,7 +428,7 @@ function renderListaComStatus(ulId, lista, tipo, ops, tipoModal, statusKey, togg
             </div>`}
       <div class="swipe-content">
         <span class="item-nome">${nomeComParcela(item)}${parcelaInlineHtml(item, tipo)} ${tagPessoa(item)}</span>
-        <span class="item-valor ${tipo}${tipo === "income" && ganhoEhBeneficio(item) ? " income-beneficio" : ""}">${fmt(item.valor)}</span>
+        <span class="item-valor ${tipo}${tipo === "income" && ganhoEhBeneficio(item) ? " income-beneficio" : tipo === "expense" && variavelEhBeneficio(item) ? " expense-beneficio" : ""}">${fmt(item.valor)}</span>
         ${metaInfoHtml(item) || `<div class="item-meta"></div>`}
         ${ambos ? `<span class="pago-toggle ${on ? "is-pago" : ""}" aria-disabled="true"><span class="dot"></span><span class="status-label-text">${on ? rotuloOn : rotuloOff}</span></span>`
                 : `<label class="pago-toggle ${on ? "is-pago" : ""}">
@@ -477,6 +484,7 @@ function excluirComRisco(li, ops, idx, item) {
     return;
   }
   li.classList.add("is-riscando");
+  li.style.setProperty("--delete-card-height", `${li.getBoundingClientRect().height}px`);
   vibrar(14);
   setTimeout(() => {
     recolherERemover(li, () => {

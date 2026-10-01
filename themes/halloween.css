@@ -3297,3 +3297,586 @@ html[data-theme="dark"][data-caixa-theme="halloween"] .item-list-row .item-nome:
 html[data-theme="dark"][data-caixa-theme="halloween"] .item-list-row.lancamento-ganho .item-nome::after {
   background:#bd805d !important;
 }
+
+
+/* Cores semânticas do Benefício e identificação por banco, adaptadas ao tema. */
+:root { --benefit-income: #a87518; --benefit-income-bg: rgba(196,145,43,.14); --benefit-expense: #b65d37; --benefit-expense-bg: rgba(182,93,55,.13); --fatura-nubank: #8a55c7; --fatura-itau: #3977c8; --fatura-mercado: #2686a5; --fatura-bradesco: #bf5364; }
+html[data-caixa-theme="christmas"] { --benefit-income: #2d8b68; --benefit-income-bg: rgba(45,139,104,.16); --benefit-expense: #bd5a55; --benefit-expense-bg: rgba(189,90,85,.14); --fatura-nubank: #a46acb; --fatura-itau: #5b88d4; --fatura-mercado: #48a5b4; --fatura-bradesco: #d16b78; }
+html[data-caixa-theme="halloween"] { --benefit-income: #a77ad8; --benefit-income-bg: rgba(167,122,216,.17); --benefit-expense: #d17a45; --benefit-expense-bg: rgba(209,122,69,.15); --fatura-nubank: #a47bd8; --fatura-itau: #6d8cdb; --fatura-mercado: #55a9bd; --fatura-bradesco: #cf7186; }
+html[data-theme="dark"] { --benefit-income: #e0b75f; --benefit-income-bg: rgba(224,183,95,.17); --benefit-expense: #e18b67; --benefit-expense-bg: rgba(225,139,103,.17); --fatura-nubank: #c29ae9; --fatura-itau: #8bb4f4; --fatura-mercado: #7dc9df; --fatura-bradesco: #ef9aaa; }
+html[data-theme="dark"][data-caixa-theme="christmas"] { --benefit-income: #70c9a5; --benefit-expense: #ef9990; }
+html[data-theme="dark"][data-caixa-theme="halloween"] { --benefit-income: #c5a1ee; --benefit-expense: #efa16e; }
+.ganho-beneficio .item-valor, .hero-stat-origem-beneficio, .saldo-origem-beneficio { color: var(--benefit-income) !important; }
+.hero-stat-origem-beneficio, .saldo-origem-beneficio { background: var(--benefit-income-bg); border-radius: 9px; }
+.gasto-beneficio .item-valor, .ledger-item.expense-beneficio .ledger-valor, .ledger-item.expense-beneficio .ledger-icon { color: var(--benefit-expense) !important; }
+.ledger-item.expense-beneficio .ledger-icon { background: var(--benefit-expense-bg) !important; }
+.item-tag-fatura { border-color: color-mix(in srgb, currentColor 28%, transparent); background: color-mix(in srgb, currentColor 12%, transparent); }
+.item-tag-fatura.fatura-nubank { color: var(--fatura-nubank); }
+.item-tag-fatura.fatura-itau { color: var(--fatura-itau); }
+.item-tag-fatura.fatura-mercadopago { color: var(--fatura-mercado); }
+.item-tag-fatura.fatura-bradesco { color: var(--fatura-bradesco); }
+.item-list-row.is-riscando .swipe-content { animation: deleteCardSoft .62s cubic-bezier(.2,.8,.2,1) .18s both; }
+@keyframes deleteCardSoft { 0% { opacity:1; transform:translateX(0) scale(1); filter:blur(0); } 45% { opacity:.82; transform:translateX(10px) scale(.985); } 100% { opacity:0; transform:translateX(38px) scale(.94); filter:blur(2px); } }
+@media (prefers-reduced-motion: reduce) { .item-list-row.is-riscando .swipe-content { animation-duration: .01ms !important; } }
+
+/* v23 — Halloween: cards legíveis nos dois modos e benefício claramente identificável. */
+html[data-caixa-theme="halloween"] .hero-stats>.hero-stat:nth-child(2){
+  background:rgba(58,23,52,.82)!important;border:1px solid rgba(255,194,123,.26)!important;
+  box-shadow:inset 0 3px 0 rgba(255,194,123,.82)!important;color:#fff0df!important;
+}
+html[data-caixa-theme="halloween"] .hero-stats>.hero-stat:nth-child(2) .hero-stat-label{color:#e8c9ad!important}
+html[data-caixa-theme="halloween"] .hero-stats>.hero-stat:nth-child(2) .hero-stat-valor{color:#ffd078!important}
+html[data-caixa-theme="halloween"] .hero-stats>.hero-stat:nth-child(3),
+html[data-caixa-theme="halloween"] .hero-stats>.hero-stat:nth-child(4){--hero-expense-tone:#d18a9b}
+html[data-caixa-theme="halloween"] .hero-stats>.hero-stat:nth-child(3)::before,
+html[data-caixa-theme="halloween"] .hero-stats>.hero-stat:nth-child(4)::before{background:#b96d7d!important}
+html[data-theme="light"][data-caixa-theme="halloween"] .hero-stats>.hero-stat:nth-child(2){background:#542b4d!important;border-color:#a66b9a!important;color:#fff4e9!important}
+html[data-theme="light"][data-caixa-theme="halloween"] .hero-stats>.hero-stat:nth-child(2) .hero-stat-label{color:#f1d7e9!important}
+html[data-theme="light"][data-caixa-theme="halloween"] .hero-stats>.hero-stat:nth-child(2) .hero-stat-valor{color:#ffe08b!important}
+html[data-caixa-theme="halloween"] .item-list-row.gasto-beneficio .swipe-content,
+html[data-caixa-theme="halloween"] .item-list-row.lancamento-gasto.gasto-beneficio .swipe-content{
+  border-left:4px dashed #e99a56!important;box-shadow:inset 4px 0 0 rgba(233,154,86,.12),0 0 0 1px rgba(233,154,86,.48)!important;
+}
+html[data-caixa-theme="halloween"] .item-list-row.gasto-beneficio .item-nome,
+html[data-caixa-theme="halloween"] .item-list-row.gasto-beneficio .item-valor,
+html[data-caixa-theme="halloween"] .item-list-row.gasto-beneficio .item-valor.expense-beneficio{color:#f0a66d!important}
+html[data-theme="light"][data-caixa-theme="halloween"] .item-list-row.gasto-beneficio .item-nome,
+html[data-theme="light"][data-caixa-theme="halloween"] .item-list-row.gasto-beneficio .item-valor{color:#a94f21!important}
+
+
+/* v24 — contraste refinado dos indicadores Halloween e despesas do benefício. */
+html[data-caixa-theme="halloween"] .hero-stats > .hero-stat:nth-child(2) {
+  background: var(--card-bg, rgba(35,24,34,.94)) !important;
+  border: 1px solid var(--border-color, rgba(196,150,135,.28)) !important;
+  box-shadow: inset 0 3px 0 #c49b4c, 0 5px 16px rgba(0,0,0,.10) !important;
+  color: var(--text-primary, #f5e9e2) !important;
+}
+html[data-theme="dark"][data-caixa-theme="halloween"] .hero-stats > .hero-stat:nth-child(2) {
+  background: #211720 !important; border-color: #493445 !important;
+}
+html[data-theme="light"][data-caixa-theme="halloween"] .hero-stats > .hero-stat:nth-child(2) {
+  background: #fff8f0 !important; border-color: #d8c2cb !important;
+  box-shadow: inset 0 3px 0 #b58b36, 0 4px 14px rgba(67,35,57,.09) !important;
+}
+html[data-caixa-theme="halloween"] .hero-stats > .hero-stat:nth-child(3),
+html[data-caixa-theme="halloween"] .hero-stats > .hero-stat:nth-child(4) {
+  --hero-expense-tone: #d18a9b;
+}
+html[data-caixa-theme="halloween"] .hero-stats > .hero-stat:nth-child(3)::before,
+html[data-caixa-theme="halloween"] .hero-stats > .hero-stat:nth-child(4)::before { background: #b96d7d !important; }
+html[data-theme="dark"][data-caixa-theme="halloween"] .hero-stats > .hero-stat:nth-child(3) .hero-stat-valor,
+html[data-theme="dark"][data-caixa-theme="halloween"] .hero-stats > .hero-stat:nth-child(4) .hero-stat-valor { color: #e6a0ac !important; }
+html[data-theme="light"][data-caixa-theme="halloween"] .hero-stats > .hero-stat:nth-child(3) .hero-stat-valor,
+html[data-theme="light"][data-caixa-theme="halloween"] .hero-stats > .hero-stat:nth-child(4) .hero-stat-valor { color: #a34f61 !important; }
+html[data-caixa-theme="halloween"] .item-list-row.gasto-beneficio .swipe-content {
+  border: 1px solid rgba(238,153,83,.58) !important;
+  border-left: 4px dashed #ee9953 !important;
+  background: linear-gradient(90deg, rgba(238,153,83,.13), transparent 58%), var(--surface-card, #251d25) !important;
+  box-shadow: inset 4px 0 0 rgba(238,153,83,.13), 0 0 0 1px rgba(238,153,83,.20) !important;
+}
+html[data-theme="dark"][data-caixa-theme="halloween"] .item-list-row.gasto-beneficio .item-nome,
+html[data-theme="dark"][data-caixa-theme="halloween"] .item-list-row.gasto-beneficio .item-valor { color: #ffb477 !important; }
+html[data-theme="light"][data-caixa-theme="halloween"] .item-list-row.gasto-beneficio .swipe-content {
+  background: linear-gradient(90deg, rgba(194,99,39,.11), transparent 62%), #fffaf5 !important;
+  border-color: #d99a70 !important;
+}
+
+/* v25 — Halloween claro: painel hero coeso, legível e sem cartões lavados. */
+html[data-theme="light"][data-caixa-theme="halloween"] .hero-stats > .hero-stat {
+  background: linear-gradient(145deg, rgba(255,248,244,.94), rgba(246,226,235,.92)) !important;
+  border: 1px solid #c9a6ba !important;
+  color: #48283f !important;
+  box-shadow: inset 0 2px 0 rgba(255,255,255,.72), 0 5px 14px rgba(62,28,54,.09) !important;
+}
+html[data-theme="light"][data-caixa-theme="halloween"] .hero-stats > .hero-stat .hero-stat-label {
+  color: #76506c !important;
+  opacity: 1 !important;
+  text-shadow: none !important;
+}
+html[data-theme="light"][data-caixa-theme="halloween"] .hero-stats > .hero-stat .hero-stat-valor {
+  background: rgba(105,58,91,.10) !important;
+  color: #63364f !important;
+  text-shadow: none !important;
+}
+html[data-theme="light"][data-caixa-theme="halloween"] .hero-stats > .hero-stat .hero-stat-pendente,
+html[data-theme="light"][data-caixa-theme="halloween"] .hero-stats > .hero-stat .hero-stat-origens,
+html[data-theme="light"][data-caixa-theme="halloween"] .hero-stats > .hero-stat .hero-stat-origem-beneficio,
+html[data-theme="light"][data-caixa-theme="halloween"] .hero-stats > .hero-stat .saldo-origem-beneficio {
+  color: #68445d !important;
+  opacity: 1 !important;
+}
+html[data-theme="light"][data-caixa-theme="halloween"] .hero-stats > .hero-stat:nth-child(2) {
+  background: linear-gradient(145deg, #fff8f0, #f5e5ed) !important;
+  border-color: #c9a6ba !important;
+  box-shadow: inset 0 3px 0 #b58b36, 0 5px 14px rgba(62,28,54,.09) !important;
+}
+html[data-theme="light"][data-caixa-theme="halloween"] .hero-stats > .hero-stat:nth-child(2) .hero-stat-label { color: #76506c !important; }
+html[data-theme="light"][data-caixa-theme="halloween"] .hero-stats > .hero-stat:nth-child(2) .hero-stat-valor { color: #8a5d17 !important; background: rgba(181,139,54,.14) !important; }
+html[data-theme="light"][data-caixa-theme="halloween"] .hero-stats > .hero-stat:nth-child(3) .hero-stat-valor,
+html[data-theme="light"][data-caixa-theme="halloween"] .hero-stats > .hero-stat:nth-child(4) .hero-stat-valor { color: #963f55 !important; }
+
+/* v26 — Halloween claro: os quatro cards do hero compartilham a mesma linguagem visual. */
+html[data-theme="light"][data-caixa-theme="halloween"] .hero-stats > .hero-stat {
+  background: linear-gradient(145deg, #fff8f3 0%, #f5e8ef 100%) !important;
+  border: 1px solid #c9adbf !important;
+  border-radius: 18px !important;
+  color: #54364d !important;
+  box-shadow: inset 0 3px 0 #b88da8, 0 4px 12px rgba(67,35,57,.08) !important;
+}
+html[data-theme="light"][data-caixa-theme="halloween"] .hero-stats > .hero-stat::before {
+  background: #b88da8 !important;
+  opacity: .9 !important;
+}
+html[data-theme="light"][data-caixa-theme="halloween"] .hero-stats > .hero-stat .hero-stat-label {
+  color: #765c70 !important;
+  text-shadow: none !important;
+}
+html[data-theme="light"][data-caixa-theme="halloween"] .hero-stats > .hero-stat .hero-stat-valor,
+html[data-theme="light"][data-caixa-theme="halloween"] .hero-stats > .hero-stat .hero-stat-valor.income,
+html[data-theme="light"][data-caixa-theme="halloween"] .hero-stats > .hero-stat .hero-stat-valor.expense {
+  background: rgba(104,67,94,.12) !important;
+  color: #69465f !important;
+  text-shadow: none !important;
+}
+html[data-theme="light"][data-caixa-theme="halloween"] .hero-stats > .hero-stat .hero-stat-pendente,
+html[data-theme="light"][data-caixa-theme="halloween"] .hero-stats > .hero-stat .hero-stat-origens,
+html[data-theme="light"][data-caixa-theme="halloween"] .hero-stats > .hero-stat .hero-stat-origem-beneficio,
+html[data-theme="light"][data-caixa-theme="halloween"] .hero-stats > .hero-stat .saldo-origem-beneficio {
+  color: #765c70 !important;
+  opacity: 1 !important;
+}
+
+/* v27 — Halloween claro: corrigir transparência e contraste dos quatro cards do Hero.
+   Superfícies opacas e idênticas; a cor temática fica apenas nos detalhes/valores. */
+html[data-theme="light"][data-caixa-theme="halloween"] .hero-stats > .hero-stat,
+html[data-theme="light"][data-caixa-theme="halloween"] .hero-stats > .hero-stat.hero-stat-ganhos,
+html[data-theme="light"][data-caixa-theme="halloween"] .hero-stats > .hero-stat:nth-child(2),
+html[data-theme="light"][data-caixa-theme="halloween"] .hero-stats > .hero-stat:nth-child(3),
+html[data-theme="light"][data-caixa-theme="halloween"] .hero-stats > .hero-stat:nth-child(4) {
+  background: #fff7f1 !important;
+  background-color: #fff7f1 !important;
+  background-image: none !important;
+  border: 1px solid #d8b9c9 !important;
+  border-radius: 18px !important;
+  opacity: 1 !important;
+  filter: none !important;
+  color: #4f3048 !important;
+  box-shadow: inset 0 1px 0 rgba(255,255,255,.95), 0 5px 14px rgba(52,24,45,.12) !important;
+}
+html[data-theme="light"][data-caixa-theme="halloween"] .hero-stats > .hero-stat::before {
+  opacity: 1 !important;
+  background: #ad7898 !important;
+}
+html[data-theme="light"][data-caixa-theme="halloween"] .hero-stats > .hero-stat:nth-child(2)::before {
+  background: #b58b36 !important;
+}
+html[data-theme="light"][data-caixa-theme="halloween"] .hero-stats > .hero-stat .hero-stat-label {
+  color: #68445e !important;
+  opacity: 1 !important;
+  text-shadow: none !important;
+}
+html[data-theme="light"][data-caixa-theme="halloween"] .hero-stats > .hero-stat .hero-stat-valor,
+html[data-theme="light"][data-caixa-theme="halloween"] .hero-stats > .hero-stat .hero-stat-valor.income,
+html[data-theme="light"][data-caixa-theme="halloween"] .hero-stats > .hero-stat .hero-stat-valor.expense {
+  background: #f0e2eb !important;
+  color: #633a56 !important;
+  opacity: 1 !important;
+  text-shadow: none !important;
+}
+html[data-theme="light"][data-caixa-theme="halloween"] .hero-stats > .hero-stat:nth-child(2) .hero-stat-valor,
+html[data-theme="light"][data-caixa-theme="halloween"] .hero-stats > .hero-stat:nth-child(2) .hero-stat-valor.gold {
+  background: #f5e9c9 !important;
+  color: #785713 !important;
+}
+html[data-theme="light"][data-caixa-theme="halloween"] .hero-stats > .hero-stat .hero-stat-pendente,
+html[data-theme="light"][data-caixa-theme="halloween"] .hero-stats > .hero-stat .hero-stat-origens,
+html[data-theme="light"][data-caixa-theme="halloween"] .hero-stats > .hero-stat .hero-stat-origem,
+html[data-theme="light"][data-caixa-theme="halloween"] .hero-stats > .hero-stat .hero-stat-origem-beneficio,
+html[data-theme="light"][data-caixa-theme="halloween"] .hero-stats > .hero-stat .saldo-origem-beneficio {
+  color: #68445e !important;
+  opacity: 1 !important;
+}
+
+/* v28 — Guardado segue exatamente o acabamento dos outros cards no Halloween Claro. */
+html[data-theme="light"][data-caixa-theme="halloween"] .hero-stats > .hero-stat:nth-child(2)::before {
+  background: #ad7898 !important;
+}
+html[data-theme="light"][data-caixa-theme="halloween"] .hero-stats > .hero-stat:nth-child(2) .hero-stat-valor,
+html[data-theme="light"][data-caixa-theme="halloween"] .hero-stats > .hero-stat:nth-child(2) .hero-stat-valor.gold {
+  background: #f0e2eb !important;
+  color: #633a56 !important;
+}
+
+/* v29 — Halloween Claro: Guardado usa a mesma barra vertical lateral dos outros cards.
+   Remove qualquer acento dourado horizontal/inset herdado de regras anteriores. */
+html[data-theme="light"][data-caixa-theme="halloween"] .hero-stats > .hero-stat:nth-child(2) {
+  background: #fff7f1 !important;
+  background-color: #fff7f1 !important;
+  background-image: none !important;
+  border: 1px solid #d8b9c9 !important;
+  box-shadow: inset 0 1px 0 rgba(255,255,255,.95), 0 5px 14px rgba(52,24,45,.12) !important;
+}
+html[data-theme="light"][data-caixa-theme="halloween"] .hero-stats > .hero-stat:nth-child(2)::before {
+  background: #ad7898 !important;
+  top: 12px !important;
+  bottom: 12px !important;
+  left: 0 !important;
+  right: auto !important;
+  width: 3px !important;
+  height: auto !important;
+  border-radius: 0 4px 4px 0 !important;
+}
+html[data-theme="light"][data-caixa-theme="halloween"] .hero-stats > .hero-stat:nth-child(2) .hero-stat-valor,
+html[data-theme="light"][data-caixa-theme="halloween"] .hero-stats > .hero-stat:nth-child(2) .hero-stat-valor.gold {
+  background: #f0e2eb !important;
+  color: #633a56 !important;
+}
+
+/* v30 — Halloween Claro: sistema único de componentes para os quatro cards do Hero.
+   Layout, superfície, tipografia, barra e cápsula de valor são compartilhados;
+   dados e conteúdo continuam independentes. */
+html[data-theme="light"][data-caixa-theme="halloween"] .hero-stats > .hero-stat,
+html[data-theme="light"][data-caixa-theme="halloween"] .hero-stats > .hero-stat.hero-stat-ganhos,
+html[data-theme="light"][data-caixa-theme="halloween"] .hero-stats > .hero-stat:nth-child(2),
+html[data-theme="light"][data-caixa-theme="halloween"] .hero-stats > .hero-stat:nth-child(3),
+html[data-theme="light"][data-caixa-theme="halloween"] .hero-stats > .hero-stat:nth-child(4) {
+  --hero-card-surface: #fff9f5;
+  --hero-card-edge: #d9bdcf;
+  --hero-card-accent: #a66f91;
+  --hero-card-ink: #5d3b55;
+  --hero-card-value-bg: #f1e5ed;
+  --hero-card-shadow: 0 7px 18px rgba(66, 35, 57, .10);
+  position: relative !important;
+  overflow: hidden !important;
+  box-sizing: border-box !important;
+  background: linear-gradient(145deg, #fffaf7 0%, var(--hero-card-surface) 72%, #fbf0f6 100%) !important;
+  border: 1px solid var(--hero-card-edge) !important;
+  border-radius: 17px !important;
+  color: var(--hero-card-ink) !important;
+  box-shadow: inset 0 1px 0 rgba(255,255,255,.95), var(--hero-card-shadow) !important;
+  opacity: 1 !important;
+  filter: none !important;
+  transition: transform .18s ease, box-shadow .18s ease, border-color .18s ease !important;
+}
+html[data-theme="light"][data-caixa-theme="halloween"] .hero-stats > .hero-stat::before {
+  content: "" !important;
+  position: absolute !important;
+  top: 12px !important;
+  bottom: 12px !important;
+  left: 0 !important;
+  right: auto !important;
+  width: 3px !important;
+  height: auto !important;
+  border-radius: 0 5px 5px 0 !important;
+  background: var(--hero-card-accent) !important;
+  opacity: .95 !important;
+}
+html[data-theme="light"][data-caixa-theme="halloween"] .hero-stats > .hero-stat:hover {
+  transform: translateY(-2px) !important;
+  border-color: #c59bb6 !important;
+  box-shadow: inset 0 1px 0 rgba(255,255,255,.98), 0 10px 22px rgba(66,35,57,.14) !important;
+}
+html[data-theme="light"][data-caixa-theme="halloween"] .hero-stats > .hero-stat .hero-stat-label {
+  color: #76546d !important;
+  font-weight: 750 !important;
+  letter-spacing: .105em !important;
+  opacity: 1 !important;
+  text-shadow: none !important;
+}
+html[data-theme="light"][data-caixa-theme="halloween"] .hero-stats > .hero-stat .hero-stat-valor,
+html[data-theme="light"][data-caixa-theme="halloween"] .hero-stats > .hero-stat .hero-stat-valor.income,
+html[data-theme="light"][data-caixa-theme="halloween"] .hero-stats > .hero-stat .hero-stat-valor.expense,
+html[data-theme="light"][data-caixa-theme="halloween"] .hero-stats > .hero-stat .hero-stat-valor.gold {
+  display: block !important;
+  box-sizing: border-box !important;
+  width: 100% !important;
+  border-radius: 7px !important;
+  background: var(--hero-card-value-bg) !important;
+  color: #633d59 !important;
+  font-weight: 750 !important;
+  text-shadow: none !important;
+  opacity: 1 !important;
+}
+html[data-theme="light"][data-caixa-theme="halloween"] .hero-stats > .hero-stat .hero-stat-pendente,
+html[data-theme="light"][data-caixa-theme="halloween"] .hero-stats > .hero-stat .hero-stat-origens,
+html[data-theme="light"][data-caixa-theme="halloween"] .hero-stats > .hero-stat .hero-stat-origem,
+html[data-theme="light"][data-caixa-theme="halloween"] .hero-stats > .hero-stat .hero-stat-origem-beneficio,
+html[data-theme="light"][data-caixa-theme="halloween"] .hero-stats > .hero-stat .saldo-origem-beneficio {
+  color: #775e70 !important;
+  opacity: 1 !important;
+}
+@media (prefers-reduced-motion: reduce) {
+  html[data-theme="light"][data-caixa-theme="halloween"] .hero-stats > .hero-stat { transition: none !important; }
+  html[data-theme="light"][data-caixa-theme="halloween"] .hero-stats > .hero-stat:hover { transform: none !important; }
+}
+
+/* v31 — acabamento refinado dos quatro cards do Hero em Halloween claro/escuro.
+   Estrutura compartilhada; apenas acentos semânticos variam por posição. */
+html[data-caixa-theme="halloween"] .hero-stats > .hero-stat,
+html[data-caixa-theme="halloween"] .hero-stats > .hero-stat.hero-stat-ganhos,
+html[data-caixa-theme="halloween"] .hero-stats > .hero-stat:nth-child(2),
+html[data-caixa-theme="halloween"] .hero-stats > .hero-stat:nth-child(3),
+html[data-caixa-theme="halloween"] .hero-stats > .hero-stat:nth-child(4) {
+  --hero-card-accent: #936080;
+  --hero-card-value-bg: rgba(147,96,128,.13);
+  position: relative !important;
+  isolation: isolate;
+  overflow: hidden !important;
+  border-radius: 18px !important;
+  border: 1px solid var(--hero-card-edge) !important;
+  background: var(--hero-card-surface) !important;
+  color: var(--hero-card-ink) !important;
+  box-shadow: 0 5px 16px var(--hero-card-shadow-color), inset 0 1px 0 var(--hero-card-highlight) !important;
+  opacity: 1 !important;
+  filter: none !important;
+  transition: transform .2s ease, box-shadow .2s ease, border-color .2s ease !important;
+}
+html[data-caixa-theme="halloween"] .hero-stats > .hero-stat:nth-child(2) { --hero-card-accent: #a17a43; --hero-card-value-bg: rgba(161,122,67,.14); }
+html[data-caixa-theme="halloween"] .hero-stats > .hero-stat:nth-child(3),
+html[data-caixa-theme="halloween"] .hero-stats > .hero-stat:nth-child(4) { --hero-card-accent: #a45e76; --hero-card-value-bg: rgba(164,94,118,.13); }
+html[data-theme="light"][data-caixa-theme="halloween"] .hero-stats > .hero-stat,
+html[data-theme="light"][data-caixa-theme="halloween"] .hero-stats > .hero-stat.hero-stat-ganhos,
+html[data-theme="light"][data-caixa-theme="halloween"] .hero-stats > .hero-stat:nth-child(2),
+html[data-theme="light"][data-caixa-theme="halloween"] .hero-stats > .hero-stat:nth-child(3),
+html[data-theme="light"][data-caixa-theme="halloween"] .hero-stats > .hero-stat:nth-child(4) {
+  --hero-card-surface: #fffaf8;
+  --hero-card-edge: #dfcbd8;
+  --hero-card-ink: #56394f;
+  --hero-card-shadow-color: rgba(63,32,54,.11);
+  --hero-card-highlight: rgba(255,255,255,.96);
+  background: linear-gradient(145deg,#fffdfb 0%,#fff8f6 58%,#f9eff5 100%) !important;
+}
+html[data-theme="dark"][data-caixa-theme="halloween"] .hero-stats > .hero-stat,
+html[data-theme="dark"][data-caixa-theme="halloween"] .hero-stats > .hero-stat.hero-stat-ganhos,
+html[data-theme="dark"][data-caixa-theme="halloween"] .hero-stats > .hero-stat:nth-child(2),
+html[data-theme="dark"][data-caixa-theme="halloween"] .hero-stats > .hero-stat:nth-child(3),
+html[data-theme="dark"][data-caixa-theme="halloween"] .hero-stats > .hero-stat:nth-child(4) {
+  --hero-card-surface: #39263a;
+  --hero-card-edge: #73516f;
+  --hero-card-ink: #f7eaf3;
+  --hero-card-shadow-color: rgba(8,3,12,.28);
+  --hero-card-highlight: rgba(255,255,255,.07);
+  --hero-card-value-bg: rgba(13,7,18,.32);
+  background: linear-gradient(145deg,#493149 0%,#39263a 62%,#302235 100%) !important;
+}
+html[data-caixa-theme="halloween"] .hero-stats > .hero-stat::before {
+  content: "" !important;
+  position: absolute !important;
+  top: 12px !important; bottom: 12px !important; left: 0 !important; right: auto !important;
+  width: 3px !important; height: auto !important;
+  border-radius: 0 5px 5px 0 !important;
+  background: var(--hero-card-accent) !important;
+  opacity: 1 !important;
+}
+html[data-caixa-theme="halloween"] .hero-stats > .hero-stat .hero-stat-label {
+  color: var(--hero-card-ink) !important;
+  font-weight: 750 !important;
+  letter-spacing: .09em !important;
+  opacity: .88 !important;
+  text-shadow: none !important;
+}
+html[data-caixa-theme="halloween"] .hero-stats > .hero-stat .hero-stat-valor,
+html[data-caixa-theme="halloween"] .hero-stats > .hero-stat .hero-stat-valor.income,
+html[data-caixa-theme="halloween"] .hero-stats > .hero-stat .hero-stat-valor.expense,
+html[data-caixa-theme="halloween"] .hero-stats > .hero-stat .hero-stat-valor.gold {
+  display: block !important; box-sizing: border-box !important; width: 100% !important;
+  border-radius: 7px !important;
+  background: var(--hero-card-value-bg) !important;
+  color: var(--hero-card-ink) !important;
+  font-weight: 780 !important; text-shadow: none !important; opacity: 1 !important;
+}
+html[data-theme="light"][data-caixa-theme="halloween"] .hero-stats > .hero-stat .hero-stat-pendente,
+html[data-theme="light"][data-caixa-theme="halloween"] .hero-stats > .hero-stat .hero-stat-origens,
+html[data-theme="light"][data-caixa-theme="halloween"] .hero-stats > .hero-stat .hero-stat-origem,
+html[data-theme="light"][data-caixa-theme="halloween"] .hero-stats > .hero-stat .hero-stat-origem-beneficio,
+html[data-theme="light"][data-caixa-theme="halloween"] .hero-stats > .hero-stat .saldo-origem-beneficio { color: #765d70 !important; opacity: 1 !important; }
+html[data-theme="dark"][data-caixa-theme="halloween"] .hero-stats > .hero-stat .hero-stat-pendente,
+html[data-theme="dark"][data-caixa-theme="halloween"] .hero-stats > .hero-stat .hero-stat-origens,
+html[data-theme="dark"][data-caixa-theme="halloween"] .hero-stats > .hero-stat .hero-stat-origem,
+html[data-theme="dark"][data-caixa-theme="halloween"] .hero-stats > .hero-stat .hero-stat-origem-beneficio,
+html[data-theme="dark"][data-caixa-theme="halloween"] .hero-stats > .hero-stat .saldo-origem-beneficio { color: #d9bfd2 !important; opacity: 1 !important; }
+html[data-caixa-theme="halloween"] .hero-stats > .hero-stat:hover {
+  transform: translateY(-2px) !important;
+  box-shadow: 0 10px 24px var(--hero-card-shadow-color), inset 0 1px 0 var(--hero-card-highlight) !important;
+}
+@media (prefers-reduced-motion: reduce) {
+  html[data-caixa-theme="halloween"] .hero-stats > .hero-stat { transition: none !important; }
+  html[data-caixa-theme="halloween"] .hero-stats > .hero-stat:hover { transform: none !important; }
+}
+
+/* v32 — Paleta semântica única para lançamentos de Benefício no Halloween.
+   Ganho de benefício = azul; gasto de benefício = amarelo/âmbar.
+   O mesmo token colore contorno, superfície interna, ícone e valor. */
+html[data-caixa-theme="halloween"] {
+  --halloween-benefit-income: #348dbb;
+  --halloween-benefit-income-soft: #e4f3fb;
+  --halloween-benefit-income-edge: #78b9d9;
+  --halloween-benefit-expense: #a66c12;
+  --halloween-benefit-expense-soft: #fff1cc;
+  --halloween-benefit-expense-edge: #d8aa4e;
+}
+html[data-theme="dark"][data-caixa-theme="halloween"] {
+  --halloween-benefit-income: #83d1f5;
+  --halloween-benefit-income-soft: rgba(45,132,178,.22);
+  --halloween-benefit-income-edge: #4e9fc8;
+  --halloween-benefit-expense: #ffd477;
+  --halloween-benefit-expense-soft: rgba(174,123,28,.22);
+  --halloween-benefit-expense-edge: #b98b37;
+}
+/* Ganhos: unifica a linha interna e o contorno tracejado azul. */
+html[data-caixa-theme="halloween"] .item-list-row.ganho-beneficio,
+html[data-caixa-theme="halloween"] .item-list-row.lancamento-ganho.ganho-beneficio {
+  border-color: var(--halloween-benefit-income-edge) !important;
+  border-left-color: var(--halloween-benefit-income) !important;
+  outline-color: var(--halloween-benefit-income-edge) !important;
+}
+html[data-caixa-theme="halloween"] .item-list-row.ganho-beneficio .swipe-content {
+  background: var(--halloween-benefit-income-soft) !important;
+  border-color: var(--halloween-benefit-income-edge) !important;
+}
+html[data-caixa-theme="halloween"] .item-list-row.ganho-beneficio .item-nome,
+html[data-caixa-theme="halloween"] .item-list-row.ganho-beneficio .item-valor,
+html[data-caixa-theme="halloween"] .item-list-row.ganho-beneficio .item-valor.income-beneficio,
+html[data-caixa-theme="halloween"] .ledger-item.income-beneficio .ledger-valor,
+html[data-caixa-theme="halloween"] .ledger-item.income-beneficio .ledger-icon {
+  color: var(--halloween-benefit-income) !important;
+}
+html[data-caixa-theme="halloween"] .ledger-item.income-beneficio .ledger-icon {
+  background: var(--halloween-benefit-income-soft) !important;
+  border: 1px solid var(--halloween-benefit-income-edge) !important;
+}
+/* Gastos do benefício: amarelo/âmbar em contorno, conteúdo e valor. */
+html[data-caixa-theme="halloween"] .item-list-row.gasto-beneficio,
+html[data-caixa-theme="halloween"] .item-list-row.lancamento-gasto.gasto-beneficio {
+  border-color: var(--halloween-benefit-expense-edge) !important;
+  border-left-color: var(--halloween-benefit-expense) !important;
+  outline-color: var(--halloween-benefit-expense-edge) !important;
+}
+html[data-caixa-theme="halloween"] .item-list-row.gasto-beneficio .swipe-content {
+  background: var(--halloween-benefit-expense-soft) !important;
+  border-color: var(--halloween-benefit-expense-edge) !important;
+}
+html[data-caixa-theme="halloween"] .item-list-row.gasto-beneficio .item-nome,
+html[data-caixa-theme="halloween"] .item-list-row.gasto-beneficio .item-valor,
+html[data-caixa-theme="halloween"] .item-list-row.gasto-beneficio .item-valor.expense-beneficio,
+html[data-caixa-theme="halloween"] .ledger-item.expense-beneficio .ledger-valor,
+html[data-caixa-theme="halloween"] .ledger-item.expense-beneficio .ledger-icon {
+  color: var(--halloween-benefit-expense) !important;
+}
+html[data-caixa-theme="halloween"] .ledger-item.expense-beneficio .ledger-icon {
+  background: var(--halloween-benefit-expense-soft) !important;
+  border: 1px solid var(--halloween-benefit-expense-edge) !important;
+}
+@media (prefers-reduced-motion: reduce) {
+  html[data-caixa-theme="halloween"] .item-list-row.ganho-beneficio .swipe-content,
+  html[data-caixa-theme="halloween"] .item-list-row.gasto-beneficio .swipe-content { transition: none !important; }
+}
+
+/* v33 — Identidade cromática única para todos os lançamentos de Benefício.
+   Ganhos e gastos usam o mesmo azul; muda apenas o sinal/ícone do tipo. */
+html[data-caixa-theme="halloween"] {
+  --halloween-benefit-income: #287fa9;
+  --halloween-benefit-income-soft: #e8f5fb;
+  --halloween-benefit-income-edge: #79b9d5;
+  --halloween-benefit-expense: var(--halloween-benefit-income);
+  --halloween-benefit-expense-soft: var(--halloween-benefit-income-soft);
+  --halloween-benefit-expense-edge: var(--halloween-benefit-income-edge);
+}
+html[data-theme="dark"][data-caixa-theme="halloween"] {
+  --halloween-benefit-income: #8bd7f5;
+  --halloween-benefit-income-soft: rgba(53,145,190,.20);
+  --halloween-benefit-income-edge: #559fc4;
+  --halloween-benefit-expense: var(--halloween-benefit-income);
+  --halloween-benefit-expense-soft: var(--halloween-benefit-income-soft);
+  --halloween-benefit-expense-edge: var(--halloween-benefit-income-edge);
+}
+html[data-caixa-theme="halloween"] .item-list-row.ganho-beneficio,
+html[data-caixa-theme="halloween"] .item-list-row.gasto-beneficio,
+html[data-caixa-theme="halloween"] .item-list-row.lancamento-ganho.ganho-beneficio,
+html[data-caixa-theme="halloween"] .item-list-row.lancamento-gasto.gasto-beneficio {
+  border-color: var(--halloween-benefit-income-edge) !important;
+  border-left-color: var(--halloween-benefit-income) !important;
+  outline-color: var(--halloween-benefit-income-edge) !important;
+}
+html[data-caixa-theme="halloween"] .item-list-row.ganho-beneficio .swipe-content,
+html[data-caixa-theme="halloween"] .item-list-row.gasto-beneficio .swipe-content {
+  background: var(--halloween-benefit-income-soft) !important;
+  border-color: var(--halloween-benefit-income-edge) !important;
+}
+html[data-caixa-theme="halloween"] .item-list-row.ganho-beneficio .item-nome,
+html[data-caixa-theme="halloween"] .item-list-row.ganho-beneficio .item-valor,
+html[data-caixa-theme="halloween"] .item-list-row.gasto-beneficio .item-nome,
+html[data-caixa-theme="halloween"] .item-list-row.gasto-beneficio .item-valor,
+html[data-caixa-theme="halloween"] .item-list-row.ganho-beneficio .item-valor.income-beneficio,
+html[data-caixa-theme="halloween"] .item-list-row.gasto-beneficio .item-valor.expense-beneficio,
+html[data-caixa-theme="halloween"] .ledger-item.income-beneficio .ledger-valor,
+html[data-caixa-theme="halloween"] .ledger-item.income-beneficio .ledger-icon,
+html[data-caixa-theme="halloween"] .ledger-item.expense-beneficio .ledger-valor,
+html[data-caixa-theme="halloween"] .ledger-item.expense-beneficio .ledger-icon {
+  color: var(--halloween-benefit-income) !important;
+}
+html[data-caixa-theme="halloween"] .ledger-item.income-beneficio .ledger-icon,
+html[data-caixa-theme="halloween"] .ledger-item.expense-beneficio .ledger-icon {
+  background: var(--halloween-benefit-income-soft) !important;
+  border: 1px solid var(--halloween-benefit-income-edge) !important;
+}
+
+/* v34 — Benefícios com identidade azul discreta, sem neon ou transparência. */
+html[data-caixa-theme="halloween"] {
+  --halloween-benefit-income: #426f89;
+  --halloween-benefit-income-soft: #edf3f6;
+  --halloween-benefit-income-edge: #b8cbd5;
+  --halloween-benefit-expense: var(--halloween-benefit-income);
+  --halloween-benefit-expense-soft: var(--halloween-benefit-income-soft);
+  --halloween-benefit-expense-edge: var(--halloween-benefit-income-edge);
+}
+html[data-theme="dark"][data-caixa-theme="halloween"] {
+  --halloween-benefit-income: #a9c6d5;
+  --halloween-benefit-income-soft: #2b3038;
+  --halloween-benefit-income-edge: #596c79;
+  --halloween-benefit-expense: var(--halloween-benefit-income);
+  --halloween-benefit-expense-soft: var(--halloween-benefit-income-soft);
+  --halloween-benefit-expense-edge: var(--halloween-benefit-income-edge);
+}
+html[data-caixa-theme="halloween"] .item-list-row.ganho-beneficio,
+html[data-caixa-theme="halloween"] .item-list-row.gasto-beneficio,
+html[data-caixa-theme="halloween"] .item-list-row.lancamento-ganho.ganho-beneficio,
+html[data-caixa-theme="halloween"] .item-list-row.lancamento-gasto.gasto-beneficio {
+  box-shadow: none !important;
+  outline: none !important;
+  border-style: dashed !important;
+  border-width: 1px !important;
+  border-color: var(--halloween-benefit-income-edge) !important;
+  border-left: 3px solid var(--halloween-benefit-income) !important;
+}
+html[data-caixa-theme="halloween"] .item-list-row.ganho-beneficio .swipe-content,
+html[data-caixa-theme="halloween"] .item-list-row.gasto-beneficio .swipe-content {
+  background: var(--halloween-benefit-income-soft) !important;
+  border: 1px solid var(--halloween-benefit-income-edge) !important;
+  box-shadow: none !important;
+}
+html[data-caixa-theme="halloween"] .ledger-item.income-beneficio .ledger-icon,
+html[data-caixa-theme="halloween"] .ledger-item.expense-beneficio .ledger-icon {
+  background: var(--halloween-benefit-income-soft) !important;
+  border: 1px solid var(--halloween-benefit-income-edge) !important;
+  box-shadow: none !important;
+}
+
+/* v35 — Benefícios: contorno externo neutro; somente a faixa interna lateral usa azul discreto. */
+html[data-caixa-theme="halloween"] .item-list-row.ganho-beneficio,
+html[data-caixa-theme="halloween"] .item-list-row.gasto-beneficio,
+html[data-caixa-theme="halloween"] .item-list-row.lancamento-ganho.ganho-beneficio,
+html[data-caixa-theme="halloween"] .item-list-row.lancamento-gasto.gasto-beneficio {
+  border-color: var(--border-color, rgba(120, 100, 115, .28)) !important;
+  border-left: 0 !important;
+  outline: 0 !important;
+}
+html[data-caixa-theme="halloween"] .item-list-row.ganho-beneficio .swipe-content,
+html[data-caixa-theme="halloween"] .item-list-row.gasto-beneficio .swipe-content {
+  border-color: var(--border-color, rgba(120, 100, 115, .28)) !important;
+  box-shadow: inset 3px 0 0 #7398ad !important;
+}
+html[data-theme="dark"][data-caixa-theme="halloween"] .item-list-row.ganho-beneficio .swipe-content,
+html[data-theme="dark"][data-caixa-theme="halloween"] .item-list-row.gasto-beneficio .swipe-content {
+  box-shadow: inset 3px 0 0 #83aabd !important;
+}

@@ -863,14 +863,32 @@
           ["beneficio", "Benefício", "Sai do saldo do benefício"]
         ], origem => {
           cadastroAtivo.origem = origem;
-          perguntarFaturaAntesDaData(data => {
+          const salvarGastoVariavel = pago => {
+            const usarFatura = cadastroAtivo.origem !== "beneficio" && cadastroAtivo.fatura === true;
+            const nomeSalvo = usarFatura ? nomeInternoFatura(cadastroAtivo.nome) : (cadastroAtivo.origem === "beneficio" ? nomeInternoBeneficio(cadastroAtivo.nome) : cadastroAtivo.nome);
+            opVariaveis.add(nomeSalvo, cadastroAtivo.valor, { pago, tipo: cadastroAtivo.categoria, data: dataDoLancamento(cadastroAtivo.data), origem: cadastroAtivo.origem, fatura: usarFatura, faturaId: usarFatura ? (cadastroAtivo.faturaId || "") : "" });
+            finalizarCadastro("Gasto adicionado", `${esc(cadastroAtivo.nome)} · <span class="chat-valor chat-valor-neg">${chatFmt(cadastroAtivo.valor)}</span>.`);
+          };
+          const continuarStatus = data => {
             cadastroAtivo.data = data;
-            perguntaStatusCadastro("Essa compra já foi paga?", "Sim, já paguei", "Não, está pendente", pago => {
-              const nomeSalvo = cadastroAtivo.fatura ? nomeInternoFatura(cadastroAtivo.nome) : cadastroAtivo.nome;
-              opVariaveis.add(nomeSalvo, cadastroAtivo.valor, { pago, tipo: cadastroAtivo.categoria, data: dataDoLancamento(cadastroAtivo.data), origem: cadastroAtivo.origem, fatura: cadastroAtivo.fatura === true, faturaId: cadastroAtivo.faturaId || "" });
-              finalizarCadastro("Gasto adicionado", `${esc(cadastroAtivo.nome)} · <span class="chat-valor chat-valor-neg">${chatFmt(cadastroAtivo.valor)}</span>.`);
-            });
-          });
+            if (cadastroAtivo.origem === "beneficio") {
+              // O benefício é debitado no registro: considerar a despesa paga e concluir sem pergunta extra.
+              salvarGastoVariavel(true);
+              return;
+            }
+            perguntaStatusCadastro("Essa compra já foi paga?", "Sim, já paguei", "Não, está pendente", salvarGastoVariavel);
+          };
+
+          if (origem === "beneficio") {
+            // Gastos do benefício não são compras em fatura.
+            cadastroAtivo.fatura = false;
+            cadastroAtivo.faturaId = "";
+            cadastroAtivo.faturaNome = "";
+            perguntaDataCadastro(continuarStatus);
+          } else {
+            // Gastos pagos pelo saldo em conta continuam seguindo o fluxo de fatura.
+            perguntarFaturaAntesDaData(continuarStatus);
+          }
         });
       });
     }

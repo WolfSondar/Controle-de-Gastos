@@ -22,6 +22,7 @@
     style.textContent = `
       #tabbar{position:fixed!important;z-index:1200!important;}
       .status-list-title-row{position:relative!important;z-index:1!important;}
+      .status-row-over-title{position:relative!important;z-index:30!important;}
       .status-list-title{position:relative;z-index:1;}
     `;
     (document.head || document.documentElement).appendChild(style);

@@ -695,6 +695,7 @@ function abrirModalEditar(tipo, idx, item) {
   const dataEl = document.getElementById("editData");
   const parcelaEl = document.getElementById("editParcela");
   const origemEl = document.getElementById("editOrigem");
+  const faturaEl = document.getElementById("editFatura");
   const temCategoria = !!EDICAO_TEM_CATEGORIA[tipo];
   const temData = !!EDICAO_TEM_DATA[tipo];
   const temParcela = !!EDICAO_TEM_PARCELA[tipo];
@@ -733,6 +734,13 @@ function abrirModalEditar(tipo, idx, item) {
   if (origemEl) {
     origemEl.classList.toggle("is-hidden", !temOrigem);
     origemEl.value = temOrigem ? (item.origem === "beneficio" ? "beneficio" : "saldo") : "saldo";
+  }
+  if (faturaEl) {
+    const configs = (state.faturas || []).filter(f => String(f.pessoa || "davi") === String(state.pessoaAtual || "davi"));
+    faturaEl.innerHTML = '<option value="">Sem fatura</option>' + configs.map(f => `<option value="${String(f.id).replace(/&/g,"&amp;").replace(/"/g,"&quot;")}">${String(f.nome || "Fatura").replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/>/g,"&gt;")}</option>`).join("");
+    const habilita = (tipo === "fixos" || tipo === "variaveis") && !(tipo === "variaveis" && item.origem === "beneficio");
+    faturaEl.classList.toggle("is-hidden", !habilita);
+    faturaEl.value = habilita && item.fatura === true ? String(item.faturaId || "") : "";
   }
 
   if (editBackdrop) editBackdrop.classList.remove("is-hidden");
@@ -778,18 +786,20 @@ on("formEditar", "submit", (e) => {
     const data = document.getElementById("editData").value;
     const parcela = document.getElementById("editParcela").value.trim();
     const itemAtual = state.gastosFixos[idx];
-    const nomeSalvo = itemEhFatura(itemAtual) ? nomeInternoFatura(nome) : nome;
-    opFixos.edit(idx, nomeSalvo, valor, { tipo: categoria, data, parcela, fatura: itemEhFatura(itemAtual), faturaId: itemAtual?.faturaId || "", oculto: lancamentoEhOculto(nome) });
+    const faturaId = document.getElementById("editFatura")?.value || "";
+    const nomeSalvo = faturaId ? nomeInternoFatura(nome) : nome;
+    opFixos.edit(idx, nomeSalvo, valor, { tipo: categoria, data, parcela, fatura: !!faturaId, faturaId, oculto: lancamentoEhOculto(nome) });
   } else if (tipo === "variaveis") {
     const categoria = document.getElementById("editCategoria").value;
     const data = document.getElementById("editData").value;
     const origem = document.getElementById("editOrigem").value === "beneficio" ? "beneficio" : "saldo";
     const itemAtual = state.gastosVariaveis[idx];
-    const nomeSalvo = itemEhFatura(itemAtual) ? nomeInternoFatura(nome) : nome;
+    const faturaId = origem === "beneficio" ? "" : (document.getElementById("editFatura")?.value || "");
+    const nomeSalvo = faturaId ? nomeInternoFatura(nome) : (origem === "beneficio" ? nomeInternoBeneficio(nome) : nome);
     // Editar manualmente tira o item do modo "lembrete" (compra adiantada) —
     // a partir daqui ele volta a contar normalmente no saldo, com a nova
     // data/categoria/origem que a pessoa escolheu.
-    opVariaveis.edit(idx, nomeSalvo, valor, { tipo: categoria, data, origem, lembrete: false, fatura: itemEhFatura(itemAtual), faturaId: itemAtual?.faturaId || "", oculto: lancamentoEhOculto(nome) });
+    opVariaveis.edit(idx, nomeSalvo, valor, { tipo: categoria, data, origem, lembrete: false, fatura: !!faturaId, faturaId, oculto: lancamentoEhOculto(nome) });
   } else if (tipo === "caixinhas") {
     const icone = normalizarNomeIcone(document.getElementById("editIcone")?.value || "");
     const data = document.getElementById("editData").value;

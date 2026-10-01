@@ -8,8 +8,7 @@
 
 <!-- PWA: instalar na tela inicial sem a barra do navegador -->
 <link id="caixaManifestLink" rel="manifest" href="manifest.json" />
-<meta name="theme-color" content="#16332c" media="(prefers-color-scheme: light)" />
-<meta name="theme-color" content="#0d1e19" media="(prefers-color-scheme: dark)" />
+<meta name="theme-color" content="#f7f0e5" />
 <meta name="mobile-web-app-capable" content="yes" />
 <meta name="apple-mobile-web-app-capable" content="yes" />
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
@@ -385,6 +384,9 @@
         <select id="editOrigem" class="input-origem is-hidden" aria-label="Origem do dinheiro" title="Escolha de qual saldo esse gasto será descontado no fechamento do mês">
           <option value="saldo">Sairá do Saldo</option>
           <option value="beneficio">Sairá do Benefício</option>
+        </select>
+        <select id="editFatura" class="input-origem is-hidden" aria-label="Fatura vinculada">
+          <option value="">Sem fatura</option>
         </select>
       </div>
       <div class="caixinha-icon-picker is-hidden" id="caixinhaIconPickerEditar" data-picker-for="editar">

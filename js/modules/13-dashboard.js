@@ -17,7 +17,7 @@
 // ---------------------------------------------------------------------
 const LARGURA_SWIPE_CAIXINHA = 92;
 const LIMIAR_SWIPE_CAIXINHA = 44;
-const LIMIAR_SWIPE_CAIXINHA_TOTAL = 132;
+const LIMIAR_SWIPE_CAIXINHA_TOTAL = 100;
 
 function fecharSwipeCaixinha(wrap) {
   if (!wrap) return;
@@ -72,18 +72,11 @@ function habilitarSwipeCaixinhas(lista) {
     }
     e.preventDefault();
 
+    // Limite físico curto: revela as ações sem permitir que o cartão
+    // seja puxado excessivamente nem dispare uma ação por arrasto longo.
     const bruto = ativo.base + dx;
-    let novo;
-    if (Math.abs(bruto) <= LARGURA_SWIPE_CAIXINHA) {
-      novo = bruto;
-    } else {
-      // Resistência elástica depois de revelar o botão inteiro — dá pra
-      // continuar arrastando pra executar na hora, mas com esforço maior.
-      const sinal = Math.sign(bruto);
-      const extra = Math.abs(bruto) - LARGURA_SWIPE_CAIXINHA;
-      novo = sinal * (LARGURA_SWIPE_CAIXINHA + extra * 0.3);
-    }
-    novo = Math.max(-LIMIAR_SWIPE_CAIXINHA_TOTAL, Math.min(LIMIAR_SWIPE_CAIXINHA_TOTAL, novo));
+    const limite = LIMIAR_SWIPE_CAIXINHA_TOTAL;
+    const novo = Math.max(-limite, Math.min(limite, bruto));
 
     if (ativo.card) {
       ativo.card.style.transition = "none";
@@ -114,7 +107,7 @@ function habilitarSwipeCaixinhas(lista) {
     }
 
     if (card) card.style.transition = "";
-    const swipeCompleto = Math.abs(ultimoDelta) >= LIMIAR_SWIPE_CAIXINHA_TOTAL - 6;
+    const swipeCompleto = false; // ações só pelo botão revelado, nunca por puxão longo
 
     if (swipeCompleto) {
       fecharSwipeCaixinha(wrap);
@@ -361,15 +354,16 @@ function renderRecentes() {
 
     const row = document.createElement("div");
     const benefit = item.tipo === "income" && ganhoEhBeneficio(item);
+    const benefitExpense = item.tipo === "expense" && variavelEhBeneficio(item);
     const guardado = item.tipo === "expense" && ehLancamentoDeCaixinha(item.nome);
-    row.className = `ledger-item ${item.tipo === "income" ? (benefit ? "income-beneficio" : "income-saldo") : (guardado ? "expense-guardado" : "expense")}`;
+    row.className = `ledger-item ${item.tipo === "income" ? (benefit ? "income-beneficio" : "income-saldo") : (guardado ? "expense-guardado" : benefitExpense ? "expense-beneficio" : "expense")}`;
     row.innerHTML = `
-      <span class="ledger-icon ${item.tipo}${benefit ? " income-beneficio" : ""}${guardado ? " guardado" : ""}">${item.tipo === "income" ? ICONE_GANHO : (guardado ? ICONE_GUARDADO : ICONE_GASTO)}</span>
+      <span class="ledger-icon ${item.tipo}${benefit ? " income-beneficio" : ""}${guardado ? " guardado" : benefitExpense ? " expense-beneficio" : ""}">${item.tipo === "income" ? ICONE_GANHO : (guardado ? ICONE_GUARDADO : ICONE_GASTO)}</span>
       <div class="ledger-info">
         <span class="ledger-nome">${escapeHtml(nomeExibicaoItem(item))} ${tagPessoa(item)}</span>
         <span class="ledger-tag">${escapeHtml(item.tag)}</span>
       </div>
-      <span class="ledger-valor ${item.tipo}${benefit ? " income-beneficio" : ""}${guardado ? " guardado" : ""}">${item.tipo === "income" ? "+" : "−"} ${fmt(item.valor)}</span>
+      <span class="ledger-valor ${item.tipo}${benefit ? " income-beneficio" : ""}${benefitExpense ? " expense-beneficio" : ""}${guardado ? " guardado" : ""}">${item.tipo === "income" ? "+" : "−"} ${fmt(item.valor)}</span>
     `;
     ledger.appendChild(row);
   });

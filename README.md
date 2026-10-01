@@ -1,96 +1,154 @@
-# Caixa — Controle Financeiro
+# Caixa — Controle de Gastos
 
-Aplicativo web pessoal para organizar ganhos, gastos, faturas, parcelas, caixinhas e fechamento mensal. O projeto foi pensado para funcionar como site estático e também pode ser instalado como PWA.
+Aplicativo pessoal para controle de ganhos, gastos, caixinhas e fechamento mensal.
 
-## Recursos
+## Arquitetura atual
 
-- Cadastro e acompanhamento de ganhos e despesas.
-- Organização por perfis individuais e modo **Juntos** para visualização compartilhada.
-- Caixinhas para acompanhar valores reservados e objetivos.
-- Gastos à vista ou parcelados, com associação a faturas cadastradas.
-- Controle de pagamento de contas e itens pendentes.
-- Histórico mensal, evolução financeira e fechamento de mês.
-- Assistente no chat para orientar consultas e o cadastro de lançamentos.
-- Temas claro/escuro, temas sazonais e trilhas sonoras correspondentes.
-- Cache local e suporte a uso offline, com sincronização quando a conexão retorna.
+O Caixa não usa mais Google Sheets nem Google Apps Script como banco ou backend.
 
-## Tecnologias e arquitetura
+- **Firebase Authentication** — login com Google.
+- **Cloud Firestore** — dados financeiros, configurações, histórico e backups.
+- **Firebase AI Logic + Gemini** — recursos de IA do aplicativo.
+- **Service Worker / IndexedDB** — cache e fila offline.
+- **GitHub Pages** — publicação do aplicativo, sem etapa de build.
 
-- **HTML, CSS e JavaScript:** interface e lógica do aplicativo.
-- **Firebase Authentication:** autenticação com conta Google.
-- **Cloud Firestore:** persistência de dados, configurações, histórico e backups.
-- **Firebase AI Logic / Gemini:** funcionalidades de IA do chat.
-- **IndexedDB e Service Worker:** cache local e suporte offline.
-- **GitHub Pages:** hospedagem estática, sem etapa de build.
+### Arquivos principais
 
-O aplicativo não depende de Google Sheets nem de Google Apps Script para operar.
+- `index.html` — estrutura da aplicação.
+- `style.css` — aparência e componentes visuais.
+- `app.js` — regras da interface, cálculos e operações do aplicativo.
+- `firebase-config.js` — configuração pública do projeto Firebase.
+- `firebase-client.js` — autenticação, Firestore, backups e Firebase AI Logic.
+- `firestore.rules` — regras de segurança do Firestore.
+- `firebase-migration-data.js` — snapshot usado na migração inicial dos dados antigos; pode ser removido depois de confirmar que a migração está concluída.
+- `sw.js` — funcionamento offline e atualização do app.
+- `manifest.json` — configuração do PWA.
+- `IMG/` — ícones utilizados pelo aplicativo.
 
-## Estrutura do projeto
+## O que foi removido
 
-```text
-index.html                    Estrutura da aplicação
-style.css                     Estilos gerais, quando utilizado
-app.js                        Ponto de entrada e integração dos módulos
-firebase-config.js            Configuração pública do Firebase
-firebase-client.js            Autenticação, Firestore, IA e sincronização
-firestore.rules               Regras de acesso aos dados
-firebase-migration-data.js    Snapshot auxiliar da migração inicial
-sw.js                         Service Worker e versão do cache
-manifest*.json                Configurações do PWA e temas
-js/core/                      Inicialização, namespace e API pública
-js/modules/                   Módulos de funcionalidades do aplicativo
-themes/                       Temas padrão e sazonais
-IMG/                          Ícones e imagens
-music/                        Trilhas sonoras dos temas
+Os arquivos abaixo não fazem mais parte do projeto:
+
+- `Code.gs`
+- `config.js`
+
+Não é necessário manter um Web App do Apps Script para o aplicativo funcionar.
+
+## IA sem Code.gs
+
+A IA agora usa o **Firebase AI Logic**, que fornece um SDK próprio para aplicações web e faz a comunicação com os modelos Gemini através do Firebase. O aplicativo não guarda uma chave do Gemini dentro do código-fonte.
+
+O modelo usado pelo Caixa é `gemini-3.8-flash`.
+
+### Configuração da IA no Firebase
+
+No console do Firebase do projeto:
+
+1. Abra o projeto `caixa-controle-financeir-6c7bd`.
+2. Ative o **Firebase AI Logic** e o provedor **Gemini Developer API**, se ainda não estiver ativado.
+3. Confirme que a API do Firebase AI Logic está habilitada.
+4. Configure o **Firebase App Check** para a aplicação Web usando **reCAPTCHA Enterprise**.
+5. Copie a chave pública do reCAPTCHA Enterprise para `firebase-config.js`:
+
+```js
+appCheckRecaptchaKey: "SUA_CHAVE_PUBLICA_DO_RECAPTCHA"
 ```
 
-> A organização interna pode evoluir. Ao alterar arquivos, confira as referências de scripts e estilos em `index.html` e mantenha os módulos carregados na ordem esperada pelo projeto.
+A chave do reCAPTCHA é pública e pode ficar no código do aplicativo. A chave secreta não deve ser colocada neste repositório.
+
+O App Check é importante porque a IA é chamada diretamente pelo navegador. O Firebase informa que a aplicação do App Check para Firebase AI Logic será obrigatória a partir de **2 de novembro de 2026**.
 
 ## Configuração do Firebase
 
-1. Abra o projeto Firebase vinculado ao aplicativo.
-2. Confira se **Authentication** está habilitado e se o provedor Google está configurado.
-3. Verifique se o **Cloud Firestore** está criado e com as regras de `firestore.rules` publicadas.
-4. Confira as configurações públicas do aplicativo em `firebase-config.js`.
-5. Para recursos de IA, habilite e configure o **Firebase AI Logic** e o App Check conforme as opções disponíveis no console Firebase.
+`firebase-config.js` contém apenas a configuração pública do aplicativo Web do Firebase. Ela identifica o projeto, mas não substitui as regras de segurança do Firestore.
 
-A configuração Web do Firebase identifica o projeto, mas não substitui as regras de segurança. Os documentos financeiros devem permanecer acessíveis somente ao usuário autorizado pelas regras.
+A proteção dos dados depende de:
 
-### Organização dos dados
+- Firebase Authentication;
+- Firestore Security Rules;
+- App Check, quando configurado;
+- acesso aos documentos limitado ao usuário autenticado.
 
-O aplicativo separa os dados dos perfis e mantém configurações, histórico e backups associados ao usuário autenticado. O modo **Juntos** reúne informações para consulta; não deve ser tratado como um perfil independente de gravação.
+## Dados e estrutura do Firestore
 
-## Publicação no GitHub Pages
+O aplicativo trabalha principalmente com estes documentos por usuário:
 
-1. Envie os arquivos do projeto para o repositório.
-2. Nas configurações do GitHub, habilite Pages para a branch e pasta que contêm `index.html`.
-3. Aguarde a publicação e abra a URL fornecida pelo GitHub.
-4. Após atualizar o aplicativo, valide a versão publicada e a instalação PWA.
+```text
+users/{uid}/profiles/davi
+users/{uid}/profiles/gabriel
+users/{uid}/config/app
+users/{uid}/historico/principal
+users/{uid}/backups/*
+```
 
-Não é necessário instalar Node.js, executar um servidor próprio ou publicar um Apps Script para a versão estática.
+As informações de Davi e Gabriel são mantidas separadas. O modo **Juntos** combina os dados para visualização e permanece somente leitura.
 
-## Atualização do cache e PWA
+## Offline
 
-Quando modificar arquivos que o Service Worker armazena em cache, atualize a constante de versão em `sw.js` (por exemplo, `CACHE_VERSION`) para que os clientes descartem os recursos antigos e busquem os novos. Mantenha os arquivos `manifest*.json` e os ícones referenciados alinhados ao tema ativo.
+O aplicativo mantém dados locais para permitir consulta sem internet e possui uma fila de operações para sincronizar alterações quando a conexão voltar.
+
+O Service Worker não depende de Apps Script e não precisa mais armazenar `config.js`.
 
 ## Migração antiga
 
-`firebase-migration-data.js` é um arquivo auxiliar da migração dos dados legados para o Firebase. Só o remova depois de confirmar que os dados necessários foram importados e que existe um backup independente e válido.
+`firebase-migration-data.js` é um snapshot criado durante a migração da antiga planilha para o Firebase.
 
-## Segurança e privacidade
+Depois de conferir que todos os dados importantes estão corretos no Firebase, esse arquivo também pode ser removido. Antes de apagar, é recomendável manter um backup do projeto.
 
-- Nunca inclua senhas, tokens privados ou chaves secretas no repositório.
-- A configuração pública do Firebase para Web pode estar no código; a proteção efetiva depende de Authentication, regras do Firestore e App Check quando aplicável.
-- Revise as regras de segurança antes de publicar alterações.
-- Faça backup antes de executar migrações ou mudanças estruturais nos dados.
+## Publicação
+
+O projeto pode continuar sendo publicado como site estático, por exemplo no GitHub Pages.
+
+Não é necessário executar servidor Node, instalar dependências ou publicar um Apps Script para a aplicação funcionar.
 
 ## Manutenção
 
-- Preserve a separação entre núcleo, módulos de funcionalidades e temas.
-- Ao adicionar campos financeiros, confira cadastro, edição, cálculos, histórico, sincronização e exportação/backup.
-- Ao alterar o fluxo de gastos parcelados ou faturas, teste tanto o cenário com uma fatura quanto com várias, além dos estados pago e pendente.
-- Valide JavaScript e teste a aplicação em desktop e dispositivos móveis após mudanças relevantes.
+Ao alterar arquivos importantes do app, atualize a versão do cache em `sw.js`:
 
----
+```js
+const CACHE_VERSION = "caixa-vXX";
+```
 
-**Caixa — organização financeira com ganhos, gastos e objetivos em um só lugar.**
+Isso faz o Service Worker descartar os caches antigos e carregar a nova versão.
+
+## Segurança
+
+Nunca coloque neste projeto:
+
+- chaves secretas de APIs;
+- senhas;
+- tokens privados;
+- credenciais de servidor.
+
+A configuração pública do Firebase Web pode permanecer no projeto. As permissões reais dos dados são controladas pelas regras do Firestore.
+
+## Resumo
+
+O Caixa agora é essencialmente:
+
+```text
+Navegador
+   │
+   ├── Firebase Authentication
+   ├── Cloud Firestore
+   └── Firebase AI Logic → Gemini
+```
+
+**Google Sheets e Google Apps Script não são mais necessários para o funcionamento do sistema.**
+
+
+## Organização de temas
+
+A estrutura visual agora segue uma separação por camadas:
+
+- `index.html` — estrutura/HTML da aplicação.
+- `app.js` — núcleo funcional: dados, Firebase, cálculos e interações.
+- `themes/default.css` — visual do tema padrão.
+- `themes/christmas.css` — visual do tema Natal.
+- `themes/halloween.css` — visual do tema Halloween.
+- `themes/default.js` — ponto de entrada JS do tema padrão.
+- `themes/christmas.js` — ponto de entrada JS do tema Natal.
+- `themes/halloween.js` — ponto de entrada JS do tema Halloween.
+- `themes/registry.js` — registro comum dos módulos de tema.
+
+**Importante:** a lógica sazonal existente no `app.js` foi mantida nesta primeira etapa para evitar regressões. Os módulos por tema já estão preparados como fronteira para a próxima migração das rotinas específicas de Natal/Halloween, sem duplicar o núcleo financeiro.
