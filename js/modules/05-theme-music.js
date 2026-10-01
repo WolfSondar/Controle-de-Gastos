@@ -157,18 +157,33 @@ function caixaArmarInteracaoMusica() {
   );
 }
 
+function caixaMusicaClampVolume(valor) {
+  const n = Number(valor);
+  if (!Number.isFinite(n)) return 0;
+  return Math.min(1, Math.max(0, n));
+}
+
 function caixaMusicaFade(audio, de, para, duracao = 650) {
   return new Promise(resolve => {
     const inicio = performance.now();
     const id = ++caixaMusicaTransicaoId;
-    audio.volume = de;
+    const volumeInicial = caixaMusicaClampVolume(de);
+    const volumeFinal = caixaMusicaClampVolume(para);
+    audio.volume = volumeInicial;
     const passo = agora => {
       if (id !== caixaMusicaTransicaoId) { resolve(false); return; }
-      const t = Math.min(1, (agora - inicio) / duracao);
+      const t = Math.min(1, Math.max(0, (agora - inicio) / duracao));
       const suavizado = t * (2 - t);
-      audio.volume = de + (para - de) * suavizado;
+      // O cálculo pode gerar um valor infinitesimalmente abaixo de 0/1
+      // por ponto flutuante. O HTMLMediaElement não aceita isso.
+      audio.volume = caixaMusicaClampVolume(
+        volumeInicial + (volumeFinal - volumeInicial) * suavizado
+      );
       if (t < 1) requestAnimationFrame(passo);
-      else resolve(true);
+      else {
+        audio.volume = volumeFinal;
+        resolve(true);
+      }
     };
     requestAnimationFrame(passo);
   });
