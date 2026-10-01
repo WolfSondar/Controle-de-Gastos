@@ -2770,7 +2770,6 @@ html[data-caixa-theme="christmas"] .historico-mes-card {
   color: var(--ink-text) !important;
   box-shadow: 0 9px 24px rgba(40,70,58,.09) !important;
 }
-html[data-caixa-theme="christmas"] .historico-mes-card::before { background: var(--christmas-red) !important; }
 html[data-caixa-theme="christmas"] .historico-mes-card:hover {
   border-color: rgba(185,47,59,.34) !important;
   box-shadow: 0 12px 28px rgba(40,70,58,.13) !important;
@@ -2801,7 +2800,6 @@ html[data-caixa-theme="christmas"] .historico-mes-card.is-expanded .historico-me
 html[data-theme="dark"][data-caixa-theme="christmas"] .historico-mes-card {
   box-shadow: 0 12px 28px rgba(0,0,0,.30), inset 0 1px 0 rgba(224,247,253,.06) !important;
 }
-html[data-theme="dark"][data-caixa-theme="christmas"] .historico-mes-card::before { background: var(--christmas-red) !important; }
 html[data-theme="dark"][data-caixa-theme="christmas"] .historico-mes-total {
   color: #79cfe2 !important;
   background: rgba(121,207,226,.12) !important;
@@ -2885,3 +2883,19 @@ html[data-caixa-theme="christmas"] .historico-rendimento-linha .rendimento-valor
   color: var(--theme-yield, var(--yield)) !important;
   font-weight: 750 !important;
 }
+
+
+/* Histórico: o card não usa mais círculo/halo decorativo no fundo. */
+html[data-caixa-theme="christmas"] .historico-mes-card::before,
+html[data-caixa-theme="christmas"] .historico-mes-card::after,
+html[data-caixa-theme="christmas"] .historico-mes-card:hover::before,
+html[data-caixa-theme="christmas"] .historico-mes-card:hover::after,
+html[data-caixa-theme="christmas"] .historico-mes-card.is-expanded::before,
+html[data-caixa-theme="christmas"] .historico-mes-card.is-expanded::after {
+  content:none !important; display:none !important; opacity:0 !important; visibility:hidden !important; background:none !important; box-shadow:none !important; animation:none !important;
+}
+
+html[data-caixa-theme="christmas"] .sync-icone-download,
+html[data-caixa-theme="christmas"] .sync-icone-upload,
+html[data-caixa-theme="christmas"] .sync-icone-reconectando { color:var(--theme-primary, var(--accent, currentColor)) !important; }
+html[data-caixa-theme="christmas"] .sync-icone-fechamento { color:var(--christmas-red, var(--yield, currentColor)) !important; }
