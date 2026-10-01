@@ -863,6 +863,22 @@
           ["beneficio", "Benefício", "Sai do saldo do benefício"]
         ], origem => {
           cadastroAtivo.origem = origem;
+          if (origem === "beneficio") {
+            // Benefício é sempre uma saída já realizada e não entra em fatura.
+            // Por isso o fluxo pula diretamente para a data.
+            cadastroAtivo.fatura = false;
+            cadastroAtivo.faturaId = "";
+            cadastroAtivo.faturaNome = "";
+            cadastroAtivo.pago = true;
+            perguntaDataCadastro(data => {
+              cadastroAtivo.data = data;
+              const nomeSalvo = cadastroAtivo.nome;
+              opVariaveis.add(nomeSalvo, cadastroAtivo.valor, { pago: true, tipo: cadastroAtivo.categoria, data: dataDoLancamento(cadastroAtivo.data), origem: cadastroAtivo.origem, fatura: false, faturaId: "" });
+              finalizarCadastro("Gasto adicionado", `${esc(cadastroAtivo.nome)} · <span class="chat-valor chat-valor-neg">${chatFmt(cadastroAtivo.valor)}</span>.`);
+            });
+            return;
+          }
+
           perguntarFaturaAntesDaData(data => {
             cadastroAtivo.data = data;
             perguntaStatusCadastro("Essa compra já foi paga?", "Sim, já paguei", "Não, está pendente", pago => {

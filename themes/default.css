@@ -10614,3 +10614,28 @@ html[data-theme="dark"][data-caixa-theme="halloween"] #caixaConfigAdmin .caixa-c
   box-shadow: 0 12px 30px rgba(0,0,0,.30) !important;
 }
 html[data-theme="dark"][data-caixa-theme="halloween"] #caixaConfigAdmin .caixa-config-admin-group::before { background: rgba(255,122,61,.10); }
+
+/* Fechamento de mês — feedback curto, sem cerimônia. */
+.fechar-mes-sucesso,
+.fechar-mes-erro {
+  position: relative;
+  overflow: hidden;
+  transform-origin: center;
+}
+.fechar-mes-sucesso {
+  animation: fecharMesSucesso .52s cubic-bezier(.2,.8,.2,1);
+}
+.fechar-mes-erro {
+  animation: fecharMesErro .38s ease;
+}
+@keyframes fecharMesSucesso {
+  0% { transform: scale(1); }
+  38% { transform: scale(.96); }
+  72% { transform: scale(1.035); }
+  100% { transform: scale(1); }
+}
+@keyframes fecharMesErro {
+  0%,100% { transform: translateX(0); }
+  30% { transform: translateX(-4px); }
+  60% { transform: translateX(4px); }
+}

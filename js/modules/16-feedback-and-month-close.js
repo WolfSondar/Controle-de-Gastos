@@ -317,14 +317,17 @@ function abrirFecharMes() {
   if (fecharMesBackdrop) fecharMesBackdrop.classList.remove("is-hidden");
   registrarAberturaModal("fecharMesBackdrop");
 }
+
 function fecharModalFecharMes() {
   fecharComHistorico("fecharMesBackdrop", () => {
     if (fecharMesBackdrop) fecharMesBackdrop.classList.add("is-hidden");
   });
 }
+
 FECHADORES_MODAL.fecharMesBackdrop = fecharModalFecharMes;
 on("mesAtualBadge", "click", abrirFecharMes);
 on("fecharMesCancelar", "click", fecharModalFecharMes);
+
 if (fecharMesBackdrop) {
   fecharMesBackdrop.addEventListener("click", (e) => {
     if (e.target === fecharMesBackdrop) fecharModalFecharMes();
@@ -341,507 +344,6 @@ function prepararFormFecharMes() {
     if (valorEl) valorEl.textContent = valor;
     else periodo.textContent = valor;
   }
-}
-
-
-const FECHAMENTO_MES_CACHE_PREFIX = "caixa:fechamento-mes:v2:";
-let fechamentoMesTimer = null;
-
-function criarCenaFechamentoMes() {
-  let cena = document.getElementById("fechamentoMesCena");
-  if (cena) return cena;
-
-  cena = document.createElement("div");
-  cena.id = "fechamentoMesCena";
-  cena.className = "fechamento-mes-cena is-hidden";
-  cena.setAttribute("role", "dialog");
-  cena.setAttribute("aria-modal", "true");
-  cena.setAttribute("aria-label", "Fechamento do mês");
-  cena.innerHTML = `
-    <div class="fechamento-mes-linhas" aria-hidden="true"></div>
-    <div class="fechamento-mes-brilhos" aria-hidden="true"></div>
-    <div class="fechamento-mes-card">
-      <div class="fechamento-mes-orb" aria-hidden="true"><span></span></div>
-      <div class="fechamento-mes-etapa" id="fechamentoMesEtapa">
-        <div class="fechamento-mes-kicker">Fechando o mês</div>
-        <h2 id="fechamentoMesTitulo">Só um instante</h2>
-        <p id="fechamentoMesTexto">Fechando com cuidado.</p>
-      </div>
-      <div class="fechamento-mes-resumo" id="fechamentoMesResumo"></div>
-      <div class="fechamento-mes-progresso" aria-hidden="true"><span id="fechamentoMesProgresso"></span></div>
-    </div>
-  `;
-  document.body.appendChild(cena);
-
-  const linhas = cena.querySelector(".fechamento-mes-linhas");
-  for (let i = 0; i < 12; i++) {
-    const linha = document.createElement("span");
-    linha.style.setProperty("--x", `${2 + Math.random() * 96}%`);
-    linha.style.setProperty("--dur", `${3.2 + Math.random() * 3.8}s`);
-    linha.style.setProperty("--delay", `${-Math.random() * 6}s`);
-    linha.style.setProperty("--altura", `${70 + Math.random() * 35}vh`);
-    linha.style.setProperty("--op", `${0.08 + Math.random() * 0.14}`);
-    linhas.appendChild(linha);
-  }
-
-  const brilhos = cena.querySelector(".fechamento-mes-brilhos");
-  for (let i = 0; i < 16; i++) {
-    const brilho = document.createElement("i");
-    brilho.style.setProperty("--x", `${4 + Math.random() * 92}%`);
-    brilho.style.setProperty("--y", `${18 + Math.random() * 72}%`);
-    brilho.style.setProperty("--delay", `${-Math.random() * 4}s`);
-    brilho.style.setProperty("--dur", `${2.4 + Math.random() * 2.8}s`);
-    brilhos.appendChild(brilho);
-  }
-  return cena;
-}
-
-// O fechamento real não depende mais deste cache. O cache antigo fazia a
-// cerimônia desaparecer depois do primeiro fechamento no mesmo navegador e
-// dava a impressão de que era necessário limpar cookies/localStorage.
-function fechamentoMesJaExibido() {
-  return false;
-}
-
-function marcarFechamentoMesExibido() {
-  // Mantida por compatibilidade com versões anteriores. A cerimônia agora é
-  // controlada pelo resultado real do fechamento, não pelo navegador.
-}
-
-function formatarFechamentoValor(valor, sinal = "") {
-  const n = Number(valor) || 0;
-  return `${sinal}${fmt(Math.abs(n))}`;
-}
-
-function animarFechamentoNumero(el, valor, duracao = 1200) {
-  if (!el) return;
-  const alvo = Number(valor) || 0;
-  const inicio = performance.now();
-  function passo(agora) {
-    const p = Math.min((agora - inicio) / duracao, 1);
-    const suavizado = 1 - Math.pow(1 - p, 4);
-    el.textContent = fmt(alvo * suavizado);
-    if (p < 1) requestAnimationFrame(passo);
-    else el.textContent = fmt(alvo);
-  }
-  requestAnimationFrame(passo);
-}
-
-function prepararDadosFechamentoMes(mes, ano) {
-  const ganhosLista = Array.isArray(state.ganhos) ? state.ganhos : [];
-  const fixosLista = Array.isArray(state.gastosFixos) ? state.gastosFixos : [];
-  const variaveisLista = Array.isArray(state.gastosVariaveis) ? state.gastosVariaveis : [];
-  const caixinhas = Array.isArray(state.caixinhas) ? state.caixinhas : [];
-
-  const ganhos = somaComStatus(ganhosLista, "recebido");
-  const gastosFixos = somaFixosPagos(fixosLista);
-  const gastosVariaveis = somaVariaveisPagas(variaveisLista);
-  const gastos = gastosFixos + gastosVariaveis;
-  const guardado = somaCampo(caixinhas, "valorGuardadoMes");
-  const saldo = ganhos - gastos;
-
-  // Dados da cerimônia são capturados ANTES do fechamento, porque é aqui que
-  // ainda temos acesso às parcelas que acabaram, aos aportes do mês e aos
-  // lançamentos que contam para a história daquele mês.
-  const parcelasEncerradas = fixosLista
-    .filter(g => g && g.pago === true && /^\d+\s*\/\s*\d+$/.test(String(g.parcela || "").trim()))
-    .filter(g => {
-      const m = String(g.parcela).trim().match(/^(\d+)\s*\/\s*(\d+)$/);
-      return m && Number(m[1]) === Number(m[2]) && Number(m[2]) > 1;
-    })
-    .map(g => ({ nome: String(g.nome || "Compromisso"), valor: Number(g.valor) || 0, parcela: String(g.parcela).replace(/\s+/g, "") }));
-
-  const valorMensalEncerrado = parcelasEncerradas.reduce((a, g) => a + g.valor, 0);
-
-  const metasBatidas = caixinhas
-    .map(cx => {
-      const objetivo = Number(cx.valorObjetivo) || 0;
-      const total = totalCaixinha(cx);
-      return { nome: String(cx.nome || "Caixinha"), valor: total, objetivo, icone: String(cx.icone || "") };
-    })
-    .filter(cx => cx.objetivo > 0 && cx.valor >= cx.objetivo);
-
-  const maiorCaixinha = caixinhas.reduce((maior, cx) => {
-    const valor = Number(cx.valorGuardadoMes) || 0;
-    if (!maior || valor > maior.valor) return { nome: String(cx.nome || "Caixinha"), valor, icone: String(cx.icone || "") };
-    return maior;
-  }, null);
-
-  // Pendências da cerimônia pertencem ao mês que está sendo fechado.
-  // Lançamentos futuros (mês seguinte ou além) já estão preparados para o
-  // próximo período e não devem aparecer como pendência deste fechamento.
-  const ehFuturoDoMesFechamento = (item) => {
-    const m = /^(\d{4})-(\d{2})/.exec(String(item?.data || ""));
-    if (!m) return false;
-    const anoItem = Number(m[1]);
-    const mesItem = Number(m[2]);
-    return anoItem > Number(ano) || (anoItem === Number(ano) && mesItem > Number(mes));
-  };
-
-  const pendencias = [
-    ...fixosLista.filter(g => g && g.pago !== true && !ehFuturoDoMesFechamento(g)),
-    ...variaveisLista.filter(g => g && g.pago !== true && !ehLancamentoDeCaixinha(g.nome) && !ehFuturoDoMesFechamento(g))
-  ];
-
-  const categorias = {};
-  [...fixosLista.filter(g => g && g.pago === true), ...variaveisLista.filter(g => g && g.pago === true && !ehLancamentoDeCaixinha(g.nome))]
-    .forEach(g => {
-      const cat = String(g.tipo || "Outros").trim() || "Outros";
-      categorias[cat] = (categorias[cat] || 0) + (Number(g.valor) || 0);
-    });
-  const categoriaPrincipal = Object.entries(categorias).sort((a,b) => b[1] - a[1])[0];
-
-  // Não usamos mais o "maior movimento" geral: salário/benefício quase sempre
-  // venceria a disputa e isso não conta uma história interessante do mês.
-  // A cerimônia destaca o maior gasto efetivamente pago, excluindo lançamentos
-  // de caixinha, para revelar um movimento que o usuário realmente pode analisar.
-  const maiorGasto = [
-    ...fixosLista.filter(g => g && g.pago === true).map(g => ({ nome: String(g.nome || "Gasto"), valor: Number(g.valor)||0, tipo: "fixo" })),
-    ...variaveisLista.filter(g => g && g.pago === true && !ehLancamentoDeCaixinha(g.nome)).map(g => ({ nome: String(g.nome || "Gasto"), valor: Number(g.valor)||0, tipo: "variavel" }))
-  ].filter(g => g.valor > 0).sort((a,b) => b.valor-a.valor)[0] || null;
-
-  const comparacao = (() => {
-    const anos = Array.isArray(state.historico?.anos) ? state.historico.anos : [];
-    let pm = mes - 1, pa = ano;
-    if (pm === 0) { pm = 12; pa--; }
-    const bloco = anos.find(a => Number(a.ano) === pa);
-    const anterior = bloco?.meses?.find(m => Number(m.mes) === pm);
-    if (!anterior) return null;
-    const suf = state.pessoaAtual === "gabriel" ? "Gabriel" : "Davi";
-    const gastosAnterior = Math.abs(Number(anterior[`debitos${suf}`]) || 0);
-    if (gastosAnterior <= 0 && gastos <= 0) return null;
-    return { nome: String(anterior.nome || MESES_LABEL[pm - 1] || "mês anterior"), gastos: gastosAnterior, diferenca: gastos - gastosAnterior };
-  })();
-
-  const crescimentoCaixinha = caixinhas.map(cx => {
-    const base = Number(cx.valorGuardado) || 0;
-    const atual = totalCaixinha(cx);
-    const crescimento = base > 0 ? ((atual - base) / base) * 100 : 0;
-    return { nome: String(cx.nome || "Caixinha"), base, atual, crescimento };
-  }).filter(x => x.base > 0 && x.crescimento >= 10).sort((a,b) => b.crescimento-a.crescimento)[0] || null;
-
-  const rendimento = somaCampo(caixinhas, "rendimentoTotal");
-  const quantidadeLancamentos = ganhosLista.length + fixosLista.length + variaveisLista.length;
-
-  return {
-    mes, ano, ganhos, gastos, guardado, saldo,
-    ganhosLista, fixosLista, variaveisLista,
-    pendencias: pendencias.length,
-    quantidadeLancamentos,
-    parcelasEncerradas,
-    valorMensalEncerrado,
-    metasBatidas,
-    maiorCaixinha,
-    categoriaPrincipal: categoriaPrincipal ? { nome: categoriaPrincipal[0], valor: categoriaPrincipal[1] } : null,
-    comparacao,
-    maiorGasto,
-    crescimentoCaixinha,
-    rendimento,
-    caixinhas,
-    // Uma conquista simples e verificável: primeiro mês do histórico com aporte.
-    primeiraConstrucao: (() => {
-      const anos = Array.isArray(state.historico?.anos) ? state.historico.anos : [];
-      let pm = mes - 1, pa = ano;
-      if (pm === 0) { pm = 12; pa--; }
-      const bloco = anos.find(a => Number(a.ano) === pa);
-      const ant = bloco?.meses?.find(m => Number(m.mes) === pm);
-      const campoGuardadoAnterior = state.pessoaAtual === "gabriel" ? "guardadoMesGabriel" : "guardadoMesDavi";
-      return !!(guardado > 0 && (!ant || Number(ant[campoGuardadoAnterior]) <= 0));
-    })()
-  };
-}
-
-function mostrarFechamentoMes(dados, { resultadoPromessa = null } = {}) {
-  const cena = criarCenaFechamentoMes();
-  const titulo = cena.querySelector("#fechamentoMesTitulo");
-  const texto = cena.querySelector("#fechamentoMesTexto");
-  const etapa = cena.querySelector("#fechamentoMesEtapa");
-  const resumo = cena.querySelector("#fechamentoMesResumo");
-  const progresso = cena.querySelector("#fechamentoMesProgresso");
-  const kicker = cena.querySelector("#fechamentoMesEtapa .fechamento-mes-kicker");
-  if (!titulo || !texto || !etapa || !resumo) return null;
-
-  if (cena._cerimoniaAtiva) return cena;
-  cena._cerimoniaAtiva = true;
-  cena.classList.remove("is-hidden", "fechamento-mes-finalizando");
-  document.body.classList.add("fechamento-mes-ativo");
-  requestAnimationFrame(() => cena.classList.add("is-visible"));
-
-  const mesNome = MESES_LABEL[dados.mes - 1] || "Mês";
-  const proximoMes = dados.mes === 12 ? 1 : dados.mes + 1;
-  const proximoAno = dados.mes === 12 ? dados.ano + 1 : dados.ano;
-  if (kicker) kicker.textContent = "Fechamento";
-  if (progresso) progresso.style.width = "5%";
-
-  // A cerimônia é apenas visual. O salvamento roda em paralelo e não bloqueia
-  // a narrativa. O resultado dele só é necessário para a última tela.
-  titulo.textContent = "Só um instante";
-  texto.textContent = "";
-  resumo.innerHTML = `<div class="fechamento-mes-preparando"><span>✦</span><p>${escapeHtml(mesNome)}.</p></div>`;
-
-  const esperar = ms => new Promise(resolve => window.setTimeout(resolve, ms));
-  const trocarTela = async (config) => {
-    etapa.classList.add("is-trocando");
-    await esperar(320);
-    titulo.textContent = config.titulo || "";
-    texto.textContent = config.texto || "";
-    resumo.innerHTML = config.html || "";
-    etapa.classList.remove("is-trocando");
-    await new Promise(resolve => requestAnimationFrame(() => requestAnimationFrame(resolve)));
-  };
-
-  const etapas = [];
-
-  // Abertura curta. Não espera o Firebase.
-  etapas.push(async () => {
-    await esperar(1100);
-    await trocarTela({
-      titulo: "Olha o que você construiu",
-      texto: "Os números do mês, do jeitinho que aconteceram.",
-      html: `<div class="fechamento-mes-metricas">
-        <div class="fechamento-mes-metrica"><span>Recebido</span><strong data-fechamento-num="ganhos">R$ 0,00</strong></div>
-        <div class="fechamento-mes-metrica"><span>Gasto</span><strong data-fechamento-num="gastos">R$ 0,00</strong></div>
-        <div class="fechamento-mes-metrica destaque"><span>Guardado</span><strong data-fechamento-num="guardado">R$ 0,00</strong></div>
-      </div><div class="fechamento-mes-saldo"><span>Resultado do mês</span><strong class="${dados.saldo >= 0 ? "positivo" : "negativo"}">${formatarFechamentoValor(dados.saldo)}</strong></div>`
-    });
-    animarFechamentoNumero(resumo.querySelector('[data-fechamento-num="ganhos"]'), dados.ganhos, 1900);
-    animarFechamentoNumero(resumo.querySelector('[data-fechamento-num="gastos"]'), dados.gastos, 2100);
-    animarFechamentoNumero(resumo.querySelector('[data-fechamento-num="guardado"]'), dados.guardado, 2300);
-    if (progresso) progresso.style.width = "22%";
-    await esperar(5600);
-  });
-
-  dados.parcelasEncerradas.forEach(parcela => {
-    etapas.push(async () => {
-      await trocarTela({
-        titulo: `${escapeHtml(parcela.nome)} chegou ao fim.`,
-        texto: `Parcela ${escapeHtml(parcela.parcela)} concluída.`,
-        html: `<div class="fechamento-mes-meta"><span>✓</span><p>Mais um compromisso encerrado.</p>${parcela.valor > 0 ? `<strong class="fechamento-mes-destaque-valor">${fmt(parcela.valor)}/mês</strong><small>deixam de ocupar seu orçamento.</small>` : ""}</div>`
-      });
-      await esperar(4500);
-    });
-  });
-
-  if (dados.valorMensalEncerrado > 0) {
-    etapas.push(async () => {
-      const qtd = dados.parcelasEncerradas.length;
-      await trocarTela({
-        titulo: "O próximo mês começa mais leve.",
-        texto: qtd === 1 ? "Um compromisso terminou." : `${qtd} parcelas chegaram ao fim.`,
-        html: `<div class="fechamento-mes-proximo"><span>− ${fmt(dados.valorMensalEncerrado)}/mês</span><strong>de compromisso mensal</strong></div>`
-      });
-      await esperar(4500);
-    });
-  }
-
-  dados.metasBatidas.forEach(meta => {
-    etapas.push(async () => {
-      const passou = meta.valor > meta.objetivo;
-      await trocarTela({
-        titulo: passou ? "E ainda passou da meta." : "Uma promessa cumprida.",
-        texto: `${meta.icone ? meta.icone + " " : ""}${meta.nome} atingiu sua meta de ${fmt(meta.objetivo)}.`,
-        html: `<div class="fechamento-mes-meta"><span>🎯</span><p><strong>${escapeHtml(meta.nome)}</strong></p><strong class="fechamento-mes-destaque-valor">${fmt(meta.valor)} guardados</strong>${passou ? `<small>Meta: ${fmt(meta.objetivo)}</small>` : ""}</div>`
-      });
-      await esperar(4800);
-    });
-  });
-
-  if (dados.categoriaPrincipal) {
-    etapas.push(async () => {
-      await trocarTela({
-        titulo: "E agora…",
-        texto: "Onde foi parar boa parte do seu dinheiro?",
-        html: `<div class="fechamento-mes-suspense-card">
-          <div class="fechamento-mes-suspense-orbita" aria-hidden="true"><span>?</span></div>
-          <div class="fechamento-mes-suspense-linha"><i></i><span>uma pequena descoberta do mês</span><i></i></div>
-          <strong>Vamos descobrir.</strong>
-        </div>`
-      });
-      await esperar(2400);
-      await trocarTela({ titulo: "A categoria que mais recebeu seus gastos foi…", texto: "", html: `<div class="fechamento-mes-categoria fechamento-mes-categoria-revelacao">
-          <div class="fechamento-mes-categoria-icone"><span>▣</span></div>
-          <small class="fechamento-mes-categoria-label">MAIOR CATEGORIA DE GASTOS</small>
-          <strong>${escapeHtml(dados.categoriaPrincipal.nome)}</strong>
-          <b>${fmt(dados.categoriaPrincipal.valor)}</b>
-          <em>Foi onde você mais gastou neste mês.</em>
-        </div>` });
-      await esperar(5200);
-    });
-  }
-
-  if (dados.comparacao) {
-    etapas.push(async () => {
-      const d = dados.comparacao.diferenca;
-      const abs = Math.abs(d);
-      const frase = d < 0 ? `Você gastou ${fmt(abs)} a menos.` : d > 0 ? `Seus gastos foram ${fmt(abs)} maiores.` : "Seus gastos ficaram no mesmo nível.";
-      const comparacaoClasse = d > 0 ? "gastos-maiores" : d < 0 ? "gastos-menores" : "gastos-iguais";
-      const comparacaoIcone = d > 0 ? "↓" : d < 0 ? "↑" : "=";
-      const comparacaoLabel = d > 0 ? "Você gastou mais" : d < 0 ? "Você gastou menos" : "Seus gastos ficaram iguais";
-      await trocarTela({ titulo: `Em relação a ${escapeHtml(dados.comparacao.nome)}…`, texto: frase, html: `<div class="fechamento-mes-comparacao fechamento-mes-comparacao-simples ${comparacaoClasse}"><span>${comparacaoIcone}</span><strong>${comparacaoLabel}</strong></div>` });
-      await esperar(6000);
-    });
-  }
-
-  if (dados.maiorCaixinha && dados.maiorCaixinha.valor > 0) {
-    etapas.push(async () => {
-      const iconeCaixinha = dados.maiorCaixinha.icone
-        ? `<img src="${escapeHtml(urlIconeCaixinha(normalizarNomeIcone(dados.maiorCaixinha.icone)))}" alt="" loading="lazy" onerror="this.onerror=null;this.style.display='none';this.nextElementSibling.style.display='inline-flex';"><span class="fechamento-mes-caixinha-icone-fallback">✦</span>`
-        : `<span class="fechamento-mes-caixinha-icone-fallback" style="display:inline-flex">✦</span>`;
-      await trocarTela({
-        titulo: "Qual caixinha recebeu mais este mês?",
-        texto: "Foi aqui que você colocou a maior parte do seu dinheiro guardado.",
-        html: `<div class="fechamento-mes-caixinha-card">
-          <div class="fechamento-mes-caixinha-glow" aria-hidden="true"></div>
-          <div class="fechamento-mes-caixinha-icone">${iconeCaixinha}</div>
-          <div class="fechamento-mes-caixinha-info">
-            <span class="fechamento-mes-caixinha-label">MAIOR APORTE DO MÊS</span>
-            <strong class="fechamento-mes-caixinha-nome">${escapeHtml(dados.maiorCaixinha.nome)}</strong>
-            <span class="fechamento-mes-caixinha-valor">${fmt(dados.maiorCaixinha.valor)}</span>
-            <span class="fechamento-mes-caixinha-caption">guardados nesta caixinha</span>
-          </div>
-        </div>`
-      });
-      await esperar(4500);
-    });
-  }
-
-  if (dados.guardado > 0) {
-    etapas.push(async () => {
-      await trocarTela({ titulo: "E quanto você guardou este mês?", texto: "Esse valor foi separado para suas caixinhas.", html: `<div class="fechamento-mes-proximo"><span>${fmt(dados.guardado)}</span><strong>destinados às suas caixinhas</strong></div>` });
-      await esperar(6000);
-    });
-  }
-
-  if (dados.rendimento > 0) {
-    etapas.push(async () => {
-      await trocarTela({ titulo: "Seu dinheiro também trabalhou.", texto: "As caixinhas renderam neste mês.", html: `<div class="fechamento-mes-proximo"><span>+ ${fmt(dados.rendimento)}</span><strong>de rendimento</strong></div>` });
-      await esperar(6000);
-    });
-  }
-
-  if (dados.crescimentoCaixinha) {
-    etapas.push(async () => {
-      await trocarTela({ titulo: "Uma caixinha ganhou espaço.", texto: "", html: `<div class="fechamento-mes-meta"><span>🌱</span><p><strong>${escapeHtml(dados.crescimentoCaixinha.nome)}</strong></p><strong class="fechamento-mes-destaque-valor">${dados.crescimentoCaixinha.crescimento.toFixed(0)}%</strong><small>de crescimento neste mês</small></div>` });
-      await esperar(6000);
-    });
-  }
-
-  if (dados.primeiraConstrucao) {
-    etapas.push(async () => {
-      await trocarTela({ titulo: "Uma pequena conquista.", texto: "", html: `<div class="fechamento-mes-meta"><span>✦</span><p>Este foi um mês em que você começou a construir dinheiro nas suas caixinhas.</p></div>` });
-      await esperar(6000);
-    });
-  }
-
-  if (dados.maiorGasto && dados.maiorGasto.valor > 0) {
-    etapas.push(async () => {
-      await trocarTela({
-        titulo: "E qual foi o maior gasto do mês?",
-        texto: "Entre os gastos pagos, este foi o movimento que mais pesou no mês.",
-        html: `<div class="fechamento-mes-categoria fechamento-mes-gasto-destaque"><span>−</span><strong>${escapeHtml(dados.maiorGasto.nome)}</strong><b>${fmt(dados.maiorGasto.valor)}</b><small>${dados.maiorGasto.tipo === "fixo" ? "Gasto fixo" : "Gasto variável"}</small></div>`
-      });
-      await esperar(4800);
-    });
-  }
-
-  if (dados.quantidadeLancamentos > 0) {
-    etapas.push(async () => {
-      await trocarTela({ titulo: `${mesNome} está oficialmente fechado.`, texto: "", html: `<div class="fechamento-mes-proximo"><span>${dados.quantidadeLancamentos}</span><strong>lançamentos registrados ao longo do mês</strong></div>` });
-      await esperar(4000);
-    });
-  }
-
-  if (dados.pendencias === 0) {
-    etapas.push(async () => {
-      await trocarTela({ titulo: "Tudo em ordem.", texto: "", html: `<div class="fechamento-mes-meta"><span>✓</span><p>Nenhuma conta ficou pendente para o próximo mês.</p></div>` });
-      await esperar(5200);
-    });
-  } else {
-    etapas.push(async () => {
-      await trocarTela({ titulo: "Antes de fechar o livro…", texto: "Ainda há compromissos deste mês em aberto.", html: `<div class="fechamento-mes-meta"><span>!</span><p><strong>${dados.pendencias}</strong> compromisso${dados.pendencias === 1 ? "" : "s"} deste mês ainda está${dados.pendencias === 1 ? "" : "ão"} pendente${dados.pendencias === 1 ? "" : "s"}.</p></div>` });
-      await esperar(5200);
-    });
-  }
-
-  if (dados.mes === 12) {
-    etapas.push(async () => {
-      const anos = Array.isArray(state.historico?.anos) ? state.historico.anos : [];
-      const bloco = anos.find(a => Number(a.ano) === Number(dados.ano));
-      const meses = bloco?.meses || [];
-      const campoGuardadoAno = state.pessoaAtual === "gabriel" ? "guardadoMesGabriel" : "guardadoMesDavi";
-      const totalGuardadoAno = meses.reduce((a,m) => a + Math.max(0, Number(m[campoGuardadoAno]) || 0), 0) + Math.max(0, dados.guardado);
-      await trocarTela({ titulo: `O livro de ${dados.ano} foi encerrado.`, texto: `Agora começa ${proximoAno}.`, html: `<div class="fechamento-mes-ano"><strong>${fmt(totalGuardadoAno)}</strong><span>guardados ao longo do ano</span><em>Uma nova página está aberta.</em></div>` });
-      await esperar(6000);
-    });
-  }
-
-  const finais = [
-    "E assim termina {mes}. O que precisava ser registrado, foi registrado. O que foi conquistado, ficou guardado.",
-    "{mes} chega ao fim. Mais uma página foi preenchida — e a próxima já está esperando.",
-    "O livro de {mes} foi fechado. O que você construiu neste mês segue com você.",
-    "Fim de {mes}. Uma página a menos, uma história financeira a mais.",
-    "{mes} termina por aqui. Agora, uma nova página pode começar."
-  ];
-
-  const mostrarFinal = async (resultado) => {
-    if (!resultado) {
-      await trocarTela({ titulo: "Não foi possível fechar o mês agora.", texto: "Nada foi alterado. Você pode tentar novamente quando quiser.", html: `<div class="fechamento-mes-meta"><span>↻</span><p>Seu mês continua aberto e seguro.</p></div>` });
-      if (progresso) progresso.style.width = "100%";
-      await esperar(5200);
-      return;
-    }
-    const fraseFinal = finais[(Number(dados.mes) - 1) % finais.length].replace("{mes}", mesNome);
-    await trocarTela({ titulo: `Até aqui, ${mesNome}.`, texto: "", html: `<div class="fechamento-mes-final"><p>${escapeHtml(fraseFinal)}</p></div>` });
-    if (progresso) progresso.style.width = "100%";
-    await esperar(5600);
-  };
-
-  cena._cerimoniaPromise = (async () => {
-    try {
-      for (let i = 0; i < etapas.length; i++) {
-        await etapas[i]();
-        if (progresso && i < etapas.length - 1) {
-          progresso.style.width = `${Math.min(96, 22 + ((i + 1) / etapas.length) * 70)}%`;
-        }
-      }
-
-      // O salvamento já aconteceu em paralelo. Só aqui precisamos saber o
-      // resultado para escolher a última tela da cerimônia.
-      let resultado = null;
-      try {
-        const promessa = resultadoPromessa || cena._resultadoPromessa;
-        if (promessa) {
-          // O Firebase pode demorar ou perder a resposta mesmo depois de
-          // concluir a gravação. A cerimônia nunca deve ficar presa na última
-          // etapa esperando indefinidamente.
-          resultado = await Promise.race([
-            promessa,
-            new Promise(resolve => window.setTimeout(() => resolve(null), 8000))
-          ]);
-        }
-      } catch (_) {
-        resultado = null;
-      }
-      await mostrarFinal(resultado);
-
-      cena.classList.add("fechamento-mes-finalizando");
-      document.body.classList.remove("fechamento-mes-ativo");
-      await esperar(900);
-      cena.classList.add("is-hidden");
-      cena._cerimoniaAtiva = false;
-    } catch (err) {
-      console.error("Cerimônia de fechamento:", err);
-      await trocarTela({ titulo: "Não foi possível concluir a cerimônia.", texto: "O mês permanece seguro e aberto.", html: `<div class="fechamento-mes-meta"><span>!</span><p>Você pode tentar fechar novamente.</p></div>` }).catch(() => {});
-      document.body.classList.remove("fechamento-mes-ativo");
-      await esperar(2500);
-      cena.classList.add("fechamento-mes-finalizando");
-      await esperar(800);
-      cena.classList.add("is-hidden");
-      cena._cerimoniaAtiva = false;
-    }
-  })();
-
-  return cena;
 }
 
 async function verificarFechamentoMes(mes, ano, pessoa, tentativas = 8) {
@@ -868,11 +370,8 @@ async function verificarFechamentoMes(mes, ano, pessoa, tentativas = 8) {
           };
         }
       }
-    } catch (err) {
-      // 404/redirect temporário do Firebase não significa que o fechamento
-      // falhou. O Firebase pode ainda estar concluindo a gravação.
-    }
-    await espera(1800 + tentativa * 500);
+    } catch (_) {}
+    await espera(900 + tentativa * 350);
   }
   return null;
 }
@@ -908,15 +407,18 @@ async function fecharMesRequisicao(mes, ano, pessoa) {
     }
   } catch (err) {
     console.error("Fechamento Firebase:", err);
-    // Ainda confirmamos pelo estado persistido, pois a gravação pode ter
-    // concluído mesmo que a resposta tenha sido interrompida.
   }
 
-  // Confirma pelo estado persistido. Se o servidor concluiu o fechamento,
-  // P/Q já apontarão para o mês seguinte mesmo que a resposta do POST tenha
-  // sido perdida pelo navegador.
-  await espera(1200);
+  await espera(900);
   return await verificarFechamentoMes(mes, ano, pessoa, 10);
+}
+
+function animarFechamentoRapido(alvo, sucesso) {
+  if (!alvo) return;
+  alvo.classList.remove("fechar-mes-sucesso", "fechar-mes-erro");
+  void alvo.offsetWidth;
+  alvo.classList.add(sucesso ? "fechar-mes-sucesso" : "fechar-mes-erro");
+  window.setTimeout(() => alvo.classList.remove("fechar-mes-sucesso", "fechar-mes-erro"), 700);
 }
 
 on("formFecharMes", "submit", async (e) => {
@@ -932,18 +434,7 @@ on("formFecharMes", "submit", async (e) => {
   const btnSubmit = document.getElementById("fecharMesSubmit");
   if (btnSubmit) {
     btnSubmit.disabled = true;
-    btnSubmit.textContent = "Preparando…";
-  }
-
-  const dadosFechamentoAntes = prepararDadosFechamentoMes(mes, ano);
-  // Não usamos mais localStorage para decidir se a cerimônia aparece.
-  // Cada fechamento confirmado recebe sua própria cerimônia.
-  const cenaFechamento = mostrarFechamentoMes(dadosFechamentoAntes, { resultadoPromessa: null });
-  if (cenaFechamento) {
-    cenaFechamento.style.zIndex = "99999";
-    cenaFechamento.classList.remove("is-hidden");
-    cenaFechamento.classList.add("is-visible");
-    void cenaFechamento.offsetWidth;
+    btnSubmit.textContent = "Fechando…";
   }
 
   if (fecharMesBackdrop) fecharMesBackdrop.classList.add("is-hidden");
@@ -951,24 +442,9 @@ on("formFecharMes", "submit", async (e) => {
   if (idxModalFecharMes !== -1) pilhaModais.splice(idxModalFecharMes, 1);
   esconderProcessando("fecharMesOverlay");
 
-  await new Promise((resolve) => requestAnimationFrame(() => requestAnimationFrame(resolve)));
-
-  // As duas partes começam juntas: o Firebase salva em segundo plano e a
-  // cerimônia segue sua narrativa visual. A promessa é compartilhada com a
-  // cerimônia para que somente a última tela dependa do resultado real.
-  const resultadoPromessa = fecharMesRequisicao(mes, ano, pessoaFechamento);
-  const cenaAtiva = document.getElementById("fechamentoMesCena");
-  if (cenaAtiva) {
-    // mostrarFechamentoMes já foi iniciado acima. Entregamos a promessa para
-    // a instância ativa sem reiniciar a cerimônia.
-    cenaAtiva._resultadoPromessa = resultadoPromessa;
-  }
-
-  const resultado = await resultadoPromessa;
-  if (btnSubmit) {
-    btnSubmit.disabled = false;
-    btnSubmit.textContent = "Fechar mês";
-  }
+  // O fechamento agora tem somente um feedback curto no botão. Não existe
+  // cena, narrativa, tela intermediária ou cerimônia.
+  const resultado = await fecharMesRequisicao(mes, ano, pessoaFechamento);
 
   if (resultado) {
     const f = resultado.fechado;
@@ -982,11 +458,15 @@ on("formFecharMes", "submit", async (e) => {
     await removerCache("ambos");
     await removerCache("historico");
 
-    showToast(`${MESES_LABEL[f.mes - 1]}/${f.ano} foi fechado para ${PESSOA_LABEL[pessoaFechamento]}. O próximo mês já está preparado.`);
+    animarFechamentoRapido(document.getElementById("mesAtualBadge"), true);
+    showToast(`${MESES_LABEL[f.mes - 1]}/${f.ano} foi fechado para ${PESSOA_LABEL[pessoaFechamento]}.`);
     await carregarDados();
   } else {
+    animarFechamentoRapido(document.getElementById("mesAtualBadge"), false);
     showToast("Não consegui fechar o mês agora. Tenta de novo em instantes.");
   }
+
+  if (btnSubmit) btnSubmit.disabled = false;
 });
 
 let confirmCallback = null;

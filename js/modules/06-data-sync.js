@@ -205,19 +205,22 @@ async function carregarDados() {
 }
 
 function prefetchOutrasPessoas(pessoaJaCarregada) {
-  const pessoas = Object.keys(PESSOA_LABEL).filter((p) => p !== pessoaJaCarregada);
-  return Promise.all(pessoas.map((p) =>
-    getCache(p).then((cache) => {
-      if (cache) return cache;
-      return fetchApiGet({ pessoa: p })
-        .then((res) => res.json())
-        .then((data) => {
-          if (data && data.ok !== false) { setCache(p, data); return data; }
-          return null;
-        })
-        .catch(() => null);
-    })
-  ));
+  const pessoas = Object.keys(PESSOA_LABEL).filter((p) => p !== pessoaJaCarregada && p !== "ambos");
+  return Promise.all(pessoas.map(async (p) => {
+    // O prefetch também precisa atualizar o cache. Se apenas reutilizarmos o
+    // IndexedDB, a troca de perfil pode mostrar pagamentos antigos até um F5.
+    try {
+      if (!navigator.onLine) return await getCache(p);
+      const res = await fetchApiGet({ pessoa: p });
+      if (!res.ok) throw new Error(`HTTP ${res.status}`);
+      const data = await res.json();
+      if (data && data.ok !== false) {
+        await setCache(p, data);
+        return data;
+      }
+    } catch (_) {}
+    return await getCache(p);
+  }));
 }
 
 const filaSalvar = new Map(); 

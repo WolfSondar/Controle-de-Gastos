@@ -321,6 +321,8 @@ function renderRecentes() {
    .filter((item) => {
       // Lançamentos recentes representam dinheiro que efetivamente entrou ou saiu.
       // Pendentes continuam disponíveis na seção "Pendentes" das respectivas abas.
+      // "Oculto:" participa dos cálculos, mas nunca aparece em Lançamentos recentes.
+      if (lancamentoEhOculto(item)) return false;
       const concluido = item.tipo === "income" ? item.recebido === true : item.pago === true;
       if (!concluido) return false;
       const data = String(item.data || "").slice(0, 10);
