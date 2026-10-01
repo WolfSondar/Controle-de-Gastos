@@ -2706,3 +2706,157 @@ html[data-theme="dark"][data-caixa-theme="halloween"] #fecharMesBackdrop #fechar
 .historico-mes-card,.historico-mes-card:hover,.historico-mes-card:focus,.historico-mes-card:focus-within{background-image:none!important}
 .historico-mes-card::before,.historico-mes-card::after,.historico-mes-head::before,.historico-mes-head::after{content:none!important;display:none!important;background:none!important;box-shadow:none!important;filter:none!important;opacity:0!important;animation:none!important}
 @media (prefers-reduced-motion:reduce){html[data-theme="dark"][data-caixa-theme="halloween"] #fecharMesBackdrop .fechar-mes-modal::after{animation:none!important}}
+
+/* ============================================================
+   HALLOWEEN — PALETA FINAL SEM FUNDOS VERDES
+   Resumo, Histórico e ações flutuantes usam a mesma linguagem
+   neutra/cobre do painel de Lançamentos recentes.
+   ============================================================ */
+
+/* Resumo — Suas caixinhas acompanha exatamente o painel de lançamentos. */
+html[data-caixa-theme="halloween"] #resumoCaixinhas .goal-card.caixinha-card,
+html[data-caixa-theme="halloween"] .goal-card.caixinha-card {
+  background:#fffaf5 !important;
+  border:1px solid #dfcbbd !important;
+  box-shadow:0 7px 20px rgba(55,35,42,.08) !important;
+}
+html[data-theme="dark"][data-caixa-theme="halloween"] #resumoCaixinhas .goal-card.caixinha-card,
+html[data-theme="dark"][data-caixa-theme="halloween"] .goal-card.caixinha-card {
+  background:#171718 !important;
+  border-color:rgba(177,145,121,.16) !important;
+  box-shadow:0 10px 26px rgba(0,0,0,.24) !important;
+}
+
+/* Histórico — seletor de ano com o mesmo fundo do Lançamentos recentes. */
+html[data-caixa-theme="halloween"] .historico-controles,
+html[data-caixa-theme="halloween"] .historico-controles .input-select {
+  background:#fffaf5 !important;
+  border-color:#dfcbbd !important;
+}
+html[data-theme="dark"][data-caixa-theme="halloween"] .historico-controles,
+html[data-theme="dark"][data-caixa-theme="halloween"] .historico-controles .input-select {
+  background:#171718 !important;
+  border-color:rgba(177,145,121,.16) !important;
+  color:#eee6de !important;
+}
+
+/* Botão + e botão do chat: cobre no claro, carvão no escuro — sem verde. */
+html[data-caixa-theme="halloween"] .fab-criar {
+  background:#b65a2b !important;
+  border-color:#8e4424 !important;
+  color:#fff8f0 !important;
+  box-shadow:0 12px 28px rgba(142,68,36,.24),0 2px 0 rgba(255,255,255,.12) inset !important;
+}
+html[data-caixa-theme="halloween"] .fab-criar svg { color:#fff8f0 !important; stroke:currentColor !important; }
+html[data-caixa-theme="halloween"] .fab-criar:hover {
+  background:#c66b38 !important;
+  box-shadow:0 16px 32px rgba(142,68,36,.28),0 2px 0 rgba(255,255,255,.12) inset !important;
+}
+html[data-theme="dark"][data-caixa-theme="halloween"] .fab-criar {
+  background:#252423 !important;
+  border-color:rgba(208,138,99,.28) !important;
+  color:#f4e9df !important;
+  box-shadow:0 12px 30px rgba(0,0,0,.42),0 2px 0 rgba(208,138,99,.35) inset !important;
+}
+html[data-theme="dark"][data-caixa-theme="halloween"] .fab-criar:hover { background:#302e2b !important; }
+
+html[data-caixa-theme="halloween"] .caixa-chat-fab {
+  background:#4a1942 !important;
+  border-color:#6b3159 !important;
+  color:#fff7ed !important;
+  box-shadow:0 12px 28px rgba(74,25,66,.25) !important;
+}
+html[data-caixa-theme="halloween"] .caixa-chat-fab:hover { background:#5b214e !important; }
+html[data-theme="dark"][data-caixa-theme="halloween"] .caixa-chat-fab {
+  background:#252423 !important;
+  border-color:rgba(208,138,99,.30) !important;
+  color:#f7eee6 !important;
+  box-shadow:0 12px 30px rgba(0,0,0,.44) !important;
+}
+html[data-theme="dark"][data-caixa-theme="halloween"] .caixa-chat-fab:hover { background:#302e2b !important; }
+
+/* Histórico — card reconstruído visualmente: plano, limpo e sem adornos. */
+html[data-caixa-theme="halloween"] .historico-mes-card,
+html[data-caixa-theme="halloween"] .historico-mes-card:hover,
+html[data-caixa-theme="halloween"] .historico-mes-card:focus,
+html[data-caixa-theme="halloween"] .historico-mes-card:focus-within {
+  position:relative !important;
+  overflow:hidden !important;
+  background:#fffaf5 !important;
+  background-image:none !important;
+  border:1px solid #dfcbbd !important;
+  border-radius:16px !important;
+  box-shadow:0 7px 20px rgba(55,35,42,.07) !important;
+  padding:0 !important;
+}
+html[data-theme="dark"][data-caixa-theme="halloween"] .historico-mes-card,
+html[data-theme="dark"][data-caixa-theme="halloween"] .historico-mes-card:hover,
+html[data-theme="dark"][data-caixa-theme="halloween"] .historico-mes-card:focus,
+html[data-theme="dark"][data-caixa-theme="halloween"] .historico-mes-card:focus-within {
+  background:#171718 !important;
+  background-image:none !important;
+  border-color:rgba(177,145,121,.16) !important;
+  box-shadow:0 10px 26px rgba(0,0,0,.24) !important;
+}
+html[data-caixa-theme="halloween"] .historico-mes-card::before,
+html[data-caixa-theme="halloween"] .historico-mes-card::after,
+html[data-caixa-theme="halloween"] .historico-mes-head::before,
+html[data-caixa-theme="halloween"] .historico-mes-head::after {
+  content:none !important;
+  display:none !important;
+  background:none !important;
+  box-shadow:none !important;
+  filter:none !important;
+  opacity:0 !important;
+  animation:none !important;
+}
+html[data-caixa-theme="halloween"] .historico-mes-head {
+  min-height:62px !important;
+  margin:0 !important;
+  padding:12px 14px !important;
+  border:0 !important;
+  border-bottom:1px solid #ead8ca !important;
+  background:transparent !important;
+}
+html[data-theme="dark"][data-caixa-theme="halloween"] .historico-mes-head {
+  border-bottom-color:rgba(177,145,121,.13) !important;
+  background:transparent !important;
+}
+html[data-caixa-theme="halloween"] .historico-mes-content {
+  margin:0 !important;
+  padding:10px 14px 14px !important;
+  background:transparent !important;
+}
+html[data-caixa-theme="halloween"] .historico-mes-content.is-collapsed {
+  padding-top:0 !important;
+  padding-bottom:0 !important;
+}
+html[data-caixa-theme="halloween"] .historico-mes-chevron,
+html[data-caixa-theme="halloween"] .historico-mes-head:hover .historico-mes-chevron,
+html[data-caixa-theme="halloween"] .historico-mes-head:not(.is-collapsed) .historico-mes-chevron {
+  background:#f2e6dc !important;
+  border-color:#dfcbbd !important;
+  color:#8e4424 !important;
+  box-shadow:none !important;
+}
+html[data-theme="dark"][data-caixa-theme="halloween"] .historico-mes-chevron,
+html[data-theme="dark"][data-caixa-theme="halloween"] .historico-mes-head:hover .historico-mes-chevron,
+html[data-theme="dark"][data-caixa-theme="halloween"] .historico-mes-head:not(.is-collapsed) .historico-mes-chevron {
+  background:#252423 !important;
+  border-color:rgba(208,138,99,.22) !important;
+  color:#d08a63 !important;
+}
+html[data-caixa-theme="halloween"] .historico-mes-total,
+html[data-theme="dark"][data-caixa-theme="halloween"] .historico-mes-total {
+  color:#9b4d2b !important;
+}
+html[data-theme="dark"][data-caixa-theme="halloween"] .historico-mes-total { color:#d08a63 !important; }
+
+/* Barra de progresso da caixinha: verde só pode existir como cor de dado,
+   nunca como fundo do card/painel. */
+html[data-caixa-theme="halloween"] .goal-card.caixinha-card .goal-icon-ring-inner {
+  background:#fff2e5 !important;
+}
+html[data-theme="dark"][data-caixa-theme="halloween"] .goal-card.caixinha-card .goal-icon-ring-inner {
+  background:#252423 !important;
+}
