@@ -182,6 +182,7 @@ async function carregarDados() {
     });
     window.CAIXA_CARREGAMENTO_INICIAL_TEMA = false;
     prefetchOutrasPessoas(pessoaRequisitada);
+    window.CAIXA_VERIFICAR_FECHAMENTO_AUTOMATICO?.();
   } catch (err) {
     if (state.pessoaAtual !== pessoaRequisitada) return;
     // Caiu a conexão no meio da busca: mesmo tratamento calmo do offline

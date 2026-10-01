@@ -10639,3 +10639,32 @@ html[data-theme="dark"][data-caixa-theme="halloween"] #caixaConfigAdmin .caixa-c
   30% { transform: translateX(-4px); }
   60% { transform: translateX(4px); }
 }
+
+/* ============================================================
+   PALETA SEMÂNTICA GLOBAL — mesma linguagem em todas as telas
+   ============================================================ */
+:root {
+  --theme-primary: var(--ink-soft);
+  --theme-primary-soft: var(--paper-deep);
+  --theme-accent: var(--gold);
+  --theme-accent-strong: var(--gold-deep);
+  --theme-income: var(--income);
+  --theme-expense: var(--expense);
+  --theme-saved: var(--gold);
+  --theme-yield: var(--yield);
+  --theme-surface: var(--paper);
+  --theme-surface-alt: var(--paper-deep);
+  --theme-border: var(--line);
+}
+
+/* Histórico: remove qualquer efeito de luz/brilho no fundo. */
+.historico-mes-card,
+.historico-mes-card:hover { background-image: none !important; }
+.historico-mes-card::after { display: none !important; }
+.historico-rendimento-linha .rendimento-valor { color: var(--theme-yield) !important; font-weight: 750; }
+
+/* Fechamento manual: somente confetes + troca curta do mês. */
+.fechamento-confetes { position:fixed; inset:0; z-index:99999; pointer-events:none; overflow:hidden; }
+.fechamento-confetes i { position:absolute; left:50%; top:58%; width:7px; height:11px; border-radius:2px; opacity:0; animation:fechamento-confete .9s cubic-bezier(.15,.75,.25,1) var(--d) both; transform:translate(-50%,-50%) rotate(0deg); }
+@keyframes fechamento-confete { 0%{opacity:0;transform:translate(-50%,-50%) rotate(0) scale(.7)} 12%{opacity:1} 100%{opacity:0;transform:translate(calc(-50% + var(--x)),calc(-50% + var(--y))) rotate(var(--r)) scale(1)} }
+@media (prefers-reduced-motion:reduce){.fechamento-confetes i{animation:none;opacity:0}}

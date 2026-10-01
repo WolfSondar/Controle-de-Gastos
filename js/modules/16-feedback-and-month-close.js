@@ -338,6 +338,7 @@ function prepararFormFecharMes() {
   const periodo = document.getElementById("fecharMesPeriodo");
   const mes = Number(state.mesAtual);
   const ano = Number(state.anoAtual);
+  const badgeAntes = document.getElementById("mesAtualBadge")?.textContent || "";
   if (periodo) {
     const valor = mes && ano ? `${MESES_LABEL[mes - 1]}/${ano}` : "Mês atual";
     const valorEl = periodo.querySelector("strong");
@@ -421,10 +422,68 @@ function animarFechamentoRapido(alvo, sucesso) {
   window.setTimeout(() => alvo.classList.remove("fechar-mes-sucesso", "fechar-mes-erro"), 700);
 }
 
+
+function criarConfetesFechamento() {
+  const root = document.createElement("div");
+  root.className = "fechamento-confetes";
+  root.setAttribute("aria-hidden", "true");
+  const cores = ["var(--gold)", "var(--income)", "var(--expense)", "var(--yield)"];
+  for (let i = 0; i < 22; i++) {
+    const p = document.createElement("i");
+    p.style.setProperty("--x", `${(Math.random() * 180 - 90).toFixed(1)}px`);
+    p.style.setProperty("--y", `${(-45 - Math.random() * 120).toFixed(1)}px`);
+    p.style.setProperty("--r", `${Math.round(Math.random() * 360)}deg`);
+    p.style.setProperty("--d", `${(Math.random() * .22).toFixed(2)}s`);
+    p.style.background = cores[i % cores.length];
+    root.appendChild(p);
+  }
+  document.body.appendChild(root);
+  window.setTimeout(() => root.remove(), 1200);
+}
+
+function animarTrocaMesFechamento(anterior, novo) {
+  const badge = document.getElementById("mesAtualBadge");
+  criarConfetesFechamento();
+  if (!badge || !novo) return;
+  const antigo = anterior || badge.textContent;
+  badge.textContent = antigo;
+  badge.animate(
+    [{ opacity: 1, transform: "translateY(0)" }, { opacity: 0, transform: "translateY(-6px)" }],
+    { duration: 240, easing: "ease-in", fill: "forwards" }
+  ).finished.then(() => {
+    badge.textContent = novo;
+    badge.animate(
+      [{ opacity: 0, transform: "translateY(7px)" }, { opacity: 1, transform: "translateY(0)" }],
+      { duration: 360, easing: "cubic-bezier(.2,.8,.2,1)", fill: "forwards" }
+    );
+  });
+}
+
+function fecharMesTemPassado() {
+  if (!navigator.onLine || !state.mesAtual || !state.anoAtual || state.pessoaAtual === "ambos") return false;
+  const agora = new Date();
+  const cicloAtual = Number(state.anoAtual) * 12 + Number(state.mesAtual);
+  const cicloReal = agora.getFullYear() * 12 + (agora.getMonth() + 1);
+  return cicloReal > cicloAtual;
+}
+
+window.CAIXA_VERIFICAR_FECHAMENTO_AUTOMATICO = function () {
+  if (!fecharMesTemPassado()) return;
+  const chave = `caixa-fechamento-sugerido-v1:${state.pessoaAtual}:${state.anoAtual}-${state.mesAtual}:${new Date().toISOString().slice(0,10)}`;
+  try { if (localStorage.getItem(chave) === "1") return; localStorage.setItem(chave, "1"); } catch (_) {}
+  window.setTimeout(() => {
+    if (state.pessoaAtual === "ambos" || !navigator.onLine || !fecharMesTemPassado()) return;
+    abrirFecharMes();
+    const texto = document.querySelector("#fecharMesBackdrop .fechar-mes-cabecalho-texto p");
+    if (texto) texto.textContent = "O mês atual do sistema ficou para trás. Deseja fechá-lo agora?";
+  }, 450);
+};
+
 on("formFecharMes", "submit", async (e) => {
   e.preventDefault();
   const mes = Number(state.mesAtual);
   const ano = Number(state.anoAtual);
+  const badgeAntes = document.getElementById("mesAtualBadge")?.textContent || "";
   const pessoaFechamento = state.pessoaAtual;
   if (!mes || !ano || (pessoaFechamento !== "davi" && pessoaFechamento !== "gabriel")) {
     if (pessoaFechamento === "ambos") showToast("Juntos é somente leitura. Selecione Davi ou Gabriel para fechar o mês.");
@@ -453,6 +512,8 @@ on("formFecharMes", "submit", async (e) => {
     if (pessoaFechamento === "davi") { state.mesAtualDavi = state.mesAtual; state.anoAtualDavi = state.anoAtual; }
     if (pessoaFechamento === "gabriel") { state.mesAtualGabriel = state.mesAtual; state.anoAtualGabriel = state.anoAtual; }
     renderMesAtual();
+    const badgeDepois = document.getElementById("mesAtualBadge")?.textContent || "";
+    animarTrocaMesFechamento(badgeAntes, badgeDepois);
 
     await removerCache(pessoaFechamento);
     await removerCache("ambos");

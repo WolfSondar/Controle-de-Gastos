@@ -2099,3 +2099,37 @@ html[data-theme="dark"][data-caixa-theme="halloween"] .historico-mes-card.is-exp
   background: rgba(255,122,61,.12) !important;
   border-color: rgba(255,122,61,.30) !important;
 }
+
+/* Paleta semântica de Halloween — claro/escuro. */
+html[data-caixa-theme="halloween"] {
+  --theme-primary: var(--halloween-purple, #4a1942);
+  --theme-primary-soft: #fdeee0;
+  --theme-accent: var(--halloween-orange, #ff7a3d);
+  --theme-accent-strong: #bd4514;
+  --theme-income: var(--income);
+  --theme-expense: var(--expense);
+  --theme-saved: var(--gold);
+  --theme-yield: var(--yield);
+  --theme-surface: var(--paper);
+  --theme-surface-alt: var(--paper-deep);
+  --theme-border: var(--line);
+}
+html[data-theme="dark"][data-caixa-theme="halloween"] {
+  --theme-primary: #8c5a9a;
+  --theme-primary-soft: #2b172b;
+  --theme-accent: #ff9b63;
+  --theme-accent-strong: #ff7a3d;
+  --theme-income: var(--income);
+  --theme-expense: var(--expense);
+  --theme-saved: var(--gold);
+  --theme-yield: var(--yield);
+  --theme-surface: var(--paper);
+  --theme-surface-alt: var(--paper-deep);
+  --theme-border: var(--line);
+}
+html[data-caixa-theme="halloween"] .historico-rendimento-linha .rendimento-valor { color: var(--theme-yield) !important; }
+
+/* Paleta semântica de Halloween — claro/escuro. */
+html[data-caixa-theme="halloween"]{--theme-primary:var(--halloween-purple,#4a1942);--theme-primary-soft:#fdeee0;--theme-accent:var(--halloween-orange,#ff7a3d);--theme-accent-strong:#bd4514;--theme-income:var(--income);--theme-expense:var(--expense);--theme-saved:var(--gold);--theme-yield:var(--yield);--theme-surface:var(--paper);--theme-surface-alt:var(--paper-deep);--theme-border:var(--line)}
+html[data-theme="dark"][data-caixa-theme="halloween"]{--theme-primary:#8c5a9a;--theme-primary-soft:#2b172b;--theme-accent:#ff9b63;--theme-accent-strong:#ff7a3d;--theme-income:var(--income);--theme-expense:var(--expense);--theme-saved:var(--gold);--theme-yield:var(--yield);--theme-surface:var(--paper);--theme-surface-alt:var(--paper-deep);--theme-border:var(--line)}
+html[data-caixa-theme="halloween"] .historico-rendimento-linha .rendimento-valor{color:var(--theme-yield)!important}

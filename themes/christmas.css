@@ -2829,3 +2829,37 @@ html[data-caixa-theme="christmas"] .caixa-admin-seasonal-card[data-caixa-seasona
 html[data-theme="dark"][data-caixa-theme="christmas"] .caixa-admin-seasonal-card { background:linear-gradient(145deg,#102b24,#0d211c) !important; border-color:rgba(121,207,226,.16) !important; box-shadow:0 12px 28px rgba(0,0,0,.28) !important; }
 html[data-theme="dark"][data-caixa-theme="christmas"] .caixa-admin-seasonal-card[data-caixa-seasonal-force-card="christmas"]::after { background:rgba(121,207,226,.12) !important; }
 html[data-theme="dark"][data-caixa-theme="christmas"] .caixa-admin-seasonal-card[data-caixa-seasonal-force-card="halloween"]::after { background:rgba(216,91,28,.10) !important; }
+
+/* Paleta semântica de Natal — claro/escuro. */
+html[data-caixa-theme="christmas"] {
+  --theme-primary: var(--christmas-green, #236447);
+  --theme-primary-soft: var(--paper-deep);
+  --theme-accent: var(--christmas-red, #b92f3b);
+  --theme-accent-strong: var(--christmas-green, #236447);
+  --theme-income: var(--income);
+  --theme-expense: var(--expense);
+  --theme-saved: var(--gold);
+  --theme-yield: var(--yield);
+  --theme-surface: var(--paper);
+  --theme-surface-alt: var(--paper-deep);
+  --theme-border: var(--line);
+}
+html[data-theme="dark"][data-caixa-theme="christmas"] {
+  --theme-primary: #73c69b;
+  --theme-primary-soft: #18362d;
+  --theme-accent: #ef7f88;
+  --theme-accent-strong: #e3bf61;
+  --theme-income: var(--income);
+  --theme-expense: var(--expense);
+  --theme-saved: var(--gold);
+  --theme-yield: var(--yield);
+  --theme-surface: var(--paper);
+  --theme-surface-alt: var(--paper-deep);
+  --theme-border: var(--line);
+}
+html[data-caixa-theme="christmas"] .historico-rendimento-linha .rendimento-valor { color: var(--theme-yield) !important; }
+
+/* Paleta semântica de Natal — claro/escuro. */
+html[data-caixa-theme="christmas"]{--theme-primary:var(--christmas-green,#236447);--theme-primary-soft:var(--paper-deep);--theme-accent:var(--christmas-red,#b92f3b);--theme-accent-strong:var(--christmas-green,#236447);--theme-income:var(--income);--theme-expense:var(--expense);--theme-saved:var(--gold);--theme-yield:var(--yield);--theme-surface:var(--paper);--theme-surface-alt:var(--paper-deep);--theme-border:var(--line)}
+html[data-theme="dark"][data-caixa-theme="christmas"]{--theme-primary:#73c69b;--theme-primary-soft:#18362d;--theme-accent:#ef7f88;--theme-accent-strong:#e3bf61;--theme-income:var(--income);--theme-expense:var(--expense);--theme-saved:var(--gold);--theme-yield:var(--yield);--theme-surface:var(--paper);--theme-surface-alt:var(--paper-deep);--theme-border:var(--line)}
+html[data-caixa-theme="christmas"] .historico-rendimento-linha .rendimento-valor{color:var(--theme-yield)!important}
