@@ -17,10 +17,10 @@
   --income-bg: #e6efe3;
   --expense: #a8482e;
   --expense-bg: #f3e3dc;
-  --yield: #7657a8;
-  --yield-bg: rgba(118,87,168,.12);
-  --rendimento-tag: var(--yield);
-  --rendimento-tag-bg: var(--yield-bg);
+  --yield: #3a6b8a;
+  --yield-bg: #e3ecf1;
+  --rendimento-tag: #7657a8;
+  --rendimento-tag-bg: rgba(118,87,168,.12);
   --ink-text: #241c12;
   --muted: #7a6f58;
   --tag-bg: rgba(36, 28, 18, 0.07);
@@ -56,10 +56,10 @@ html[data-theme="dark"] {
     --income-bg: #1c3629;
     --expense: #e0846a;
     --expense-bg: #3a241e;
-    --yield: #c4a7ee;
-    --yield-bg: rgba(196,167,238,.16);
-    --rendimento-tag: var(--yield);
-    --rendimento-tag-bg: var(--yield-bg);
+    --yield: #7fb8d9;
+    --yield-bg: #1c2f3a;
+    --rendimento-tag: #c4a7ee;
+    --rendimento-tag-bg: rgba(196,167,238,.16);
     --ink-text: #f1e9d8;
     --muted: #9fae9f;
     --tag-bg: rgba(241, 233, 216, 0.1);
@@ -422,7 +422,7 @@ html[data-theme="dark"] .add-form select, html[data-theme="dark"] .add-form inpu
   font-weight: 800;
 }
 
-.item-tag-rendimento { color: var(--yield); background: var(--yield-bg); }
+.item-tag-rendimento { color: var(--rendimento-tag); background: var(--rendimento-tag-bg); }
 .item-tag-perda { color: var(--expense); background: var(--expense-bg); }
 .item-tag-proximo { color: var(--expense); background: var(--expense-bg); }
 .item-tag-atrasado { color: var(--on-ink); background: var(--expense); font-weight: 800; }
@@ -10726,73 +10726,6 @@ html[data-theme="dark"][data-caixa-theme="halloween"] #caixaConfigAdmin .caixa-c
   font-weight: 750 !important;
 }
 
-/* CORREÇÃO DEFINITIVA — HISTÓRICO: remover o oval decorativo do cabeçalho */
-.historico-mes-card,
-.historico-mes-card:hover,
-.historico-mes-card:focus-within {
-  background-image: none !important;
-}
-.historico-mes-card::before,
-.historico-mes-card::after,
-.historico-mes-head::before,
-.historico-mes-head::after {
-  content: none !important;
-  display: none !important;
-  background: none !important;
-  background-image: none !important;
-  box-shadow: none !important;
-  filter: none !important;
-  opacity: 0 !important;
-  transform: none !important;
-  animation: none !important;
-}
-.historico-mes-head,
-.historico-mes-head:hover,
-.historico-mes-head:active {
-  background: transparent !important;
-  background-image: none !important;
-  box-shadow: none !important;
-}
-
-/* ============================================================
-   AJUSTE FINAL — RENDIMENTO + ADMIN MOBILE
-   ============================================================ */
-/* No escuro, Rendimento usa um malva suave: distinto de Benefícios,
-   sem competir com Guardado/Despesas. */
-html[data-theme="dark"]:not([data-caixa-theme="christmas"]):not([data-caixa-theme="halloween"]) {
-  --yield: #b59ad9;
-  --yield-bg: rgba(181,154,217,.15);
-}
-
-/* Forçar temas: no mobile mantém a mesma composição aprovada no Halloween:
-   dois cards lado a lado, mesma hierarquia e mesma densidade. */
-@media (max-width:760px) {
-  .caixa-admin-seasonal-force-wrap {
-    grid-template-columns: repeat(2, minmax(0, 1fr)) !important;
-    gap: 10px !important;
-  }
-  .caixa-admin-seasonal-card {
-    min-height: 160px !important;
-    padding: 14px !important;
-    border-radius: 22px !important;
-  }
-  .caixa-admin-seasonal-head {
-    grid-template-columns: 40px minmax(0,1fr) 24px !important;
-    gap: 9px !important;
-  }
-  .caixa-admin-seasonal-emoji {
-    width: 40px !important;
-    height: 40px !important;
-    border-radius: 15px !important;
-    font-size: 21px !important;
-  }
-  .caixa-admin-seasonal-title { font-size: 15px !important; }
-  .caixa-admin-seasonal-sub { font-size: 10px !important; line-height: 1.35 !important; }
-  .caixa-admin-seasonal-status { width: 24px !important; height: 24px !important; }
-  .caixa-admin-seasonal-action {
-    min-height: 39px !important;
-    border-radius: 12px !important;
-    font-size: 10px !important;
-    padding: 8px 6px !important;
-  }
-}
+/* HISTÓRICO — correção global definitiva: nenhum halo/oval decorativo nos cards. */
+.historico-mes-card,.historico-mes-card:hover,.historico-mes-card:focus,.historico-mes-card:focus-within{background-image:none!important}
+.historico-mes-card::before,.historico-mes-card::after,.historico-mes-head::before,.historico-mes-head::after{content:none!important;display:none!important;background:none!important;box-shadow:none!important;filter:none!important;opacity:0!important;animation:none!important}

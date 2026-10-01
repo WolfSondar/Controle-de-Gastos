@@ -2886,66 +2886,6 @@ html[data-caixa-theme="christmas"] .historico-rendimento-linha .rendimento-valor
   font-weight: 750 !important;
 }
 
-/* CORREÇÃO DEFINITIVA — HISTÓRICO: remover o oval decorativo do cabeçalho */
-html[data-caixa-theme="christmas"] .historico-mes-card,
-html[data-caixa-theme="christmas"] .historico-mes-card:hover,
-html[data-caixa-theme="christmas"] .historico-mes-card:focus-within {
-  background-image: none !important;
-}
-html[data-caixa-theme="christmas"] .historico-mes-card::before,
-html[data-caixa-theme="christmas"] .historico-mes-card::after,
-html[data-caixa-theme="christmas"] .historico-mes-head::before,
-html[data-caixa-theme="christmas"] .historico-mes-head::after {
-  content: none !important;
-  display: none !important;
-  background: none !important;
-  background-image: none !important;
-  box-shadow: none !important;
-  filter: none !important;
-  opacity: 0 !important;
-  transform: none !important;
-  animation: none !important;
-}
-html[data-caixa-theme="christmas"] .historico-mes-head,
-html[data-caixa-theme="christmas"] .historico-mes-head:hover,
-html[data-caixa-theme="christmas"] .historico-mes-head:active {
-  background: transparent !important;
-  background-image: none !important;
-  box-shadow: none !important;
-}
-
-/* Rendimento das caixinhas + Histórico: uma única cor semântica por tema/modo. */
-html[data-caixa-theme="christmas"] {
-  --yield: #4b9fca;
-  --yield-bg: #e8f6fc;
-}
-html[data-theme="dark"][data-caixa-theme="christmas"] {
-  --yield: #8bd9ef;
-  --yield-bg: #102a35;
-}
-html[data-caixa-theme="christmas"] .item-tag-rendimento {
-  color: var(--yield) !important;
-  background: var(--yield-bg) !important;
-}
-
-/* ============================================================
-   AJUSTE FINAL — RENDIMENTO NATALINO
-   Guardado permanece no azul-gelo do tema; Rendimento usa um
-   cranberry suave para ficar claramente separado e ainda natalino.
-   ============================================================ */
-html[data-caixa-theme="christmas"] {
-  --yield: #a85f7b;
-  --yield-bg: #f7e8ef;
-}
-html[data-theme="dark"][data-caixa-theme="christmas"] {
-  --yield: #e0a0b8;
-  --yield-bg: #38212c;
-}
-html[data-caixa-theme="christmas"] .item-tag-rendimento {
-  color: var(--yield) !important;
-  background: var(--yield-bg) !important;
-}
-html[data-caixa-theme="christmas"] .historico-rendimento-linha .rendimento-valor,
-html[data-caixa-theme="christmas"] .historico-mes-linha .yield {
-  color: var(--yield) !important;
-}
+/* HISTÓRICO — correção global definitiva: nenhum halo/oval decorativo nos cards. */
+.historico-mes-card,.historico-mes-card:hover,.historico-mes-card:focus,.historico-mes-card:focus-within{background-image:none!important}
+.historico-mes-card::before,.historico-mes-card::after,.historico-mes-head::before,.historico-mes-head::after{content:none!important;display:none!important;background:none!important;box-shadow:none!important;filter:none!important;opacity:0!important;animation:none!important}
