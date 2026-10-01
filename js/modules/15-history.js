@@ -299,7 +299,8 @@ function renderHistorico() {
       <button type="button" class="historico-mes-head collapse-toggle is-collapsed" data-collapse="${chaveCard}" aria-expanded="false" aria-controls="collapsible-${chaveCard}">
         <span class="historico-mes-nome">${escapeHtml(nomeMes)}</span>
         <span class="historico-mes-head-right">
-          <span class="historico-mes-saldo ${saldo < 0 ? "negative" : ""}">${fmt(saldo)}</span>
+          <span class="historico-mes-mini-saldo historico-mes-mini-saldo-beneficio"><span>Benefício</span>${fmt(saldoBeneficio)}</span>
+          <span class="historico-mes-mini-saldo historico-mes-mini-saldo-proprio ${saldoSaldo < 0 ? "negative" : ""}"><span>Saldo</span>${fmt(saldoSaldo)}</span>
           <span class="historico-mes-chevron" aria-hidden="true">
             <svg viewBox="0 0 24 24" fill="none"><path d="m7 10 5 5 5-5" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>
           </span>
@@ -319,14 +320,6 @@ function renderHistorico() {
         <div class="historico-mes-linha">
           <span>Gastos — Benefício</span><span class="expense">${fmt(gastosBeneficio)}</span>
         </div>
-        <div class="historico-mes-linha historico-mes-subtotal">
-          <span>Total do mês</span><span>${fmt(ganhos)} / ${fmt(Math.abs(debitos))}</span>
-        </div>
-        <div class="historico-mes-linha">
-          <span>Saldo próprio no fechamento</span><span>${fmt(saldoSaldo)}</span>
-        </div>
-        <div class="historico-mes-linha">
-          <span>Benefício restante</span><span>${fmt(saldoBeneficio)}</span>
         </div>` : ""}
         ${guardado > 0 ? `<div class="historico-mes-linha"><span>Guardado</span><span class="gold">${fmt(guardado)}</span></div>` : ""}
         ${rendimento > 0 ? `<div class="historico-mes-linha"><span>Rendeu no mês</span><span class="yield">+ ${fmt(rendimento)}</span></div>` : ""}

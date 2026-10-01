@@ -10485,6 +10485,12 @@ html[data-caixa-theme="halloween"] .hero-stats > .hero-stat:nth-child(2) {
 .historico-mes-card { overflow: hidden; }
 .historico-mes-head { width: 100%; border: 0; background: transparent; color: inherit; padding: 0; cursor: pointer; text-align: left; }
 .historico-mes-head-right { display:flex; align-items:center; gap:10px; margin-left:auto; }
+.historico-mes-mini-saldo { display:inline-flex; align-items:center; gap:5px; padding:5px 8px; border-radius:8px; font-family:var(--font-mono); font-size:10px; font-weight:700; line-height:1; white-space:nowrap; }
+.historico-mes-mini-saldo > span { font-family:var(--font-sans); font-size:9px; font-weight:700; }
+.historico-mes-mini-saldo-beneficio { color:var(--benefit-deep); background:var(--benefit-bg); }
+.historico-mes-mini-saldo-proprio { color:var(--income); background:var(--income-bg); }
+.historico-mes-mini-saldo-proprio.negative { color:var(--expense); background:var(--expense-bg); }
+
 .historico-mes-chevron { width:30px; height:30px; display:grid; place-items:center; flex:0 0 30px; border:1px solid var(--line); border-radius:10px; background:var(--paper); color:var(--muted); transition:transform .22s ease, background .22s ease, border-color .22s ease, color .22s ease; }
 .historico-mes-chevron svg { width:16px; height:16px; transition:transform .24s cubic-bezier(.4,0,.2,1); }
 .historico-mes-head:hover .historico-mes-chevron { border-color:var(--gold); color:var(--gold-deep); background:var(--paper-deep); }
