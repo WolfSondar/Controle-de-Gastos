@@ -326,10 +326,25 @@ if (!cfg.apiKey || cfg.apiKey.includes("COLE_")) {
       const dados=ps.exists()?ps.data():{}; if(Number(dados.mesAtual)!==mes||Number(dados.anoAtual)!==ano)throw new Error(`O mês informado não é o mês atual de ${pessoa}.`);
       const ganhos=somaRecebidos(dados.ganhos),debitos=somaPagos(dados.gastosFixos)+somaVariaveisReais(dados.gastosVariaveis);
       const saldos=calcularSaldosDisponiveis(dados),saldo=saldos.total;
+      // Fechamento separado por origem: dinheiro próprio (saldo) x benefício.
+      // Esses campos ficam gravados no histórico para que o mês continue
+      // mostrando de onde veio o dinheiro e onde ele foi usado.
+      const ganhosSaldo=Number(saldos.ganhosPorOrigem?.ganhos)||0;
+      const ganhosBeneficio=Number(saldos.ganhosPorOrigem?.beneficios)||0;
+      const gastosSaldo=(Number(saldos.fixosPagosSaldo)||0)+(Number(saldos.gastosVariaveisSaldo)||0);
+      const gastosBeneficio=(Number(saldos.fixosPagosBeneficio)||0)+(Number(saldos.gastosVariaveisBeneficio)||0);
+      const saldoSaldo=Number(saldos.saldoConta)||0;
+      const saldoBeneficio=Number(saldos.beneficio)||0;
       const guardado=(dados.caixinhas||[]).reduce((a,c)=>a+totalCaixinha(c),0),guardadoMes=somaCampo(dados.caixinhas,"valorGuardadoMes"),rendimento=somaCampo(dados.caixinhas,"rendimentoTotal"),categorias=categoriasDoMes(dados);
       const hv=hs.exists()?hs.data():{};const anos=Array.isArray(hv.anos)?structuredClone(hv.anos):[];let bloco=anos.find(x=>Number(x.ano)===ano);if(!bloco){bloco={ano,meses:[]};anos.push(bloco);}
       let m=bloco.meses.find(x=>Number(x.mes)===mes);if(!m){m={mes,nome:tituloMes(mes)};bloco.meses.push(m);}const suf=pessoa==="davi"?"Davi":"Gabriel";
       m[`ganhos${suf}`]=ganhos;m[`debitos${suf}`]=-debitos;m[`saldo${suf}`]=saldo;m[`guardado${suf}`]=guardado;
+      m[`ganhosSaldo${suf}`]=ganhosSaldo;
+      m[`ganhosBeneficio${suf}`]=ganhosBeneficio;
+      m[`gastosSaldo${suf}`]=gastosSaldo;
+      m[`gastosBeneficio${suf}`]=gastosBeneficio;
+      m[`saldoSaldo${suf}`]=saldoSaldo;
+      m[`saldoBeneficio${suf}`]=saldoBeneficio;
       // O campo mensal precisa ficar como guardadoMesDavi/Gabriel,
       // exatamente no formato que o histórico e o gráfico consomem.
       m[`guardadoMes${suf}`]=guardadoMes;
@@ -385,7 +400,7 @@ if (!cfg.apiKey || cfg.apiKey.includes("COLE_")) {
         saldoInicialBeneficio:0,
         mesAtual:next.mes,anoAtual:next.ano},{merge:false});
       tx.set(href,{anos},{merge:true});
-      return {ok:true,fechado:{mes,ano,pessoa,ganhos,debitos,saldo,saldoGanhos:saldos.ganhos,saldoBeneficios:saldos.beneficios,guardado,guardadoMes,rendimento},datasAusentes,pessoa,mesAtual:next.mes,anoAtual:next.ano,configDavi:pessoa==="davi"?{mesAtual:next.mes,anoAtual:next.ano}:undefined,configGabriel:pessoa==="gabriel"?{mesAtual:next.mes,anoAtual:next.ano}:undefined};
+      return {ok:true,fechado:{mes,ano,pessoa,ganhos,debitos,saldo,ganhosSaldo,ganhosBeneficio,gastosSaldo,gastosBeneficio,saldoSaldo,saldoBeneficio,saldoGanhos:ganhosSaldo,saldoBeneficios:ganhosBeneficio,guardado,guardadoMes,rendimento},datasAusentes,pessoa,mesAtual:next.mes,anoAtual:next.ano,configDavi:pessoa==="davi"?{mesAtual:next.mes,anoAtual:next.ano}:undefined,configGabriel:pessoa==="gabriel"?{mesAtual:next.mes,anoAtual:next.ano}:undefined};
     });
   }
 

@@ -226,7 +226,7 @@ function renderHistorico() {
   const paginaAnterior = paginaCarrosselAtiva("historicoGraficosCarousel");
 
   // Novo: Inclusão dos campos de rendimento para calcular "Todos os anos" perfeitamente
-  const camposSoma = ["ganhosDavi", "ganhosGabriel", "debitosDavi", "debitosGabriel", "guardadoMesDavi", "guardadoMesGabriel", "saldoDavi", "saldoGabriel", "rendimentoDavi", "rendimentoGabriel"];
+  const camposSoma = ["ganhosDavi", "ganhosGabriel", "debitosDavi", "debitosGabriel", "ganhosSaldoDavi", "ganhosSaldoGabriel", "ganhosBeneficioDavi", "ganhosBeneficioGabriel", "gastosSaldoDavi", "gastosSaldoGabriel", "gastosBeneficioDavi", "gastosBeneficioGabriel", "saldoSaldoDavi", "saldoSaldoGabriel", "saldoBeneficioDavi", "saldoBeneficioGabriel", "guardadoMesDavi", "guardadoMesGabriel", "saldoDavi", "saldoGabriel", "rendimentoDavi", "rendimentoGabriel"];
   
   const agregarAnoComoRegistro = (bloco) => {
     const registro = { nome: String(bloco.ano), mes: bloco.ano };
@@ -234,6 +234,18 @@ function renderHistorico() {
     bloco.meses.forEach((m) => {
       registro.ganhosDavi += Number(m.ganhosDavi) || 0;
       registro.ganhosGabriel += Number(m.ganhosGabriel) || 0;
+      registro.ganhosSaldoDavi += Number(m.ganhosSaldoDavi) || 0;
+      registro.ganhosSaldoGabriel += Number(m.ganhosSaldoGabriel) || 0;
+      registro.ganhosBeneficioDavi += Number(m.ganhosBeneficioDavi) || 0;
+      registro.ganhosBeneficioGabriel += Number(m.ganhosBeneficioGabriel) || 0;
+      registro.gastosSaldoDavi += Number(m.gastosSaldoDavi) || 0;
+      registro.gastosSaldoGabriel += Number(m.gastosSaldoGabriel) || 0;
+      registro.gastosBeneficioDavi += Number(m.gastosBeneficioDavi) || 0;
+      registro.gastosBeneficioGabriel += Number(m.gastosBeneficioGabriel) || 0;
+      registro.saldoSaldoDavi += Number(m.saldoSaldoDavi) || 0;
+      registro.saldoSaldoGabriel += Number(m.saldoSaldoGabriel) || 0;
+      registro.saldoBeneficioDavi += Number(m.saldoBeneficioDavi) || 0;
+      registro.saldoBeneficioGabriel += Number(m.saldoBeneficioGabriel) || 0;
       registro.debitosDavi += Number(m.debitosDavi) || 0;
       registro.debitosGabriel += Number(m.debitosGabriel) || 0;
       registro.saldoDavi += Number(m.saldoDavi) || 0;
@@ -269,9 +281,16 @@ function renderHistorico() {
   const cards = mesesOrdenados.map((m) => {
     const ganhos = getVal(m, 'ganhos');
     const debitos = getVal(m, 'debitos');
+    const ganhosSaldo = getVal(m, 'ganhosSaldo');
+    const ganhosBeneficio = getVal(m, 'ganhosBeneficio');
+    const gastosSaldo = getVal(m, 'gastosSaldo');
+    const gastosBeneficio = getVal(m, 'gastosBeneficio');
+    const saldoSaldo = getVal(m, 'saldoSaldo');
+    const saldoBeneficio = getVal(m, 'saldoBeneficio');
     const guardado = getVal(m, 'guardadoMes');
     const rendimento = getVal(m, 'rendimento'); // Busca o novo rendimento
     const saldo = getVal(m, 'saldo');
+    const detalhamentoOrigemDisponivel = Object.keys(m || {}).some((chave) => /^(ganhosSaldo|ganhosBeneficio|gastosSaldo|gastosBeneficio|saldoSaldo|saldoBeneficio)(Davi|Gabriel)$/.test(chave));
     const nomeMes = modoTodos ? `Ano ${m.nome}` : (m.nome.charAt(0) + m.nome.slice(1).toLowerCase());
 
     const chaveCard = `historico-${modoTodos ? `ano-${m.nome}` : `${m.ano || anoAlvo}-${m.mes}`}-${pessoa}`.replace(/[^a-zA-Z0-9_-]/g, "-");
@@ -287,12 +306,28 @@ function renderHistorico() {
         </span>
       </button>
       <div class="historico-mes-content collapsible is-collapsed" id="collapsible-${chaveCard}">
+        ${detalhamentoOrigemDisponivel ? `
         <div class="historico-mes-linha">
-          <span>Ganhos</span><span class="income">${fmt(ganhos)}</span>
+          <span>Ganhos — Saldo</span><span class="income">${fmt(ganhosSaldo)}</span>
         </div>
         <div class="historico-mes-linha">
-          <span>Débitos</span><span class="expense">${fmt(Math.abs(debitos))}</span>
+          <span>Ganhos — Benefício</span><span class="income">${fmt(ganhosBeneficio)}</span>
         </div>
+        <div class="historico-mes-linha">
+          <span>Gastos — Saldo</span><span class="expense">${fmt(gastosSaldo)}</span>
+        </div>
+        <div class="historico-mes-linha">
+          <span>Gastos — Benefício</span><span class="expense">${fmt(gastosBeneficio)}</span>
+        </div>
+        <div class="historico-mes-linha historico-mes-subtotal">
+          <span>Total do mês</span><span>${fmt(ganhos)} / ${fmt(Math.abs(debitos))}</span>
+        </div>
+        <div class="historico-mes-linha">
+          <span>Saldo próprio no fechamento</span><span>${fmt(saldoSaldo)}</span>
+        </div>
+        <div class="historico-mes-linha">
+          <span>Benefício restante</span><span>${fmt(saldoBeneficio)}</span>
+        </div>` : ""}
         ${guardado > 0 ? `<div class="historico-mes-linha"><span>Guardado</span><span class="gold">${fmt(guardado)}</span></div>` : ""}
         ${rendimento > 0 ? `<div class="historico-mes-linha"><span>Rendeu no mês</span><span class="yield">+ ${fmt(rendimento)}</span></div>` : ""}
         ${pessoa === 'ambos' ? `
