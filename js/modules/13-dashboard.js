@@ -104,7 +104,9 @@ function habilitarSwipeCaixinhas(lista) {
     const idx = Number(wrap.dataset.idx);
 
     if (!dragging) {
-      // Toque simples: se já estava revelado, só fecha; senão abre o menu.
+      // Evita que o click sintético do toque atravesse o modal recém-aberto
+      // e acione por engano a opção que ficou sob o dedo.
+      if (e && e.cancelable) e.preventDefault();
       if (base !== 0) fecharSwipeCaixinha(wrap);
       else abrirAcoesCaixinha(idx);
       ativo = null;

@@ -391,14 +391,15 @@ html[data-theme="dark"] .add-form select, html[data-theme="dark"] .add-form inpu
 
 .swipe-content { display: grid; grid-template-columns: 1fr auto; grid-template-areas: "nome valor" "meta status"; align-items: center; column-gap: 10px; row-gap: 5px; padding: 13px 2px 13px 12px; background: var(--paper); position: relative; z-index: 1; touch-action: pan-y; transition: transform 0.25s cubic-bezier(.4,0,.2,1); }
 .item-list-row:active .swipe-content { background: var(--paper-deep); }
-.swipe-actions { position: absolute; top: 0; right: 0; bottom: 0; display: flex; width: 136px; z-index: 0; }
-.swipe-btn { flex: 1; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 5px; border: none; color: #fdfaf3; font-size: 10px; font-weight: 700; letter-spacing: 0.03em; text-transform: uppercase; cursor: pointer; transition: filter 0.12s ease; }
+.swipe-actions { position: absolute; inset: 0; display: block; z-index: 0; pointer-events: none; }
+.swipe-btn { position:absolute; top:0; bottom:0; width:92px; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 5px; border: none; color: #fdfaf3; font-size: 10px; font-weight: 700; letter-spacing: 0.03em; text-transform: uppercase; cursor: pointer; transition: filter 0.12s ease; }
 .swipe-btn-icon { width: 30px; height: 30px; border-radius: 50%; background: rgba(255,255,255,0.16); display: flex; align-items: center; justify-content: center; }
 .swipe-btn svg { width: 15px; height: 15px; }
-.swipe-edit { background: var(--gold); border-right: 1px solid rgba(0,0,0,0.1); }
-.swipe-delete { background: var(--expense); }
+.swipe-edit { right:0; background: var(--gold-deep); }
+.swipe-delete { left:0; background: var(--expense); }
+.swipe-actions .swipe-btn { pointer-events:auto; }
 .swipe-btn:active { filter: brightness(0.88); }
-.item-list-row.is-swiped .swipe-content { box-shadow: -8px 0 16px -6px rgba(0,0,0,0.28); }
+.item-list-row.is-swiped .swipe-content { box-shadow: 0 0 14px -7px rgba(0,0,0,0.25); }
 
 .item-nome { grid-area: nome; font-size: 14.5px; font-weight: 500; color: var(--ink-text); overflow-wrap: break-word; white-space: normal; align-self: end; }
 .item-valor { grid-area: valor; justify-self: end; align-self: end; font-family: var(--font-mono); font-size: 14.5px; font-weight: 600; flex-shrink: 0; }
@@ -7500,7 +7501,7 @@ html[data-theme="dark"] .transferencia-moeda-corpo {
 .caixa-chat-pendencias-lista.lista-simples li:nth-child(n) {
   display: grid;
   grid-template-columns: 25px minmax(0, 1fr) auto;
-  align-items: center;
+  align-items: start;
   justify-content: initial;
   gap: 9px;
   min-height: 0;
@@ -7517,6 +7518,7 @@ html[data-theme="dark"] .transferencia-moeda-corpo {
 .caixa-chat-pendencias-lista.lista-simples .chat-pendente-arrow {
   width: 25px; height: 25px; flex: 0 0 25px;
   display: inline-flex; align-items:center; justify-content:center;
+  margin-top: 1px;
   border-radius: 50%; background: var(--gold-bg, rgba(185,134,47,.12)); color: var(--gold-deep);
 }
 .caixa-chat-pendencias-lista.lista-simples .chat-pendente-arrow svg { width: 14px; height:14px; }
@@ -10729,3 +10731,42 @@ html[data-theme="dark"][data-caixa-theme="halloween"] #caixaConfigAdmin .caixa-c
 /* HISTÓRICO — correção global definitiva: nenhum halo/oval decorativo nos cards. */
 .historico-mes-card,.historico-mes-card:hover,.historico-mes-card:focus,.historico-mes-card:focus-within{background-image:none!important}
 .historico-mes-card::before,.historico-mes-card::after,.historico-mes-head::before,.historico-mes-head::after{content:none!important;display:none!important;background:none!important;box-shadow:none!important;filter:none!important;opacity:0!important;animation:none!important}
+
+/* Ajustes de alinhamento do chat e remoção da etiqueta do botão */
+.caixa-chat-fab-label { display: none !important; }
+.caixa-chat-pendencias-lista.lista-simples li { align-items: start; }
+.caixa-chat-pendencias-lista.lista-simples .chat-pendente-arrow { margin-top: 2px; }
+.caixa-chat-pendencias-lista.lista-simples .chat-pendente-main { align-self: start; }
+.caixa-chat-pendencias-lista.lista-simples li > .chat-valor { align-self: center; white-space: nowrap; }
+
+/* Tag de fatura no chat: usa tokens do tema ativo. */
+.chat-pendente-fatura {
+  display:inline-flex; align-items:center; width:fit-content;
+  padding:2px 7px; border-radius:999px;
+  color:var(--yield); background:var(--yield-bg);
+  border:1px solid color-mix(in srgb, var(--yield) 18%, transparent);
+  font-weight:800;
+}
+
+/* Lançamentos: centraliza nome/valor verticalmente quando não há data ou tag. */
+.item-list-row .swipe-content { grid-template-rows: minmax(20px, auto) minmax(18px, auto); }
+.item-list-row .item-nome, .item-list-row .item-valor { align-self: center; }
+.item-list-row .item-meta:empty { min-height: 18px; }
+
+/* Central de ações — fluxo de quitação de fatura, com cores herdadas do tema ativo. */
+.fatura-pagamento-heading{text-align:center;padding:8px 8px 14px}
+.fatura-pagamento-mark{display:grid;place-items:center;width:48px;height:48px;margin:0 auto 10px;border-radius:16px;background:color-mix(in srgb,var(--accent-color, var(--primary-color, #16a34a)) 13%,transparent);color:var(--accent-color,var(--primary-color,#16a34a));font-size:25px;font-weight:800}
+.fatura-pagamento-progress{height:6px;border-radius:99px;background:var(--border-color,rgba(128,128,128,.2));overflow:hidden;margin:0 0 14px}
+.fatura-pagamento-progress span{display:block;width:0;height:100%;border-radius:inherit;background:var(--accent-color,var(--primary-color,#16a34a));transition:width .25s ease}
+.fatura-pagamento-lista{display:flex;flex-direction:column;gap:0;max-height:min(42vh,360px);overflow:auto;padding:2px 2px 8px}
+.fatura-pagamento-item{display:flex;align-items:center;gap:10px;min-width:0;flex:0 0 auto;margin:0 0 8px;padding:11px 12px;border:1px solid var(--border-color,rgba(128,128,128,.2));border-radius:13px;background:var(--card-bg,rgba(128,128,128,.045));transition:height .36s cubic-bezier(.22,.75,.25,1),opacity .28s ease,transform .36s cubic-bezier(.22,.75,.25,1),margin .36s ease,padding .36s ease,border-width .36s ease}
+.fatura-pagamento-check{flex:0 0 23px;width:23px;height:23px;display:grid;place-items:center;border-radius:50%;background:color-mix(in srgb,var(--accent-color,var(--primary-color,#16a34a)) 12%,transparent);color:var(--accent-color,var(--primary-color,#16a34a));font-size:13px;font-weight:800}
+.fatura-pagamento-name{flex:1;min-width:0;overflow-wrap:anywhere;font-size:.9rem;color:var(--text-color,inherit)}
+.fatura-pagamento-item strong,.fatura-opcao-total{white-space:nowrap;font-size:.86rem;color:var(--text-color,inherit)}
+.fatura-pagamento-item.is-paying{background:color-mix(in srgb,var(--accent-color,var(--primary-color,#16a34a)) 9%,var(--card-bg,transparent));border-color:color-mix(in srgb,var(--accent-color,var(--primary-color,#16a34a)) 42%,var(--border-color,transparent))}.fatura-pagamento-item.is-paying .fatura-pagamento-check{color:white;background:var(--accent-color,var(--primary-color,#16a34a));animation:faturaCheckPop .34s cubic-bezier(.2,.8,.2,1)}.fatura-pagamento-item.is-collapsing{height:0!important;min-height:0;opacity:0;transform:translateX(10px) scale(.985);margin-bottom:0;padding-top:0;padding-bottom:0;border-top-width:0;border-bottom-width:0;overflow:hidden}.fatura-pagamento-item.is-collapsing>*{opacity:0;transition:opacity .18s ease}@keyframes faturaCheckPop{0%{transform:scale(.72)}65%{transform:scale(1.13)}100%{transform:scale(1)}}
+@media(prefers-reduced-motion:reduce){.fatura-pagamento-item,.fatura-pagamento-progress span{transition:none}}
+
+/* Evita barra de rolagem horizontal durante o recolhimento dos itens da fatura. */
+#faturaPagamentoView{min-width:0;overflow-x:clip;}
+#faturaPagamentoLista{min-width:0;max-width:100%;overflow-x:hidden;}
+#faturaPagamentoLista .fatura-pagamento-item{max-width:100%;box-sizing:border-box;}

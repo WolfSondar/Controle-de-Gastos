@@ -240,8 +240,17 @@
     else if (!falta) plano = `<strong>Meta concluída!</strong> Você já chegou ao objetivo de ${chatFmt(objetivo)}.`;
     else if (dias !== null && dias <= 0) plano = `O prazo de <strong>${formatarDataCurta(prazo)}</strong> já passou e ainda faltam <strong class="chat-valor chat-valor-neg">${chatFmt(falta)}</strong> para a meta.`;
     else {
-      const mensal = falta / meses;
-      plano = `Para chegar em <strong>${chatFmt(objetivo)}</strong> até <strong>${formatarDataCurta(prazo)}</strong>, você precisa guardar cerca de <strong class="chat-valor chat-valor-gold">${chatFmt(mensal)}</strong> por mês.`;
+      const porDia = falta / Math.max(dias || 1, 1);
+      const variacao = [...String(cx.nome || "")].reduce((n, c) => n + c.charCodeAt(0), 0) % 3;
+      const frases = dias < 5
+        ? ["O prazo está bem pertinho!", "Últimos dias para essa meta!", "Reta final da sua caixinha!"]
+        : dias < 15
+          ? ["Falta pouco para a data da sua meta.", "Você está na reta final do planejamento.", "Dá para organizar os últimos depósitos com calma."]
+          : dias < 30
+            ? ["A data da meta está chegando.", "Estamos a poucas semanas do prazo.", "Este é um bom momento para reforçar essa caixinha."]
+            : ["Ainda há um tempinho para chegar lá.", "Sua meta segue no horizonte.", "Você pode distribuir os próximos depósitos ao longo do prazo."];
+      plano = `${frases[variacao]} Faltam <strong>${dias} dias</strong> e <strong>${chatFmt(falta)}</strong> para completar a meta.`;
+      if (dias <= 14) plano += ` Se quiser manter o prazo, a referência é guardar cerca de <strong class="chat-valor chat-valor-gold">${chatFmt(porDia)} por dia</strong>.`;
     }
     const icone = normalizarNomeIcone(cx.icone || "");
     const iconeHtml = icone ? `<img src="${esc(urlIconeCaixinha(icone))}" alt="" class="chat-goal-icon-img" onerror="this.onerror=null;this.src='';this.parentElement.innerHTML=ICONE_COFRINHO;">` : ICONE_COFRINHO;
@@ -291,16 +300,16 @@
         const cats = categoriasChat();
         if (!cats.length) return appendMensagem("Ainda não encontrei gastos pagos suficientes para montar esse ranking.");
         const top = cats.slice(0,3).map((x,i) => `${i+1}. <strong>${esc(x[0])}</strong> — <span class="chat-valor chat-valor-neg">${chatFmt(x[1])}</span>`).join("<br>");
-        appendMensagem(`<strong>Onde mais saiu dinheiro:</strong><br>${top}<span class="caixa-chat-note">Considerei os gastos que efetivamente contam no mês atual.</span>`);
+        appendMensagem(`<strong>Onde mais saiu dinheiro:</strong><br>${top}`);
       }
 
       if (id === "guardado") {
         const comData = listaFinita(state.caixinhas).filter(cx => String(cx.data || "").trim());
         if (!comData.length) {
-          appendMensagem(`Não encontrei nenhuma caixinha com <strong>data de objetivo</strong> cadastrada ainda.<span class="caixa-chat-note">Cadastre uma data na caixinha para eu calcular quanto você precisa guardar por mês.</span>`);
+          appendMensagem(`Não encontrei nenhuma caixinha com <strong>data de objetivo</strong> cadastrada ainda.<span class="caixa-chat-note">Cadastre uma data de objetivo para eu ajudar a organizar os depósitos até o prazo.</span>`);
           return;
         }
-        appendMensagem(`<strong>Qual caixinha você quer planejar?</strong><span class="caixa-chat-note">Mostrando apenas caixinhas que têm uma data definida.</span>`);
+        appendMensagem(`<strong>Qual caixinha você quer planejar?</strong>`);
         const escolhas = document.createElement("div");
         escolhas.className = "caixa-chat-choices caixa-chat-caixinhas-choices";
         comData.forEach((cx, idx) => {
@@ -366,11 +375,15 @@
           const parcelaRaw = tipo === "fixo" && /^\d+\s*\/\s*\d+$/.test(String(i.parcela || "").trim())
             ? String(i.parcela).trim().replace(/\s+/g, "") : "";
           const parcela = parcelaRaw ? `<span class="chat-pendente-parcela">(${esc(parcelaRaw)})</span>` : "";
+          const ehFatura = i.fatura === true || /^Fatura\s*:/i.test(String(i.nome || ""));
+          const cfgFaturaChat = ehFatura ? ((state.faturas || []).find(f => String(f.id) === String(i.faturaId || "") && String(f.pessoa || "davi") === String(state.pessoaAtual || "davi")) || (state.faturas || []).find(f => String(f.pessoa || "davi") === String(state.pessoaAtual || "davi"))) : null;
+          const tagFatura = ehFatura ? `<span class="chat-pendente-fatura">${escapeHtml(cfgFaturaChat?.nome || "Fatura")}</span>` : "";
           const proximoMes = ehDoProximoMes(i)
             ? `<span class="chat-pendente-proximo">Mês que vem</span>` : "";
           const data = formatarDataCurta(i.data);
-          const nome = i.nome || (tipo === "fixo" ? "Gasto fixo" : "Gasto variável");
-          return `<li><span class="chat-pendente-arrow" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none"><path d="M5 12h12M13 7l5 5-5 5" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/></svg></span><span class="chat-pendente-main"><strong>${esc(nome)}${parcela}</strong><small>${[proximoMes, data ? `<span>${data}</span>` : ""].filter(Boolean).join(" · ")}</small></span><strong class="chat-valor chat-valor-neg">${chatFmt(i.valor)}</strong></li>`;
+          const nome = String(i.nome || (tipo === "fixo" ? "Gasto fixo" : "Gasto variável")).replace(/^(?:Fatura|Oculto)\s*:\s*/i, "");
+          const meta = [tagFatura, proximoMes, data ? `<span>${data}</span>` : ""].filter(Boolean).join(" · ");
+          return `<li><span class="chat-pendente-arrow" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none"><path d="M5 12h12M13 7l5 5-5 5" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/></svg></span><span class="chat-pendente-main"><strong>${esc(nome)}${parcela}</strong>${meta ? `<small>${meta}</small>` : ""}</span><strong class="chat-valor chat-valor-neg">${chatFmt(i.valor)}</strong></li>`;
         };
         const pendenciasOrdenadas = [
           ...fixosPendentes.map(i => ({ item: i, tipo: "fixo" })),
@@ -381,12 +394,7 @@
           ? `<ul class="caixa-chat-pendencias-lista lista-simples">${linhasPendencias}</ul>`
           : "";
         const vazio = !detalhes ? `<div class="caixa-chat-empty">Nenhum gasto pendente encontrado.</div>` : detalhes;
-        const totalDesteMes = t.aPagarFixosEsseMes + t.aPagarVariaveisEsseMes;
-        const totalFuturo = t.aPagarFixosFuturos + t.aPagarVariaveisFuturos;
-        const notaPendencias = totalFuturo > 0
-          ? `Deste total, ${chatFmt(totalDesteMes)} vencem neste mês e ${chatFmt(totalFuturo)} são contas futuras já lançadas.`
-          : `Todas as contas pendentes de ${chatFmt(totalDesteMes)} vencem neste mês.`;
-        appendMensagem(`<strong>Ainda falta pagar ${chatFmt(totalPend)} no total.</strong>${vazio}<span class="caixa-chat-note">${notaPendencias} Também há ${chatFmt(t.aReceber)} para receber.</span>`);
+        appendMensagem(`<strong>Ainda falta pagar ${chatFmt(totalPend)} no total.</strong>${vazio}`);
       }
 
 
@@ -751,7 +759,7 @@
     body.querySelectorAll("#caixaChatBack").forEach(x => x.remove());
     cadastroAtivo = { etapa: "tipo" };
 
-    appendMensagem("Claro! Vamos registrar isso juntos. <strong>O que você quer adicionar?</strong>");
+    appendMensagem("Vamos colocar tudo em ordem. <strong>O que vamos registrar hoje?</strong>");
     escolhaChat([
       ["gasto", "Gasto", "Algo que você comprou, pagou ou parcelou"],
       ["ganho", "Ganho", "Dinheiro que entrou ou vai entrar"],
@@ -783,40 +791,32 @@
     }
 
     function perguntarFaturaAntesDaData(callback) {
-      appendMensagem("Esse gasto vai entrar em uma <strong>fatura</strong>?");
-      escolhaChat([
-        ["sim", "Sim"],
-        ["nao", "Não"]
-      ], escolha => {
-        if (escolha === "sim") {
-          cadastroAtivo.fatura = true;
-          const faturas = faturasConfiguradas(state.pessoaAtual);
-          const concluirFatura = (faturaId) => {
-            const fatura = faturaPorId(faturaId, state.pessoaAtual);
-            const vencimento = dataVencimentoFaturaAtual(fatura?.id || "");
-            cadastroAtivo.faturaId = fatura?.id || "";
-            cadastroAtivo.faturaNome = fatura?.nome || "Fatura";
-            cadastroAtivo.data = vencimento;
-            appendMensagem(`Vencimento em: ${esc(formatarDataParaChat(vencimento))}`);
-            callback(vencimento, true);
-          };
-          if (faturas.length > 1) {
-            selectChat(
-              "Em qual fatura?",
-              faturas.map(f => [String(f.id), String(f.nome || "Fatura")]),
-              concluirFatura,
-              { placeholder: "Escolha a fatura…" }
-            );
-          } else {
-            concluirFatura(faturas[0]?.id || "");
-          }
-        } else {
-          cadastroAtivo.fatura = false;
-          cadastroAtivo.faturaId = "";
-          cadastroAtivo.faturaNome = "";
-          perguntaDataCadastro(data => callback(data, false));
-        }
-      });
+      // Gastos deste fluxo são registrados como compra em fatura por padrão.
+      cadastroAtivo.fatura = true;
+      const faturas = faturasConfiguradas(state.pessoaAtual);
+      const concluirFatura = (faturaId) => {
+        const fatura = faturaPorId(faturaId, state.pessoaAtual);
+        const vencimento = dataVencimentoFaturaAtual(fatura?.id || "");
+        cadastroAtivo.faturaId = fatura?.id || "";
+        cadastroAtivo.faturaNome = fatura?.nome || "Fatura";
+        cadastroAtivo.data = vencimento;
+        appendMensagem(`Fatura: <strong>${esc(cadastroAtivo.faturaNome)}</strong> · vencimento ${esc(formatarDataParaChat(vencimento))}`);
+        callback(vencimento, true);
+      };
+      if (faturas.length > 1) {
+        selectChat(
+          "Em qual fatura?",
+          faturas.map(f => [String(f.id), String(f.nome || "Fatura")]),
+          concluirFatura,
+          { placeholder: "Escolha a fatura…" }
+        );
+      } else if (faturas.length === 1) {
+        concluirFatura(faturas[0].id);
+      } else {
+        cadastroAtivo.faturaId = "";
+        cadastroAtivo.faturaNome = "Fatura";
+        perguntaDataCadastro(data => callback(data, true));
+      }
     }
 
     function fluxoGastoFixo() {

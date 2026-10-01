@@ -541,7 +541,9 @@ on("formFecharMes", "submit", async (e) => {
 
     animarFechamentoRapido(document.getElementById("mesAtualBadge"), true);
     if (typeof window.animarSyncFechamento === "function") window.animarSyncFechamento();
-    showToast(`${MESES_LABEL[f.mes - 1]}/${f.ano} foi fechado para ${PESSOA_LABEL[pessoaFechamento]}.`);
+    const avisoDatas = Number(resultado.datasAusentes) > 0
+      ? ` ${resultado.datasAusentes} lançamento(s) ficaram sem data; revise manualmente.` : "";
+    showToast(`${MESES_LABEL[f.mes - 1]}/${f.ano} foi fechado para ${PESSOA_LABEL[pessoaFechamento]}.${avisoDatas}`);
     await carregarDados();
     // O fechamento acabou de criar/atualizar o registro histórico no backend.
     // Recarrega o histórico imediatamente para o novo mês aparecer sem refresh manual.

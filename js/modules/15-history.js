@@ -74,11 +74,11 @@ function construirGraficoHistoricoMultiSvg(mesesAsc, pessoa) {
   };
 
   const ptsGanhos = mesesAsc.map(m => getVal(m, 'ganhos'));
-  const ptsDebitos = mesesAsc.map(m => getVal(m, 'debitos'));
+  // Despesas são negativas no eixo para que maior gasto apareça mais abaixo.
+  const ptsDebitos = mesesAsc.map(m => -getVal(m, 'debitos'));
   const ptsGuardado = mesesAsc.map(m => getVal(m, 'guardadoMes'));
-  const ptsRendimento = mesesAsc.map(m => getVal(m, 'rendimento'));
 
-  const todos = [...ptsGanhos, ...ptsDebitos, ...ptsGuardado, ...ptsRendimento];
+  const todos = [...ptsGanhos, ...ptsDebitos, ...ptsGuardado];
   let min = Math.min(0, ...todos);
   let max = Math.max(0, ...todos);
   if (min === max) max = min + 1;
@@ -111,25 +111,23 @@ function construirGraficoHistoricoMultiSvg(mesesAsc, pessoa) {
     const vGanhos = getVal(m, 'ganhos');
     const vGastos = getVal(m, 'debitos');
     const vGuardado = getVal(m, 'guardadoMes');
-    const vRendimento = getVal(m, 'rendimento');
     const cx = x(i).toFixed(1);
     
     // Calcula o início do retângulo invisível para centralizar no ponto
     const rx = (x(i) - larguraFaixa / 2).toFixed(1);
 
     return `
-      <g class="mes-hover-group" data-mes="${nomeMes}" data-ganhos="${fmt(vGanhos)}" data-gastos="${fmt(vGastos)}" data-guardado="${fmt(vGuardado)}" data-rendimento="${fmt(vRendimento)}">
+      <g class="mes-hover-group" data-mes="${nomeMes}" data-ganhos="${fmt(vGanhos)}" data-gastos="${fmt(vGastos)}" data-guardado="${fmt(vGuardado)}">
         <!-- Área gigante e invisível para capturar o dedo/mouse -->
         <rect x="${rx}" y="0" width="${larguraFaixa}" height="${H}" fill="transparent" class="hover-area" />
         
         <!-- Linha guia vertical charmosa -->
         <line x1="${cx}" y1="${padT}" x2="${cx}" y2="${H - padB - 4}" stroke="var(--line)" stroke-dasharray="4,4" class="guia-vertical" />
         
-        <!-- Os 4 pontos sobrepostos -->
+        <!-- Os 3 pontos sobrepostos -->
         <circle cx="${cx}" cy="${y(vGanhos).toFixed(1)}" r="4.2" fill="var(--income)" stroke="var(--paper-deep)" stroke-width="2" class="ponto-dot" />
-        <circle cx="${cx}" cy="${y(vGastos).toFixed(1)}" r="4.2" fill="var(--expense)" stroke="var(--paper-deep)" stroke-width="2" class="ponto-dot" />
+        <circle cx="${cx}" cy="${y(-vGastos).toFixed(1)}" r="4.2" fill="var(--expense)" stroke="var(--paper-deep)" stroke-width="2" class="ponto-dot" />
         <circle cx="${cx}" cy="${y(vGuardado).toFixed(1)}" r="4.2" fill="var(--gold)" stroke="var(--paper-deep)" stroke-width="2" class="ponto-dot" />
-        <circle cx="${cx}" cy="${y(vRendimento).toFixed(1)}" r="4.2" fill="var(--yield)" stroke="var(--paper-deep)" stroke-width="2" class="ponto-dot" />
       </g>
     `;
   }).join("");
@@ -152,7 +150,6 @@ function construirGraficoHistoricoMultiSvg(mesesAsc, pessoa) {
         <path d="${caminhoSuave(ptsGanhos)}" fill="none" stroke="var(--income)" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" />
         <path d="${caminhoSuave(ptsDebitos)}" fill="none" stroke="var(--expense)" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" />
         <path d="${caminhoSuave(ptsGuardado)}" fill="none" stroke="var(--gold)" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" stroke-dasharray="6,4" />
-        <path d="${caminhoSuave(ptsRendimento)}" fill="none" stroke="var(--yield)" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" stroke-dasharray="2,3" />
         
         <!-- Renderiza as áreas de interação POR CIMA das linhas -->
         ${gruposMes}
@@ -162,7 +159,6 @@ function construirGraficoHistoricoMultiSvg(mesesAsc, pessoa) {
         <span class="legenda-item"><span class="legenda-dot" style="background:var(--income)"></span>Ganhos</span>
         <span class="legenda-item"><span class="legenda-dot" style="background:var(--expense)"></span>Gastos</span>
         <span class="legenda-item"><span class="legenda-dot" style="background:var(--gold)"></span>Guardado</span>
-        <span class="legenda-item"><span class="legenda-dot" style="background:var(--yield)"></span>Rendimento</span>
       </div>
     </div>`;
 }
@@ -806,27 +802,124 @@ const acoesBackdrop = document.getElementById("acoesBackdrop");
 const acoesMenuView = document.getElementById("acoesMenuView");
 const formDividir = document.getElementById("formDividir");
 const formTransferir = document.getElementById("formTransferir");
+const faturaPagarView = document.getElementById("faturaPagarView");
+const faturaPagarOpcoes = document.getElementById("faturaPagarOpcoes");
+const faturaPagamentoView = document.getElementById("faturaPagamentoView");
+const faturaPagamentoLista = document.getElementById("faturaPagamentoLista");
+let faturasElegiveisPagar = [];
+let faturaSelecionadaPagamento = null;
 let categoriaDividir = "variaveis";
 let direcaoTransferir = { de: "davi", para: "gabriel" };
 
+function mostrarSubViewFatura(view) {
+  [acoesMenuView, faturaPagarView, faturaPagamentoView, formDividir, formTransferir].forEach(el => el?.classList.add("is-hidden"));
+  view?.classList.remove("is-hidden");
+}
 function abrirAcoesConjunto() {
-  if (acoesMenuView) acoesMenuView.classList.remove("is-hidden");
-  if (formDividir) formDividir.classList.add("is-hidden");
-  if (formTransferir) formTransferir.classList.add("is-hidden");
+  mostrarSubViewFatura(acoesMenuView);
   if (acoesBackdrop) acoesBackdrop.classList.remove("is-hidden");
   registrarAberturaModal("acoesBackdrop");
 }
 function fecharAcoesConjunto() {
-  fecharComHistorico("acoesBackdrop", () => {
-    if (acoesBackdrop) acoesBackdrop.classList.add("is-hidden");
-  });
+  fecharComHistorico("acoesBackdrop", () => { if (acoesBackdrop) acoesBackdrop.classList.add("is-hidden"); });
 }
 FECHADORES_MODAL.acoesBackdrop = fecharAcoesConjunto;
-on("btnAcoesConjunto", "click", () => {
-  esconderDicaAcoesConjunto();
-  abrirAcoesConjunto();
-});
+on("btnAcoesConjunto", "click", () => { esconderDicaAcoesConjunto(); abrirAcoesConjunto(); });
 on("acoesFechar", "click", fecharAcoesConjunto);
+
+function montarGruposFaturaPendentes() {
+  const hoje = new Date(), mes = Number(state.mesAtual || hoje.getMonth() + 1), ano = Number(state.anoAtual || hoje.getFullYear());
+  const pessoa = state.pessoaAtual === "gabriel" ? "gabriel" : "davi";
+  const configs = (Array.isArray(state.faturas) ? state.faturas : []).filter(f => String(f?.pessoa || "davi") === pessoa);
+  const mapa = new Map();
+  [["fixos", state.gastosFixos || []], ["variaveis", state.gastosVariaveis || []]].forEach(([origem, lista]) => {
+    lista.forEach((item, idx) => {
+      if (item?.pago === true || !itemEhFatura(item)) return;
+      const dt = /^(\d{4})-(\d{2})/.exec(String(item.data || ""));
+      if (dt && (Number(dt[1]) !== ano || Number(dt[2]) !== mes)) return;
+      const cfg = configs.find(f => String(f.id) === String(item.faturaId || "")) || configs[0] || { id: "default", nome: "Fatura", dia: 1 };
+      const key = String(item.faturaId || cfg.id || "default");
+      if (!mapa.has(key)) mapa.set(key, { id: key, nome: String(cfg.nome || "Fatura"), dia: Number(cfg.dia) || 1, registros: [] });
+      mapa.get(key).registros.push({ item, idx, origem });
+    });
+  });
+  return [...mapa.values()].map(g => {
+    const last = new Date(ano, mes, 0).getDate();
+    g.vencimento = `${ano}-${String(mes).padStart(2,"0")}-${String(Math.min(g.dia,last)).padStart(2,"0")}`;
+    g.total = g.registros.reduce((n,r) => n + (Number(r.item.valor) || 0), 0);
+    return g;
+  }).sort((a,b) => a.vencimento.localeCompare(b.vencimento));
+}
+on("btnPagarFaturaMes", "click", () => {
+  faturasElegiveisPagar = montarGruposFaturaPendentes();
+  if (!faturasElegiveisPagar.length) { showToast("Não há itens de fatura pendentes neste mês."); return; }
+  if (faturasElegiveisPagar.length === 1) { abrirDetalhePagamentoFatura(faturasElegiveisPagar[0]); return; }
+  if (faturaPagarOpcoes) faturaPagarOpcoes.innerHTML = faturasElegiveisPagar.map((g,i) => `
+    <button type="button" class="acao-card" data-fatura-pagar="${i}">
+      <span class="acao-card-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><rect x="3" y="5" width="18" height="15" rx="2"/><path d="M3 10h18M7 15h4"/></svg></span>
+      <span class="acao-card-texto"><strong>${escapeHtml(g.nome)}</strong><small>${g.registros.length} ${g.registros.length === 1 ? "lançamento pendente" : "lançamentos pendentes"} · vence ${formatarDataCurta(g.vencimento)}</small></span><strong class="fatura-opcao-total">${fmt(g.total)}</strong><span class="acao-card-seta">›</span>
+    </button>`).join("");
+  mostrarSubViewFatura(faturaPagarView);
+});
+on("faturaPagarVoltar", "click", () => mostrarSubViewFatura(acoesMenuView));
+faturaPagarOpcoes?.addEventListener("click", e => {
+  const btn = e.target.closest("[data-fatura-pagar]"); if (!btn) return;
+  const grupo = faturasElegiveisPagar[Number(btn.dataset.faturaPagar)]; if (grupo) abrirDetalhePagamentoFatura(grupo);
+});
+function abrirDetalhePagamentoFatura(grupo) {
+  faturaSelecionadaPagamento = grupo;
+  const titulo = document.getElementById("faturaPagamentoTitulo");
+  const resumo = document.getElementById("faturaPagamentoResumo");
+  const fill = document.getElementById("faturaPagamentoProgressFill");
+  if (titulo) titulo.textContent = grupo.nome;
+  if (resumo) resumo.textContent = `${grupo.registros.length} lançamentos · total de ${fmt(grupo.total)} · vencimento ${formatarDataCurta(grupo.vencimento)}`;
+  if (fill) fill.style.width = "0%";
+  if (faturaPagamentoLista) faturaPagamentoLista.innerHTML = grupo.registros.map((r,i) => `<div class="fatura-pagamento-item" data-fatura-item="${i}"><span class="fatura-pagamento-check">✓</span><span class="fatura-pagamento-name">${escapeHtml(nomeExibicaoItem(r.item))}</span><strong>${fmt(r.item.valor)}</strong></div>`).join("");
+  const confirmar = document.getElementById("faturaPagamentoConfirmar");
+  if (confirmar) { confirmar.disabled = false; confirmar.textContent = `Pagar ${fmt(grupo.total)}`; }
+  mostrarSubViewFatura(faturaPagamentoView);
+}
+document.getElementById("faturaPagamentoCancelar")?.addEventListener("click", () => mostrarSubViewFatura(faturasElegiveisPagar.length > 1 ? faturaPagarView : acoesMenuView));
+document.getElementById("faturaPagamentoConfirmar")?.addEventListener("click", async () => {
+  const grupo = faturaSelecionadaPagamento; if (!grupo) return;
+  const btn = document.getElementById("faturaPagamentoConfirmar");
+  if (btn) { btn.disabled = true; btn.textContent = "Processando pagamento…"; }
+  const rows = [...(faturaPagamentoLista?.querySelectorAll(".fatura-pagamento-item") || [])];
+  const aguardarAnimacao = ms => new Promise(resolve => setTimeout(resolve, ms));
+  for (let i=0; i<rows.length; i++) {
+    const row = rows[i];
+    // Primeiro confirma visualmente este lançamento; só depois recolhe o espaço
+    // para que os itens seguintes deslizem suavemente, sem salto de layout.
+    row.classList.add("is-paying");
+    const fill = document.getElementById("faturaPagamentoProgressFill");
+    if (fill) fill.style.width = `${Math.round((i+1)/rows.length*100)}%`;
+    await aguardarAnimacao(360);
+    row.style.height = `${row.getBoundingClientRect().height}px`;
+    row.style.flex = "0 0 auto";
+    row.offsetHeight; // aplica a altura inicial antes da transição
+    row.classList.add("is-collapsing");
+    await aguardarAnimacao(380);
+    row.remove();
+  }
+  const agoraPagamento = new Date();
+  const dataPagamentoHoje = `${agoraPagamento.getFullYear()}-${String(agoraPagamento.getMonth()+1).padStart(2,"0")}-${String(agoraPagamento.getDate()).padStart(2,"0")}T${String(agoraPagamento.getHours()).padStart(2,"0")}:${String(agoraPagamento.getMinutes()).padStart(2,"0")}:${String(agoraPagamento.getSeconds()).padStart(2,"0")}`;
+  grupo.registros.forEach(r => {
+    const lista = r.origem === "fixos" ? state.gastosFixos : state.gastosVariaveis;
+    const item = lista?.[r.idx];
+    if (item) { item.pago = true; item.data = dataPagamentoHoje; }
+  });
+  const [okFixos, okVariaveis] = await Promise.all([
+    salvarBloco("saveGastosFixos", state.gastosFixos),
+    salvarBloco("saveGastosVariaveis", state.gastosVariaveis)
+  ]);
+  if (okFixos === false || okVariaveis === false) {
+    showToast("Não foi possível confirmar todos os pagamentos. Confira a lista antes de tentar novamente.");
+    if (btn) { btn.disabled = false; btn.textContent = "Tentar salvar novamente"; }
+    return;
+  }
+  showToast(`Fatura ${grupo.nome} paga — ${fmt(grupo.total)} registrados como pagos.`);
+  fecharAcoesConjunto(); renderAll();
+});
 
 const CHAVE_DICA_ACOES = "caixa-dica-acoes-conjunto-vista";
 function jaViuDicaAcoesConjunto() {

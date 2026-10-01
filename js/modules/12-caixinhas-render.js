@@ -150,7 +150,10 @@ function dataVencimentoFaturaAtual(faturaId = "") {
 function metaInfoHtml(item) {
   const partes = [];
   if (itemEhFatura(item)) {
-    partes.push(`<span class="item-tag item-tag-fatura" title="Lançamento incluído em uma fatura">Fatura</span>`);
+    const cfgFatura = faturaPorId(item.faturaId);
+    const nomeFaturaTag = cfgFatura?.nome || "Fatura";
+    const diaFaturaTag = Number(cfgFatura?.dia) || 1;
+    partes.push(`<span class="item-tag item-tag-fatura" title="${escapeHtml(nomeFaturaTag)} · vencimento dia ${diaFaturaTag}">${escapeHtml(nomeFaturaTag)}</span>`);
   } else if (item.lembrete) {
     partes.push(`<span class="item-tag item-tag-lembrete" title="Pago no mês anterior, adiantado — não conta no saldo deste mês">Pago adiantado</span>`);
   } else if (ehDoProximoMes(item)) {
@@ -190,8 +193,8 @@ function fecharSwipe(li) {
   if (content) content.style.transform = "";
 }
 
-const LARGURA_ACOES_SWIPE = 136;
-const LIMIAR_ABRIR_SWIPE = 56;
+const LARGURA_ACOES_SWIPE = 92;
+const LIMIAR_ABRIR_SWIPE = 44;
 
 function fecharTodosSwipes(ul, exceto) {
   ul.querySelectorAll(".item-list-row.is-swiped").forEach((li) => {
@@ -199,125 +202,71 @@ function fecharTodosSwipes(ul, exceto) {
   });
 }
 
-// Lógica de "Arrastar" reformulada para suportar Touch (Celular) e Mouse (PC)
+// Swipe horizontal dos lançamentos: esquerda edita; direita solicita exclusão
+// com a confirmação existente. O card retorna ao lugar antes da ação.
 function habilitarSwipe(ul) {
   if (!ul || ul._swipeAtivado) return;
   ul._swipeAtivado = true;
   let ativo = null;
 
   const iniciar = (e) => {
+    if (e.button !== undefined && e.button !== 0) return;
     const li = e.target.closest(".item-list-row");
-    // Ignora se estiver clicando nos botões ou checkboxes
-    if (!li || e.target.closest(".swipe-actions") || e.target.tagName === 'INPUT' || e.target.tagName === 'BUTTON') return;
-    
-    // Captura a posição seja pelo Mouse ou Dedo
-    const clientX = e.type.includes('mouse') ? e.clientX : e.touches[0].clientX;
-    const clientY = e.type.includes('mouse') ? e.clientY : e.touches[0].clientY;
-    
-    const jaAberto = li.classList.contains("is-swiped");
+    if (!li || e.target.closest(".swipe-actions") || e.target.closest("button, input, label")) return;
     fecharTodosSwipes(ul, li);
-    
-    ativo = { 
-      li, 
-      startX: clientX, 
-      startY: clientY, 
-      dragging: false, 
-      jaAberto, 
-      ultimoDelta: jaAberto ? -LARGURA_ACOES_SWIPE : 0, 
-      vibrou: jaAberto 
-    };
-    
-    if (!jaAberto) {
-      ativo.longPressTimer = setTimeout(() => {
-        if (!ativo || ativo.dragging) return;
-        vibrar(16);
-        li.classList.add("is-swiped");
-        const content = li.querySelector(".swipe-content");
-        if (content) content.style.transform = `translateX(-${LARGURA_ACOES_SWIPE}px)`;
-      }, 480);
-    }
+    ativo = { li, pointerId:e.pointerId, startX:e.clientX, startY:e.clientY, dragging:false, dx:0 };
   };
-
   const mover = (e) => {
-    if (!ativo) return;
-    const clientX = e.type.includes('mouse') ? e.clientX : e.touches[0].clientX;
-    const clientY = e.type.includes('mouse') ? e.clientY : e.touches[0].clientY;
-    
-    const dx = clientX - ativo.startX;
-    const dy = clientY - ativo.startY;
-    
+    if (!ativo || e.pointerId !== ativo.pointerId) return;
+    const dx=e.clientX-ativo.startX, dy=e.clientY-ativo.startY;
     if (!ativo.dragging) {
-      // Pequena margem pra evitar ativar o arrasto atoa
-      if (Math.abs(dx) < 8 && Math.abs(dy) < 8) return;
-      clearTimeout(ativo.longPressTimer); 
-      if (Math.abs(dy) > Math.abs(dx)) {
-        ativo = null; // Scrollando para baixo, cancela o swipe
-        return;
-      }
-      ativo.dragging = true;
+      if (Math.abs(dx)<8 && Math.abs(dy)<8) return;
+      if (Math.abs(dy)>Math.abs(dx)) { ativo=null; return; }
+      ativo.dragging=true;
+      try { ativo.li.setPointerCapture(e.pointerId); } catch (_) {}
     }
-    
-    // Evita selecionar o texto da página ao arrastar com o mouse
-    if (ativo.dragging && e.cancelable) e.preventDefault(); 
-    
-    const base = ativo.jaAberto ? -LARGURA_ACOES_SWIPE : 0;
-    const novo = Math.max(-LARGURA_ACOES_SWIPE, Math.min(0, base + dx));
-    const content = ativo.li.querySelector(".swipe-content");
+    if (e.cancelable) e.preventDefault();
+    ativo.dx=dx;
+    const content=ativo.li.querySelector(".swipe-content");
     if (content) {
-      content.style.transition = "none";
-      content.style.transform = `translateX(${novo}px)`;
+      content.style.transition="none";
+      content.style.transform=`translateX(${Math.max(-112,Math.min(112,dx))}px)`;
     }
-    
-    const cruzouLimiar = novo <= -LIMIAR_ABRIR_SWIPE;
-    if (cruzouLimiar && !ativo.vibrou) {
-      vibrar();
-      ativo.vibrou = true;
-    } else if (!cruzouLimiar) {
-      ativo.vibrou = false;
-    }
-    ativo.ultimoDelta = novo;
   };
-
-  const finalizar = () => {
-    if (!ativo) return;
-    clearTimeout(ativo.longPressTimer);
-    if (!ativo.dragging) {
-      ativo = null;
-      return;
-    }
-    const content = ativo.li.querySelector(".swipe-content");
-    if (content) content.style.transition = "";
-    const abrir = ativo.ultimoDelta <= -LIMIAR_ABRIR_SWIPE;
-    ativo.li.classList.toggle("is-swiped", abrir);
-    if (content) content.style.transform = abrir ? `translateX(-${LARGURA_ACOES_SWIPE}px)` : "";
-    ativo = null;
+  const finalizar = (e) => {
+    if (!ativo || (e?.pointerId !== undefined && e.pointerId !== ativo.pointerId)) return;
+    const atual=ativo; ativo=null;
+    const content=atual.li.querySelector(".swipe-content");
+    if (content) { content.style.transition=""; content.style.transform=""; }
+    atual.li.classList.remove("is-swiped");
+    if (!atual.dragging || Math.abs(atual.dx)<52) return;
+    if (e?.cancelable) e.preventDefault();
+    const botao=atual.li.querySelector(atual.dx<0 ? ".swipe-edit" : ".swipe-delete");
+    if (botao) botao.click();
   };
-
-  // Eventos de Touch (Celular)
-  ul.addEventListener("touchstart", iniciar, { passive: true });
-  ul.addEventListener("touchmove", mover, { passive: false });
-  ul.addEventListener("touchend", finalizar);
-  ul.addEventListener("touchcancel", finalizar);
-
-  // Eventos de Mouse (PC)
-  ul.addEventListener("mousedown", iniciar);
-  ul.addEventListener("mousemove", mover);
-  window.addEventListener("mouseup", finalizar); // No window para não bugar se soltar fora
+  const cancelar = (e) => {
+    if (!ativo || (e?.pointerId !== undefined && e.pointerId !== ativo.pointerId)) return;
+    fecharSwipe(ativo.li); ativo=null;
+  };
+  ul.addEventListener("pointerdown", iniciar);
+  ul.addEventListener("pointermove", mover, {passive:false});
+  ul.addEventListener("pointerup", finalizar);
+  ul.addEventListener("pointercancel", cancelar);
 }
 
-document.addEventListener("touchstart", (e) => {
+document.addEventListener("pointerdown", (e) => {
   document.querySelectorAll(".item-list").forEach((ul) => {
     // Alguns .item-list não possuem id. Nunca passe "#" vazio ao closest(),
     // pois isso lança SyntaxError e interrompe o restante do app.
-    if (!ul.id || !e.target.closest(`#${CSS.escape(ul.id)}`)) fecharTodosSwipes(ul);
+    if (!ul.contains(e.target)) fecharTodosSwipes(ul);
   });
-}, { passive: true });
+});
 
-// Adicione este bloco para fazer o mesmo com o clique no PC:
-document.addEventListener("mousedown", (e) => {
+// Fecha swipes ao tocar fora da lista:
+document.addEventListener("pointerdown", (e) => {
   document.querySelectorAll(".item-list").forEach((ul) => {
     // Alguns .item-list não possuem id. Evita o seletor inválido "#".
-    if (!ul.id || !e.target.closest(`#${CSS.escape(ul.id)}`)) fecharTodosSwipes(ul);
+    if (!ul.contains(e.target)) fecharTodosSwipes(ul);
   });
 });
 
