@@ -2927,3 +2927,25 @@ html[data-caixa-theme="christmas"] .item-tag-rendimento {
   color: var(--yield) !important;
   background: var(--yield-bg) !important;
 }
+
+/* ============================================================
+   AJUSTE FINAL — RENDIMENTO NATALINO
+   Guardado permanece no azul-gelo do tema; Rendimento usa um
+   cranberry suave para ficar claramente separado e ainda natalino.
+   ============================================================ */
+html[data-caixa-theme="christmas"] {
+  --yield: #a85f7b;
+  --yield-bg: #f7e8ef;
+}
+html[data-theme="dark"][data-caixa-theme="christmas"] {
+  --yield: #e0a0b8;
+  --yield-bg: #38212c;
+}
+html[data-caixa-theme="christmas"] .item-tag-rendimento {
+  color: var(--yield) !important;
+  background: var(--yield-bg) !important;
+}
+html[data-caixa-theme="christmas"] .historico-rendimento-linha .rendimento-valor,
+html[data-caixa-theme="christmas"] .historico-mes-linha .yield {
+  color: var(--yield) !important;
+}
