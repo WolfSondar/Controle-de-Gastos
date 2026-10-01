@@ -10668,3 +10668,25 @@ html[data-theme="dark"][data-caixa-theme="halloween"] #caixaConfigAdmin .caixa-c
 .fechamento-confetes i { position:absolute; left:50%; top:58%; width:7px; height:11px; border-radius:2px; opacity:0; animation:fechamento-confete .9s cubic-bezier(.15,.75,.25,1) var(--d) both; transform:translate(-50%,-50%) rotate(0deg); }
 @keyframes fechamento-confete { 0%{opacity:0;transform:translate(-50%,-50%) rotate(0) scale(.7)} 12%{opacity:1} 100%{opacity:0;transform:translate(calc(-50% + var(--x)),calc(-50% + var(--y))) rotate(var(--r)) scale(1)} }
 @media (prefers-reduced-motion:reduce){.fechamento-confetes i{animation:none;opacity:0}}
+
+/* Histórico — acabamento final: sem brilho/overlay no fundo e rendimento com cor semântica. */
+.historico-mes-card,
+.historico-mes-card:hover,
+.historico-mes-card:focus-within {
+  background-image: none !important;
+  box-shadow: 0 8px 22px rgba(20, 30, 25, .06) !important;
+}
+.historico-mes-card::before,
+.historico-mes-card::after {
+  content: none !important;
+  display: none !important;
+  background: none !important;
+  box-shadow: none !important;
+  opacity: 0 !important;
+  animation: none !important;
+}
+.historico-rendimento-linha .rendimento-valor,
+.historico-mes-linha .yield {
+  color: var(--theme-yield, var(--yield)) !important;
+  font-weight: 750 !important;
+}

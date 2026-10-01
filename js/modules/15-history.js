@@ -298,7 +298,7 @@ function renderHistorico() {
           <span>Débitos</span><span class="expense">${fmt(Math.abs(debitos))}</span>
         </div>
         ${guardado > 0 ? `<div class="historico-mes-linha"><span>Guardado</span><span class="gold">${fmt(guardado)}</span></div>` : ""}
-        ${rendimento > 0 ? `<div class="historico-mes-linha"><span>Rendeu no mês</span><span class="income">+ ${fmt(rendimento)}</span></div>` : ""}
+        ${rendimento > 0 ? `<div class="historico-mes-linha"><span>Rendeu no mês</span><span class="yield">+ ${fmt(rendimento)}</span></div>` : ""}
         ${pessoa === 'ambos' ? `
         <div class="historico-mes-pessoas">
           <span class="pessoa-tag pessoa-davi">Davi ${fmt(m.saldoDavi)}</span>

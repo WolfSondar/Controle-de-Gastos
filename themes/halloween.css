@@ -2133,3 +2133,25 @@ html[data-caixa-theme="halloween"] .historico-rendimento-linha .rendimento-valor
 html[data-caixa-theme="halloween"]{--theme-primary:var(--halloween-purple,#4a1942);--theme-primary-soft:#fdeee0;--theme-accent:var(--halloween-orange,#ff7a3d);--theme-accent-strong:#bd4514;--theme-income:var(--income);--theme-expense:var(--expense);--theme-saved:var(--gold);--theme-yield:var(--yield);--theme-surface:var(--paper);--theme-surface-alt:var(--paper-deep);--theme-border:var(--line)}
 html[data-theme="dark"][data-caixa-theme="halloween"]{--theme-primary:#8c5a9a;--theme-primary-soft:#2b172b;--theme-accent:#ff9b63;--theme-accent-strong:#ff7a3d;--theme-income:var(--income);--theme-expense:var(--expense);--theme-saved:var(--gold);--theme-yield:var(--yield);--theme-surface:var(--paper);--theme-surface-alt:var(--paper-deep);--theme-border:var(--line)}
 html[data-caixa-theme="halloween"] .historico-rendimento-linha .rendimento-valor{color:var(--theme-yield)!important}
+
+/* Histórico — acabamento final: sem brilho/overlay no fundo e rendimento com cor semântica. */
+.historico-mes-card,
+.historico-mes-card:hover,
+.historico-mes-card:focus-within {
+  background-image: none !important;
+  box-shadow: 0 8px 22px rgba(20, 30, 25, .06) !important;
+}
+.historico-mes-card::before,
+.historico-mes-card::after {
+  content: none !important;
+  display: none !important;
+  background: none !important;
+  box-shadow: none !important;
+  opacity: 0 !important;
+  animation: none !important;
+}
+.historico-rendimento-linha .rendimento-valor,
+.historico-mes-linha .yield {
+  color: var(--theme-yield, var(--yield)) !important;
+  font-weight: 750 !important;
+}

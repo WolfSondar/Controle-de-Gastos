@@ -2863,3 +2863,25 @@ html[data-caixa-theme="christmas"] .historico-rendimento-linha .rendimento-valor
 html[data-caixa-theme="christmas"]{--theme-primary:var(--christmas-green,#236447);--theme-primary-soft:var(--paper-deep);--theme-accent:var(--christmas-red,#b92f3b);--theme-accent-strong:var(--christmas-green,#236447);--theme-income:var(--income);--theme-expense:var(--expense);--theme-saved:var(--gold);--theme-yield:var(--yield);--theme-surface:var(--paper);--theme-surface-alt:var(--paper-deep);--theme-border:var(--line)}
 html[data-theme="dark"][data-caixa-theme="christmas"]{--theme-primary:#73c69b;--theme-primary-soft:#18362d;--theme-accent:#ef7f88;--theme-accent-strong:#e3bf61;--theme-income:var(--income);--theme-expense:var(--expense);--theme-saved:var(--gold);--theme-yield:var(--yield);--theme-surface:var(--paper);--theme-surface-alt:var(--paper-deep);--theme-border:var(--line)}
 html[data-caixa-theme="christmas"] .historico-rendimento-linha .rendimento-valor{color:var(--theme-yield)!important}
+
+/* Histórico — acabamento final: sem brilho/overlay no fundo e rendimento com cor semântica. */
+.historico-mes-card,
+.historico-mes-card:hover,
+.historico-mes-card:focus-within {
+  background-image: none !important;
+  box-shadow: 0 8px 22px rgba(20, 30, 25, .06) !important;
+}
+.historico-mes-card::before,
+.historico-mes-card::after {
+  content: none !important;
+  display: none !important;
+  background: none !important;
+  box-shadow: none !important;
+  opacity: 0 !important;
+  animation: none !important;
+}
+.historico-rendimento-linha .rendimento-valor,
+.historico-mes-linha .yield {
+  color: var(--theme-yield, var(--yield)) !important;
+  font-weight: 750 !important;
+}
