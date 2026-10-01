@@ -2889,3 +2889,24 @@ html[data-caixa-theme="christmas"] .historico-rendimento-linha .rendimento-valor
 /* HISTÓRICO — correção global definitiva: nenhum halo/oval decorativo nos cards. */
 .historico-mes-card,.historico-mes-card:hover,.historico-mes-card:focus,.historico-mes-card:focus-within{background-image:none!important}
 .historico-mes-card::before,.historico-mes-card::after,.historico-mes-head::before,.historico-mes-head::after{content:none!important;display:none!important;background:none!important;box-shadow:none!important;filter:none!important;opacity:0!important;animation:none!important}
+
+
+/* Cores semânticas do Benefício e identificação por banco, adaptadas ao tema. */
+:root { --benefit-income: #a87518; --benefit-income-bg: rgba(196,145,43,.14); --benefit-expense: #b65d37; --benefit-expense-bg: rgba(182,93,55,.13); --fatura-nubank: #8a55c7; --fatura-itau: #3977c8; --fatura-mercado: #2686a5; --fatura-bradesco: #bf5364; }
+html[data-caixa-theme="christmas"] { --benefit-income: #2d8b68; --benefit-income-bg: rgba(45,139,104,.16); --benefit-expense: #bd5a55; --benefit-expense-bg: rgba(189,90,85,.14); --fatura-nubank: #a46acb; --fatura-itau: #5b88d4; --fatura-mercado: #48a5b4; --fatura-bradesco: #d16b78; }
+html[data-caixa-theme="halloween"] { --benefit-income: #a77ad8; --benefit-income-bg: rgba(167,122,216,.17); --benefit-expense: #d17a45; --benefit-expense-bg: rgba(209,122,69,.15); --fatura-nubank: #a47bd8; --fatura-itau: #6d8cdb; --fatura-mercado: #55a9bd; --fatura-bradesco: #cf7186; }
+html[data-theme="dark"] { --benefit-income: #e0b75f; --benefit-income-bg: rgba(224,183,95,.17); --benefit-expense: #e18b67; --benefit-expense-bg: rgba(225,139,103,.17); --fatura-nubank: #c29ae9; --fatura-itau: #8bb4f4; --fatura-mercado: #7dc9df; --fatura-bradesco: #ef9aaa; }
+html[data-theme="dark"][data-caixa-theme="christmas"] { --benefit-income: #70c9a5; --benefit-expense: #ef9990; }
+html[data-theme="dark"][data-caixa-theme="halloween"] { --benefit-income: #c5a1ee; --benefit-expense: #efa16e; }
+.ganho-beneficio .item-valor, .hero-stat-origem-beneficio, .saldo-origem-beneficio { color: var(--benefit-income) !important; }
+.hero-stat-origem-beneficio, .saldo-origem-beneficio { background: var(--benefit-income-bg); border-radius: 9px; }
+.gasto-beneficio .item-valor, .ledger-item.expense-beneficio .ledger-valor, .ledger-item.expense-beneficio .ledger-icon { color: var(--benefit-expense) !important; }
+.ledger-item.expense-beneficio .ledger-icon { background: var(--benefit-expense-bg) !important; }
+.item-tag-fatura { border-color: color-mix(in srgb, currentColor 28%, transparent); background: color-mix(in srgb, currentColor 12%, transparent); }
+.item-tag-fatura.fatura-nubank { color: var(--fatura-nubank); }
+.item-tag-fatura.fatura-itau { color: var(--fatura-itau); }
+.item-tag-fatura.fatura-mercadopago { color: var(--fatura-mercado); }
+.item-tag-fatura.fatura-bradesco { color: var(--fatura-bradesco); }
+.item-list-row.is-riscando .swipe-content { animation: deleteCardSoft .62s cubic-bezier(.2,.8,.2,1) .18s both; }
+@keyframes deleteCardSoft { 0% { opacity:1; transform:translateX(0) scale(1); filter:blur(0); } 45% { opacity:.82; transform:translateX(10px) scale(.985); } 100% { opacity:0; transform:translateX(38px) scale(.94); filter:blur(2px); } }
+@media (prefers-reduced-motion: reduce) { .item-list-row.is-riscando .swipe-content { animation-duration: .01ms !important; } }

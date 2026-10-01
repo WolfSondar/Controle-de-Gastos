@@ -308,17 +308,30 @@ function renderJuntosView() {
   const variaveisPorPessoa = agruparPorPessoa(state.gastosVariaveis);
   const caixinhasPorPessoa = agruparPorPessoa(state.caixinhas);
 
-  const ganhosEl = document.getElementById("juntosGanhos");
-  if (ganhosEl) ganhosEl.innerHTML = ["davi", "gabriel"].map((p) => cardJuntos(p, somaComStatus(ganhosPorPessoa[p], "recebido"), soma(ganhosPorPessoa[p]), "income")).join("");
+  const pessoas = ["davi", "gabriel"];
+  const saldoEl = document.getElementById("juntosGanhos");
+  if (saldoEl) saldoEl.innerHTML = pessoas.map((p) => {
+    const ganhosRecebidos = somaComStatus(ganhosPorPessoa[p], "recebido");
+    const fixosPagos = somaFixosPagos(fixosPorPessoa[p]);
+    const variaveisPagas = somaVariaveisPagas(variaveisPorPessoa[p]);
+    const guardadoMes = somaCampo(caixinhasPorPessoa[p], "valorGuardadoMes");
+    const atual = ganhosRecebidos - fixosPagos - variaveisPagas - guardadoMes;
+    const projetado = soma(ganhosPorPessoa[p]) - soma(fixosPorPessoa[p]) - soma(variaveisPorPessoa[p].filter(gastoVariavelEhReal)) - guardadoMes;
+    return cardJuntos(p, atual, projetado, atual < 0 ? "expense" : "income");
+  }).join("");
 
   const guardadoEl = document.getElementById("juntosGuardado");
-  if (guardadoEl) guardadoEl.innerHTML = ["davi", "gabriel"].map((p) => cardJuntos(p, somaTotalCaixinhas(caixinhasPorPessoa[p]), null, "gold")).join("");
+  if (guardadoEl) guardadoEl.innerHTML = pessoas.map((p) => cardJuntos(p, somaTotalCaixinhas(caixinhasPorPessoa[p]), null, "gold")).join("");
 
-  const fixosEl = document.getElementById("juntosFixos");
-  if (fixosEl) fixosEl.innerHTML = ["davi", "gabriel"].map((p) => cardJuntos(p, somaFixosPagos(fixosPorPessoa[p]), soma(fixosPorPessoa[p]), "expense")).join("");
+  const ganhosResumoEl = document.getElementById("juntosGanhosResumo");
+  if (ganhosResumoEl) ganhosResumoEl.innerHTML = pessoas.map((p) => cardJuntos(p, somaComStatus(ganhosPorPessoa[p], "recebido"), soma(ganhosPorPessoa[p]), "income")).join("");
 
-  const variaveisEl = document.getElementById("juntosVariaveis");
-  if (variaveisEl) variaveisEl.innerHTML = ["davi", "gabriel"].map((p) => cardJuntos(p, somaVariaveisPagas(variaveisPorPessoa[p]), soma(variaveisPorPessoa[p].filter(gastoVariavelEhReal)), "expense")).join("");
+  const gastosEl = document.getElementById("juntosGastos");
+  if (gastosEl) gastosEl.innerHTML = pessoas.map((p) => {
+    const pagos = somaFixosPagos(fixosPorPessoa[p]) + somaVariaveisPagas(variaveisPorPessoa[p]);
+    const totalMes = soma(fixosPorPessoa[p]) + soma(variaveisPorPessoa[p].filter(gastoVariavelEhReal));
+    return cardJuntos(p, pagos, totalMes, "expense");
+  }).join("");
 }
 
 function spanCentro(valorFormatado) {

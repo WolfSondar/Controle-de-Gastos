@@ -167,8 +167,15 @@ if (!cfg.apiKey || cfg.apiKey.includes("COLE_")) {
       return acc;
     }, { beneficios: 0, ganhos: 0 });
 
-    const fixosPagos = fixos.reduce((acc, item) =>
-      acc + (item?.pago === true ? Number(item?.valor) || 0 : 0), 0);
+    let fixosPagosBeneficio = 0;
+    let fixosPagosSaldo = 0;
+    for (const item of fixos) {
+      if (item?.pago !== true) continue;
+      const valor = Number(item?.valor) || 0;
+      if (String(item?.origem || "").toLowerCase() === "beneficio") fixosPagosBeneficio += valor;
+      else fixosPagosSaldo += valor;
+    }
+    const fixosPagos = fixosPagosBeneficio + fixosPagosSaldo;
 
     let gastosVariaveisBeneficio = 0;
     let gastosVariaveisSaldo = 0;
@@ -183,11 +190,13 @@ if (!cfg.apiKey || cfg.apiKey.includes("COLE_")) {
     const guardadoNoMes = caixinhas.reduce((acc, item) =>
       acc + (Number(item?.valorGuardadoMes) || 0), 0);
 
-    const beneficio = ganhosPorOrigem.beneficios - gastosVariaveisBeneficio;
-    const saldoConta = ganhosPorOrigem.ganhos - fixosPagos - gastosVariaveisSaldo - guardadoNoMes;
+    const beneficio = ganhosPorOrigem.beneficios - fixosPagosBeneficio - gastosVariaveisBeneficio;
+    const saldoConta = ganhosPorOrigem.ganhos - fixosPagosSaldo - gastosVariaveisSaldo - guardadoNoMes;
     return {
       ganhosPorOrigem,
       fixosPagos,
+      fixosPagosBeneficio,
+      fixosPagosSaldo,
       gastosVariaveisBeneficio,
       gastosVariaveisSaldo,
       guardadoNoMes,
@@ -203,13 +212,55 @@ if (!cfg.apiKey || cfg.apiKey.includes("COLE_")) {
     const totalPagos = (Number(fixosPagos)||0) + variaveisSaldo;
     return { ganhos: Math.max(0,(Number(orig.ganhos)||0)-totalPagos), beneficios: Math.max(0,Number(orig.beneficios)||0) };
   }
+  // Calendário legal considerado para Contagem/MG: feriados nacionais,
+  // estaduais aplicáveis e municipais recorrentes. Pontos facultativos não contam.
+  function pascoaUTC(ano) {
+    const a=ano%19,b=Math.floor(ano/100),c=ano%100,d=Math.floor(b/4),e=b%4;
+    const f=Math.floor((b+8)/25),g=Math.floor((b-f+1)/3),h=(19*a+b-d-g+15)%30;
+    const i=Math.floor(c/4),k=c%4,l=(32+2*e+2*i-h-k)%7,m=Math.floor((a+11*h+22*l)/451);
+    const mes=Math.floor((h+l-7*m+114)/31),dia=((h+l-7*m+114)%31)+1;
+    return new Date(Date.UTC(ano,mes-1,dia));
+  }
+  function chaveUTC(d){return `${d.getUTCFullYear()}-${String(d.getUTCMonth()+1).padStart(2,"0")}-${String(d.getUTCDate()).padStart(2,"0")}`;}
+  function deslocarUTC(d,n){const x=new Date(d);x.setUTCDate(x.getUTCDate()+n);return x;}
+  function feriadosContagem(ano) {
+    const fixos=["01-01","04-21","05-01","09-07","10-12","11-02","11-15","11-20","12-25"];
+    const set=new Set(fixos.map(x=>`${ano}-${x}`));
+    const pascoa=pascoaUTC(ano);
+    // Paixão de Cristo e Corpus Christi são feriados locais em Contagem.
+    set.add(chaveUTC(deslocarUTC(pascoa,-2)));
+    set.add(chaveUTC(deslocarUTC(pascoa,60)));
+    // Jubileu de Nossa Senhora das Dores: sexta-feira anterior ao Domingo de Ramos.
+    set.add(chaveUTC(deslocarUTC(pascoa,-9)));
+    return set;
+  }
+  function quintoDiaUtilContagem(ano,mes) {
+    const feriados=feriadosContagem(ano);let cont=0;
+    for(let dia=1;dia<=31;dia++){
+      const d=new Date(Date.UTC(ano,mes-1,dia));if(d.getUTCMonth()!==mes-1)break;
+      if(d.getUTCDay()===0||d.getUTCDay()===6||feriados.has(chaveUTC(d)))continue;
+      if(++cont===5)return `${ano}-${String(mes).padStart(2,"0")}-${String(dia).padStart(2,"0")}`;
+    }
+    return "";
+  }
   function proximaDataMesmoDia(dataStr) {
-    const m = /^(\d{4})-(\d{2})-(\d{2})$/.exec(String(dataStr||""));
+    // Aceita tanto YYYY-MM-DD quanto timestamps ISO salvos pelo app.
+    const m=/^(\d{4})-(\d{2})-(\d{2})/.exec(String(dataStr||""));
     if(!m)return "";
-    const d=new Date(Number(m[1]),Number(m[2])-1,Number(m[3]));
-    d.setMonth(d.getMonth()+1);
-    const p=n=>String(n).padStart(2,"0");
-    return `${d.getFullYear()}-${p(d.getMonth()+1)}-${p(d.getDate())}`;
+    const ano=Number(m[1]),mes=Number(m[2]),dia=Number(m[3]);
+    const alvo=mes===12?{ano:ano+1,mes:1}:{ano,mes:mes+1};
+    const ultimo=new Date(Date.UTC(alvo.ano,alvo.mes,0)).getUTCDate();
+    return `${alvo.ano}-${String(alvo.mes).padStart(2,"0")}-${String(Math.min(dia,ultimo)).padStart(2,"0")}`;
+  }
+  function ehSalario(nome){return normalizarTexto(nome)==="salario";}
+  function dataProximoGanho(nome,dataStr,mesSeguinteRef,pessoa) {
+    if(ehSalario(nome)) {
+      if(String(pessoa || "davi").toLowerCase() === "gabriel") {
+        return `${mesSeguinteRef.ano}-${String(mesSeguinteRef.mes).padStart(2,"0")}-01`;
+      }
+      return quintoDiaUtilContagem(mesSeguinteRef.ano,mesSeguinteRef.mes);
+    }
+    return proximaDataMesmoDia(dataStr);
   }
   function proximoFixo(item) {
     if(!item)return null;
@@ -285,9 +336,11 @@ if (!cfg.apiKey || cfg.apiKey.includes("COLE_")) {
       // Mantém o nome antigo para compatibilidade com históricos já gravados.
       m[`guardado${suf}Mes`]=guardadoMes;
       m[`categorias${suf}`]=categorias;m[`rendimento${suf}`]=rendimento;
-      const ganhosProx=[];(dados.ganhos||[]).forEach(g=>{
+      const ganhosProx=[];let datasAusentes=0;(dados.ganhos||[]).forEach(g=>{
         if(g.recebido===false||ehGanhoRecorrente(g.nome)){
-          const ganhoProx={nome:g.nome,valor:g.valor,data:proximaDataMesmoDia(g.data),recebido:false};
+          const dataProx=dataProximoGanho(g.nome,g.data,next,pessoa);
+          if(!dataProx)datasAusentes++;
+          const ganhoProx={nome:g.nome,valor:g.valor,data:dataProx,recebido:false};
           if(g.origem!==undefined&&g.origem!==null&&g.origem!=="")ganhoProx.origem=g.origem;
           if(g.tipo!==undefined&&g.tipo!==null&&g.tipo!=="")ganhoProx.tipo=g.tipo;
           ganhosProx.push(ganhoProx);
@@ -320,14 +373,19 @@ if (!cfg.apiKey || cfg.apiKey.includes("COLE_")) {
         });
       }
       const fixos=(dados.gastosFixos||[]).map(proximoFixo).filter(Boolean);
-      const variaveis=(dados.gastosVariaveis||[]).filter(g=>g?.pago===false);
+      fixos.forEach(g=>{if(!g.data)datasAusentes++;});
+      const variaveis=(dados.gastosVariaveis||[]).filter(g=>g?.pago===false).map(g=>{
+        const out={...g,data:proximaDataMesmoDia(g.data)};
+        if(!out.data)datasAusentes++;
+        return out;
+      });
       const caixinhas=(dados.caixinhas||[]).map(c=>({nome:c.nome,valorObjetivo:c.valorObjetivo,valorGuardado:totalCaixinha(c),rendimentoTotal:0,valorGuardadoMes:0,data:c.data||"",icone:c.icone||""}));
       tx.set(pref,{...dados,ganhos:ganhosProx,gastosFixos:fixos,gastosVariaveis:variaveis,caixinhas,
         saldoInicialConta:0,
         saldoInicialBeneficio:0,
         mesAtual:next.mes,anoAtual:next.ano},{merge:false});
       tx.set(href,{anos},{merge:true});
-      return {ok:true,fechado:{mes,ano,pessoa,ganhos,debitos,saldo,saldoGanhos:saldos.ganhos,saldoBeneficios:saldos.beneficios,guardado,guardadoMes,rendimento},pessoa,mesAtual:next.mes,anoAtual:next.ano,configDavi:pessoa==="davi"?{mesAtual:next.mes,anoAtual:next.ano}:undefined,configGabriel:pessoa==="gabriel"?{mesAtual:next.mes,anoAtual:next.ano}:undefined};
+      return {ok:true,fechado:{mes,ano,pessoa,ganhos,debitos,saldo,saldoGanhos:saldos.ganhos,saldoBeneficios:saldos.beneficios,guardado,guardadoMes,rendimento},datasAusentes,pessoa,mesAtual:next.mes,anoAtual:next.ano,configDavi:pessoa==="davi"?{mesAtual:next.mes,anoAtual:next.ano}:undefined,configGabriel:pessoa==="gabriel"?{mesAtual:next.mes,anoAtual:next.ano}:undefined};
     });
   }
 

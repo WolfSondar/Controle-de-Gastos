@@ -54,19 +54,21 @@
     const ganhosRecebidos = somaComStatus(state.ganhos || [], "recebido");
     const ganhosOrigem = separarGanhosPorOrigem(state.ganhos || []);
     const fixosPagos = somaFixosPagos(state.gastosFixos || []);
+    const fixosPagosBeneficio = listaFinita(state.gastosFixos).reduce((a, i) => a + (i.pago === true && fixoEhBeneficio(i) ? Number(i.valor) || 0 : 0), 0);
+    const fixosPagosSaldo = fixosPagos - fixosPagosBeneficio;
     const fixosTotais = listaFinita(state.gastosFixos).reduce((a, i) => a + (Number(i.valor) || 0), 0);
     const variaveisPagos = somaVariaveisPagas(state.gastosVariaveis || []);
     const beneficioGasto = listaFinita(state.gastosVariaveis).reduce((a, i) =>
       a + (gastoVariavelEhReal(i) && variavelContaNoSaldo(i) && variavelEhBeneficio(i) ? Number(i.valor) || 0 : 0), 0);
     const saldoGasto = listaFinita(state.gastosVariaveis).reduce((a, i) =>
       a + (gastoVariavelEhReal(i) && variavelContaNoSaldo(i) && !variavelEhBeneficio(i) ? Number(i.valor) || 0 : 0), 0);
-    const beneficio = ganhosOrigem.beneficios - beneficioGasto;
+    const beneficio = ganhosOrigem.beneficios - fixosPagosBeneficio - beneficioGasto;
     const guardadoNoMes = somaCampo(state.caixinhas || [], "valorGuardadoMes");
     // Para decidir "quanto ainda posso gastar" pelo saldo em conta,
     // partimos do saldo que já existe hoje, descontamos o que foi reservado
     // nas caixinhas neste mês, somamos o que ainda vai entrar (somente ganhos
     // sem benefício) e reservamos os gastos fixos ainda não pagos.
-    const saldoAtualConta = ganhosOrigem.ganhos - fixosPagos - saldoGasto - guardadoNoMes;
+    const saldoAtualConta = ganhosOrigem.ganhos - fixosPagosSaldo - saldoGasto - guardadoNoMes;
     // Para perguntas e indicadores DO MÊS ATUAL, considerar somente ganhos
     // que pertencem ao mês aberto. Ganhos lançados para meses futuros ficam
     // disponíveis separadamente para projeções de longo prazo.
@@ -83,7 +85,7 @@
     // pendentes que vencem no mês aberto. Contas de meses futuros não reduzem
     // a margem deste mês; elas ficam separadas para a projeção futura.
     const aPagarFixosEsseMes = listaFinita(state.gastosFixos).reduce((a, i) =>
-      a + (i.pago !== true && !ehFuturoDoMesAtual(i) ? Number(i.valor) || 0 : 0), 0);
+      a + (i.pago !== true && !fixoEhBeneficio(i) && !ehFuturoDoMesAtual(i) ? Number(i.valor) || 0 : 0), 0);
     const aPagarVariaveisEsseMes = listaFinita(state.gastosVariaveis).reduce((a, i) =>
       a + (gastoVariavelEhReal(i) && i.pago !== true && !i.lembrete && !variavelEhBeneficio(i) && !ehFuturoDoMesAtual(i) ? Number(i.valor) || 0 : 0), 0);
     const aPagarFixosFuturos = Math.max(0, aPagarFixos - aPagarFixosEsseMes);
@@ -92,7 +94,9 @@
     // receber neste mês - compromissos pendentes deste mês.
     const conta = saldoAtualConta + aReceberEsseMes - aPagarFixosEsseMes - aPagarVariaveisEsseMes;
     // Projeção de todos os lançamentos abertos, incluindo meses futuros.
-    const contaProjetadaTodosOsMeses = saldoAtualConta + (aReceberEsseMes + aReceberFuturos) - aPagarFixos - aPagarVariaveis;
+    const aPagarFixosSaldo = listaFinita(state.gastosFixos).reduce((a, i) =>
+      a + (i.pago !== true && !fixoEhBeneficio(i) ? Number(i.valor) || 0 : 0), 0);
+    const contaProjetadaTodosOsMeses = saldoAtualConta + (aReceberEsseMes + aReceberFuturos) - aPagarFixosSaldo - aPagarVariaveis;
     const saldoGeral = ganhosRecebidos - fixosPagos - variaveisPagos;
     return { ganhosRecebidos, ganhosOrigem, fixosPagos, fixosTotais, variaveisPagos, beneficio, saldoAtualConta, conta, contaProjetadaTodosOsMeses, saldoGeral, aReceber, aReceberEsseMes, aReceberFuturos, aPagarFixos, aPagarVariaveis, aPagarFixosEsseMes, aPagarVariaveisEsseMes, aPagarFixosFuturos, aPagarVariaveisFuturos };
   }
@@ -240,8 +244,17 @@
     else if (!falta) plano = `<strong>Meta concluída!</strong> Você já chegou ao objetivo de ${chatFmt(objetivo)}.`;
     else if (dias !== null && dias <= 0) plano = `O prazo de <strong>${formatarDataCurta(prazo)}</strong> já passou e ainda faltam <strong class="chat-valor chat-valor-neg">${chatFmt(falta)}</strong> para a meta.`;
     else {
-      const mensal = falta / meses;
-      plano = `Para chegar em <strong>${chatFmt(objetivo)}</strong> até <strong>${formatarDataCurta(prazo)}</strong>, você precisa guardar cerca de <strong class="chat-valor chat-valor-gold">${chatFmt(mensal)}</strong> por mês.`;
+      const porDia = falta / Math.max(dias || 1, 1);
+      const variacao = [...String(cx.nome || "")].reduce((n, c) => n + c.charCodeAt(0), 0) % 3;
+      const frases = dias < 5
+        ? ["O prazo está bem pertinho!", "Últimos dias para essa meta!", "Reta final da sua caixinha!"]
+        : dias < 15
+          ? ["Falta pouco para a data da sua meta.", "Você está na reta final do planejamento.", "Dá para organizar os últimos depósitos com calma."]
+          : dias < 30
+            ? ["A data da meta está chegando.", "Estamos a poucas semanas do prazo.", "Este é um bom momento para reforçar essa caixinha."]
+            : ["Ainda há um tempinho para chegar lá.", "Sua meta segue no horizonte.", "Você pode distribuir os próximos depósitos ao longo do prazo."];
+      plano = `${frases[variacao]} Faltam <strong>${dias} dias</strong> e <strong>${chatFmt(falta)}</strong> para completar a meta.`;
+      if (dias <= 14) plano += ` Se quiser manter o prazo, a referência é guardar cerca de <strong class="chat-valor chat-valor-gold">${chatFmt(porDia)} por dia</strong>.`;
     }
     const icone = normalizarNomeIcone(cx.icone || "");
     const iconeHtml = icone ? `<img src="${esc(urlIconeCaixinha(icone))}" alt="" class="chat-goal-icon-img" onerror="this.onerror=null;this.src='';this.parentElement.innerHTML=ICONE_COFRINHO;">` : ICONE_COFRINHO;
@@ -291,16 +304,16 @@
         const cats = categoriasChat();
         if (!cats.length) return appendMensagem("Ainda não encontrei gastos pagos suficientes para montar esse ranking.");
         const top = cats.slice(0,3).map((x,i) => `${i+1}. <strong>${esc(x[0])}</strong> — <span class="chat-valor chat-valor-neg">${chatFmt(x[1])}</span>`).join("<br>");
-        appendMensagem(`<strong>Onde mais saiu dinheiro:</strong><br>${top}<span class="caixa-chat-note">Considerei os gastos que efetivamente contam no mês atual.</span>`);
+        appendMensagem(`<strong>Onde mais saiu dinheiro:</strong><br>${top}`);
       }
 
       if (id === "guardado") {
         const comData = listaFinita(state.caixinhas).filter(cx => String(cx.data || "").trim());
         if (!comData.length) {
-          appendMensagem(`Não encontrei nenhuma caixinha com <strong>data de objetivo</strong> cadastrada ainda.<span class="caixa-chat-note">Cadastre uma data na caixinha para eu calcular quanto você precisa guardar por mês.</span>`);
+          appendMensagem(`Não encontrei nenhuma caixinha com <strong>data de objetivo</strong> cadastrada ainda.<span class="caixa-chat-note">Cadastre uma data de objetivo para eu ajudar a organizar os depósitos até o prazo.</span>`);
           return;
         }
-        appendMensagem(`<strong>Qual caixinha você quer planejar?</strong><span class="caixa-chat-note">Mostrando apenas caixinhas que têm uma data definida.</span>`);
+        appendMensagem(`<strong>Qual caixinha você quer planejar?</strong>`);
         const escolhas = document.createElement("div");
         escolhas.className = "caixa-chat-choices caixa-chat-caixinhas-choices";
         comData.forEach((cx, idx) => {
@@ -366,11 +379,15 @@
           const parcelaRaw = tipo === "fixo" && /^\d+\s*\/\s*\d+$/.test(String(i.parcela || "").trim())
             ? String(i.parcela).trim().replace(/\s+/g, "") : "";
           const parcela = parcelaRaw ? `<span class="chat-pendente-parcela">(${esc(parcelaRaw)})</span>` : "";
+          const ehFatura = i.fatura === true || /^Fatura\s*:/i.test(String(i.nome || ""));
+          const cfgFaturaChat = ehFatura ? ((state.faturas || []).find(f => String(f.id) === String(i.faturaId || "") && String(f.pessoa || "davi") === String(state.pessoaAtual || "davi")) || (state.faturas || []).find(f => String(f.pessoa || "davi") === String(state.pessoaAtual || "davi"))) : null;
+          const tagFatura = ehFatura ? `<span class="chat-pendente-fatura">${escapeHtml(cfgFaturaChat?.nome || "Fatura")}</span>` : "";
           const proximoMes = ehDoProximoMes(i)
             ? `<span class="chat-pendente-proximo">Mês que vem</span>` : "";
           const data = formatarDataCurta(i.data);
-          const nome = i.nome || (tipo === "fixo" ? "Gasto fixo" : "Gasto variável");
-          return `<li><span class="chat-pendente-arrow" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none"><path d="M5 12h12M13 7l5 5-5 5" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/></svg></span><span class="chat-pendente-main"><strong>${esc(nome)}${parcela}</strong><small>${[proximoMes, data ? `<span>${data}</span>` : ""].filter(Boolean).join(" · ")}</small></span><strong class="chat-valor chat-valor-neg">${chatFmt(i.valor)}</strong></li>`;
+          const nome = String(i.nome || (tipo === "fixo" ? "Gasto fixo" : "Gasto variável")).replace(/^(?:Fatura|Oculto)\s*:\s*/i, "");
+          const meta = [tagFatura, proximoMes, data ? `<span>${data}</span>` : ""].filter(Boolean).join(" · ");
+          return `<li><span class="chat-pendente-arrow" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none"><path d="M5 12h12M13 7l5 5-5 5" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/></svg></span><span class="chat-pendente-main"><strong>${esc(nome)}${parcela}</strong>${meta ? `<small>${meta}</small>` : ""}</span><strong class="chat-valor chat-valor-neg">${chatFmt(i.valor)}</strong></li>`;
         };
         const pendenciasOrdenadas = [
           ...fixosPendentes.map(i => ({ item: i, tipo: "fixo" })),
@@ -381,12 +398,7 @@
           ? `<ul class="caixa-chat-pendencias-lista lista-simples">${linhasPendencias}</ul>`
           : "";
         const vazio = !detalhes ? `<div class="caixa-chat-empty">Nenhum gasto pendente encontrado.</div>` : detalhes;
-        const totalDesteMes = t.aPagarFixosEsseMes + t.aPagarVariaveisEsseMes;
-        const totalFuturo = t.aPagarFixosFuturos + t.aPagarVariaveisFuturos;
-        const notaPendencias = totalFuturo > 0
-          ? `Deste total, ${chatFmt(totalDesteMes)} vencem neste mês e ${chatFmt(totalFuturo)} são contas futuras já lançadas.`
-          : `Todas as contas pendentes de ${chatFmt(totalDesteMes)} vencem neste mês.`;
-        appendMensagem(`<strong>Ainda falta pagar ${chatFmt(totalPend)} no total.</strong>${vazio}<span class="caixa-chat-note">${notaPendencias} Também há ${chatFmt(t.aReceber)} para receber.</span>`);
+        appendMensagem(`<strong>Ainda falta pagar ${chatFmt(totalPend)} no total.</strong>${vazio}`);
       }
 
 
@@ -751,7 +763,7 @@
     body.querySelectorAll("#caixaChatBack").forEach(x => x.remove());
     cadastroAtivo = { etapa: "tipo" };
 
-    appendMensagem("Claro! Vamos registrar isso juntos. <strong>O que você quer adicionar?</strong>");
+    appendMensagem("Vamos colocar tudo em ordem. <strong>O que vamos registrar hoje?</strong>");
     escolhaChat([
       ["gasto", "Gasto", "Algo que você comprou, pagou ou parcelou"],
       ["ganho", "Ganho", "Dinheiro que entrou ou vai entrar"],
@@ -783,46 +795,44 @@
     }
 
     function perguntarFaturaAntesDaData(callback) {
-      appendMensagem("Esse gasto vai entrar em uma <strong>fatura</strong>?");
-      escolhaChat([
-        ["sim", "Sim"],
-        ["nao", "Não"]
-      ], escolha => {
-        if (escolha === "sim") {
-          cadastroAtivo.fatura = true;
-          const faturas = faturasConfiguradas(state.pessoaAtual);
-          const concluirFatura = (faturaId) => {
-            const fatura = faturaPorId(faturaId, state.pessoaAtual);
-            const vencimento = dataVencimentoFaturaAtual(fatura?.id || "");
-            cadastroAtivo.faturaId = fatura?.id || "";
-            cadastroAtivo.faturaNome = fatura?.nome || "Fatura";
-            cadastroAtivo.data = vencimento;
-            appendMensagem(`Vencimento em: ${esc(formatarDataParaChat(vencimento))}`);
-            callback(vencimento, true);
-          };
-          if (faturas.length > 1) {
-            selectChat(
-              "Em qual fatura?",
-              faturas.map(f => [String(f.id), String(f.nome || "Fatura")]),
-              concluirFatura,
-              { placeholder: "Escolha a fatura…" }
-            );
-          } else {
-            concluirFatura(faturas[0]?.id || "");
-          }
-        } else {
-          cadastroAtivo.fatura = false;
-          cadastroAtivo.faturaId = "";
-          cadastroAtivo.faturaNome = "";
-          perguntaDataCadastro(data => callback(data, false));
-        }
-      });
+      // Gastos deste fluxo são registrados como compra em fatura por padrão.
+      cadastroAtivo.fatura = true;
+      const faturas = faturasConfiguradas(state.pessoaAtual);
+      const concluirFatura = (faturaId) => {
+        const fatura = faturaPorId(faturaId, state.pessoaAtual);
+        const vencimento = dataVencimentoFaturaAtual(fatura?.id || "");
+        cadastroAtivo.faturaId = fatura?.id || "";
+        cadastroAtivo.faturaNome = fatura?.nome || "Fatura";
+        cadastroAtivo.data = vencimento;
+        appendMensagem(`Fatura: <strong>${esc(cadastroAtivo.faturaNome)}</strong> · vencimento ${esc(formatarDataParaChat(vencimento))}`);
+        callback(vencimento, true);
+      };
+      if (faturas.length > 1) {
+        selectChat(
+          "Em qual fatura?",
+          faturas.map(f => [String(f.id), String(f.nome || "Fatura")]),
+          concluirFatura,
+          { placeholder: "Escolha a fatura…" }
+        );
+      } else if (faturas.length === 1) {
+        concluirFatura(faturas[0].id);
+      } else {
+        cadastroAtivo.faturaId = "";
+        cadastroAtivo.faturaNome = "Fatura";
+        perguntaDataCadastro(data => callback(data, true));
+      }
     }
 
     function fluxoGastoFixo() {
       categoriasEscolhiveis(cat => {
         cadastroAtivo.categoria = cat;
-        appendMensagem("Esse gasto será <strong>à vista</strong> ou <strong>parcelado</strong>?");
+        appendMensagem("De onde vai sair esse dinheiro?");
+        escolhaChat([
+          ["saldo", "Saldo em conta", "Sai do saldo normal"],
+          ["beneficio", "Benefício", "Sai do saldo do benefício"]
+        ], origem => {
+          cadastroAtivo.origem = origem;
+          appendMensagem("Esse gasto será <strong>à vista</strong> ou <strong>parcelado</strong>?");
         escolhaChat([
           ["avista", "À vista"],
           ["parcelado", "Parcelado", "Dividido em parcelas"]
@@ -831,15 +841,28 @@
           if (modalidade === "parcelado") {
             selectChat("Em quantas parcelas?", Array.from({length:23}, (_,i)=>[String(i+2), `${i+2}x`]), qtd => {
               cadastroAtivo.parcelas = Number(qtd);
-              perguntarFaturaAntesDaData(data => { cadastroAtivo.data = data; statusFixo(); });
+              if (cadastroAtivo.origem === "beneficio") {
+                cadastroAtivo.fatura = false;
+                cadastroAtivo.faturaId = "";
+                perguntaDataCadastro(data => { cadastroAtivo.data = data; statusFixo(); });
+              } else {
+                perguntarFaturaAntesDaData(data => { cadastroAtivo.data = data; statusFixo(); });
+              }
             }, { placeholder: "Escolha o número de parcelas…" });
           } else {
             // Gasto fixo à vista continua recorrente; sem número de parcelas,
             // o backend cria o mesmo gasto no mês seguinte.
             cadastroAtivo.parcelas = 0;
-            perguntarFaturaAntesDaData(data => { cadastroAtivo.data = data; statusFixo(); });
+            if (cadastroAtivo.origem === "beneficio") {
+              cadastroAtivo.fatura = false;
+              cadastroAtivo.faturaId = "";
+              perguntaDataCadastro(data => { cadastroAtivo.data = data; statusFixo(); });
+            } else {
+              perguntarFaturaAntesDaData(data => { cadastroAtivo.data = data; statusFixo(); });
+            }
           }
         });
+      });
       });
     }
 
@@ -849,7 +872,7 @@
         const valor = n > 0 ? Math.round((cadastroAtivo.valor / n) * 100) / 100 : cadastroAtivo.valor;
         const parcela = n > 0 ? `1/${n}` : "";
         const nomeSalvo = cadastroAtivo.fatura ? nomeInternoFatura(cadastroAtivo.nome) : cadastroAtivo.nome;
-        opFixos.add(nomeSalvo, valor, { pago, tipo: cadastroAtivo.categoria, data: dataDoLancamento(cadastroAtivo.data), parcela, fatura: cadastroAtivo.fatura === true, faturaId: cadastroAtivo.faturaId || "" });
+        opFixos.add(nomeSalvo, valor, { pago, tipo: cadastroAtivo.categoria, data: dataDoLancamento(cadastroAtivo.data), parcela, origem: cadastroAtivo.origem || "saldo", fatura: cadastroAtivo.fatura === true, faturaId: cadastroAtivo.faturaId || "" });
         finalizarCadastro("Gasto adicionado", `${esc(cadastroAtivo.nome)} · <span class="chat-valor chat-valor-neg">${chatFmt(valor)}</span>${n > 1 ? ` · parcela 1/${n}` : ""}.`);
       });
     }
@@ -863,14 +886,32 @@
           ["beneficio", "Benefício", "Sai do saldo do benefício"]
         ], origem => {
           cadastroAtivo.origem = origem;
-          perguntarFaturaAntesDaData(data => {
+          const salvarGastoVariavel = pago => {
+            const usarFatura = cadastroAtivo.origem !== "beneficio" && cadastroAtivo.fatura === true;
+            const nomeSalvo = usarFatura ? nomeInternoFatura(cadastroAtivo.nome) : (cadastroAtivo.origem === "beneficio" ? nomeInternoBeneficio(cadastroAtivo.nome) : cadastroAtivo.nome);
+            opVariaveis.add(nomeSalvo, cadastroAtivo.valor, { pago, tipo: cadastroAtivo.categoria, data: dataDoLancamento(cadastroAtivo.data), origem: cadastroAtivo.origem, fatura: usarFatura, faturaId: usarFatura ? (cadastroAtivo.faturaId || "") : "" });
+            finalizarCadastro("Gasto adicionado", `${esc(cadastroAtivo.nome)} · <span class="chat-valor chat-valor-neg">${chatFmt(cadastroAtivo.valor)}</span>.`);
+          };
+          const continuarStatus = data => {
             cadastroAtivo.data = data;
-            perguntaStatusCadastro("Essa compra já foi paga?", "Sim, já paguei", "Não, está pendente", pago => {
-              const nomeSalvo = cadastroAtivo.fatura ? nomeInternoFatura(cadastroAtivo.nome) : cadastroAtivo.nome;
-              opVariaveis.add(nomeSalvo, cadastroAtivo.valor, { pago, tipo: cadastroAtivo.categoria, data: dataDoLancamento(cadastroAtivo.data), origem: cadastroAtivo.origem, fatura: cadastroAtivo.fatura === true, faturaId: cadastroAtivo.faturaId || "" });
-              finalizarCadastro("Gasto adicionado", `${esc(cadastroAtivo.nome)} · <span class="chat-valor chat-valor-neg">${chatFmt(cadastroAtivo.valor)}</span>.`);
-            });
-          });
+            if (cadastroAtivo.origem === "beneficio") {
+              // O benefício é debitado no registro: considerar a despesa paga e concluir sem pergunta extra.
+              salvarGastoVariavel(true);
+              return;
+            }
+            perguntaStatusCadastro("Essa compra já foi paga?", "Sim, já paguei", "Não, está pendente", salvarGastoVariavel);
+          };
+
+          if (origem === "beneficio") {
+            // Gastos do benefício não são compras em fatura.
+            cadastroAtivo.fatura = false;
+            cadastroAtivo.faturaId = "";
+            cadastroAtivo.faturaNome = "";
+            perguntaDataCadastro(continuarStatus);
+          } else {
+            // Gastos pagos pelo saldo em conta continuam seguindo o fluxo de fatura.
+            perguntarFaturaAntesDaData(continuarStatus);
+          }
         });
       });
     }
@@ -887,13 +928,22 @@
             ["beneficio", "Benefício", "Entra no saldo do benefício"]
           ], origem => {
             cadastroAtivo.origem = origem;
-            perguntaDataCadastro(data => {
+            const ehSalarioCadastro = String(cadastroAtivo.nome || "").normalize("NFD").replace(/[\u0300-\u036f]/g, "").trim().toLowerCase() === "salario";
+            const continuarGanho = data => {
               cadastroAtivo.data = data;
               perguntaStatusCadastro("Esse dinheiro já foi recebido?", "Sim, já recebi", "Ainda vou receber", recebido => {
                 opGanhos.add(cadastroAtivo.nome, cadastroAtivo.valor, { recebido, data: dataDoLancamento(cadastroAtivo.data), origem: cadastroAtivo.origem });
                 finalizarCadastro("Ganho adicionado", `${esc(cadastroAtivo.nome)} · <span class="chat-valor chat-valor-pos">${chatFmt(cadastroAtivo.valor)}</span>.`);
               });
-            });
+            };
+            if (ehSalarioCadastro && typeof dataSalarioPessoa === "function") {
+              const dataSalario = dataSalarioPessoa(state.pessoaAtual, state.mesAtual, state.anoAtual);
+              cadastroAtivo.data = dataSalario;
+              appendMensagem(`Salário: recebimento automático em <strong>${esc(formatarDataParaChat(dataSalario))}</strong>.`);
+              continuarGanho(dataSalario);
+            } else {
+              perguntaDataCadastro(continuarGanho);
+            }
           });
         });
       }, { formatarNome: true });

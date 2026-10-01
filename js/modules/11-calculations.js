@@ -68,6 +68,8 @@ function renderTotais() {
 
   const totalFixosGeral = soma(state.gastosFixos);
   const totalFixosPagos = somaFixosPagos(state.gastosFixos);
+  const totalFixosPagosBeneficio = (state.gastosFixos || []).reduce((acc, item) => acc + (fixoEhPago(item) && fixoEhBeneficio(item) ? Number(item.valor) || 0 : 0), 0);
+  const totalFixosPagosSaldo = totalFixosPagos - totalFixosPagosBeneficio;
   const totalFixosAPagar = totalFixosGeral - totalFixosPagos;
 
   const gastosVariaveisReais = state.gastosVariaveis.filter(gastoVariavelEhReal);
@@ -188,10 +190,10 @@ function renderTotais() {
   const gastosVariaveisSaldo = saldosDisponiveis ? saldosDisponiveis.gastosVariaveisSaldo : (state.gastosVariaveis || []).reduce((acc, item) => {
     return acc + (gastoVariavelEhReal(item) && variavelContaNoSaldo(item) && !variavelEhBeneficio(item) ? (Number(item.valor) || 0) : 0);
   }, 0);
-  const beneficioRestante = saldosDisponiveis ? saldosDisponiveis.beneficio : (ganhosPorOrigem.beneficios - gastosVariaveisBeneficio);
+  const beneficioRestante = saldosDisponiveis ? saldosDisponiveis.beneficio : (ganhosPorOrigem.beneficios - totalFixosPagosBeneficio - gastosVariaveisBeneficio);
   // Deve representar exatamente o mesmo "saldo em conta" usado pelo
   // assistente: gastos reais + dinheiro guardado neste mês.
-  const saldoRestante = saldosDisponiveis ? saldosDisponiveis.saldoConta : (ganhosPorOrigem.ganhos - totalFixosPagos - gastosVariaveisSaldo - totalGuardadoNoMes);
+  const saldoRestante = saldosDisponiveis ? saldosDisponiveis.saldoConta : (ganhosPorOrigem.ganhos - totalFixosPagosSaldo - gastosVariaveisSaldo - totalGuardadoNoMes);
 
   if (beneficiosEl) {
     beneficiosEl.textContent = fmt(beneficioRestante);

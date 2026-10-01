@@ -78,14 +78,12 @@ function initChartTooltip() {
     const ganhos = grupo.dataset.ganhos;
     const gastos = grupo.dataset.gastos;
     const guardado = grupo.dataset.guardado;
-    const rendimento = grupo.dataset.rendimento;
 
     chartTooltip.innerHTML = `
       <div class="tooltip-titulo">${mes}</div>
       <div class="tooltip-linha"><span style="color: #8fd4ab">Ganhos</span> <span class="valor">${ganhos}</span></div>
       <div class="tooltip-linha"><span style="color: #e8a58c">Gastos</span> <span class="valor">${gastos}</span></div>
       <div class="tooltip-linha"><span style="color: #e3c581">Guardado</span> <span class="valor">${guardado}</span></div>
-      <div class="tooltip-linha"><span style="color: #8ec2dd">Rendimento</span> <span class="valor">${rendimento}</span></div>
     `;
 
     // Deixa visível primeiro para o navegador calcular a largura da caixinha
