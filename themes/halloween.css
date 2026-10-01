@@ -2044,6 +2044,7 @@ html[data-caixa-theme="halloween"] .historico-mes-card {
   color: var(--ink-text) !important;
   box-shadow: 0 9px 0 rgba(74,25,66,.08), 0 14px 25px rgba(74,25,66,.08) !important;
 }
+html[data-caixa-theme="halloween"] .historico-mes-card::before { background: var(--halloween-orange) !important; }
 html[data-caixa-theme="halloween"] .historico-mes-card:hover {
   border-color: rgba(255,122,61,.45) !important;
   box-shadow: 0 10px 0 rgba(74,25,66,.10), 0 16px 28px rgba(74,25,66,.11) !important;
@@ -2077,6 +2078,7 @@ html[data-theme="dark"][data-caixa-theme="halloween"] .historico-mes-card {
   color: #fdf3ea !important;
   box-shadow: 0 10px 0 rgba(0,0,0,.24), 0 16px 28px rgba(0,0,0,.30) !important;
 }
+html[data-theme="dark"][data-caixa-theme="halloween"] .historico-mes-card::before { background: var(--halloween-orange) !important; }
 html[data-theme="dark"][data-caixa-theme="halloween"] .historico-mes-head { color: #fdf3ea !important; border-bottom-color: rgba(95,184,122,.20) !important; }
 html[data-theme="dark"][data-caixa-theme="halloween"] .historico-mes-nome { color: #fdf3ea !important; }
 html[data-theme="dark"][data-caixa-theme="halloween"] .historico-mes-total {
@@ -2154,18 +2156,30 @@ html[data-caixa-theme="halloween"] .historico-rendimento-linha .rendimento-valor
   font-weight: 750 !important;
 }
 
-
-/* Histórico: o card não usa mais círculo/halo decorativo no fundo. */
+/* CORREÇÃO DEFINITIVA — HISTÓRICO: remover o oval decorativo do cabeçalho */
+html[data-caixa-theme="halloween"] .historico-mes-card,
+html[data-caixa-theme="halloween"] .historico-mes-card:hover,
+html[data-caixa-theme="halloween"] .historico-mes-card:focus-within {
+  background-image: none !important;
+}
 html[data-caixa-theme="halloween"] .historico-mes-card::before,
 html[data-caixa-theme="halloween"] .historico-mes-card::after,
-html[data-caixa-theme="halloween"] .historico-mes-card:hover::before,
-html[data-caixa-theme="halloween"] .historico-mes-card:hover::after,
-html[data-caixa-theme="halloween"] .historico-mes-card.is-expanded::before,
-html[data-caixa-theme="halloween"] .historico-mes-card.is-expanded::after {
-  content:none !important; display:none !important; opacity:0 !important; visibility:hidden !important; background:none !important; box-shadow:none !important; animation:none !important;
+html[data-caixa-theme="halloween"] .historico-mes-head::before,
+html[data-caixa-theme="halloween"] .historico-mes-head::after {
+  content: none !important;
+  display: none !important;
+  background: none !important;
+  background-image: none !important;
+  box-shadow: none !important;
+  filter: none !important;
+  opacity: 0 !important;
+  transform: none !important;
+  animation: none !important;
 }
-
-html[data-caixa-theme="halloween"] .sync-icone-download,
-html[data-caixa-theme="halloween"] .sync-icone-upload,
-html[data-caixa-theme="halloween"] .sync-icone-reconectando { color:var(--theme-primary, var(--accent, currentColor)) !important; }
-html[data-caixa-theme="halloween"] .sync-icone-fechamento { color:var(--halloween-orange, var(--yield, currentColor)) !important; }
+html[data-caixa-theme="halloween"] .historico-mes-head,
+html[data-caixa-theme="halloween"] .historico-mes-head:hover,
+html[data-caixa-theme="halloween"] .historico-mes-head:active {
+  background: transparent !important;
+  background-image: none !important;
+  box-shadow: none !important;
+}
