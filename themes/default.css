@@ -10490,6 +10490,12 @@ html[data-caixa-theme="halloween"] .hero-stats > .hero-stat:nth-child(2) {
 .historico-mes-mini-saldo-beneficio { color:var(--benefit-deep); background:var(--benefit-bg); }
 .historico-mes-mini-saldo-proprio { color:var(--income); background:var(--income-bg); }
 .historico-mes-mini-saldo-proprio.negative { color:var(--expense); background:var(--expense-bg); }
+.historico-mes-mini-separador { width:1px; height:22px; flex:0 0 1px; background:color-mix(in srgb, var(--line) 85%, var(--ink-text)); opacity:.75; margin:0 1px; }
+.historico-mes-origem-grupo { padding:2px 0; }
+.historico-mes-origem-separador { display:flex; align-items:center; gap:8px; margin:7px 0 4px; color:var(--benefit-deep); font-size:9px; font-weight:800; text-transform:uppercase; letter-spacing:.08em; }
+.historico-mes-origem-separador::before,
+.historico-mes-origem-separador::after { content:""; height:1px; flex:1; background:color-mix(in srgb, var(--benefit-deep) 28%, var(--line)); }
+.historico-mes-origem-beneficio .historico-mes-linha > span:first-child { color:var(--benefit-deep) !important; }
 
 .historico-mes-chevron { width:30px; height:30px; display:grid; place-items:center; flex:0 0 30px; border:1px solid var(--line); border-radius:10px; background:var(--paper); color:var(--muted); transition:transform .22s ease, background .22s ease, border-color .22s ease, color .22s ease; }
 .historico-mes-chevron svg { width:16px; height:16px; transition:transform .24s cubic-bezier(.4,0,.2,1); }
@@ -10833,3 +10839,12 @@ html[data-theme="dark"][data-caixa-theme="halloween"] { --benefit-income: #c5a1e
 .hero-stats>.hero-stat:nth-child(3),.hero-stats>.hero-stat:nth-child(4){--hero-expense-tone:var(--expense,var(--text));}
 .hero-stats>.hero-stat:nth-child(3) .hero-stat-valor,.hero-stats>.hero-stat:nth-child(4) .hero-stat-valor{color:var(--hero-expense-tone)!important}
 .item-list-row.gasto-beneficio .item-valor.expense-beneficio,.item-list-row.gasto-beneficio .item-nome{color:var(--benefit-expense)!important}
+
+
+/* Histórico: separação visual entre saldo próprio e benefício */
+.historico-grafico-legenda { flex-wrap:wrap; row-gap:6px; }
+@media (max-width: 560px) {
+  .historico-mes-head-right { gap:6px; }
+  .historico-mes-mini-saldo { padding:5px 7px; font-size:9px; }
+  .historico-mes-mini-separador { height:20px; }
+}

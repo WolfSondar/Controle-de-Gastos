@@ -66,7 +66,22 @@ function construirGraficoHistoricoMultiSvg(mesesAsc, pessoa) {
         return candidatos.length ? Math.max(...candidatos) : 0;
       }
       const atual = Number(m[`${campo}${sufixo}`]);
-      return Number.isFinite(atual) ? atual : 0;
+      if (Number.isFinite(atual)) return atual;
+      // Histórico antigo: quando o mês ainda não tinha separação por origem,
+      // mantém uma divisão provisória de 50% saldo / 50% benefício.
+      if (campo === "ganhosSaldo" || campo === "ganhosBeneficio") {
+        const total = Number(m[`ganhos${sufixo}`]);
+        return Number.isFinite(total) ? total / 2 : 0;
+      }
+      if (campo === "gastosSaldo" || campo === "gastosBeneficio") {
+        const total = Math.abs(Number(m[`debitos${sufixo}`]));
+        return Number.isFinite(total) ? total / 2 : 0;
+      }
+      if (campo === "saldoSaldo" || campo === "saldoBeneficio") {
+        const total = Number(m[`saldo${sufixo}`]);
+        return Number.isFinite(total) ? total / 2 : 0;
+      }
+      return 0;
     };
     if (pessoa === 'ambos') return valorPessoa("Davi") + valorPessoa("Gabriel");
     const sufixo = pessoa.charAt(0).toUpperCase() + pessoa.slice(1);
@@ -74,11 +89,15 @@ function construirGraficoHistoricoMultiSvg(mesesAsc, pessoa) {
   };
 
   const ptsGanhos = mesesAsc.map(m => getVal(m, 'ganhos'));
+  const ptsGanhosSaldo = mesesAsc.map(m => getVal(m, 'ganhosSaldo'));
+  const ptsGanhosBeneficio = mesesAsc.map(m => getVal(m, 'ganhosBeneficio'));
   // Despesas são negativas no eixo para que maior gasto apareça mais abaixo.
   const ptsDebitos = mesesAsc.map(m => -getVal(m, 'debitos'));
+  const ptsGastosSaldo = mesesAsc.map(m => -getVal(m, 'gastosSaldo'));
+  const ptsGastosBeneficio = mesesAsc.map(m => -getVal(m, 'gastosBeneficio'));
   const ptsGuardado = mesesAsc.map(m => getVal(m, 'guardadoMes'));
 
-  const todos = [...ptsGanhos, ...ptsDebitos, ...ptsGuardado];
+  const todos = [...ptsGanhos, ...ptsGanhosSaldo, ...ptsGanhosBeneficio, ...ptsDebitos, ...ptsGastosSaldo, ...ptsGastosBeneficio, ...ptsGuardado];
   let min = Math.min(0, ...todos);
   let max = Math.max(0, ...todos);
   if (min === max) max = min + 1;
@@ -108,8 +127,10 @@ function construirGraficoHistoricoMultiSvg(mesesAsc, pessoa) {
   // Cria as faixas verticais e agrupa os 3 pontos de cada mês juntos
   const gruposMes = mesesAsc.map((m, i) => {
     const nomeMes = m.nome.charAt(0).toUpperCase() + m.nome.slice(1).toLowerCase();
-    const vGanhos = getVal(m, 'ganhos');
-    const vGastos = getVal(m, 'debitos');
+    const vGanhosSaldo = getVal(m, 'ganhosSaldo');
+    const vGanhosBeneficio = getVal(m, 'ganhosBeneficio');
+    const vGastosSaldo = getVal(m, 'gastosSaldo');
+    const vGastosBeneficio = getVal(m, 'gastosBeneficio');
     const vGuardado = getVal(m, 'guardadoMes');
     const cx = x(i).toFixed(1);
     
@@ -117,17 +138,19 @@ function construirGraficoHistoricoMultiSvg(mesesAsc, pessoa) {
     const rx = (x(i) - larguraFaixa / 2).toFixed(1);
 
     return `
-      <g class="mes-hover-group" data-mes="${nomeMes}" data-ganhos="${fmt(vGanhos)}" data-gastos="${fmt(vGastos)}" data-guardado="${fmt(vGuardado)}">
+      <g class="mes-hover-group" data-mes="${nomeMes}" data-ganhos-saldo="${fmt(vGanhosSaldo)}" data-ganhos-beneficio="${fmt(vGanhosBeneficio)}" data-gastos-saldo="${fmt(vGastosSaldo)}" data-gastos-beneficio="${fmt(vGastosBeneficio)}" data-guardado="${fmt(vGuardado)}">
         <!-- Área gigante e invisível para capturar o dedo/mouse -->
         <rect x="${rx}" y="0" width="${larguraFaixa}" height="${H}" fill="transparent" class="hover-area" />
         
         <!-- Linha guia vertical charmosa -->
         <line x1="${cx}" y1="${padT}" x2="${cx}" y2="${H - padB - 4}" stroke="var(--line)" stroke-dasharray="4,4" class="guia-vertical" />
         
-        <!-- Os 3 pontos sobrepostos -->
-        <circle cx="${cx}" cy="${y(vGanhos).toFixed(1)}" r="4.2" fill="var(--income)" stroke="var(--paper-deep)" stroke-width="2" class="ponto-dot" />
-        <circle cx="${cx}" cy="${y(-vGastos).toFixed(1)}" r="4.2" fill="var(--expense)" stroke="var(--paper-deep)" stroke-width="2" class="ponto-dot" />
-        <circle cx="${cx}" cy="${y(vGuardado).toFixed(1)}" r="4.2" fill="var(--gold)" stroke="var(--paper-deep)" stroke-width="2" class="ponto-dot" />
+        <!-- Os pontos separados por origem -->
+        <circle cx="${cx}" cy="${y(vGanhosSaldo).toFixed(1)}" r="3.8" fill="var(--income)" stroke="var(--paper-deep)" stroke-width="1.8" class="ponto-dot" />
+        <circle cx="${cx}" cy="${y(vGanhosBeneficio).toFixed(1)}" r="3.8" fill="var(--benefit-deep)" stroke="var(--paper-deep)" stroke-width="1.8" class="ponto-dot" />
+        <circle cx="${cx}" cy="${y(-vGastosSaldo).toFixed(1)}" r="3.8" fill="var(--expense)" stroke="var(--paper-deep)" stroke-width="1.8" class="ponto-dot" />
+        <circle cx="${cx}" cy="${y(-vGastosBeneficio).toFixed(1)}" r="3.8" fill="var(--benefit-deep)" stroke="var(--paper-deep)" stroke-width="1.8" class="ponto-dot" />
+        <circle cx="${cx}" cy="${y(vGuardado).toFixed(1)}" r="3.8" fill="var(--gold)" stroke="var(--paper-deep)" stroke-width="1.8" class="ponto-dot" />
       </g>
     `;
   }).join("");
@@ -147,8 +170,10 @@ function construirGraficoHistoricoMultiSvg(mesesAsc, pessoa) {
       <svg class="historico-grafico" viewBox="0 0 ${W} ${H}" preserveAspectRatio="none">
         <line x1="${padL}" y1="${linhaZero}" x2="${W - padR}" y2="${linhaZero}" stroke="var(--line)" stroke-width="1.5" stroke-dasharray="4,4" />
         
-        <path d="${caminhoSuave(ptsGanhos)}" fill="none" stroke="var(--income)" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" />
-        <path d="${caminhoSuave(ptsDebitos)}" fill="none" stroke="var(--expense)" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" />
+        <path d="${caminhoSuave(ptsGanhosSaldo)}" fill="none" stroke="var(--income)" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" />
+        <path d="${caminhoSuave(ptsGanhosBeneficio)}" fill="none" stroke="var(--benefit-deep)" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" />
+        <path d="${caminhoSuave(ptsGastosSaldo)}" fill="none" stroke="var(--expense)" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" />
+        <path d="${caminhoSuave(ptsGastosBeneficio)}" fill="none" stroke="var(--benefit-deep)" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" stroke-dasharray="6,4" />
         <path d="${caminhoSuave(ptsGuardado)}" fill="none" stroke="var(--gold)" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" stroke-dasharray="6,4" />
         
         <!-- Renderiza as áreas de interação POR CIMA das linhas -->
@@ -156,8 +181,10 @@ function construirGraficoHistoricoMultiSvg(mesesAsc, pessoa) {
         ${rotulos}
       </svg>
       <div class="historico-grafico-legenda">
-        <span class="legenda-item"><span class="legenda-dot" style="background:var(--income)"></span>Ganhos</span>
-        <span class="legenda-item"><span class="legenda-dot" style="background:var(--expense)"></span>Gastos</span>
+        <span class="legenda-item"><span class="legenda-dot" style="background:var(--income)"></span>Ganho Saldo</span>
+        <span class="legenda-item"><span class="legenda-dot" style="background:var(--benefit-deep)"></span>Ganho Benefício</span>
+        <span class="legenda-item"><span class="legenda-dot" style="background:var(--expense)"></span>Gasto Saldo</span>
+        <span class="legenda-item"><span class="legenda-dot" style="background:var(--benefit-deep)"></span>Gasto Benefício</span>
         <span class="legenda-item"><span class="legenda-dot" style="background:var(--gold)"></span>Guardado</span>
       </div>
     </div>`;
@@ -216,7 +243,21 @@ function renderHistorico() {
         return candidatos.length ? Math.max(...candidatos) : 0;
       }
       const atual = Number(m[`${campo}${sufixo}`]);
-      return Number.isFinite(atual) ? atual : 0;
+      if (Number.isFinite(atual)) return atual;
+      // Compatibilidade com meses fechados antes da separação por origem.
+      if (campo === "ganhosSaldo" || campo === "ganhosBeneficio") {
+        const total = Number(m[`ganhos${sufixo}`]);
+        return Number.isFinite(total) ? total / 2 : 0;
+      }
+      if (campo === "gastosSaldo" || campo === "gastosBeneficio") {
+        const total = Math.abs(Number(m[`debitos${sufixo}`]));
+        return Number.isFinite(total) ? total / 2 : 0;
+      }
+      if (campo === "saldoSaldo" || campo === "saldoBeneficio") {
+        const total = Number(m[`saldo${sufixo}`]);
+        return Number.isFinite(total) ? total / 2 : 0;
+      }
+      return 0;
     };
     if (pessoa === 'ambos') return valorPessoa("Davi") + valorPessoa("Gabriel");
     const sufixo = pessoa.charAt(0).toUpperCase() + pessoa.slice(1);
@@ -300,6 +341,7 @@ function renderHistorico() {
         <span class="historico-mes-nome">${escapeHtml(nomeMes)}</span>
         <span class="historico-mes-head-right">
           <span class="historico-mes-mini-saldo historico-mes-mini-saldo-beneficio"><span>Benefício</span>${fmt(saldoBeneficio)}</span>
+          <span class="historico-mes-mini-separador" aria-hidden="true"></span>
           <span class="historico-mes-mini-saldo historico-mes-mini-saldo-proprio ${saldoSaldo < 0 ? "negative" : ""}"><span>Saldo</span>${fmt(saldoSaldo)}</span>
           <span class="historico-mes-chevron" aria-hidden="true">
             <svg viewBox="0 0 24 24" fill="none"><path d="m7 10 5 5 5-5" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>
@@ -308,18 +350,22 @@ function renderHistorico() {
       </button>
       <div class="historico-mes-content collapsible is-collapsed" id="collapsible-${chaveCard}">
         ${detalhamentoOrigemDisponivel ? `
-        <div class="historico-mes-linha">
-          <span>Ganhos — Saldo</span><span class="income">${fmt(ganhosSaldo)}</span>
+        <div class="historico-mes-origem-grupo">
+          <div class="historico-mes-linha">
+            <span>Ganhos — Saldo</span><span class="income">${fmt(ganhosSaldo)}</span>
+          </div>
+          <div class="historico-mes-linha">
+            <span>Gastos — Saldo</span><span class="expense">${fmt(gastosSaldo)}</span>
+          </div>
         </div>
-        <div class="historico-mes-linha">
-          <span>Ganhos — Benefício</span><span class="income">${fmt(ganhosBeneficio)}</span>
-        </div>
-        <div class="historico-mes-linha">
-          <span>Gastos — Saldo</span><span class="expense">${fmt(gastosSaldo)}</span>
-        </div>
-        <div class="historico-mes-linha">
-          <span>Gastos — Benefício</span><span class="expense">${fmt(gastosBeneficio)}</span>
-        </div>
+        <div class="historico-mes-origem-separador"><span>Benefício</span></div>
+        <div class="historico-mes-origem-grupo historico-mes-origem-beneficio">
+          <div class="historico-mes-linha">
+            <span>Ganhos — Benefício</span><span class="income">${fmt(ganhosBeneficio)}</span>
+          </div>
+          <div class="historico-mes-linha">
+            <span>Gastos — Benefício</span><span class="expense">${fmt(gastosBeneficio)}</span>
+          </div>
         </div>` : ""}
         ${guardado > 0 ? `<div class="historico-mes-linha"><span>Guardado</span><span class="gold">${fmt(guardado)}</span></div>` : ""}
         ${rendimento > 0 ? `<div class="historico-mes-linha"><span>Rendeu no mês</span><span class="yield">+ ${fmt(rendimento)}</span></div>` : ""}

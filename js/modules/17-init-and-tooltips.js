@@ -75,15 +75,19 @@ function initChartTooltip() {
 
   const mostrarTooltip = (grupo) => {
     const mes = grupo.dataset.mes;
-    const ganhos = grupo.dataset.ganhos;
-    const gastos = grupo.dataset.gastos;
+    const ganhosSaldo = grupo.dataset.ganhosSaldo;
+    const ganhosBeneficio = grupo.dataset.ganhosBeneficio;
+    const gastosSaldo = grupo.dataset.gastosSaldo;
+    const gastosBeneficio = grupo.dataset.gastosBeneficio;
     const guardado = grupo.dataset.guardado;
 
     chartTooltip.innerHTML = `
       <div class="tooltip-titulo">${mes}</div>
-      <div class="tooltip-linha"><span style="color: #8fd4ab">Ganhos</span> <span class="valor">${ganhos}</span></div>
-      <div class="tooltip-linha"><span style="color: #e8a58c">Gastos</span> <span class="valor">${gastos}</span></div>
-      <div class="tooltip-linha"><span style="color: #e3c581">Guardado</span> <span class="valor">${guardado}</span></div>
+      <div class="tooltip-linha"><span style="color: var(--income)">Ganho Saldo</span> <span class="valor">${ganhosSaldo}</span></div>
+      <div class="tooltip-linha"><span style="color: var(--benefit-deep)">Ganho Benefício</span> <span class="valor">${ganhosBeneficio}</span></div>
+      <div class="tooltip-linha"><span style="color: var(--expense)">Gasto Saldo</span> <span class="valor">${gastosSaldo}</span></div>
+      <div class="tooltip-linha"><span style="color: var(--benefit-deep)">Gasto Benefício</span> <span class="valor">${gastosBeneficio}</span></div>
+      <div class="tooltip-linha"><span style="color: var(--gold)">Guardado</span> <span class="valor">${guardado}</span></div>
     `;
 
     // Deixa visível primeiro para o navegador calcular a largura da caixinha
