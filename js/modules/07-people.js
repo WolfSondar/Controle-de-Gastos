@@ -10,10 +10,17 @@
 async function trocarPessoa(pessoa) {
   if (pessoa === state.pessoaAtual) return;
 
+  // Trocar de perfil não faz mais uma nova leitura na Firebase. A página já
+  // carregou os perfis necessários na abertura e cada perfil fica disponível
+  // no cache local. Assim a troca é instantânea e não reconstrói a tela por
+  // causa de um GET no meio da navegação.
   const pessoaAnterior = state.pessoaAtual;
   state.pessoaAtual = pessoa;
-  localStorage.setItem(PESSOA_STORAGE_KEY, pessoa);
 
+  // Cada perfil possui seu próprio ciclo mensal. Ao trocar de pessoa,
+  // primeiro trocamos o ponteiro visual para o mês já carregado daquele
+  // perfil e só depois renderizamos os dados. Assim o cabeçalho nunca
+  // mostra, por um instante, o mês do usuário anterior.
   if (pessoa === "davi") {
     state.mesAtual = Number(state.mesAtualDavi) || null;
     state.anoAtual = Number(state.anoAtualDavi) || null;
@@ -21,7 +28,7 @@ async function trocarPessoa(pessoa) {
     state.mesAtual = Number(state.mesAtualGabriel) || null;
     state.anoAtual = Number(state.anoAtualGabriel) || null;
   }
-
+  localStorage.setItem(PESSOA_STORAGE_KEY, pessoa);
   atualizarVisibilidadeFab();
   document.dispatchEvent(new CustomEvent("caixa:perfil-trocado", { detail: { pessoa } }));
   prevTotals.ganhos = null;
@@ -37,11 +44,10 @@ async function trocarPessoa(pessoa) {
   renderMesAtual();
 
   const cache = await getCache(pessoa);
+  // Se o usuário trocou de perfil novamente enquanto o cache era lido, não
+  // deixa a resposta assíncrona sobrescrever a tela do perfil atual.
   if (state.pessoaAtual !== pessoa) return;
 
-  // O cache serve apenas para a troca não ficar vazia. Online, o Firebase é
-  // sempre consultado novamente para impedir que pagamentos feitos no banco
-  // enquanto o sistema estava aberto fiquem presos na tela antiga.
   if (cache) {
     state.ganhos = cache.ganhos || [];
     state.gastosFixos = cache.gastosFixos || [];
@@ -51,6 +57,12 @@ async function trocarPessoa(pessoa) {
     state.saldoInicialBeneficio = Number(cache.saldoInicialBeneficio) || 0;
     state.categoriasConfig = cache.categorias || null;
     state.iconCategorias = cache.iconCategorias || [];
+    if (!navigator.onLine) {
+      state.mesAtual = Number(cache.mesAtual) || null;
+      state.anoAtual = Number(cache.anoAtual) || null;
+      if (pessoa === "davi") { state.mesAtualDavi = state.mesAtual; state.anoAtualDavi = state.anoAtual; }
+      if (pessoa === "gabriel") { state.mesAtualGabriel = state.mesAtual; state.anoAtualGabriel = state.anoAtual; }
+    }
     state.loaded = true;
     popularSelectsDeCategoria();
     renderIncremental({
@@ -62,58 +74,36 @@ async function trocarPessoa(pessoa) {
       iconCategorias: true,
     });
     renderMesAtual();
-  }
 
-  if (navigator.onLine && temBackendDados()) {
-    setSyncState("syncing");
-    try {
-      const res = await fetchApiGet({ pessoa });
-      if (!res.ok) throw new Error(`HTTP ${res.status}`);
-      const data = await res.json();
-      if (data && data.ok !== false && state.pessoaAtual === pessoa) {
-        const mudancas = {
-          ganhos: colecaoMudou(state.ganhos, data.ganhos || []),
-          gastosFixos: colecaoMudou(state.gastosFixos, data.gastosFixos || []),
-          gastosVariaveis: colecaoMudou(state.gastosVariaveis, data.gastosVariaveis || []),
-          caixinhas: colecaoMudou(state.caixinhas, data.caixinhas || []),
-          categoriasConfig: colecaoMudou(state.categoriasConfig || [], data.categorias || []),
-          iconCategorias: colecaoMudou(state.iconCategorias || [], data.iconCategorias || []),
-          faturas: JSON.stringify(state.faturas || []) !== JSON.stringify(Array.isArray(data.faturas) ? data.faturas : []),
-        };
-        state.ganhos = data.ganhos || [];
-        state.gastosFixos = data.gastosFixos || [];
-        state.gastosVariaveis = data.gastosVariaveis || [];
-        state.caixinhas = data.caixinhas || [];
-        state.saldoInicialConta = Number(data.saldoInicialConta) || 0;
-        state.saldoInicialBeneficio = Number(data.saldoInicialBeneficio) || 0;
-        state.categoriasConfig = data.categorias || null;
-        state.iconCategorias = data.iconCategorias || [];
-        state.temasConfig = data.temasConfig || null;
-        state.faturas = Array.isArray(data.faturas) ? data.faturas : [];
-        state.mesAtual = Number(data.mesAtual) || null;
-        state.anoAtual = Number(data.anoAtual) || null;
-        if (pessoa === "davi") { state.mesAtualDavi = state.mesAtual; state.anoAtualDavi = state.anoAtual; }
-        if (pessoa === "gabriel") { state.mesAtualGabriel = state.mesAtual; state.anoAtualGabriel = state.anoAtual; }
-        state.loaded = true;
-        setCache(pessoa, data);
-        popularSelectsDeCategoria();
-        renderMesAtual();
-        renderIncremental({ ...mudancas, temasConfig: true, faturas: true });
-        setSyncState("idle");
-      } else {
-        setSyncState("error");
-      }
-    } catch (err) {
-      setSyncState(ehErroDeRede(err) || !navigator.onLine ? "offline" : "error");
-      if (!cache) showToast("Não consegui atualizar este perfil agora.");
+    // O mês é uma propriedade individual do perfil no Firebase. Mesmo com
+    // cache de lançamentos, se ainda não temos o mês/ano desse perfil em
+    // memória, buscamos a configuração do próprio perfil. Isso impede que
+    // Gabriel herde visualmente o mês do Davi (e vice-versa).
+    const mesPerfilCarregado = pessoa === "davi"
+      ? Number(state.mesAtualDavi) > 0 && Number(state.anoAtualDavi) > 0
+      : Number(state.mesAtualGabriel) > 0 && Number(state.anoAtualGabriel) > 0;
+    if (!mesPerfilCarregado && navigator.onLine) {
+      try {
+        const res = await fetchApiGet({ pessoa });
+        const data = await res.json();
+        if (data && data.ok !== false && state.pessoaAtual === pessoa) {
+          state.mesAtual = Number(data.mesAtual) || null;
+          state.anoAtual = Number(data.anoAtual) || null;
+          if (pessoa === "davi") { state.mesAtualDavi = state.mesAtual; state.anoAtualDavi = state.anoAtual; }
+          if (pessoa === "gabriel") { state.mesAtualGabriel = state.mesAtual; state.anoAtualGabriel = state.anoAtual; }
+          setCache(pessoa, data);
+          renderMesAtual();
+        }
+      } catch (err) {}
     }
-  } else if (!cache) {
-    showToast("Este perfil ainda não foi carregado e você está sem internet.");
+  } else {
+    // Não busca a Firebase aqui. Se esse perfil ainda não tiver sido
+    // pré-carregado no cache durante a abertura, deixa os dados locais
+    // atuais e informa de forma discreta que a atualização ocorrerá no
+    // próximo recarregamento.
+    showToast("Este perfil será atualizado quando você recarregar a página.");
   }
-
-  if (state.pessoaAtual !== pessoa) return;
   renderHistorico();
-  renderAll();
 }
 
 function atualizarVisibilidadeSplitCard() {

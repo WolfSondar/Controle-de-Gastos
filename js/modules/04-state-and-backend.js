@@ -245,6 +245,23 @@ function setSyncState(mode) {
 // Atualiza só o numerozinho de alterações pendentes (badge ao lado do ícone
 // de wifi), sem mexer no estado geral do indicador — usado durante o envio
 // da fila offline pra ir encolhendo o número item por item.
+function animarSyncFechamento() {
+  if (!syncEl) return;
+  syncEl.classList.remove("is-fechando-mes");
+  syncEl.dataset.state = "closing";
+  syncModeAnterior = "closing";
+  void syncEl.offsetWidth;
+  syncEl.classList.add("is-fechando-mes");
+
+  window.setTimeout(() => {
+    if (!syncEl) return;
+    syncEl.classList.remove("is-fechando-mes");
+    syncEl.dataset.state = navigator.onLine ? "idle" : "offline";
+    syncModeAnterior = navigator.onLine ? "idle" : "offline";
+  }, 1250);
+}
+window.animarSyncFechamento = animarSyncFechamento;
+
 function atualizarBadgeOffline(n) {
   const badge = document.getElementById("syncBadge");
   if (badge) badge.textContent = n > 0 ? String(n) : "";

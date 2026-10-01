@@ -173,6 +173,7 @@ button, input { font-family: inherit; }
 .sync-icone { position: absolute; inset: 0; width: 100%; height: 100%; opacity: 0; transform: scale(0.7); transition: opacity 0.35s ease, transform 0.35s ease; }
 .sync-icone-on { color: #8fd4ab; }
 .sync-icone-check { color: #8fd4ab; }
+.sync-icone-fechamento { color: var(--yield, #8fd4ab); }
 .sync-icone-off { color: #e08a6e; }
 
 /* Buscando dados da planilha (GET): onda entra de fora pra dentro, como um
@@ -203,6 +204,40 @@ button, input { font-family: inherit; }
 
 .sync[data-state="offline"] .sync-icone-off,
 .sync[data-state="error"] .sync-icone-off { opacity: 1; transform: scale(1); }
+
+
+/* Fechamento de mês: troca o Wi-Fi por um calendário/check por um instante. */
+.sync[data-state="closing"] .sync-icone-fechamento {
+  opacity: 1;
+  transform: scale(1);
+}
+.sync[data-state="closing"] .sync-icone-on,
+.sync[data-state="closing"] .sync-icone-check,
+.sync[data-state="closing"] .sync-icone-off {
+  opacity: 0;
+  transform: scale(.72);
+}
+.sync.is-fechando-mes .sync-icone-fechamento {
+  animation: fechamentoSyncIcone 1.05s cubic-bezier(.2,.8,.2,1) both;
+}
+.sync.is-fechando-mes {
+  animation: fechamentoSyncPulse 1.05s ease both;
+}
+@keyframes fechamentoSyncIcone {
+  0% { opacity: 0; transform: scale(.55) rotate(-10deg); }
+  28% { opacity: 1; transform: scale(1.14) rotate(4deg); }
+  55% { opacity: 1; transform: scale(1) rotate(0); }
+  82% { opacity: 1; transform: scale(1.06) rotate(-2deg); }
+  100% { opacity: 0; transform: scale(.78) rotate(0); }
+}
+@keyframes fechamentoSyncPulse {
+  0%, 100% { box-shadow: 0 0 0 0 rgba(143,212,171,.0); }
+  32% { box-shadow: 0 0 0 5px color-mix(in srgb, var(--yield, #8fd4ab) 14%, transparent); }
+  60% { box-shadow: 0 0 0 2px color-mix(in srgb, var(--yield, #8fd4ab) 8%, transparent); }
+}
+@media (prefers-reduced-motion: reduce) {
+  .sync.is-fechando-mes, .sync.is-fechando-mes .sync-icone-fechamento { animation-duration: .01ms !important; }
+}
 
 .sync-dot { display: none !important; }
 .sync[data-state="error"] .sync-icon-wrap { display: inline-flex; }

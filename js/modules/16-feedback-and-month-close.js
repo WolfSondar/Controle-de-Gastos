@@ -520,6 +520,7 @@ on("formFecharMes", "submit", async (e) => {
     await removerCache("historico");
 
     animarFechamentoRapido(document.getElementById("mesAtualBadge"), true);
+    if (typeof window.animarSyncFechamento === "function") window.animarSyncFechamento();
     showToast(`${MESES_LABEL[f.mes - 1]}/${f.ano} foi fechado para ${PESSOA_LABEL[pessoaFechamento]}.`);
     await carregarDados();
     // O fechamento acabou de criar/atualizar o registro histórico no backend.
