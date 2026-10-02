@@ -124,23 +124,53 @@ function informarRendimentoCaixinha(index, novoMontanteTotal) {
   if (isAmbos()) return;
   const cx = state.caixinhas[index];
   if (!cx) return;
+
   const objetivoAntes = Number(cx.valorObjetivo) || 0;
   const estavaCompleta = objetivoAntes > 0 && totalCaixinha(cx) >= objetivoAntes;
-  
+
   const valorBaseAtual = Number(cx.valorGuardado) || 0;
-  const rendimentoAnterior = Number(cx.rendimentoTotal) || 0;
+  const rendimentoDoPeriodoAnterior = Number(cx.rendimentoTotal) || 0;
   const guardadoMesAtual = Number(cx.valorGuardadoMes) || 0;
-  const totalAtualNaTela = valorBaseAtual + rendimentoAnterior + guardadoMesAtual;
-  
-  // O valor novo menos o total atual da tela dá o rendimento positivo (ex: 219 - 200 = 19)
-  const diferencaRendimento = novoMontanteTotal - totalAtualNaTela;
-  
+  const totalAtualNaTela = valorBaseAtual + rendimentoDoPeriodoAnterior + guardadoMesAtual;
+  const diferencaRendimento = Number(novoMontanteTotal) - totalAtualNaTela;
+
+  // O rendimentoTotal continua sendo o componente do período atual usado no
+  // patrimônio da caixinha. O acumulado é outro campo e NUNCA é substituído
+  // pelo rendimento do mês: ele só recebe a diferença nova.
+  // O acumulado é sempre reconstruído a partir do histórico mensal quando
+  // esse histórico existir. Assim o chip nunca volta a mostrar somente o
+  // rendimento do mês atual por causa de um valor antigo/stale em
+  // rendimentoAcumulado.
+  const mesAtualRendimento = Number(state.mesAtual) || new Date().getMonth() + 1;
+  const anoAtualRendimento = Number(state.anoAtual) || new Date().getFullYear();
+  const historico = Array.isArray(cx.rendimentoHistorico)
+    ? cx.rendimentoHistorico.map(item => ({
+        mes: Number(item?.mes) || 0,
+        ano: Number(item?.ano) || 0,
+        valor: Number(item?.valor) || 0,
+      })).filter(item => item.mes >= 1 && item.mes <= 12 && item.ano > 0 && item.valor !== 0)
+    : [];
+
   if (diferencaRendimento !== 0) {
-    cx.rendimentoTotal = rendimentoAnterior + diferencaRendimento;
+    cx.rendimentoTotal = rendimentoDoPeriodoAnterior + diferencaRendimento;
+    const registro = historico.find(item => item.mes === mesAtualRendimento && item.ano === anoAtualRendimento);
+    if (registro) registro.valor += diferencaRendimento;
+    else historico.push({ mes: mesAtualRendimento, ano: anoAtualRendimento, valor: diferencaRendimento });
+    cx.rendimentoHistorico = historico.filter(item => item.valor !== 0);
+    cx.rendimentoAcumulado = cx.rendimentoHistorico.reduce((total, item) => total + (Number(item.valor) || 0), 0);
     marcarAlteracaoLocal();
+  } else {
+    // Se já houver histórico, ele é a fonte de verdade do acumulado.
+    // Se ainda não houver, preservamos o acumulado existente (migração).
+    cx.rendimentoHistorico = historico;
+    if (historico.length) {
+      cx.rendimentoAcumulado = historico.reduce((total, item) => total + (Number(item.valor) || 0), 0);
+    } else if (!Number.isFinite(Number(cx.rendimentoAcumulado))) {
+      cx.rendimentoAcumulado = rendimentoDoPeriodoAnterior;
+    }
   }
+
   marcarComemoracaoSeMetaBatida(cx, estavaCompleta);
-  
   sincronizarCacheAtual();
   salvarBloco("saveCaixinhas", state.caixinhas);
   renderAll();

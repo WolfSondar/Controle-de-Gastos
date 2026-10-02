@@ -3880,3 +3880,65 @@ html[data-theme="dark"][data-caixa-theme="halloween"] .item-list-row.ganho-benef
 html[data-theme="dark"][data-caixa-theme="halloween"] .item-list-row.gasto-beneficio .swipe-content {
   box-shadow: inset 3px 0 0 #83aabd !important;
 }
+
+/* HISTÓRICO/TOPO — Benefício usa o mesmo azul semântico em todo o tema Halloween. */
+html[data-caixa-theme="halloween"] {
+  --benefit: var(--halloween-benefit-income);
+  --benefit-income: var(--halloween-benefit-income);
+  --benefit-expense: var(--halloween-benefit-income);
+}
+html[data-theme="dark"][data-caixa-theme="halloween"] {
+  --benefit: var(--halloween-benefit-income);
+  --benefit-income: var(--halloween-benefit-income);
+  --benefit-expense: var(--halloween-benefit-income);
+}
+html[data-theme="light"][data-caixa-theme="halloween"] .hero-stats > .hero-stat .hero-stat-origem-beneficio,
+html[data-theme="light"][data-caixa-theme="halloween"] .hero-stats > .hero-stat .saldo-origem-beneficio,
+html[data-theme="dark"][data-caixa-theme="halloween"] .hero-stats > .hero-stat .hero-stat-origem-beneficio,
+html[data-theme="dark"][data-caixa-theme="halloween"] .hero-stats > .hero-stat .saldo-origem-beneficio {
+  color: var(--benefit) !important;
+}
+
+/* CAIXA — Benefício: token semântico final compartilhado entre Hero, Histórico e tooltip. */
+.hero-stat-origem-beneficio, .saldo-origem-beneficio, .historico-resumo-beneficio strong, .historico-legenda-beneficio .historico-legenda-bloco { color: var(--benefit) !important; }
+.hero-stat-origem-beneficio > span, .saldo-origem-beneficio > span, .historico-resumo-beneficio span, .historico-resumo-beneficio strong { color: var(--benefit) !important; }
+.historico-legenda-beneficio .historico-legenda-bloco { background: var(--benefit) !important; }
+.tooltip-grupo-beneficio .tooltip-grupo-marca, .tooltip-grupo-beneficio .tooltip-grupo-titulo, .tooltip-grupo-beneficio .tooltip-linha .valor { color: var(--benefit) !important; }
+
+/* CAIXA — Halloween: Benefício usa a mesma cor azul semântica em Hero, Histórico e tooltip. */
+html[data-caixa-theme="halloween"] .hero-stats > .hero-stat .hero-stat-origem-beneficio,
+html[data-caixa-theme="halloween"] .hero-stats > .hero-stat .saldo-origem-beneficio,
+html[data-caixa-theme="halloween"] .saldo-origem-beneficio .saldo-origem-label,
+html[data-caixa-theme="halloween"] .saldo-origem-beneficio > span:last-child {
+  color: var(--benefit) !important;
+}
+html[data-caixa-theme="halloween"] .historico-resumo-beneficio,
+html[data-caixa-theme="halloween"] .historico-resumo-beneficio span,
+html[data-caixa-theme="halloween"] .historico-resumo-beneficio strong,
+html[data-caixa-theme="halloween"] .historico-legenda-beneficio .historico-legenda-titulo {
+  color: var(--benefit) !important;
+}
+html[data-caixa-theme="halloween"] .historico-legenda-beneficio .historico-legenda-bloco {
+  background: var(--benefit) !important;
+}
+html[data-caixa-theme="halloween"] .tooltip-grupo-beneficio .tooltip-grupo-marca,
+html[data-caixa-theme="halloween"] .tooltip-grupo-beneficio .tooltip-grupo-titulo,
+html[data-caixa-theme="halloween"] .tooltip-grupo-beneficio .tooltip-linha .valor {
+  color: var(--benefit) !important;
+}
+
+/* v36 — Halloween claro: Benefício usa o azul oficial do tema em todo o sistema,
+   incluindo Histórico, tooltip, cards e Hero. O modo escuro mantém seu azul claro próprio. */
+html[data-theme="light"][data-caixa-theme="halloween"] {
+  --benefit: #287fa9 !important;
+  --benefit-income: #287fa9 !important;
+  --benefit-expense: #287fa9 !important;
+}
+html[data-theme="light"][data-caixa-theme="halloween"] .historico-legenda-beneficio .historico-legenda-bloco,
+html[data-theme="light"][data-caixa-theme="halloween"] .historico-resumo-beneficio strong,
+html[data-theme="light"][data-caixa-theme="halloween"] .historico-resumo-beneficio span,
+html[data-theme="light"][data-caixa-theme="halloween"] .hero-stat-origem-beneficio,
+html[data-theme="light"][data-caixa-theme="halloween"] .saldo-origem-beneficio {
+  color: #287fa9 !important;
+}
+

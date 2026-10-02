@@ -17,7 +17,7 @@
 // ---------------------------------------------------------------------
 const LARGURA_SWIPE_CAIXINHA = 92;
 const LIMIAR_SWIPE_CAIXINHA = 44;
-const LIMIAR_SWIPE_CAIXINHA_TOTAL = 100;
+const LIMIAR_SWIPE_CAIXINHA_TOTAL = 78;
 
 function fecharSwipeCaixinha(wrap) {
   if (!wrap) return;
@@ -54,6 +54,7 @@ function habilitarSwipeCaixinhas(lista) {
       base: jaEditar ? -LARGURA_SWIPE_CAIXINHA : jaExcluir ? LARGURA_SWIPE_CAIXINHA : 0,
       ultimoDelta: jaEditar ? -LARGURA_SWIPE_CAIXINHA : jaExcluir ? LARGURA_SWIPE_CAIXINHA : 0,
       vibrou: jaEditar || jaExcluir,
+      acaoExecutada: false,
     };
   };
 
@@ -72,10 +73,10 @@ function habilitarSwipeCaixinhas(lista) {
     }
     e.preventDefault();
 
-    // Limite físico curto: revela as ações sem permitir que o cartão
-    // seja puxado excessivamente nem dispare uma ação por arrasto longo.
+    // O cartão pode passar um pouco do ponto das ações, mas o comando é
+    // disparado assim que cruza o limiar — inclusive em arrasto bem lento.
     const bruto = ativo.base + dx;
-    const limite = LIMIAR_SWIPE_CAIXINHA_TOTAL;
+    const limite = LARGURA_SWIPE_CAIXINHA + 18;
     const novo = Math.max(-limite, Math.min(limite, bruto));
 
     if (ativo.card) {
@@ -86,15 +87,33 @@ function habilitarSwipeCaixinhas(lista) {
     if (cruzouLimiar && !ativo.vibrou) { vibrar(); ativo.vibrou = true; }
     else if (!cruzouLimiar) ativo.vibrou = false;
     ativo.ultimoDelta = novo;
+
+    // A ação não depende da velocidade do gesto nem de soltar exatamente no
+    // ponto certo. Assim que o dedo/cursor percorre a distância completa,
+    // executamos imediatamente — inclusive em um arrasto bem devagar.
+    if (!ativo.acaoExecutada && Math.abs(novo) >= LIMIAR_SWIPE_CAIXINHA_TOTAL) {
+      ativo.acaoExecutada = true;
+      const acaoIdx = Number(ativo.wrap.dataset.idx);
+      const acaoEditar = novo < 0;
+      const acaoWrap = ativo.wrap;
+      fecharSwipeCaixinha(acaoWrap);
+      vibrar(18);
+      if (acaoEditar) acionarEditarCaixinha(acaoIdx);
+      else acionarExcluirCaixinha(acaoIdx);
+      ativo = null;
+    }
   };
 
   const finalizar = (e) => {
     if (!ativo || (e && e.pointerId !== undefined && e.pointerId !== ativo.pointerId)) return;
-    const { wrap, card, ultimoDelta, dragging, base, capturado, pointerId } = ativo;
+    const { wrap, card, ultimoDelta, dragging, base, capturado, pointerId, acaoExecutada } = ativo;
     if (capturado && card && card.releasePointerCapture) {
       try { card.releasePointerCapture(pointerId); } catch (err) { /* ignora */ }
     }
     const idx = Number(wrap.dataset.idx);
+
+    // Se já executamos durante o arrasto, o pointerup só encerra o gesto.
+    if (acaoExecutada) { ativo = null; return; }
 
     if (!dragging) {
       // Evita que o click sintético do toque atravesse o modal recém-aberto
@@ -107,7 +126,7 @@ function habilitarSwipeCaixinhas(lista) {
     }
 
     if (card) card.style.transition = "";
-    const swipeCompleto = false; // ações só pelo botão revelado, nunca por puxão longo
+    const swipeCompleto = Math.abs(ultimoDelta) >= LIMIAR_SWIPE_CAIXINHA_TOTAL; // arrasto completo executa a ação diretamente
 
     if (swipeCompleto) {
       fecharSwipeCaixinha(wrap);

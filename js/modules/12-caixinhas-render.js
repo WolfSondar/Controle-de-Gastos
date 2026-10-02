@@ -515,31 +515,33 @@ function recolherERemover(li, aoTerminar) {
 
 const CORES_CONFETE = ["#b9862f", "#3c6e4f", "#a8482e", "#93691f", "#f1e9d8", "#5b9c78"];
 
-function dispararConfete() {
+function dispararConfete(card = null) {
   const container = document.createElement("div");
   container.className = "confete-container";
   document.body.appendChild(container);
 
-  const n = 70;
+  const rect = card?.getBoundingClientRect?.();
+  const origemX = rect ? rect.left + rect.width / 2 : window.innerWidth / 2;
+  const origemY = rect ? rect.top + rect.height * 0.42 : window.innerHeight * 0.58;
+  const n = 56;
   for (let i = 0; i < n; i++) {
     const p = document.createElement("span");
     p.className = "confete-particula";
     p.style.background = CORES_CONFETE[Math.floor(Math.random() * CORES_CONFETE.length)];
-    p.style.left = Math.random() * 100 + "%";
-    p.style.setProperty("--drift", Math.round(Math.random() * 180 - 90) + "px");
+    p.style.left = origemX + "px";
+    p.style.top = origemY + "px";
+    p.style.setProperty("--drift", Math.round(Math.random() * 260 - 130) + "px");
+    p.style.setProperty("--rise", Math.round(70 + Math.random() * 150) + "px");
     p.style.setProperty("--giro", Math.round(Math.random() * 720 - 360) + "deg");
-    p.style.animationDuration = (1.5 + Math.random() * 1.2).toFixed(2) + "s";
-    p.style.animationDelay = (Math.random() * 0.35).toFixed(2) + "s";
+    p.style.animationDuration = (0.9 + Math.random() * 0.65).toFixed(2) + "s";
+    p.style.animationDelay = (Math.random() * 0.12).toFixed(2) + "s";
     if (Math.random() > 0.5) p.style.borderRadius = "50%";
-    if (Math.random() > 0.6) {
-      p.style.width = "6px";
-      p.style.height = "6px";
-    }
+    if (Math.random() > 0.6) { p.style.width = "6px"; p.style.height = "6px"; }
     container.appendChild(p);
   }
 
   showToast("Meta batida! 🎉");
-  setTimeout(() => container.remove(), 3200);
+  setTimeout(() => container.remove(), 1900);
 }
 
 function carimbarMetaBatida(card) {
@@ -620,6 +622,21 @@ function montarInfoPrazoCaixinha(data, completa) {
 function montarCardCaixinha(cx, idx, ambos) {
   const valorBase = Number(cx.valorGuardado) || 0;
   const rendimentoTotal = Number(cx.rendimentoTotal) || 0;
+  // O chip mostra o rendimento acumulado de todos os meses. O rendimentoTotal
+  // continua sendo apenas o período atual, usado no cálculo do saldo.
+  // O chip usa o acumulado persistente. O histórico mensal é apenas apoio
+  ///auditoria; nunca deixamos um histórico incompleto esconder um acumulado
+  // válido que já esteja salvo na caixinha.
+  const rendimentoAcumuladoRaw = Number(cx.rendimentoAcumulado);
+  const historicoRendimentos = Array.isArray(cx.rendimentoHistorico) ? cx.rendimentoHistorico : [];
+  const somaHistoricoRendimentos = historicoRendimentos.reduce((total, item) => total + (Number(item?.valor) || 0), 0);
+  // O histórico mensal tem prioridade: é ele que contém a soma de todos os
+  // meses e impede que o badge seja reduzido ao rendimento do período atual.
+  // rendimentoAcumulado fica como fallback para caixinhas antigas que ainda
+  // não possuem a lista mensal.
+  const rendimentoAcumulado = historicoRendimentos.length
+    ? somaHistoricoRendimentos
+    : (Number.isFinite(rendimentoAcumuladoRaw) ? rendimentoAcumuladoRaw : rendimentoTotal);
   const guardadoMes = Number(cx.valorGuardadoMes) || 0;
 
   // O valor total considerado é a soma do que está na caixinha + rendimentos + o que
@@ -643,11 +660,11 @@ function montarCardCaixinha(cx, idx, ambos) {
   // decidido na hora de montar o card abaixo.
   const iconeRendimentoUp = `<svg style="width:12px;height:12px;" viewBox="0 0 24 24" fill="none"><path d="M23 6l-9.5 9.5-5-5L1 18" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"/><path d="M17 6h6v6" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"/></svg>`;
   const iconeRendimentoDown = `<svg style="width:12px;height:12px;" viewBox="0 0 24 24" fill="none"><path d="M23 18l-9.5-9.5-5 5L1 6" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"/><path d="M17 18h6v-6" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"/></svg>`;
-  const temRendimento = rendimentoTotal !== 0;
-  const rendimentoEhGanho = rendimentoTotal > 0;
+  const temRendimento = rendimentoAcumulado !== 0;
+  const rendimentoEhGanho = rendimentoAcumulado > 0;
 
   const valoresHtml = `<span class="caixinha-guardado"><strong>${fmt(guardado)}</strong>${temObjetivo ? ` <span class="caixinha-de">/ ${fmt(objetivo)}</span>` : " guardados"}</span>
-       ${temRendimento ? `<span class="item-tag ${rendimentoEhGanho ? "item-tag-rendimento" : "item-tag-perda"}" style="display:inline-flex;align-items:center;gap:4px;" title="${rendimentoEhGanho ? "Rendimento" : "Perda"}">${rendimentoEhGanho ? iconeRendimentoUp : iconeRendimentoDown}${fmt(Math.abs(rendimentoTotal))}</span>` : ""}`;
+       ${temRendimento ? `<span class="item-tag ${rendimentoEhGanho ? "item-tag-rendimento" : "item-tag-perda"}" style="display:inline-flex;align-items:center;gap:4px;" title="${rendimentoEhGanho ? "Rendimento" : "Perda"}">${rendimentoEhGanho ? iconeRendimentoUp : iconeRendimentoDown}${fmt(Math.abs(rendimentoAcumulado))}</span>` : ""}`;
 
   // Ícone: caixinha com meta vira um selo circular cujo anel se preenche
   // com o progresso (tipo anel de nível/XP); sem meta mantém o cofrinho.
@@ -695,7 +712,7 @@ function montarCardCaixinha(cx, idx, ambos) {
     card.style.animationDelay = Math.min(idx * 40, 250) + "ms";
     card.innerHTML = cardHtml;
     if (cx._comemoraAoRenderizar) {
-      dispararConfete();
+      dispararConfete(card);
       carimbarMetaBatida(card);
       cx._comemoraAoRenderizar = false;
     }
@@ -728,7 +745,7 @@ function montarCardCaixinha(cx, idx, ambos) {
   });
   const card = wrap.querySelector(".caixinha-card");
   if (cx._comemoraAoRenderizar) {
-    dispararConfete();
+    dispararConfete(card);
     carimbarMetaBatida(card);
     cx._comemoraAoRenderizar = false;
   }

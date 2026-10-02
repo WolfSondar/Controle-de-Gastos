@@ -820,11 +820,15 @@ html[data-theme="dark"] .add-form select, html[data-theme="dark"] .add-form inpu
 .juntos-card-valor.expense { color: var(--expense); }
 .juntos-card-valor.gold { color: var(--gold-deep); }
 
-.goal-card.is-celebrando { animation: goal-celebrar 1.1s ease; }
-@keyframes goal-celebrar { 0% { box-shadow: 0 0 0 0 rgba(185,134,47,0.55); } 55% { box-shadow: 0 0 0 16px rgba(185,134,47,0); } 100% { box-shadow: 0 0 0 0 rgba(185,134,47,0); } }
+.goal-card.is-celebrando { animation: goal-celebrar 1.35s cubic-bezier(.16,1,.3,1); }
+.goal-card.is-celebrando .goal-icon-ring { animation: goal-icon-completar 1.05s cubic-bezier(.16,1,.3,1); }
+.goal-card.is-celebrando .goal-bar-fill.completo { animation: goal-bar-completar .9s cubic-bezier(.16,1,.3,1); }
+@keyframes goal-celebrar { 0% { transform: scale(.985); box-shadow: 0 0 0 0 rgba(185,134,47,.52), 0 8px 24px rgba(22,51,44,.05); } 35% { transform: scale(1.018); box-shadow: 0 0 0 9px rgba(185,134,47,.20), 0 14px 34px rgba(185,134,47,.18); } 68% { transform: scale(.998); box-shadow: 0 0 0 20px rgba(185,134,47,0), 0 10px 28px rgba(185,134,47,.12); } 100% { transform: scale(1); box-shadow: 0 0 0 0 rgba(185,134,47,0), 0 8px 24px rgba(22,51,44,.05); } }
+@keyframes goal-icon-completar { 0% { transform: scale(.82) rotate(-8deg); } 45% { transform: scale(1.18) rotate(6deg); } 72% { transform: scale(.94) rotate(-2deg); } 100% { transform: scale(1) rotate(0); } }
+@keyframes goal-bar-completar { 0% { filter: brightness(1); } 35% { filter: brightness(1.35); box-shadow: 0 0 12px rgba(185,134,47,.45); } 100% { filter: brightness(1); box-shadow: none; } }
 .confete-container { position: fixed; inset: 0; pointer-events: none; z-index: 300; overflow: hidden; }
-.confete-particula { position: absolute; top: -20px; width: 8px; height: 14px; opacity: 0.95; border-radius: 2px; animation-name: confete-cair; animation-timing-function: cubic-bezier(.25,.46,.45,.94); animation-fill-mode: forwards; }
-@keyframes confete-cair { 0% { transform: translate(0, 0) rotate(0deg); opacity: 1; } 100% { transform: translate(var(--drift), 105vh) rotate(var(--giro)); opacity: 0; } }
+.confete-particula { position: absolute; width: 8px; height: 14px; opacity: 0.95; border-radius: 2px; animation-name: confete-cair; animation-timing-function: cubic-bezier(.15,.75,.25,1); animation-fill-mode: forwards; }
+@keyframes confete-cair { 0% { transform: translate(-50%, -50%) translate(0, 0) rotate(0deg) scale(.7); opacity: 0; } 12% { opacity: 1; } 100% { transform: translate(-50%, -50%) translate(var(--drift), calc(var(--rise) * -1)) rotate(var(--giro)) scale(1); opacity: 0; } }
 
 .hero-top-actions { display: flex; align-items: center; gap: 8px; }
 .mes-atual-badge { font-family: var(--font-mono); font-size: 11.5px; font-weight: 600; letter-spacing: 0.03em; color: var(--on-ink); background: rgba(255,255,255,0.06); border: 1px solid rgba(255,255,255,0.18); border-radius: 100px; padding: 6px 11px; white-space: nowrap; cursor: pointer; transition: background 0.15s ease; }
@@ -1140,6 +1144,14 @@ body.sem-entrada-listas .item-list-row { animation: none !important; }
   font-family: var(--font-mono); 
   color: var(--on-ink);
 }
+
+/* Histórico — tooltip: cores idênticas às séries da legenda e sem linhas zeradas. */
+.tooltip-grupo-titulo { display:flex; align-items:center; gap:6px; font-weight:800; }
+.tooltip-grupo-marca { width:7px; height:7px; flex:0 0 7px; border-radius:50%; }
+.tooltip-grupo-saldo { border-color:color-mix(in srgb, var(--income) 22%, transparent); }
+.tooltip-grupo-beneficio { border-color:color-mix(in srgb, var(--benefit-income) 22%, transparent); }
+.tooltip-grupo-caixinhas { border-color:color-mix(in srgb, var(--gold) 22%, transparent); }
+.tooltip-grupo { padding:7px 8px; border:1px solid; border-radius:9px; }
 
 .mes-hover-group { 
   cursor: pointer; 
@@ -2902,8 +2914,9 @@ html[data-theme="dark"] {
   justify-content: center !important;
   align-items: center;
   gap: 9px 18px;
-  margin-top: 13px;
+  margin-top: 14px;
   padding-top: 12px;
+  padding-bottom: 8px;
   border-top: 1px solid rgba(122,111,88,.15);
 }
 
@@ -3582,6 +3595,26 @@ html[data-theme="dark"] ::selection {
 .hero-stat-origem + .hero-stat-origem {
   padding-left: 8px;
   border-left: 1px solid rgba(255,255,255,.16);
+}
+.hero-stat-origem.is-zero {
+  display: none !important;
+}
+.hero-stat-origens.is-vazio {
+  display: none !important;
+}
+.hero-stat-origem.is-zero + .hero-stat-origem {
+  padding-left: 0;
+  border-left: 0;
+}
+.saldo-origem.is-zero {
+  display: none !important;
+}
+.saldo-origens.is-vazio {
+  display: none !important;
+}
+.saldo-origem.is-zero + .saldo-origem {
+  padding-left: 0;
+  border-left: 0;
 }
 
 /* O saldo agora mostra o restante disponível por origem. */
@@ -10848,3 +10881,77 @@ html[data-theme="dark"][data-caixa-theme="halloween"] { --benefit-income: #c5a1e
   .historico-mes-mini-saldo { padding:5px 7px; font-size:9px; }
   .historico-mes-mini-separador { height:20px; }
 }
+
+/* Histórico — gráfico de barras: leitura rápida por mês e por origem. */
+.historico-grafico-barras-wrap { overflow: hidden; }
+.historico-grafico-scroll { width: 100%; overflow-x: auto; overflow-y: hidden; scrollbar-width: thin; }
+.historico-grafico-barras { display:block; height:224px !important; min-width:320px; }
+.historico-grafico-barras .mes-hover-group { cursor: pointer; }
+.historico-grafico-barras .mes-hover-group.is-active rect:not(.hover-area) { filter: brightness(1.05) saturate(1.08); }
+.historico-grafico-barras .hover-area { cursor: crosshair; }
+.historico-legenda-bloco { display:inline-block; width:10px; height:10px; border-radius:3px; background:var(--legenda-cor); box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--legenda-cor) 35%, transparent); }
+@media (max-width:560px) {
+  .historico-grafico-barras { height:204px !important; }
+  .historico-grafico-barras-wrap { padding-left:12px; padding-right:12px; }
+}
+
+/* Histórico — barras agrupadas por mês: o mês é a unidade visual principal. */
+.historico-grafico-barras-wrap { overflow: hidden; }
+.historico-grafico-scroll { width: 100%; overflow-x: auto; overflow-y: hidden; scrollbar-width: none; }
+.historico-grafico-scroll::-webkit-scrollbar { display: none; }
+.historico-grafico-barras { display:block; height:226px !important; min-width:320px; }
+.historico-grafico-barras .mes-hover-group { cursor:pointer; }
+.historico-grafico-barras .mes-hover-group .historico-mes-tab { transition: fill .18s ease, stroke .18s ease, transform .18s ease; }
+.historico-grafico-barras .mes-hover-group:hover .historico-mes-tab,
+.historico-grafico-barras .mes-hover-group.is-active .historico-mes-tab { fill: var(--line-soft); stroke: var(--gold); }
+.historico-grafico-barras .mes-hover-group:hover rect:not(.hover-area):not(.historico-mes-tab),
+.historico-grafico-barras .mes-hover-group.is-active rect:not(.hover-area):not(.historico-mes-tab) { filter: saturate(1.06) brightness(1.03); }
+.historico-grafico-barras .hover-area { cursor:pointer; }
+.historico-legenda-bloco { display:inline-block; width:10px; height:10px; border-radius:3px; background:var(--legenda-cor); box-shadow:inset 0 0 0 1px color-mix(in srgb, var(--legenda-cor) 35%, transparent); }
+@media (max-width:560px) {
+  .historico-grafico-barras { height:266px !important; }
+  .historico-grafico-barras-wrap { padding-left:4px; padding-right:4px; }
+}
+
+
+/* Histórico — refinamento final das barras por mês. */
+.historico-grafico-barras-wrap { overflow: hidden; }
+.historico-grafico-scroll { width: 100%; overflow: hidden; }
+.historico-grafico-barras { display:block; width:100%; max-width:100%; min-width:0; height:280px !important; }
+.historico-grafico-barras .mes-hover-group { cursor:pointer; }
+.historico-grafico-barras .historico-mes-grupo-bg { transition: fill .18s ease, stroke .18s ease, opacity .18s ease; }
+.historico-grafico-barras .historico-mes-tab { transition: fill .18s ease, stroke .18s ease; }
+.historico-grafico-barras .mes-hover-group:hover .historico-mes-grupo-bg,
+.historico-grafico-barras .mes-hover-group.is-active .historico-mes-grupo-bg { fill:var(--line-soft); opacity:.52; stroke:var(--gold); }
+.historico-grafico-barras .mes-hover-group:hover .historico-mes-tab,
+.historico-grafico-barras .mes-hover-group.is-active .historico-mes-tab { fill:var(--line-soft); stroke:var(--gold); }
+.historico-grafico-barras .mes-hover-group:hover .historico-barra:not(.is-zero),
+.historico-grafico-barras .mes-hover-group.is-active .historico-barra:not(.is-zero) { filter:saturate(1.08) brightness(1.04); }
+.historico-grafico-barras .hover-area { cursor:pointer; }
+@media (max-width:560px) {
+  .historico-grafico-barras { height:266px !important; }
+}
+
+/* HISTÓRICO — Benefício segue o mesmo token cromático usado no restante do app. */
+:root { --benefit-income: var(--benefit); --benefit-expense: var(--benefit); }
+html[data-theme="dark"] { --benefit-income: var(--benefit); --benefit-expense: var(--benefit); }
+
+/* HISTÓRICO — visão anual: o gráfico ocupa o card, sem grande vazio. */
+.historico-grafico-barras-wrap { padding: 2px 0 0; }
+.historico-grafico-barras { height: 320px !important; width:100%; max-width:100%; }
+.historico-grafico-legenda { margin-top: 6px; padding-top: 10px; }
+.historico-grafico-legenda .historico-legenda-item { display:inline-flex; align-items:center; gap:7px; }
+.historico-grafico-legenda .historico-legenda-titulo { font-size:10px; font-weight:800; text-transform:uppercase; letter-spacing:.08em; }
+@media (max-width:560px) {
+  .historico-grafico-barras { height: 320px !important; }
+  .historico-grafico-wrap { padding: 4px 0 8px; }
+}
+
+/* CAIXA — Benefício: token semântico final compartilhado entre Hero, Histórico e tooltip. */
+.hero-stat-origem-beneficio, .saldo-origem-beneficio, .historico-resumo-beneficio strong, .historico-legenda-beneficio .historico-legenda-bloco { color: var(--benefit) !important; }
+.hero-stat-origem-beneficio > span, .saldo-origem-beneficio > span, .historico-resumo-beneficio span, .historico-resumo-beneficio strong { color: var(--benefit) !important; }
+.historico-legenda-beneficio .historico-legenda-bloco { background: var(--benefit) !important; }
+.tooltip-grupo-beneficio .tooltip-grupo-marca, .tooltip-grupo-beneficio .tooltip-grupo-titulo, .tooltip-grupo-beneficio .tooltip-linha .valor { color: var(--benefit) !important; }
+
+/* Histórico anual v7 — ocupa toda a largura útil do card. */
+@media (max-width:560px){ .historico-grafico-barras-wrap{width:100%;} .historico-grafico-barras{min-width:0!important;} }

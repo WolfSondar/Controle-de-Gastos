@@ -49,26 +49,17 @@ function renderHistoricoSkeleton() {
       </div>`).join("");
 }
 
-// Novo Gráfico com Faixas Verticais (Resolve sobreposição de pontos)
+// Gráfico de barras agrupadas por mês: cada mês é uma unidade visual clara.
 function construirGraficoHistoricoMultiSvg(mesesAsc, pessoa) {
-  const W = 320, H = 190, padL = 14, padR = 14, padT = 18, padB = 30;
-
   const getVal = (m, campo) => {
     const valorPessoa = (sufixo) => {
       if (campo === "guardadoMes") {
-        // O histórico já teve duas grafias para o mesmo campo mensal.
-        // Alguns registros podem conter uma delas como 0 e a outra com o valor real.
-        // Use o maior valor mensal disponível entre as grafias conhecidas.
-        const candidatos = [
-          m[`guardadoMes${sufixo}`],
-          m[`guardado${sufixo}Mes`]
-        ].map(Number).filter(Number.isFinite).map(v => Math.max(0, v));
+        const candidatos = [m[`guardadoMes${sufixo}`], m[`guardado${sufixo}Mes`]]
+          .map(Number).filter(Number.isFinite).map(v => Math.max(0, v));
         return candidatos.length ? Math.max(...candidatos) : 0;
       }
       const atual = Number(m[`${campo}${sufixo}`]);
       if (Number.isFinite(atual)) return atual;
-      // Histórico antigo: quando o mês ainda não tinha separação por origem,
-      // mantém uma divisão provisória de 50% saldo / 50% benefício.
       if (campo === "ganhosSaldo" || campo === "ganhosBeneficio") {
         const total = Number(m[`ganhos${sufixo}`]);
         return Number.isFinite(total) ? total / 2 : 0;
@@ -81,6 +72,10 @@ function construirGraficoHistoricoMultiSvg(mesesAsc, pessoa) {
         const total = Number(m[`saldo${sufixo}`]);
         return Number.isFinite(total) ? total / 2 : 0;
       }
+      if (campo === "rendimento") {
+        const total = Number(m[`rendimento${sufixo}`]);
+        return Number.isFinite(total) ? total : 0;
+      }
       return 0;
     };
     if (pessoa === 'ambos') return valorPessoa("Davi") + valorPessoa("Gabriel");
@@ -88,104 +83,127 @@ function construirGraficoHistoricoMultiSvg(mesesAsc, pessoa) {
     return valorPessoa(sufixo);
   };
 
-  const ptsGanhos = mesesAsc.map(m => getVal(m, 'ganhos'));
-  const ptsGanhosSaldo = mesesAsc.map(m => getVal(m, 'ganhosSaldo'));
-  const ptsGanhosBeneficio = mesesAsc.map(m => getVal(m, 'ganhosBeneficio'));
-  // Despesas são negativas no eixo para que maior gasto apareça mais abaixo.
-  const ptsDebitos = mesesAsc.map(m => -getVal(m, 'debitos'));
-  const ptsGastosSaldo = mesesAsc.map(m => -getVal(m, 'gastosSaldo'));
-  const ptsGastosBeneficio = mesesAsc.map(m => -getVal(m, 'gastosBeneficio'));
-  const ptsGuardado = mesesAsc.map(m => getVal(m, 'guardadoMes'));
-
-  const todos = [...ptsGanhos, ...ptsGanhosSaldo, ...ptsGanhosBeneficio, ...ptsDebitos, ...ptsGastosSaldo, ...ptsGastosBeneficio, ...ptsGuardado];
-  let min = Math.min(0, ...todos);
-  let max = Math.max(0, ...todos);
-  if (min === max) max = min + 1;
-
-  const amplitude = max - min;
-  min -= amplitude * 0.05;
-  max += amplitude * 0.15; 
-
-  const n = mesesAsc.length;
-  const passoX = n > 1 ? (W - padL - padR) / (n - 1) : 0;
-  const x = (i) => n === 1 ? W / 2 : padL + i * passoX;
-  const y = (v) => padT + (H - padT - padB) * (1 - (v - min) / (max - min));
-
-  const caminhoSuave = (pts) => {
-    if (pts.length === 0) return "";
-    let d = `M${x(0).toFixed(1)},${y(pts[0]).toFixed(1)}`;
-    for (let i = 0; i < pts.length - 1; i++) {
-      const cpX = (x(i) + x(i + 1)) / 2;
-      d += ` C${cpX.toFixed(1)},${y(pts[i]).toFixed(1)} ${cpX.toFixed(1)},${y(pts[i + 1]).toFixed(1)} ${x(i + 1).toFixed(1)},${y(pts[i + 1]).toFixed(1)}`;
-    }
-    return d;
+  // Visão anual: o gráfico mostra a movimentação de cada categoria no mês,
+  // enquanto os cards continuam mostrando os saldos finais. Isso evita que
+  // um mês com muita movimentação, mas saldo final próximo de zero, pareça
+  // vazio no gráfico (ex.: setembro com Ganho/Gasto e saldo final de R$ 14,60).
+  // Para Saldo e Benefício usamos o valor de entrada (Ganho) como a altura da
+  // barra; os detalhes de Ganho/Gasto e o saldo final ficam no tooltip/cards.
+  // O gráfico principal resume o mês em apenas 3 barras:
+  // 1) Ganho = Ganho de Saldo + Ganho de Benefício
+  // 2) Gasto = Gasto de Saldo + Gasto de Benefício
+  // 3) Guardado = valor guardado nas caixinhas no mês
+  // O detalhamento por Saldo/Benefício continua exclusivamente no tooltip.
+  const series = {
+    ganho: mesesAsc.map(m => Math.max(0, getVal(m, 'ganhosSaldo')) + Math.max(0, getVal(m, 'ganhosBeneficio'))),
+    gasto: mesesAsc.map(m => Math.max(0, getVal(m, 'gastosSaldo')) + Math.max(0, getVal(m, 'gastosBeneficio'))),
+    guardado: mesesAsc.map(m => getVal(m, 'guardadoMes'))
   };
 
-  // Largura da área de toque/hover de cada mês
-  const larguraFaixa = passoX > 0 ? passoX : W;
+  const detalhes = {
+    ganhosSaldo: mesesAsc.map(m => Math.max(0, getVal(m, 'ganhosSaldo'))),
+    gastosSaldo: mesesAsc.map(m => Math.max(0, getVal(m, 'gastosSaldo'))),
+    ganhosBeneficio: mesesAsc.map(m => Math.max(0, getVal(m, 'ganhosBeneficio'))),
+    gastosBeneficio: mesesAsc.map(m => Math.max(0, getVal(m, 'gastosBeneficio'))),
+    rendimento: mesesAsc.map(m => getVal(m, 'rendimento'))
+  };
 
-  // Cria as faixas verticais e agrupa os 3 pontos de cada mês juntos
+  const n = Math.max(1, mesesAsc.length);
+  // O espaço é calculado para que 12 meses continuem legíveis no celular.
+  // No modo anual, o gráfico ocupa praticamente toda a largura do card.
+  // Os grupos ficam compactos horizontalmente, mas com barras grandes o
+  // suficiente para a leitura no celular.
+  const groupW = n >= 11 ? 34 : n >= 9 ? 38 : n >= 7 ? 44 : n >= 5 ? 56 : 78;
+  const gap = n >= 11 ? 4 : n >= 9 ? 5 : n >= 7 ? 7 : n >= 5 ? 9 : 12;
+  const W = Math.max(380, 18 + n * groupW + Math.max(0, n - 1) * gap + 18);
+  const H = 320;
+  const padL = 10, padR = 10, padT = 10, padB = 50;
+  const plotBottom = H - padB;
+  const plotH = plotBottom - padT;
+  // Cada uma das três séries exibidas pode ter sua própria escala vertical.
+  // Isso evita que um Guardado muito maior esconda Ganho/Gasto, sem misturar
+  // o detalhamento por Saldo/Benefício, que continua no tooltip.
+  const maxPorSerie = Object.fromEntries(
+    Object.entries(series).map(([chave, valores]) => [
+      chave,
+      Math.max(1, ...valores.map(v => Math.abs(Number(v) || 0)))
+    ])
+  );
+  const scalePorSerie = Object.fromEntries(
+    Object.entries(maxPorSerie).map(([chave, max]) => [chave, (plotH * 0.82) / max])
+  );
+
+  const center = (i) => {
+    const totalGroups = n * groupW + (n - 1) * gap;
+    const left = (W - totalGroups) / 2;
+    return left + groupW / 2 + i * (groupW + gap);
+  };
+
+  const compact = n >= 10;
+  const barW = n >= 11 ? 8 : n >= 9 ? 8.5 : n >= 7 ? 9.5 : n >= 5 ? 12 : 16;
+  const barGap = n >= 11 ? 2.5 : n >= 9 ? 3 : 3.5;
+  const monthBarsW = barW * 3 + barGap * 2;
+
+  const bar = (x, value, color, extraClass = '', serie = '') => {
+    const v = Number(value) || 0;
+    if (v === 0) return '';
+    const scale = scalePorSerie[serie] || 1;
+    const h = Math.min(plotH * 0.82, Math.max(5, Math.abs(v) * scale));
+    const y = v >= 0 ? plotBottom - h : plotBottom;
+    return `<rect class="historico-barra ${extraClass}" x="${x.toFixed(1)}" y="${y.toFixed(1)}" width="${barW}" height="${h.toFixed(1)}" rx="${(barW/2).toFixed(1)}" fill="${color}"/>`;
+  };
+
   const gruposMes = mesesAsc.map((m, i) => {
-    const nomeMes = m.nome.charAt(0).toUpperCase() + m.nome.slice(1).toLowerCase();
-    const vGanhosSaldo = getVal(m, 'ganhosSaldo');
-    const vGanhosBeneficio = getVal(m, 'ganhosBeneficio');
-    const vGastosSaldo = getVal(m, 'gastosSaldo');
-    const vGastosBeneficio = getVal(m, 'gastosBeneficio');
-    const vGuardado = getVal(m, 'guardadoMes');
-    const cx = x(i).toFixed(1);
-    
-    // Calcula o início do retângulo invisível para centralizar no ponto
-    const rx = (x(i) - larguraFaixa / 2).toFixed(1);
+    const cx = center(i);
+    const start = cx - monthBarsW / 2;
+    const xs = [0,1,2].map(k => start + k * (barW + barGap));
+    const nomeCru = m.nome || '';
+    const nomeMes = /^\d{4}$/.test(nomeCru) ? nomeCru : nomeCru.charAt(0).toUpperCase() + nomeCru.slice(1).toLowerCase();
+    const rotulo = /^\d{4}$/.test(nomeCru) ? nomeCru : nomeCru.slice(0, 3).toUpperCase();
+    const tabW = compact ? Math.max(25, groupW - 2) : Math.min(72, groupW + 10);
+    const bgMarkup = '';
 
     return `
-      <g class="mes-hover-group" data-mes="${nomeMes}" data-ganhos-saldo="${fmt(vGanhosSaldo)}" data-ganhos-beneficio="${fmt(vGanhosBeneficio)}" data-gastos-saldo="${fmt(vGastosSaldo)}" data-gastos-beneficio="${fmt(vGastosBeneficio)}" data-guardado="${fmt(vGuardado)}">
-        <!-- Área gigante e invisível para capturar o dedo/mouse -->
-        <rect x="${rx}" y="0" width="${larguraFaixa}" height="${H}" fill="transparent" class="hover-area" />
-        
-        <!-- Linha guia vertical charmosa -->
-        <line x1="${cx}" y1="${padT}" x2="${cx}" y2="${H - padB - 4}" stroke="var(--line)" stroke-dasharray="4,4" class="guia-vertical" />
-        
-        <!-- Os pontos separados por origem -->
-        <circle cx="${cx}" cy="${y(vGanhosSaldo).toFixed(1)}" r="3.8" fill="var(--income)" stroke="var(--paper-deep)" stroke-width="1.8" class="ponto-dot" />
-        <circle cx="${cx}" cy="${y(vGanhosBeneficio).toFixed(1)}" r="3.8" fill="var(--benefit-deep)" stroke="var(--paper-deep)" stroke-width="1.8" class="ponto-dot" />
-        <circle cx="${cx}" cy="${y(-vGastosSaldo).toFixed(1)}" r="3.8" fill="var(--expense)" stroke="var(--paper-deep)" stroke-width="1.8" class="ponto-dot" />
-        <circle cx="${cx}" cy="${y(-vGastosBeneficio).toFixed(1)}" r="3.8" fill="var(--benefit-deep)" stroke="var(--paper-deep)" stroke-width="1.8" class="ponto-dot" />
-        <circle cx="${cx}" cy="${y(vGuardado).toFixed(1)}" r="3.8" fill="var(--gold)" stroke="var(--paper-deep)" stroke-width="1.8" class="ponto-dot" />
-      </g>
-    `;
-  }).join("");
+      <g class="mes-hover-group" data-mes="${escapeHtml(nomeMes)}"
+         data-ganhos-saldo="${Number(detalhes.ganhosSaldo[i]) || 0}"
+         data-ganhos-beneficio="${Number(detalhes.ganhosBeneficio[i]) || 0}"
+         data-gastos-saldo="${Number(detalhes.gastosSaldo[i]) || 0}"
+         data-gastos-beneficio="${Number(detalhes.gastosBeneficio[i]) || 0}"
+         data-guardado="${Number(series.guardado[i]) || 0}"
+         data-rendimento="${Number(detalhes.rendimento[i]) || 0}">
+        ${bgMarkup}
+        <rect x="${(cx - groupW/2 - 3).toFixed(1)}" y="6" width="${(groupW + 6).toFixed(1)}" height="${(plotBottom + 42).toFixed(1)}" rx="14" fill="transparent" class="hover-area"/>
+        ${bar(xs[0], series.ganho[i], 'var(--income)', 'barra-ganho', 'ganho')}
+        ${bar(xs[1], series.gasto[i], 'var(--expense)', 'barra-gasto', 'gasto')}
+        ${bar(xs[2], series.guardado[i], 'var(--gold)', 'barra-caixinha', 'guardado')}
+        <rect x="${(cx-tabW/2).toFixed(1)}" y="${(plotBottom+13).toFixed(1)}" width="${tabW}" height="23" rx="11.5" fill="var(--paper)" stroke="var(--line)" class="historico-mes-tab" />
+        <text x="${cx.toFixed(1)}" y="${(plotBottom+28.5).toFixed(1)}" font-size="${compact ? 8 : 9}" text-anchor="middle" font-family="var(--font-mono)" font-weight="800" letter-spacing=".06em" fill="var(--muted)">${escapeHtml(rotulo)}</text>
+      </g>`;
+  }).join('');
 
-  // No modo "Todos os anos" cada ponto é um ano (ex: "2025"), não um mês —
-  // nesse caso mostra o ano inteiro no eixo, sem truncar pros 3 primeiros
-  // caracteres como faz com o nome do mês (senão "2025" virava "202").
-  const rotulos = mesesAsc.map((m, i) => {
-    const nomeCru = m.nome || "";
-    const rotulo = /^\d{4}$/.test(nomeCru) ? nomeCru : nomeCru.slice(0, 3).toUpperCase();
-    return `<text x="${x(i).toFixed(1)}" y="${H - 8}" font-size="9" text-anchor="middle" font-family="var(--font-mono)" font-weight="600" fill="var(--muted)">${escapeHtml(rotulo)}</text>`;
-  }).join("");
-  const linhaZero = y(0).toFixed(1);
+  const grid = [0.25, 0.5, 0.75, 1].map(fr => {
+    const y = plotBottom - plotH * 0.86 * fr;
+    return `<line x1="${padL}" y1="${y.toFixed(1)}" x2="${W-padR}" y2="${y.toFixed(1)}" stroke="var(--line)" stroke-width="1" opacity="${fr === 1 ? '.45' : '.18'}" />`;
+  }).join('');
 
   return `
-    <div class="historico-grafico-wrap">
-      <svg class="historico-grafico" viewBox="0 0 ${W} ${H}" preserveAspectRatio="none">
-        <line x1="${padL}" y1="${linhaZero}" x2="${W - padR}" y2="${linhaZero}" stroke="var(--line)" stroke-width="1.5" stroke-dasharray="4,4" />
-        
-        <path d="${caminhoSuave(ptsGanhosSaldo)}" fill="none" stroke="var(--income)" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" />
-        <path d="${caminhoSuave(ptsGanhosBeneficio)}" fill="none" stroke="var(--benefit-deep)" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" />
-        <path d="${caminhoSuave(ptsGastosSaldo)}" fill="none" stroke="var(--expense)" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" />
-        <path d="${caminhoSuave(ptsGastosBeneficio)}" fill="none" stroke="var(--benefit-deep)" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" stroke-dasharray="6,4" />
-        <path d="${caminhoSuave(ptsGuardado)}" fill="none" stroke="var(--gold)" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" stroke-dasharray="6,4" />
-        
-        <!-- Renderiza as áreas de interação POR CIMA das linhas -->
-        ${gruposMes}
-        ${rotulos}
-      </svg>
-      <div class="historico-grafico-legenda">
-        <span class="legenda-item"><span class="legenda-dot" style="background:var(--income)"></span>Ganho Saldo</span>
-        <span class="legenda-item"><span class="legenda-dot" style="background:var(--benefit-deep)"></span>Ganho Benefício</span>
-        <span class="legenda-item"><span class="legenda-dot" style="background:var(--expense)"></span>Gasto Saldo</span>
-        <span class="legenda-item"><span class="legenda-dot" style="background:var(--benefit-deep)"></span>Gasto Benefício</span>
-        <span class="legenda-item"><span class="legenda-dot" style="background:var(--gold)"></span>Guardado</span>
+    <div class="historico-grafico-wrap historico-grafico-barras-wrap">
+      <div class="historico-grafico-scroll">
+        <svg class="historico-grafico historico-grafico-barras" viewBox="0 0 ${W} ${H}" width="${W}" height="${H}" preserveAspectRatio="xMidYMid meet">
+          ${grid}
+          ${gruposMes}
+        </svg>
+      </div>
+      <div class="historico-grafico-legenda" aria-label="Legenda do gráfico">
+        <div class="historico-legenda-grupo historico-legenda-ganho">
+          <span class="historico-legenda-item"><span class="historico-legenda-titulo">Ganho</span><i class="historico-legenda-bloco" style="--legenda-cor:var(--income)"></i></span>
+        </div>
+        <div class="historico-legenda-grupo historico-legenda-gasto">
+          <span class="historico-legenda-item"><span class="historico-legenda-titulo">Gasto</span><i class="historico-legenda-bloco" style="--legenda-cor:var(--expense)"></i></span>
+        </div>
+        <div class="historico-legenda-grupo historico-legenda-caixinhas">
+          <span class="historico-legenda-item"><span class="historico-legenda-titulo">Guardou</span><i class="historico-legenda-bloco" style="--legenda-cor:var(--gold)"></i></span>
+        </div>
       </div>
     </div>`;
 }
@@ -316,64 +334,88 @@ function renderHistorico() {
     mesesParaCategorias = bloco.meses;
   }
 
+  // Modo de teste desativado: o gráfico usa somente os meses realmente
+  // cadastrados no histórico. A visão anual agora é compactada para exibir
+  // todos os meses disponíveis de uma vez.
+  const SIMULAR_TODOS_OS_MESES_TESTE = false;
+  if (SIMULAR_TODOS_OS_MESES_TESTE && !modoTodos) {
+    const nomesMesesTeste = [
+      "janeiro", "fevereiro", "março", "abril", "maio", "junho",
+      "julho", "agosto", "setembro", "outubro", "novembro", "dezembro"
+    ];
+    const basePorMes = [
+      [2450, 720, 1380, 410, 260],
+      [2520, 760, 1420, 460, 310],
+      [2480, 810, 1360, 430, 280],
+      [2600, 790, 1480, 500, 350],
+      [2550, 830, 1510, 470, 300],
+      [2680, 860, 1550, 520, 390],
+      [2710, 820, 1600, 490, 420],
+      [2640, 780, 1580, 450, 360],
+      [2760, 840, 1620, 510, 430],
+      [2780, 900, 1640, 540, 460],
+      [2890, 870, 1710, 510, 520],
+      [3050, 940, 1780, 560, 600]
+    ];
+    // Simulação visual: todos os 12 meses usam dados fictícios, inclusive os meses reais.
+    mesesAscendentes = Array.from({ length: 12 }, (_, idx) => {
+      const mes = idx + 1;
+      const [gs, xs, gb, xb, guard] = basePorMes[idx];
+      const registro = {
+        nome: nomesMesesTeste[idx], mes, ano: anoAlvo,
+        ganhosSaldoDavi: gs * 0.58, ganhosSaldoGabriel: gs * 0.42,
+        gastosSaldoDavi: xs * 0.56, gastosSaldoGabriel: xs * 0.44,
+        ganhosBeneficioDavi: gb * 0.48, ganhosBeneficioGabriel: gb * 0.52,
+        gastosBeneficioDavi: xb * 0.50, gastosBeneficioGabriel: xb * 0.50,
+        saldoSaldoDavi: (gs - xs) * 0.58, saldoSaldoGabriel: (gs - xs) * 0.42,
+        saldoBeneficioDavi: (gb - xb) * 0.48, saldoBeneficioGabriel: (gb - xb) * 0.52,
+        guardadoMesDavi: guard * 0.55, guardadoMesGabriel: guard * 0.45,
+        ganhosDavi: gs * 0.58 + gb * 0.48,
+        ganhosGabriel: gs * 0.42 + gb * 0.52,
+        debitosDavi: -(xs * 0.56 + xb * 0.50),
+        debitosGabriel: -(xs * 0.44 + xb * 0.50),
+        saldoDavi: (gs - xs) * 0.58 + (gb - xb) * 0.48,
+        saldoGabriel: (gs - xs) * 0.42 + (gb - xb) * 0.52,
+        rendimentoDavi: 0,
+        rendimentoGabriel: 0
+      };
+      return registro;
+    });
+    mesesOrdenados = [...mesesAscendentes].sort((a, b) => b.mes - a.mes);
+    mesesParaCategorias = mesesAscendentes;
+  }
+
   const grafico = construirGraficoHistoricoMultiSvg(mesesAscendentes, pessoa);
   const paginaCategorias = construirPaginaCategoriasHistorico(mesesParaCategorias, pessoa, modoTodos ? "todos" : anoAlvo);
 
   const cards = mesesOrdenados.map((m) => {
-    const ganhos = getVal(m, 'ganhos');
-    const debitos = getVal(m, 'debitos');
-    const ganhosSaldo = getVal(m, 'ganhosSaldo');
-    const ganhosBeneficio = getVal(m, 'ganhosBeneficio');
-    const gastosSaldo = getVal(m, 'gastosSaldo');
-    const gastosBeneficio = getVal(m, 'gastosBeneficio');
     const saldoSaldo = getVal(m, 'saldoSaldo');
     const saldoBeneficio = getVal(m, 'saldoBeneficio');
     const guardado = getVal(m, 'guardadoMes');
-    const rendimento = getVal(m, 'rendimento'); // Busca o novo rendimento
-    const saldo = getVal(m, 'saldo');
-    const detalhamentoOrigemDisponivel = Object.keys(m || {}).some((chave) => /^(ganhosSaldo|ganhosBeneficio|gastosSaldo|gastosBeneficio|saldoSaldo|saldoBeneficio)(Davi|Gabriel)$/.test(chave));
     const nomeMes = modoTodos ? `Ano ${m.nome}` : (m.nome.charAt(0) + m.nome.slice(1).toLowerCase());
 
     const chaveCard = `historico-${modoTodos ? `ano-${m.nome}` : `${m.ano || anoAlvo}-${m.mes}`}-${pessoa}`.replace(/[^a-zA-Z0-9_-]/g, "-");
     return `
     <article class="historico-mes-card" data-historico-card="${chaveCard}">
-      <button type="button" class="historico-mes-head collapse-toggle is-collapsed" data-collapse="${chaveCard}" aria-expanded="false" aria-controls="collapsible-${chaveCard}">
+      <div class="historico-mes-head historico-mes-head-static">
         <span class="historico-mes-nome">${escapeHtml(nomeMes)}</span>
-        <span class="historico-mes-head-right">
-          <span class="historico-mes-mini-saldo historico-mes-mini-saldo-beneficio"><span>Benefício</span>${fmt(saldoBeneficio)}</span>
-          <span class="historico-mes-mini-separador" aria-hidden="true"></span>
-          <span class="historico-mes-mini-saldo historico-mes-mini-saldo-proprio ${saldoSaldo < 0 ? "negative" : ""}"><span>Saldo</span>${fmt(saldoSaldo)}</span>
-          <span class="historico-mes-chevron" aria-hidden="true">
-            <svg viewBox="0 0 24 24" fill="none"><path d="m7 10 5 5 5-5" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>
-          </span>
-        </span>
-      </button>
-      <div class="historico-mes-content collapsible is-collapsed" id="collapsible-${chaveCard}">
-        ${detalhamentoOrigemDisponivel ? `
-        <div class="historico-mes-origem-grupo">
-          <div class="historico-mes-linha">
-            <span>Ganhos — Saldo</span><span class="income">${fmt(ganhosSaldo)}</span>
-          </div>
-          <div class="historico-mes-linha">
-            <span>Gastos — Saldo</span><span class="expense">${fmt(gastosSaldo)}</span>
-          </div>
+        <div class="historico-mes-resumo" aria-label="Resumo final do mês">
+          ${saldoBeneficio !== 0 ? `
+          <div class="historico-resumo-item historico-resumo-beneficio">
+            <span>Benefício</span>
+            <strong>${fmt(saldoBeneficio)}</strong>
+          </div>` : ''}
+          ${saldoSaldo !== 0 ? `
+          <div class="historico-resumo-item historico-resumo-saldo ${saldoSaldo < 0 ? 'negative' : ''}">
+            <span>Saldo</span>
+            <strong>${fmt(saldoSaldo)}</strong>
+          </div>` : ''}
+          ${guardado !== 0 ? `
+          <div class="historico-resumo-item historico-resumo-guardado">
+            <span>Guardou</span>
+            <strong>${fmt(guardado)}</strong>
+          </div>` : ''}
         </div>
-        <div class="historico-mes-origem-separador"><span>Benefício</span></div>
-        <div class="historico-mes-origem-grupo historico-mes-origem-beneficio">
-          <div class="historico-mes-linha">
-            <span>Ganhos — Benefício</span><span class="income">${fmt(ganhosBeneficio)}</span>
-          </div>
-          <div class="historico-mes-linha">
-            <span>Gastos — Benefício</span><span class="expense">${fmt(gastosBeneficio)}</span>
-          </div>
-        </div>` : ""}
-        ${guardado > 0 ? `<div class="historico-mes-linha"><span>Guardado</span><span class="gold">${fmt(guardado)}</span></div>` : ""}
-        ${rendimento > 0 ? `<div class="historico-mes-linha"><span>Rendeu no mês</span><span class="yield">+ ${fmt(rendimento)}</span></div>` : ""}
-        ${pessoa === 'ambos' ? `
-        <div class="historico-mes-pessoas">
-          <span class="pessoa-tag pessoa-davi">Davi ${fmt(m.saldoDavi)}</span>
-          <span class="pessoa-tag pessoa-gabriel">Gabriel ${fmt(m.saldoGabriel)}</span>
-        </div>` : ''}
       </div>
     </article>`;
   }).join("");

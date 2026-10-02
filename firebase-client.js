@@ -243,6 +243,11 @@ if (!cfg.apiKey || cfg.apiKey.includes("COLE_")) {
     }
     return "";
   }
+  function cicloMesData(dataStr) {
+    const m=/^(\d{4})-(\d{2})-(\d{2})/.exec(String(dataStr||""));
+    if(!m)return null;
+    return Number(m[1]) * 12 + Number(m[2]);
+  }
   function proximaDataMesmoDia(dataStr) {
     // Aceita tanto YYYY-MM-DD quanto timestamps ISO salvos pelo app.
     const m=/^(\d{4})-(\d{2})-(\d{2})/.exec(String(dataStr||""));
@@ -262,9 +267,21 @@ if (!cfg.apiKey || cfg.apiKey.includes("COLE_")) {
     }
     return proximaDataMesmoDia(dataStr);
   }
-  function proximoFixo(item) {
+  function proximoFixo(item, mesFechado, anoFechado) {
     if(!item)return null;
     const out={...item};
+    const dataOriginal = String(item.data || "");
+    const cicloOriginal = cicloMesData(dataOriginal);
+    const cicloFechado = Number(anoFechado) * 12 + Number(mesFechado);
+    const jaEstaNoFuturo = cicloOriginal && cicloOriginal > cicloFechado;
+
+    // Um fixo/parcelamento já programado para um mês futuro não deve ser
+    // avançado outra vez no fechamento. Mantemos data e número da parcela.
+    if (jaEstaNoFuturo) {
+      out.data = dataOriginal.slice(0, 10);
+      return out;
+    }
+
     const p=String(item.parcela||"").trim();
     if(p){
       const m=/^(\d+)\s*\/\s*(\d+)$/.exec(p);
@@ -274,7 +291,7 @@ if (!cfg.apiKey || cfg.apiKey.includes("COLE_")) {
         out.parcela=`${n+1}/${total}`;
       }
     }
-    out.data=proximaDataMesmoDia(item.data);
+    out.data=proximaDataMesmoDia(dataOriginal);
     out.pago=false;
     return out;
   }
@@ -353,7 +370,11 @@ if (!cfg.apiKey || cfg.apiKey.includes("COLE_")) {
       m[`categorias${suf}`]=categorias;m[`rendimento${suf}`]=rendimento;
       const ganhosProx=[];let datasAusentes=0;(dados.ganhos||[]).forEach(g=>{
         if(g.recebido===false||ehGanhoRecorrente(g.nome)){
-          const dataProx=dataProximoGanho(g.nome,g.data,next,pessoa);
+          const cicloOriginal = cicloMesData(g.data);
+          const cicloFechado = ano * 12 + mes;
+          const dataProx = cicloOriginal && cicloOriginal > cicloFechado
+            ? String(g.data).slice(0,10)
+            : dataProximoGanho(g.nome,g.data,next,pessoa);
           if(!dataProx)datasAusentes++;
           const ganhoProx={nome:g.nome,valor:g.valor,data:dataProx,recebido:false};
           if(g.origem!==undefined&&g.origem!==null&&g.origem!=="")ganhoProx.origem=g.origem;
@@ -387,14 +408,29 @@ if (!cfg.apiKey || cfg.apiKey.includes("COLE_")) {
           tipo: "saldo_anterior"
         });
       }
-      const fixos=(dados.gastosFixos||[]).map(proximoFixo).filter(Boolean);
+      const fixos=(dados.gastosFixos||[]).map(item=>proximoFixo(item,mes,ano)).filter(Boolean);
       fixos.forEach(g=>{if(!g.data)datasAusentes++;});
       const variaveis=(dados.gastosVariaveis||[]).filter(g=>g?.pago===false).map(g=>{
-        const out={...g,data:proximaDataMesmoDia(g.data)};
+        const cicloOriginal = cicloMesData(g.data);
+        const cicloFechado = ano * 12 + mes;
+        const out={...g,data:(cicloOriginal && cicloOriginal > cicloFechado) ? String(g.data).slice(0,10) : proximaDataMesmoDia(g.data)};
         if(!out.data)datasAusentes++;
         return out;
       });
-      const caixinhas=(dados.caixinhas||[]).map(c=>({nome:c.nome,valorObjetivo:c.valorObjetivo,valorGuardado:totalCaixinha(c),rendimentoTotal:0,valorGuardadoMes:0,data:c.data||"",icone:c.icone||""}));
+      const caixinhas=(dados.caixinhas||[]).map(c=>({
+        nome:c.nome,
+        valorObjetivo:c.valorObjetivo,
+        valorGuardado:totalCaixinha(c),
+        rendimentoTotal:0,
+        // O acumulado atravessa o fechamento sem ser zerado. Só usa o
+        // rendimento atual como migração quando a caixinha ainda não possui
+        // o campo novo.
+        rendimentoAcumulado:Number.isFinite(Number(c.rendimentoAcumulado)) ? Number(c.rendimentoAcumulado) : (Number(c.rendimentoTotal)||0),
+        rendimentoHistorico:Array.isArray(c.rendimentoHistorico) ? c.rendimentoHistorico : [],
+        valorGuardadoMes:0,
+        data:c.data||"",
+        icone:c.icone||""
+      }));
       tx.set(pref,{...dados,ganhos:ganhosProx,gastosFixos:fixos,gastosVariaveis:variaveis,caixinhas,
         saldoInicialConta:0,
         saldoInicialBeneficio:0,

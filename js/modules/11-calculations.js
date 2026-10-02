@@ -195,21 +195,31 @@ function renderTotais() {
   // assistente: gastos reais + dinheiro guardado neste mês.
   const saldoRestante = saldosDisponiveis ? saldosDisponiveis.saldoConta : (ganhosPorOrigem.ganhos - totalFixosPagosSaldo - gastosVariaveisSaldo - totalGuardadoNoMes);
 
-  if (beneficiosEl) {
-    beneficiosEl.textContent = fmt(beneficioRestante);
-    beneficiosEl.classList.toggle("negative", beneficioRestante < 0);
+  // Origem zerada não precisa ocupar espaço no Hero.
+  // Mantemos o comportamento consistente entre o saldo disponível e o card Ganhos.
+  const atualizarOrigem = (el, valor) => {
+    if (!el) return;
+    const wrapper = el.closest(".hero-stat-origem, .saldo-origem");
+    const alvo = wrapper || el;
+    el.textContent = fmt(valor);
+    el.classList.toggle("negative", valor < 0);
+    alvo.classList.toggle("is-zero", valor === 0);
+    alvo.style.display = valor === 0 ? "none" : "";
+  };
+
+  atualizarOrigem(beneficiosEl, beneficioRestante);
+  atualizarOrigem(ganhosSaldoEl, saldoRestante);
+  atualizarOrigem(beneficioRestanteEl, beneficioRestante);
+  atualizarOrigem(saldoRestanteEl, saldoRestante);
+
+  const saldoOrigens = document.querySelector(".saldo-origens");
+  if (saldoOrigens) {
+    saldoOrigens.classList.toggle("is-vazio", beneficioRestante === 0 && saldoRestante === 0);
   }
-  if (ganhosSaldoEl) {
-    ganhosSaldoEl.textContent = fmt(saldoRestante);
-    ganhosSaldoEl.classList.toggle("negative", saldoRestante < 0);
-  }
-  if (beneficioRestanteEl) {
-    beneficioRestanteEl.textContent = fmt(beneficioRestante);
-    beneficioRestanteEl.classList.toggle("negative", beneficioRestante < 0);
-  }
-  if (saldoRestanteEl) {
-    saldoRestanteEl.textContent = fmt(saldoRestante);
-    saldoRestanteEl.classList.toggle("negative", saldoRestante < 0);
+
+  const heroGanhosOrigens = document.querySelector(".hero-stat-ganhos .hero-stat-origens");
+  if (heroGanhosOrigens) {
+    heroGanhosOrigens.classList.toggle("is-vazio", beneficioRestante === 0 && saldoRestante === 0);
   }
 
   const ganhosPendenteEl = document.getElementById("statGanhosPendente");

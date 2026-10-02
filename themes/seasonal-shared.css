@@ -381,3 +381,256 @@
         html[data-caixa-theme="halloween"] .caixa-categoria-criacao-name,
         html[data-caixa-theme="halloween"] .caixa-categoria-criacao-preview{background:#2c1330;color:#fdf3ea;border-color:rgba(95,184,122,.22)}
         html[data-caixa-theme="halloween"] .caixa-categoria-criacao-name:focus{border-color:#5fb87a;box-shadow:0 0 0 4px rgba(95,184,122,.16)}
+
+/* ============================================================
+   HISTÓRICO — resumo fixo + gráfico mais limpo
+   Compartilhado por Padrão, Natal e Halloween para preservar a
+   mesma estrutura e deixar apenas as cores/atmosfera de cada tema.
+   ============================================================ */
+
+/* Card mensal: não é mais uma gaveta. O próprio gráfico já mostra a evolução. */
+.historico-mes-card {
+  padding: 0 !important;
+  overflow: hidden;
+  background: var(--paper) !important;
+  border-color: color-mix(in srgb, var(--line) 82%, var(--ink-text)) !important;
+}
+.historico-mes-card:hover {
+  transform: translateY(-1px);
+  border-color: color-mix(in srgb, var(--gold) 34%, var(--line)) !important;
+}
+.historico-mes-head-static {
+  width: 100%;
+  min-height: 78px;
+  margin: 0 !important;
+  padding: 14px 16px !important;
+  display: flex;
+  align-items: center !important;
+  justify-content: space-between;
+  gap: 18px;
+  box-sizing: border-box;
+  border: 0 !important;
+  background: transparent !important;
+  cursor: default !important;
+}
+.historico-mes-head-static::before,
+.historico-mes-head-static::after {
+  display: none !important;
+}
+.historico-mes-head-static .historico-mes-nome {
+  flex: 0 0 auto;
+  margin: 0;
+  font-family: var(--font-display);
+  font-size: 18px;
+  font-weight: 750;
+  color: var(--ink-text);
+  letter-spacing: -.015em;
+}
+.historico-mes-resumo {
+  min-width: 0;
+  display: flex;
+  justify-content: flex-end;
+  align-items: stretch;
+  gap: 7px;
+}
+.historico-resumo-item {
+  min-width: 92px;
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  gap: 4px;
+  padding: 8px 10px;
+  border-radius: 11px;
+  border: 1px solid color-mix(in srgb, var(--line) 74%, transparent);
+  background: color-mix(in srgb, var(--paper-deep) 72%, transparent);
+  box-sizing: border-box;
+}
+.historico-resumo-item > span {
+  font-size: 8px;
+  line-height: 1;
+  text-transform: uppercase;
+  letter-spacing: .1em;
+  font-weight: 800;
+  color: var(--muted);
+}
+.historico-resumo-item strong {
+  font-family: var(--font-mono);
+  font-size: 11px;
+  line-height: 1.15;
+  font-weight: 800;
+  white-space: nowrap;
+  color: var(--ink-text);
+}
+.historico-resumo-beneficio { border-top: 2px solid var(--benefit-income); }
+.historico-resumo-beneficio strong { color: var(--benefit-income); }
+.historico-resumo-saldo { border-top: 2px solid var(--income); }
+.historico-resumo-saldo strong { color: var(--income); }
+.historico-resumo-saldo.negative { border-top-color: var(--expense); }
+.historico-resumo-saldo.negative strong { color: var(--expense); }
+.historico-resumo-guardado { border-top: 2px solid var(--gold); }
+.historico-resumo-guardado strong { color: var(--gold-deep); }
+
+/* Tooltip: três blocos independentes — Saldo, Benefício e Caixinhas. */
+.grafico-tooltip {
+  min-width: 178px;
+  padding: 11px 12px 12px;
+  gap: 8px;
+  border: 1px solid color-mix(in srgb, var(--on-ink) 13%, transparent);
+  background: var(--ink);
+  box-shadow: 0 12px 28px rgba(0,0,0,.22), 0 2px 6px rgba(0,0,0,.12);
+}
+.tooltip-titulo {
+  margin-bottom: 1px;
+  padding-bottom: 7px;
+  color: var(--on-ink) !important;
+  opacity: .72;
+  font-size: 9px;
+  letter-spacing: .14em;
+}
+.tooltip-grupo {
+  padding: 7px 8px;
+  border-radius: 9px;
+  background: rgba(255,255,255,.045);
+  border: 1px solid rgba(255,255,255,.07);
+}
+.tooltip-grupo + .tooltip-grupo { margin-top: 1px; }
+.tooltip-grupo-titulo {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  margin-bottom: 5px;
+  color: var(--on-ink);
+  font-size: 9px;
+  font-weight: 800;
+  text-transform: uppercase;
+  letter-spacing: .08em;
+}
+.tooltip-grupo-marca {
+  width: 7px;
+  height: 7px;
+  flex: 0 0 7px;
+  border-radius: 50%;
+  background: var(--muted);
+}
+.tooltip-grupo-saldo .tooltip-grupo-marca { background: var(--income); }
+.tooltip-grupo-beneficio .tooltip-grupo-marca { background: var(--benefit-deep); }
+.tooltip-grupo-caixinhas .tooltip-grupo-marca { background: var(--gold); }
+.tooltip-grupo-saldo .tooltip-grupo-titulo { color: var(--income); }
+.tooltip-grupo-beneficio .tooltip-grupo-titulo { color: var(--benefit-deep); }
+.tooltip-grupo-caixinhas .tooltip-grupo-titulo { color: var(--gold); }
+.tooltip-grupo .tooltip-linha {
+  min-height: 18px;
+  justify-content: space-between;
+  gap: 12px;
+  font-size: 10px;
+  font-weight: 600;
+  color: color-mix(in srgb, var(--on-ink) 72%, transparent);
+}
+.tooltip-grupo .tooltip-linha .valor {
+  color: var(--on-ink);
+  font-size: 10px;
+  font-weight: 800;
+}
+.tooltip-grupo-saldo .tooltip-linha:first-of-type .valor { color: var(--income); }
+.tooltip-grupo-saldo .tooltip-linha:last-of-type .valor { color: var(--expense); }
+.tooltip-grupo-beneficio .tooltip-linha .valor { color: var(--benefit-deep); }
+.tooltip-grupo-caixinhas .tooltip-linha .valor { color: var(--gold); }
+
+/* Legenda: agrupa as cinco séries em três conceitos. */
+.historico-grafico-legenda {
+  display: flex !important;
+  flex-wrap: wrap;
+  justify-content: center !important;
+  align-items: stretch;
+  gap: 8px;
+  margin-top: 12px;
+  padding-top: 12px;
+  border-top: 1px solid color-mix(in srgb, var(--line) 70%, transparent);
+}
+.historico-legenda-grupo {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 7px 9px;
+  min-height: 31px;
+  padding: 5px 9px;
+  border-radius: 10px;
+  border: 1px solid color-mix(in srgb, var(--line) 72%, transparent);
+  background: color-mix(in srgb, var(--paper-deep) 58%, transparent);
+}
+.historico-legenda-titulo {
+  margin-right: 1px;
+  font-size: 8px;
+  font-weight: 850;
+  text-transform: uppercase;
+  letter-spacing: .11em;
+  color: var(--muted);
+}
+.historico-legenda-item {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  color: var(--ink-text);
+  font-size: 9px;
+  font-weight: 700;
+  white-space: nowrap;
+}
+.historico-legenda-linha {
+  display: inline-block;
+  width: 20px;
+  height: 0;
+  border-top: 2px solid var(--legenda-cor);
+  border-radius: 999px;
+}
+.historico-legenda-linha.pontilhada {
+  border-top-style: dashed;
+  border-top-width: 2px;
+}
+.historico-legenda-linha.leve { opacity: .72; }
+
+/* Deixa o gráfico mais editorial e menos carregado. */
+.historico-grafico-wrap {
+  background:
+    radial-gradient(circle at 94% 7%, color-mix(in srgb, var(--gold) 8%, transparent), transparent 31%),
+    linear-gradient(180deg, var(--paper) 0%, var(--paper-deep) 100%) !important;
+  border-color: color-mix(in srgb, var(--line) 84%, var(--ink-text)) !important;
+  box-shadow: 0 12px 30px rgba(0,0,0,.055), 0 1px 2px rgba(0,0,0,.035);
+}
+.historico-grafico-wrap::before {
+  color: var(--muted) !important;
+  opacity: .82;
+}
+.historico-grafico-wrap .historico-grafico {
+  height: 210px;
+  margin-top: 10px;
+}
+.historico-grafico-wrap .guia-vertical {
+  stroke: var(--muted);
+  opacity: 0;
+}
+.historico-grafico-wrap > .historico-grafico line:first-child {
+  opacity: .42;
+}
+
+@media (max-width: 700px) {
+  .historico-mes-head-static {
+    align-items: flex-start !important;
+    flex-direction: column;
+    gap: 10px;
+  }
+  .historico-mes-resumo {
+    width: 100%;
+    grid-template-columns: repeat(auto-fit, minmax(0, 1fr));
+    justify-content: stretch;
+  }
+  .historico-resumo-item { min-width: 0; padding: 8px; }
+  .historico-resumo-item strong { font-size: 10px; }
+  .historico-grafico-legenda { gap: 6px; }
+  .historico-legenda-grupo { flex: 1 1 100%; justify-content: center; }
+}
+
+@media (max-width: 420px) {
+  .historico-mes-resumo { gap: 5px; }
+  .historico-resumo-item > span { font-size: 7px; }
+  .historico-resumo-item strong { font-size: 9px; }
+}

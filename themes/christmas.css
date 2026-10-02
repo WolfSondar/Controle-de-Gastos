@@ -2910,3 +2910,13 @@ html[data-theme="dark"][data-caixa-theme="halloween"] { --benefit-income: #c5a1e
 .item-list-row.is-riscando .swipe-content { animation: deleteCardSoft .62s cubic-bezier(.2,.8,.2,1) .18s both; }
 @keyframes deleteCardSoft { 0% { opacity:1; transform:translateX(0) scale(1); filter:blur(0); } 45% { opacity:.82; transform:translateX(10px) scale(.985); } 100% { opacity:0; transform:translateX(38px) scale(.94); filter:blur(2px); } }
 @media (prefers-reduced-motion: reduce) { .item-list-row.is-riscando .swipe-content { animation-duration: .01ms !important; } }
+
+/* HISTÓRICO — Benefício usa exatamente a cor semântica do tema. */
+html[data-caixa-theme="christmas"] { --benefit-income: var(--benefit); --benefit-expense: var(--benefit); }
+html[data-theme="dark"][data-caixa-theme="christmas"] { --benefit-income: var(--benefit); --benefit-expense: var(--benefit); }
+
+/* CAIXA — Benefício: token semântico final compartilhado entre Hero, Histórico e tooltip. */
+.hero-stat-origem-beneficio, .saldo-origem-beneficio, .historico-resumo-beneficio strong, .historico-legenda-beneficio .historico-legenda-bloco { color: var(--benefit) !important; }
+.hero-stat-origem-beneficio > span, .saldo-origem-beneficio > span, .historico-resumo-beneficio span, .historico-resumo-beneficio strong { color: var(--benefit) !important; }
+.historico-legenda-beneficio .historico-legenda-bloco { background: var(--benefit) !important; }
+.tooltip-grupo-beneficio .tooltip-grupo-marca, .tooltip-grupo-beneficio .tooltip-grupo-titulo, .tooltip-grupo-beneficio .tooltip-linha .valor { color: var(--benefit) !important; }

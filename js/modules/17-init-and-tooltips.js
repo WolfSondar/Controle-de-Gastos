@@ -75,19 +75,39 @@ function initChartTooltip() {
 
   const mostrarTooltip = (grupo) => {
     const mes = grupo.dataset.mes;
-    const ganhosSaldo = grupo.dataset.ganhosSaldo;
-    const ganhosBeneficio = grupo.dataset.ganhosBeneficio;
-    const gastosSaldo = grupo.dataset.gastosSaldo;
-    const gastosBeneficio = grupo.dataset.gastosBeneficio;
-    const guardado = grupo.dataset.guardado;
+    const ganhosSaldo = Number(grupo.dataset.ganhosSaldo) || 0;
+    const ganhosBeneficio = Number(grupo.dataset.ganhosBeneficio) || 0;
+    const gastosSaldo = Number(grupo.dataset.gastosSaldo) || 0;
+    const gastosBeneficio = Number(grupo.dataset.gastosBeneficio) || 0;
+    const guardado = Number(grupo.dataset.guardado) || 0;
+    const rendimento = Number(grupo.dataset.rendimento) || 0;
+    const linha = (label, valor, cor) => valor !== 0
+      ? `<div class="tooltip-linha"><span>${label}</span><span class="valor" style="color:${cor}">${fmt(valor)}</span></div>`
+      : '';
 
     chartTooltip.innerHTML = `
       <div class="tooltip-titulo">${mes}</div>
-      <div class="tooltip-linha"><span style="color: var(--income)">Ganho Saldo</span> <span class="valor">${ganhosSaldo}</span></div>
-      <div class="tooltip-linha"><span style="color: var(--benefit-deep)">Ganho Benefício</span> <span class="valor">${ganhosBeneficio}</span></div>
-      <div class="tooltip-linha"><span style="color: var(--expense)">Gasto Saldo</span> <span class="valor">${gastosSaldo}</span></div>
-      <div class="tooltip-linha"><span style="color: var(--benefit-deep)">Gasto Benefício</span> <span class="valor">${gastosBeneficio}</span></div>
-      <div class="tooltip-linha"><span style="color: var(--gold)">Guardado</span> <span class="valor">${guardado}</span></div>
+
+      ${ganhosSaldo !== 0 || gastosSaldo !== 0 ? `
+      <div class="tooltip-grupo tooltip-grupo-saldo">
+        <div class="tooltip-grupo-titulo" style="color:var(--income)"><span class="tooltip-grupo-marca" style="background:var(--income)"></span>Saldo</div>
+        ${linha('Ganho', ganhosSaldo, 'var(--income)')}
+        ${linha('Gasto', gastosSaldo, 'var(--expense)')}
+      </div>` : ''}
+
+      ${ganhosBeneficio !== 0 || gastosBeneficio !== 0 ? `
+      <div class="tooltip-grupo tooltip-grupo-beneficio">
+        <div class="tooltip-grupo-titulo" style="color:var(--benefit-income)"><span class="tooltip-grupo-marca" style="background:var(--benefit-income)"></span>Benefício</div>
+        ${linha('Ganho', ganhosBeneficio, 'var(--benefit-income)')}
+        ${linha('Gasto', gastosBeneficio, 'var(--benefit-expense)')}
+      </div>` : ''}
+
+      ${guardado !== 0 || rendimento !== 0 ? `
+      <div class="tooltip-grupo tooltip-grupo-caixinhas">
+        <div class="tooltip-grupo-titulo" style="color:var(--gold)"><span class="tooltip-grupo-marca" style="background:var(--gold)"></span>Caixinhas</div>
+        ${linha('Guardou', guardado, 'var(--gold)')}
+        ${linha('Rendimento', rendimento, 'var(--rendimento-tag)')}
+      </div>` : ''}
     `;
 
     // Deixa visível primeiro para o navegador calcular a largura da caixinha
