@@ -892,6 +892,7 @@
             opVariaveis.add(nomeSalvo, cadastroAtivo.valor, { pago, tipo: cadastroAtivo.categoria, data: dataDoLancamento(cadastroAtivo.data), origem: cadastroAtivo.origem, fatura: usarFatura, faturaId: usarFatura ? (cadastroAtivo.faturaId || "") : "" });
             finalizarCadastro("Gasto adicionado", `${esc(cadastroAtivo.nome)} · <span class="chat-valor chat-valor-neg">${chatFmt(cadastroAtivo.valor)}</span>.`);
           };
+
           const continuarStatus = data => {
             cadastroAtivo.data = data;
             if (cadastroAtivo.origem === "beneficio") {
@@ -899,7 +900,25 @@
               salvarGastoVariavel(true);
               return;
             }
+            // Quando não veio de uma fatura, a data e o status são informados pelo usuário.
             perguntaStatusCadastro("Essa compra já foi paga?", "Sim, já paguei", "Não, está pendente", salvarGastoVariavel);
+          };
+
+          const perguntarSeSaiuDeFatura = () => {
+            appendMensagem("Esse gasto <strong>saiu de uma fatura</strong>?");
+            escolhaChat([
+              ["sim", "Sim, saiu de uma fatura", "Vou registrar a fatura e o vencimento"],
+              ["nao", "Não", "Vou pedir a data do gasto"]
+            ], resposta => {
+              if (resposta === "sim") {
+                perguntarFaturaAntesDaData(continuarStatus);
+              } else {
+                cadastroAtivo.fatura = false;
+                cadastroAtivo.faturaId = "";
+                cadastroAtivo.faturaNome = "";
+                perguntaDataCadastro(continuarStatus);
+              }
+            });
           };
 
           if (origem === "beneficio") {
@@ -909,8 +928,8 @@
             cadastroAtivo.faturaNome = "";
             perguntaDataCadastro(continuarStatus);
           } else {
-            // Gastos pagos pelo saldo em conta continuam seguindo o fluxo de fatura.
-            perguntarFaturaAntesDaData(continuarStatus);
+            // Depois de informar a origem, a compra não é mais considerada automaticamente como fatura.
+            perguntarSeSaiuDeFatura();
           }
         });
       });
