@@ -129,14 +129,21 @@ function proximaDataVencimentoFatura(pessoa, base = new Date(), faturaId = "") {
   let ano = data.getFullYear();
   let mes = data.getMonth();
 
-  // Se o vencimento deste mês já passou, a compra entra na próxima fatura.
-  if (data.getDate() > diaVencimento) mes += 1;
-  if (mes > 11) { mes = 0; ano += 1; }
-  // Faturas com vencimento no dia 29/30/31 usam o último dia disponível
-  // quando o mês não possui aquele dia.
-  const ultimoDiaDoMes = new Date(ano, mes + 1, 0).getDate();
-  const diaReal = Math.min(diaVencimento, ultimoDiaDoMes);
-
+  // O ciclo fecha sete dias corridos antes do vencimento. Lançamentos
+  // feitos a partir do fechamento (inclusive) pertencem à fatura seguinte.
+  const dataVencimentoCiclo = (a, m) => {
+    const ultimo = new Date(a, m + 1, 0).getDate();
+    return new Date(a, m, Math.min(diaVencimento, ultimo), 12, 0, 0, 0);
+  };
+  let vencimento = dataVencimentoCiclo(ano, mes);
+  const fechamento = new Date(vencimento);
+  fechamento.setDate(fechamento.getDate() - 7);
+  if (data >= fechamento) {
+    mes += 1;
+    if (mes > 11) { mes = 0; ano += 1; }
+    vencimento = dataVencimentoCiclo(ano, mes);
+  }
+  const diaReal = vencimento.getDate();
   return `${ano}-${String(mes + 1).padStart(2, "0")}-${String(diaReal).padStart(2, "0")}`;
 }
 

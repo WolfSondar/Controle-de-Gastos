@@ -10955,3 +10955,18 @@ html[data-theme="dark"] { --benefit-income: var(--benefit); --benefit-expense: v
 
 /* Histórico anual v7 — ocupa toda a largura útil do card. */
 @media (max-width:560px){ .historico-grafico-barras-wrap{width:100%;} .historico-grafico-barras{min-width:0!important;} }
+
+
+/* Fluidez geral: animar propriedades compostas e evitar filtros pesados em listas. */
+.item-list-row, .item-list-row .swipe-content, .caixinha-swipe, .caixinha-card,
+.split-card, .juntos-card, .ledger-item, .acao-card {
+  backface-visibility: hidden;
+  -webkit-backface-visibility: hidden;
+  transition-timing-function: cubic-bezier(.22,.72,.18,1);
+}
+.item-list-row.is-riscando .swipe-content {
+  animation: deleteCardSoft .38s cubic-bezier(.22,.72,.18,1) both;
+}
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after { scroll-behavior: auto !important; animation-duration: .01ms !important; transition-duration: .01ms !important; }
+}

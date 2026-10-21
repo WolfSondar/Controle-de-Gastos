@@ -43,6 +43,48 @@ async function trocarPessoa(pessoa) {
   atualizarVisibilidadeJuntosView();
   renderMesAtual();
 
+  // Juntos precisa ter os dois perfis prontos desde a primeira abertura.
+  // Pré-carrega ambos os caches em paralelo, sem exibir aviso de recarga.
+  if (pessoa === "ambos") {
+    const [cacheDavi, cacheGabriel] = await Promise.all([getCache("davi"), getCache("gabriel")]);
+    if (state.pessoaAtual !== "ambos") return;
+    if (cacheDavi && cacheGabriel) {
+      state.dadosJuntos = { davi: cacheDavi, gabriel: cacheGabriel };
+      state.ganhos = [...(cacheDavi.ganhos || []).map(i => ({ ...i, pessoa: "davi" })), ...(cacheGabriel.ganhos || []).map(i => ({ ...i, pessoa: "gabriel" }))];
+      state.gastosFixos = [...(cacheDavi.gastosFixos || []).map(i => ({ ...i, pessoa: "davi" })), ...(cacheGabriel.gastosFixos || []).map(i => ({ ...i, pessoa: "gabriel" }))];
+      state.gastosVariaveis = [...(cacheDavi.gastosVariaveis || []).map(i => ({ ...i, pessoa: "davi" })), ...(cacheGabriel.gastosVariaveis || []).map(i => ({ ...i, pessoa: "gabriel" }))];
+      state.caixinhas = [...(cacheDavi.caixinhas || []).map(i => ({ ...i, pessoa: "davi" })), ...(cacheGabriel.caixinhas || []).map(i => ({ ...i, pessoa: "gabriel" }))];
+      state.faturas = [...(cacheDavi.faturas || []).map(i => ({ ...i, pessoa: "davi" })), ...(cacheGabriel.faturas || []).map(i => ({ ...i, pessoa: "gabriel" }))];
+      state.loaded = true;
+      renderIncremental({ ganhos: true, gastosFixos: true, gastosVariaveis: true, caixinhas: true });
+      renderJuntosView();
+      renderHistorico();
+      return;
+    }
+    if (navigator.onLine) {
+      try {
+        const [resDavi, resGabriel] = await Promise.all([fetchApiGet({ pessoa: "davi" }), fetchApiGet({ pessoa: "gabriel" })]);
+        const [dataDavi, dataGabriel] = await Promise.all([resDavi.json(), resGabriel.json()]);
+        if (state.pessoaAtual !== "ambos") return;
+        if (dataDavi?.ok !== false && dataGabriel?.ok !== false) {
+          state.dadosJuntos = { davi: dataDavi, gabriel: dataGabriel };
+          state.ganhos = [...(dataDavi.ganhos || []).map(i => ({ ...i, pessoa: "davi" })), ...(dataGabriel.ganhos || []).map(i => ({ ...i, pessoa: "gabriel" }))];
+          state.gastosFixos = [...(dataDavi.gastosFixos || []).map(i => ({ ...i, pessoa: "davi" })), ...(dataGabriel.gastosFixos || []).map(i => ({ ...i, pessoa: "gabriel" }))];
+          state.gastosVariaveis = [...(dataDavi.gastosVariaveis || []).map(i => ({ ...i, pessoa: "davi" })), ...(dataGabriel.gastosVariaveis || []).map(i => ({ ...i, pessoa: "gabriel" }))];
+          state.caixinhas = [...(dataDavi.caixinhas || []).map(i => ({ ...i, pessoa: "davi" })), ...(dataGabriel.caixinhas || []).map(i => ({ ...i, pessoa: "gabriel" }))];
+          state.faturas = [...(dataDavi.faturas || []).map(i => ({ ...i, pessoa: "davi" })), ...(dataGabriel.faturas || []).map(i => ({ ...i, pessoa: "gabriel" }))];
+          await Promise.all([setCache("davi", dataDavi), setCache("gabriel", dataGabriel)]);
+          state.loaded = true;
+          renderJuntosView();
+          renderHistorico();
+          return;
+        }
+      } catch (err) { /* mantém a tela disponível para nova tentativa de rede */ }
+    }
+    showToast("Não foi possível carregar os dois perfis sem conexão. Tente novamente quando estiver online.");
+    return;
+  }
+
   const cache = await getCache(pessoa);
   // Se o usuário trocou de perfil novamente enquanto o cache era lido, não
   // deixa a resposta assíncrona sobrescrever a tela do perfil atual.

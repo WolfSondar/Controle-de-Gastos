@@ -69,7 +69,11 @@ function caixaAtualizarCorChromeTema() {
     const escuro = root.dataset.theme === "dark";
     const sazonal = root.dataset.caixaTheme || "default";
     const chrome = metadadosTemaApp(sazonal).chrome || metadadosTemaApp("default").chrome || {};
-    const cor = escuro ? chrome.dark : chrome.light;
+    // O Chrome mobile usa theme-color também para a região inferior do
+    // sistema em alguns aparelhos. Usamos a cor de superfície real do app.
+    const cor = escuro
+      ? (getComputedStyle(root).getPropertyValue("--paper").trim() || chrome.dark)
+      : (getComputedStyle(root).getPropertyValue("--paper").trim() || chrome.light);
     document.querySelectorAll('meta[name="theme-color"]').forEach(meta => meta.setAttribute("content", cor));
     return cor;
   } catch (_) { return null; }
