@@ -32,6 +32,7 @@
       meta.setAttribute("content", escuro ? "#0d1e19" : "#16332c");
     });
     caixaAtualizarCorChromeTema();
+    window.CAIXA_ATUALIZAR_MUSICA_TEMA?.();
     document.querySelectorAll("[data-theme-choice]").forEach(btn => {
       const ativo = btn.dataset.themeChoice === preferencia;
       btn.classList.toggle("is-active", ativo);

@@ -363,11 +363,10 @@ function caixaTemaPodeSerUsadoGlobal(id) {
   const calendario = metadadosTemaApp(id).seasonal;
   if (!regra || !calendario) return false;
   const hoje = new Date();
-  // Mesmo um tema marcado para teste pelo Admin só pode ficar ativo no mês
-  // ao qual pertence. Isso evita Halloween permanecer em novembro e Natal
-  // atravessar para janeiro por causa de um forçarAgora antigo.
-  if (hoje.getMonth() + 1 !== Number(calendario.month)) return false;
+  // O calendário limita a ativação automática. Um comando explícito do Admin
+  // pode forçar o tema fora do mês sazonal para teste, até ser desativado.
   if (regra.forcarAgora === true) return true;
+  if (hoje.getMonth() + 1 !== Number(calendario.month)) return false;
   const dia = hoje.getDate();
   return dia >= Number(calendario.startDay) && dia <= Number(calendario.endDay);
 }

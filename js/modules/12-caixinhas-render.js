@@ -129,16 +129,14 @@ function proximaDataVencimentoFatura(pessoa, base = new Date(), faturaId = "") {
   let ano = data.getFullYear();
   let mes = data.getMonth();
 
-  // O ciclo fecha sete dias corridos antes do vencimento. Lançamentos
-  // feitos a partir do fechamento (inclusive) pertencem à fatura seguinte.
+  // A fatura atual continua selecionável até o vencimento. A próxima só
+  // passa a ser o padrão depois do dia de vencimento (não sete dias antes).
   const dataVencimentoCiclo = (a, m) => {
     const ultimo = new Date(a, m + 1, 0).getDate();
     return new Date(a, m, Math.min(diaVencimento, ultimo), 12, 0, 0, 0);
   };
   let vencimento = dataVencimentoCiclo(ano, mes);
-  const fechamento = new Date(vencimento);
-  fechamento.setDate(fechamento.getDate() - 7);
-  if (data >= fechamento) {
+  if (data > vencimento) {
     mes += 1;
     if (mes > 11) { mes = 0; ano += 1; }
     vencimento = dataVencimentoCiclo(ano, mes);
@@ -160,8 +158,8 @@ function dataVencimentoFaturaAtual(faturaId = "") {
 }
 
 // Define o ciclo de uma compra usando o dia de vencimento do cartão escolhido.
-// A janela de escolha são os sete dias que antecedem o fechamento (vencimento - 7).
-// Antes da janela usa a fatura atual; depois do fechamento usa a próxima.
+// A pergunta aparece nos sete dias anteriores ao vencimento; fora deles o ciclo
+// é selecionado automaticamente (atual antes da janela, próximo após vencer).
 function calcularCicloFaturaParaLancamento(pessoa, base = new Date(), faturaId = "") {
   const fatura = faturaId ? faturaPorId(faturaId, pessoa) : faturaPadraoPessoa(pessoa);
   const diaVencimento = Math.max(1, Math.min(31, Number(fatura?.dia) || VENCIMENTOS_FATURA_PADRAO[pessoa] || 9));
@@ -181,10 +179,12 @@ function calcularCicloFaturaParaLancamento(pessoa, base = new Date(), faturaId =
     vencimentoAtual = vencimentoNoMes(ano, mes);
   }
 
-  const fechamento = new Date(vencimentoAtual);
-  fechamento.setDate(fechamento.getDate() - 7);
-  const inicioJanela = new Date(fechamento);
+  // Janela de decisão: os sete dias corridos que antecedem o vencimento.
+  // Ex.: vencimento dia 09 -> pergunta do dia 02 ao dia 08, inclusive.
+  const inicioJanela = new Date(vencimentoAtual);
   inicioJanela.setDate(inicioJanela.getDate() - 7);
+  const fimJanela = new Date(vencimentoAtual);
+  fimJanela.setDate(fimJanela.getDate() - 1);
 
   let anoSeguinte = vencimentoAtual.getFullYear();
   let mesSeguinte = vencimentoAtual.getMonth() + 1;
@@ -194,17 +194,18 @@ function calcularCicloFaturaParaLancamento(pessoa, base = new Date(), faturaId =
 
   let situacao = "antes";
   let selecionado = vencimentoAtual;
-  if (hoje >= fechamento) {
+  if (hoje >= vencimentoAtual) {
     situacao = "depois";
     selecionado = vencimentoSeguinte;
-  } else if (hoje >= inicioJanela) {
+  } else if (hoje >= inicioJanela && hoje <= fimJanela) {
     situacao = "janela";
   }
 
   return {
     situacao,
     inicioJanela: paraISO(inicioJanela),
-    fechamento: paraISO(fechamento),
+    fimJanela: paraISO(fimJanela),
+    fechamento: paraISO(inicioJanela),
     atual: paraISO(vencimentoAtual),
     proxima: paraISO(vencimentoSeguinte),
     selecionado: paraISO(selecionado),

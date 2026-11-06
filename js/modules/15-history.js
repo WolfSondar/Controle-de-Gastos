@@ -506,23 +506,40 @@ function atualizarVisibilidadeFab() {
   const chatFab = document.getElementById("caixaChatFab");
   const chatAberto = document.getElementById("caixaChat")?.classList.contains("is-open");
   const abaHistorico = document.querySelector('.tab-btn[data-tab="historico"]')?.classList.contains("is-active");
-  const ocultarTudo = !!chatAberto || !!abaHistorico;
+  const popupAberto = Array.from(document.querySelectorAll(
+    '.modal-backdrop, .caixa-config-overlay, .caixa-chat-overlay'
+  )).some(el => {
+    if (el.classList.contains("is-hidden") || el.getAttribute("aria-hidden") === "true") return false;
+    return getComputedStyle(el).display !== "none" && getComputedStyle(el).visibility !== "hidden";
+  });
+  const ocultarTudo = !!chatAberto || !!abaHistorico || popupAberto;
 
-  if (fab) {
-    const ocultar = isAmbos() || ocultarTudo;
-    if (ocultar && document.activeElement === fab) fab.blur();
-    fab.classList.toggle("is-hidden", ocultar);
-    fab.setAttribute("aria-hidden", String(ocultar));
-    fab.setAttribute("tabindex", ocultar ? "-1" : "0");
-  }
-  if (chatFab) {
-    const ocultar = isAmbos() || ocultarTudo;
-    if (ocultar && document.activeElement === chatFab) chatFab.blur();
-    chatFab.classList.toggle("is-hidden", ocultar);
-    chatFab.setAttribute("aria-hidden", String(ocultar));
-    chatFab.setAttribute("tabindex", ocultar ? "-1" : "0");
-  }
+  const aplicarEstado = (elemento, ocultar) => {
+    if (!elemento) return;
+    if (ocultar && document.activeElement === elemento) elemento.blur();
+    if (elemento.classList.contains("is-hidden") !== ocultar) elemento.classList.toggle("is-hidden", ocultar);
+    const ariaHidden = String(ocultar);
+    const tabindex = ocultar ? "-1" : "0";
+    if (elemento.getAttribute("aria-hidden") !== ariaHidden) elemento.setAttribute("aria-hidden", ariaHidden);
+    if (elemento.getAttribute("tabindex") !== tabindex) elemento.setAttribute("tabindex", tabindex);
+  };
+  aplicarEstado(fab, isAmbos() || ocultarTudo);
+  aplicarEstado(chatFab, isAmbos() || ocultarTudo);
 }
+
+// Os popups são abertos por módulos diferentes. Observar a abertura/fechamento
+// centraliza o comportamento sem depender de cada botão lembrar de ocultar os FABs.
+(function observarPopupsParaOcultarFabs() {
+  if (!document.body || document.body.dataset.caixaFabPopupObserver === "1") return;
+  document.body.dataset.caixaFabPopupObserver = "1";
+  const observer = new MutationObserver(() => atualizarVisibilidadeFab());
+  observer.observe(document.body, {
+    subtree: true,
+    childList: true,
+    attributes: true,
+    attributeFilter: ["class", "aria-hidden"]
+  });
+})();
 
 const tabbarEl = document.getElementById("tabbar");
 if (tabbarEl) {

@@ -443,9 +443,9 @@
     const calendario = metadadosTemaApp(id).seasonal;
     if (!regra || !calendario) return false;
     const hoje = new Date();
-    // O forçamento administrativo não ultrapassa a virada do mês sazonal.
-    if (hoje.getMonth() + 1 !== Number(calendario.month)) return false;
+    // O botão do Admin é um override explícito do calendário automático.
     if (regra.forcarAgora === true) return true;
+    if (hoje.getMonth() + 1 !== Number(calendario.month)) return false;
     const dia = hoje.getDate();
     return dia >= Number(calendario.startDay) && dia <= Number(calendario.endDay);
   }

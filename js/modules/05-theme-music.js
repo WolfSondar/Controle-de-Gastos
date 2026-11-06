@@ -10,7 +10,7 @@
 // default_day.mp3 / default_night.mp3
 // halloween_day.mp3 / halloween_night.mp3
 // christmas_day.mp3 / christmas_night.mp3
-// Dia: 06:00–17:59 | Noite: 18:00–05:59.
+// Aparência clara usa a faixa "day"; aparência escura usa a faixa "night".
 // =====================================================================
 let caixaMusicaAudio = null;
 let caixaMusicaSrcAtual = "";
@@ -52,8 +52,9 @@ window.CAIXA_MUSICA_CONFIG = {
 };
 
 function caixaPeriodoMusical() {
-  const hora = new Date().getHours();
-  return hora >= 6 && hora < 18 ? "day" : "night";
+  // As duas faixas de cada tema acompanham a aparência escolhida no app.
+  // No modo Dispositivo, o atributo data-theme já reflete o tema do sistema.
+  return document.documentElement.dataset.theme === "dark" ? "night" : "day";
 }
 
 function caixaArquivoMusicaTema(tema = document.documentElement.dataset.caixaTheme || "default") {
@@ -109,19 +110,23 @@ window.CAIXA_ATUALIZAR_ICONE_TEMA = caixaAtualizarIconeTema;
 
 // Se o tema sazonal for trocado por qualquer caminho do app, atualiza imediatamente
 // a barra do sistema e a trilha sonora, sem esperar o próximo intervalo.
-(function observarMudancaDeTemaSazonal(){
+(function observarMudancaDeTemaVisual(){
   try {
     const root = document.documentElement;
-    let ultimoTema = root.dataset.caixaTheme || "default";
+    let ultimoTemaSazonal = root.dataset.caixaTheme || "default";
+    let ultimoModo = root.dataset.theme || "light";
     const observer = new MutationObserver(() => {
-      const tema = root.dataset.caixaTheme || "default";
-      if (tema === ultimoTema) return;
-      ultimoTema = tema;
+      const temaSazonal = root.dataset.caixaTheme || "default";
+      const modo = root.dataset.theme || "light";
+      if (temaSazonal === ultimoTemaSazonal && modo === ultimoModo) return;
+      const mudouTemaSazonal = temaSazonal !== ultimoTemaSazonal;
+      ultimoTemaSazonal = temaSazonal;
+      ultimoModo = modo;
       window.CAIXA_ATUALIZAR_COR_CHROME_TEMA?.();
-      window.CAIXA_ATUALIZAR_ICONE_TEMA?.();
+      if (mudouTemaSazonal) window.CAIXA_ATUALIZAR_ICONE_TEMA?.();
       window.CAIXA_ATUALIZAR_MUSICA_TEMA?.();
     });
-    observer.observe(root, { attributes:true, attributeFilter:["data-caixa-theme"] });
+    observer.observe(root, { attributes:true, attributeFilter:["data-caixa-theme", "data-theme"] });
   } catch (_) {}
 })();
 
@@ -249,7 +254,7 @@ async function caixaIniciarMusicaTema(forcarTroca = false) {
 }
 
 function atualizarMusicaTema() {
-  // Atualização idempotente: só troca se o tema/período apontar para outro MP3.
+  // Atualização idempotente: só troca se a combinação tema sazonal/aparência apontar para outro MP3.
   caixaIniciarMusicaTema(false);
 }
 

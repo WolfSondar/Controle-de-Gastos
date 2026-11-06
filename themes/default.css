@@ -10985,3 +10985,63 @@ html[data-theme="dark"] { --benefit-income: var(--benefit); --benefit-expense: v
 .fatura-credito-form label { display:block; margin:0 0 6px 2px; color:var(--muted); font-size:.75rem; font-weight:750; }
 .fatura-credito-form input { width:100%; min-height:43px; margin:0 0 12px; padding:10px 12px; border:1px solid var(--border-color,rgba(128,128,128,.22)); border-radius:11px; color:var(--text-color,inherit); background:var(--paper,transparent); font:inherit; }
 .fatura-credito-form .modal-actions { margin-top:4px!important; }
+
+
+/* Pagamento de fatura: o formulário de crédito não deve empurrar as ações para fora da tela. */
+#acoesBackdrop .modal-acoes {
+  max-height: min(90vh, 820px) !important;
+  max-height: min(90dvh, 820px) !important;
+  overflow: hidden !important;
+  display: flex;
+  flex-direction: column;
+}
+#faturaPagamentoView:not(.is-hidden) {
+  display: flex !important;
+  flex-direction: column;
+  min-height: 0;
+  max-height: calc(90dvh - 48px);
+  overflow-y: auto;
+  overflow-x: hidden;
+  overscroll-behavior: contain;
+  -webkit-overflow-scrolling: touch;
+  scrollbar-gutter: stable;
+  padding-bottom: 2px;
+}
+#faturaPagamentoView .fatura-pagamento-lista {
+  flex: 0 1 auto;
+  min-height: 54px;
+  max-height: min(28dvh, 240px);
+}
+#faturaPagamentoView .fatura-credito-form {
+  flex: 0 0 auto;
+}
+#faturaPagamentoView > .modal-actions:last-child {
+  position: sticky;
+  bottom: 0;
+  flex: 0 0 auto;
+  margin-top: 12px !important;
+  padding: 12px 0 3px;
+  background: var(--paper);
+  z-index: 4;
+  box-shadow: 0 -8px 16px color-mix(in srgb, var(--paper) 88%, transparent);
+}
+#faturaPagamentoView > .modal-actions:last-child .btn {
+  min-height: 44px;
+}
+@media (max-width: 560px) {
+  #acoesBackdrop .modal-acoes {
+    max-height: calc(100vh - env(safe-area-inset-top) - 18px) !important;
+    max-height: calc(100dvh - env(safe-area-inset-top) - 18px) !important;
+  }
+  #faturaPagamentoView:not(.is-hidden) {
+    max-height: calc(100dvh - env(safe-area-inset-top) - 92px);
+  }
+  #faturaPagamentoView > .modal-actions:last-child {
+    gap: 8px;
+  }
+  #faturaPagamentoView > .modal-actions:last-child .btn {
+    flex: 1 1 0;
+    min-width: 0;
+    padding-inline: 10px;
+  }
+}

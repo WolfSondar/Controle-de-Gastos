@@ -813,7 +813,7 @@
         };
 
         if (ciclo.situacao === "janela") {
-          appendMensagem(`Esta compra está nos sete dias anteriores ao fechamento da fatura <strong>${esc(cadastroAtivo.faturaNome)}</strong>. Em qual ciclo ela deve entrar?`);
+          appendMensagem(`Esta compra está nos sete dias anteriores ao vencimento da fatura <strong>${esc(cadastroAtivo.faturaNome)}</strong>. Em qual ciclo ela deve entrar?`);
           escolhaChat([
             ["atual", `Fatura atual · vence ${formatarDataParaChat(ciclo.atual)}`, "Entra no fechamento que está chegando"],
             ["proxima", `Próxima fatura · vence ${formatarDataParaChat(ciclo.proxima)}`, "Entra no ciclo seguinte"]
