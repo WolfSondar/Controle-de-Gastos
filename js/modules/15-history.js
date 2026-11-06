@@ -513,6 +513,16 @@ function atualizarVisibilidadeFab() {
     return getComputedStyle(el).display !== "none" && getComputedStyle(el).visibility !== "hidden";
   });
   const ocultarTudo = !!chatAberto || !!abaHistorico || popupAberto;
+  const bloquearAbas = !!chatAberto || popupAberto;
+  const tabbar = document.getElementById("tabbar");
+  if (tabbar) {
+    tabbar.classList.toggle("is-obscured-by-popup", bloquearAbas);
+    tabbar.inert = bloquearAbas;
+    const ariaAbas = String(bloquearAbas);
+    if (tabbar.getAttribute("aria-hidden") !== ariaAbas) {
+      tabbar.setAttribute("aria-hidden", ariaAbas);
+    }
+  }
 
   const aplicarEstado = (elemento, ocultar) => {
     if (!elemento) return;

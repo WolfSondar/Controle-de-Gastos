@@ -31,9 +31,9 @@
   } catch(e) { document.documentElement.setAttribute("data-theme", "light"); document.documentElement.dataset.themePreference = "device"; }
 })();
 </script>
-<script src="themes/theme-engine.js"></script>
-<link rel="stylesheet" href="themes/default.css" data-caixa-theme-css="default" />
-<link rel="stylesheet" href="themes/seasonal-shared.css" data-caixa-theme-css="shared" />
+<script src="themes/theme-engine.js?v=67"></script>
+<link rel="stylesheet" href="themes/default.css?v=67" data-caixa-theme-css="default" />
+<link rel="stylesheet" href="themes/seasonal-shared.css?v=67" data-caixa-theme-css="shared" />
 </head>
 <body>
 
@@ -124,44 +124,6 @@
       </div>
     </div>
 
-    <div class="collapsible is-collapsed" id="collapsible-heroStats">
-      <div class="collapsible-inner">
-        <div class="hero-stats">
-          <div class="hero-stat hero-stat-ganhos">
-            <span class="hero-stat-label">Ganhos</span>
-            <span class="hero-stat-valor income" id="statGanhos">R$ 0,00</span>
-            <div class="hero-stat-origens" aria-label="Valores restantes por origem">
-              <span class="hero-stat-origem hero-stat-origem-beneficio">
-                <span id="saldoBeneficios">R$ 0,00</span>
-              </span>
-              <span class="hero-stat-origem hero-stat-origem-ganho">
-                <span id="saldoGanhos">R$ 0,00</span>
-              </span>
-            </div>
-          </div>
-          <div class="hero-stat">
-            <span class="hero-stat-label">Guardado</span>
-            <span class="hero-stat-valor gold" id="statGuardado">R$ 0,00</span>
-            <span class="hero-stat-subvalor gold" id="statGuardadoMes"></span>
-          </div>
-          <div class="hero-stat">
-            <span class="hero-stat-label">Fixos</span>
-            <span class="hero-stat-valor expense" id="statFixos">R$ 0,00</span>
-            <span class="hero-stat-pendente" id="statFixosPendente"></span>
-          </div>
-          <div class="hero-stat">
-            <span class="hero-stat-label">Variáveis</span>
-            <span class="hero-stat-valor expense" id="statVariaveis">R$ 0,00</span>
-            <span class="hero-stat-pendente" id="statVariaveisPendente"></span>
-          </div>
-        </div>
-
-      </div>
-    </div>
-
-    <button type="button" class="hero-stats-toggle collapse-toggle is-collapsed" id="heroStatsToggle" data-collapse="heroStats" aria-expanded="false" aria-label="Expandir ganhos, guardado e gastos">
-      <svg viewBox="0 0 24 24" fill="none"><path d="M6 9l6 6 6-6" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>
-    </button>
 
     <div class="caixa-christmas-lights" id="caixaChristmasLights" aria-hidden="true">
       <span class="christmas-wire"></span>
@@ -372,15 +334,17 @@
     <h3 id="editTitle">Editar item</h3>
     <form id="formEditar">
       <input type="text" id="editNome" placeholder="Descrição" required maxlength="60" />
-      <div class="form-row">
+      <div class="form-row edit-basic-row">
         <input type="text" id="editValor" placeholder="0,00" inputmode="decimal" autocomplete="off" />
         <select id="editCategoria" class="input-categoria is-hidden" aria-label="Categoria">
           <option value="">Categoria (opcional)</option>
         </select>
       </div>
-      <div class="form-row">
+      <div class="form-row edit-date-row">
         <input type="date" id="editData" class="is-hidden" aria-label="Data" />
         <input type="text" id="editParcela" class="input-parcela is-hidden" placeholder="Parcela (ex: 2/48) — deixe vazio se não tiver prazo pra acabar" maxlength="10" />
+      </div>
+      <div class="form-row edit-link-row">
         <select id="editOrigem" class="input-origem is-hidden" aria-label="Origem do dinheiro" title="Escolha de qual saldo esse gasto será descontado no fechamento do mês">
           <option value="saldo">Sairá do Saldo</option>
           <option value="beneficio">Sairá do Benefício</option>
@@ -701,7 +665,7 @@
 <script defer src="themes/default.js"></script>
 <script defer src="themes/christmas.js"></script>
 <script defer src="themes/halloween.js"></script>
-<script defer src="app.js"></script>
+<script defer src="app.js?v=67"></script>
 
 
 <!-- CONFIGURAÇÕES DO USUÁRIO -->

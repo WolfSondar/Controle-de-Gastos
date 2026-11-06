@@ -20,21 +20,28 @@
 
   function applyThemeColor(theme) {
     try {
-      const dark = document.documentElement.dataset.theme === "dark";
+      const root = document.documentElement;
+      const dark = root.dataset.theme === "dark";
+      // Depois que os módulos visuais carregam, usa a superfície real do tema
+      // atual. Isso evita que a área do sistema no celular permaneça verde.
+      if (typeof window.CAIXA_ATUALIZAR_COR_CHROME_TEMA === "function") {
+        const corAtual = window.CAIXA_ATUALIZAR_COR_CHROME_TEMA();
+        if (corAtual) return corAtual;
+      }
       const colors = {
-        default: dark ? "#0d1e19" : "#f7f0e5",
+        default: dark ? "#101b17" : "#f7f0e5",
         christmas: dark ? "#0b1d28" : "#e8f5f8",
         halloween: dark ? "#12091a" : "#f2e9f8"
       };
-      document.querySelectorAll('meta[name="theme-color"]').forEach(meta => {
-        meta.setAttribute("content", colors[theme] || colors.default);
-      });
-    } catch (_) {}
+      const cor = colors[theme] || colors.default;
+      document.querySelectorAll('meta[name="theme-color"]').forEach(meta => meta.setAttribute("content", cor));
+      return cor;
+    } catch (_) { return null; }
   }
 
   function themeCssHref(theme) {
-    if (theme === "christmas") return "themes/christmas.css";
-    if (theme === "halloween") return "themes/halloween.css?v=18";
+    if (theme === "christmas") return "themes/christmas.css?v=67";
+    if (theme === "halloween") return "themes/halloween.css?v=19";
     return null;
   }
 
@@ -49,6 +56,7 @@
     link.rel = "stylesheet";
     link.href = href;
     link.dataset.caixaThemeCss = "seasonal";
+    link.addEventListener("load", () => applyThemeColor(theme), { once: true });
     document.head.appendChild(link);
   }
 

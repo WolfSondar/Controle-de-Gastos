@@ -6,7 +6,7 @@
 
 // IMPORTANTE: altere esta versão sempre que publicar uma nova versão do app.
 // A ativação remove TODOS os caches "caixa-*" de versões anteriores.
-const CACHE_VERSION = "caixa-v66";
+const CACHE_VERSION = "caixa-v67";
 const CACHE_SHELL = `${CACHE_VERSION}-shell`;
 const CACHE_RUNTIME = `${CACHE_VERSION}-runtime`;
 
@@ -116,7 +116,7 @@ function responderRedePrimeiro(req, fallbackRequest = req) {
 }
 
 
-function manifestoPorTema(tema) {
+function manifestoPorTema(tema, modo = "light") {
   const base = {
     name: "Caixa — Controle Financeiro",
     short_name: "Caixa",
@@ -134,8 +134,8 @@ function manifestoPorTema(tema) {
     return {
       ...base,
       name: "Caixa — Controle Financeiro · Natal",
-      background_color: "#07121a",
-      theme_color: "#0b1d28",
+      background_color: modo === "dark" ? "#07121a" : "#e8f5f8",
+      theme_color: modo === "dark" ? "#0b1d28" : "#e8f5f8",
       icons: [
         { src: "IMG/Icon-Christmas-192.png", sizes: "192x192", type: "image/png", purpose: "any" },
         { src: "IMG/Icon-Christmas.png", sizes: "512x512", type: "image/png", purpose: "any maskable" }
@@ -147,8 +147,8 @@ function manifestoPorTema(tema) {
     return {
       ...base,
       name: "Caixa — Controle Financeiro · Halloween",
-      background_color: "#12091a",
-      theme_color: "#12091a",
+      background_color: modo === "dark" ? "#12091a" : "#f2e9f8",
+      theme_color: modo === "dark" ? "#12091a" : "#f2e9f8",
       icons: [
         { src: "IMG/Icon-Halloween-192.png", sizes: "192x192", type: "image/png", purpose: "any" },
         { src: "IMG/Icon-Halloween.png", sizes: "512x512", type: "image/png", purpose: "any maskable" }
@@ -158,8 +158,8 @@ function manifestoPorTema(tema) {
 
   return {
     ...base,
-    background_color: "#faf5e9",
-    theme_color: "#16332c",
+    background_color: modo === "dark" ? "#101b17" : "#f7f0e5",
+    theme_color: modo === "dark" ? "#101b17" : "#f7f0e5",
     icons: [
       { src: "IMG/Icon.jpg", sizes: "192x192", type: "image/jpeg", purpose: "any" },
       { src: "IMG/Icon.jpg", sizes: "512x512", type: "image/jpeg", purpose: "any" },
@@ -188,8 +188,9 @@ self.addEventListener("fetch", (event) => {
     const tema = ["default", "christmas", "halloween"].includes(url.searchParams.get("theme"))
       ? url.searchParams.get("theme")
       : (url.pathname.includes("christmas") ? "christmas" : url.pathname.includes("halloween") ? "halloween" : "default");
+    const modo = url.searchParams.get("mode") === "dark" ? "dark" : "light";
     event.respondWith(
-      Promise.resolve(new Response(JSON.stringify(manifestoPorTema(tema)), {
+      Promise.resolve(new Response(JSON.stringify(manifestoPorTema(tema, modo)), {
         headers: {
           "Content-Type": "application/manifest+json; charset=utf-8",
           "Cache-Control": "no-cache, no-store, must-revalidate"

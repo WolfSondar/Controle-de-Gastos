@@ -69,12 +69,15 @@ function caixaAtualizarCorChromeTema() {
     const root = document.documentElement;
     const escuro = root.dataset.theme === "dark";
     const sazonal = root.dataset.caixaTheme || "default";
-    const chrome = metadadosTemaApp(sazonal).chrome || metadadosTemaApp("default").chrome || {};
-    // O Chrome mobile usa theme-color também para a região inferior do
-    // sistema em alguns aparelhos. Usamos a cor de superfície real do app.
-    const cor = escuro
-      ? (getComputedStyle(root).getPropertyValue("--paper").trim() || chrome.dark)
-      : (getComputedStyle(root).getPropertyValue("--paper").trim() || chrome.light);
+    const coresFallback = {
+      default: { light: "#f7f0e5", dark: "#101b17" },
+      christmas: { light: "#e8f5f8", dark: "#0b1d28" },
+      halloween: { light: "#f2e9f8", dark: "#12091a" }
+    };
+    // O Chrome mobile usa theme-color também na região do sistema sob as abas.
+    // Priorize a superfície efetiva do tema; use uma cor sazonal só como fallback.
+    const superficie = getComputedStyle(root).getPropertyValue("--paper").trim();
+    const cor = superficie || coresFallback[sazonal]?.[escuro ? "dark" : "light"] || coresFallback.default[escuro ? "dark" : "light"];
     document.querySelectorAll('meta[name="theme-color"]').forEach(meta => meta.setAttribute("content", cor));
     return cor;
   } catch (_) { return null; }
@@ -101,8 +104,11 @@ function caixaAtualizarIconeTema() {
     });
     const manifestLink = document.querySelector('link[rel="manifest"]');
     if (manifestLink) {
-      const atual = new URL(manifest, document.baseURI).href;
-      if (manifestLink.href !== atual) manifestLink.href = atual;
+      const atual = new URL(manifest, document.baseURI);
+      atual.searchParams.set("theme", tema);
+      atual.searchParams.set("mode", root.dataset.theme === "dark" ? "dark" : "light");
+      atual.searchParams.set("rev", "67");
+      if (manifestLink.href !== atual.href) manifestLink.href = atual.href;
     }
   } catch (_) {}
 }
@@ -120,10 +126,11 @@ window.CAIXA_ATUALIZAR_ICONE_TEMA = caixaAtualizarIconeTema;
       const modo = root.dataset.theme || "light";
       if (temaSazonal === ultimoTemaSazonal && modo === ultimoModo) return;
       const mudouTemaSazonal = temaSazonal !== ultimoTemaSazonal;
+      const mudouModo = modo !== ultimoModo;
       ultimoTemaSazonal = temaSazonal;
       ultimoModo = modo;
       window.CAIXA_ATUALIZAR_COR_CHROME_TEMA?.();
-      if (mudouTemaSazonal) window.CAIXA_ATUALIZAR_ICONE_TEMA?.();
+      if (mudouTemaSazonal || mudouModo) window.CAIXA_ATUALIZAR_ICONE_TEMA?.();
       window.CAIXA_ATUALIZAR_MUSICA_TEMA?.();
     });
     observer.observe(root, { attributes:true, attributeFilter:["data-caixa-theme", "data-theme"] });

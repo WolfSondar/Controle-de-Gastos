@@ -13,7 +13,7 @@
       if (existente) return resolve(existente);
 
       const script = document.createElement("script");
-      script.src = `${src}${src.includes("?") ? "&" : "?"}v=8`;
+      script.src = `${src}${src.includes("?") ? "&" : "?"}v=9`;
       script.async = false;
       script.dataset.caixaModule = id;
       script.onload = () => resolve(script);

@@ -2920,3 +2920,216 @@ html[data-theme="dark"][data-caixa-theme="christmas"] { --benefit-income: var(--
 .hero-stat-origem-beneficio > span, .saldo-origem-beneficio > span, .historico-resumo-beneficio span, .historico-resumo-beneficio strong { color: var(--benefit) !important; }
 .historico-legenda-beneficio .historico-legenda-bloco { background: var(--benefit) !important; }
 .tooltip-grupo-beneficio .tooltip-grupo-marca, .tooltip-grupo-beneficio .tooltip-grupo-titulo, .tooltip-grupo-beneficio .tooltip-linha .valor { color: var(--benefit) !important; }
+
+
+/* CAIXA — melhorias visuais de novembro: popup, navegação e remoção */
+
+
+/* ============================================================
+   MELHORIAS DE INTERFACE — popup de edição, navegação bloqueada,
+   exclusão de lançamentos e tamanhos unificados do Admin sazonal.
+   ============================================================ */
+
+/* Os botões de abas ficam realmente inativos e desfocados durante modais. */
+.tabbar.is-obscured-by-popup {
+  z-index: 40 !important;
+  opacity: .38 !important;
+  filter: blur(5px) saturate(.72) !important;
+  pointer-events: none !important;
+  transition: opacity .2s ease, filter .2s ease;
+  will-change: filter, opacity;
+}
+
+/* Edição: modal mais largo, com campos dimensionados sem cortar rótulos. */
+#editBackdrop {
+  align-items: center !important;
+  padding: 18px !important;
+}
+#editBackdrop .modal {
+  width: min(100%, 680px) !important;
+  max-width: 680px !important;
+  max-height: 88vh !important;
+  max-height: 88dvh !important;
+  overflow-y: auto !important;
+  overscroll-behavior: contain;
+  box-sizing: border-box;
+  border-radius: 24px !important;
+  padding: 26px 28px 22px !important;
+  animation: caixaEditarModalEntrar .24s cubic-bezier(.2,.8,.2,1) both;
+}
+#editBackdrop #formEditar {
+  display: flex;
+  flex-direction: column;
+  gap: 0;
+}
+#editBackdrop #editNome {
+  min-height: 50px;
+  margin-bottom: 0 !important;
+}
+#editBackdrop .form-row {
+  display: grid !important;
+  gap: 12px !important;
+  margin-top: 12px !important;
+  align-items: stretch;
+}
+#editBackdrop .edit-basic-row,
+#editBackdrop .edit-date-row,
+#editBackdrop .edit-link-row {
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+}
+#editBackdrop .edit-basic-row:has(#editCategoria.is-hidden),
+#editBackdrop .edit-date-row:has(#editParcela.is-hidden),
+#editBackdrop .edit-link-row:has(#editFatura.is-hidden) {
+  grid-template-columns: minmax(0, 1fr);
+}
+#editBackdrop .edit-link-row:not(:has(> :not(.is-hidden))) {
+  display: none !important;
+}
+#editBackdrop .form-row > input,
+#editBackdrop .form-row > select {
+  box-sizing: border-box;
+  width: 100% !important;
+  min-width: 0 !important;
+  min-height: 50px;
+  margin: 0 !important;
+  padding: 12px 40px 12px 14px;
+  font-size: 15px;
+  line-height: 1.35;
+}
+#editBackdrop input[type="date"] {
+  padding-right: 12px !important;
+  font-variant-numeric: tabular-nums;
+}
+#editBackdrop .modal-actions {
+  position: sticky;
+  bottom: -22px;
+  z-index: 3;
+  margin-top: 18px !important;
+  padding: 14px 0 2px;
+  background: var(--paper);
+}
+@keyframes caixaEditarModalEntrar {
+  from { opacity: 0; transform: translateY(12px) scale(.985); }
+  to { opacity: 1; transform: translateY(0) scale(1); }
+}
+@media (max-width: 560px) {
+  #editBackdrop { align-items: flex-end !important; padding: 0 !important; }
+  #editBackdrop .modal {
+    width: 100% !important;
+    max-width: none !important;
+    max-height: 92vh !important;
+    max-height: 92dvh !important;
+    border-radius: 24px 24px 0 0 !important;
+    padding: 22px 16px calc(18px + env(safe-area-inset-bottom)) !important;
+  }
+  #editBackdrop .edit-basic-row,
+  #editBackdrop .edit-date-row,
+  #editBackdrop .edit-link-row {
+    grid-template-columns: minmax(0, 1fr);
+    gap: 10px !important;
+  }
+  #editBackdrop .modal-actions { bottom: calc(-18px - env(safe-area-inset-bottom)); }
+}
+
+/* Nova animação de exclusão: saída suave com deslocamento, redução e brilho. */
+.item-list-row.is-riscando {
+  pointer-events: none !important;
+  isolation: isolate;
+}
+.item-list-row.is-riscando .item-nome,
+.item-list-row.is-riscando .item-valor {
+  color: inherit !important;
+  transition: none !important;
+}
+.item-list-row.is-riscando .item-nome::after,
+.item-list-row.is-riscando .item-valor::after {
+  content: none !important;
+  display: none !important;
+  animation: none !important;
+}
+.item-list-row.is-riscando .swipe-content {
+  transform-origin: center right;
+  animation: caixaLancamentoExcluir .62s cubic-bezier(.2,.78,.18,1) both !important;
+  will-change: transform, opacity, filter;
+}
+.item-list-row.is-riscando .swipe-content::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  z-index: 4;
+  border-radius: inherit;
+  pointer-events: none;
+  background: linear-gradient(105deg,
+    transparent 0%,
+    color-mix(in srgb, var(--expense) 7%, transparent) 38%,
+    color-mix(in srgb, var(--expense) 19%, transparent) 50%,
+    transparent 62%);
+  transform: translateX(-110%);
+  animation: caixaLancamentoBrilhoExcluir .48s cubic-bezier(.2,.7,.2,1) both;
+}
+@keyframes caixaLancamentoExcluir {
+  0% { opacity: 1; transform: translate3d(0,0,0) scale(1); filter: blur(0); }
+  18% { opacity: 1; transform: translate3d(-3px,0,0) scale(1); filter: blur(0); }
+  46% { opacity: .92; transform: translate3d(9px,-2px,0) scale(.985); filter: blur(.15px); }
+  76% { opacity: .42; transform: translate3d(34px,-3px,0) scale(.96); filter: blur(1.2px); }
+  100% { opacity: 0; transform: translate3d(62px,-5px,0) scale(.935); filter: blur(3px); }
+}
+@keyframes caixaLancamentoBrilhoExcluir {
+  0% { opacity: 0; transform: translateX(-110%); }
+  22% { opacity: .9; }
+  100% { opacity: 0; transform: translateX(110%); }
+}
+@media (prefers-reduced-motion: reduce) {
+  .item-list-row.is-riscando .swipe-content,
+  .item-list-row.is-riscando .swipe-content::after {
+    animation-duration: .01ms !important;
+  }
+}
+
+/* Os dois cartões do Admin usam as mesmas dimensões do padrão Halloween. */
+.caixa-admin-seasonal-force-wrap {
+  grid-template-columns: repeat(2, minmax(0, 1fr)) !important;
+  gap: 12px !important;
+}
+.caixa-admin-seasonal-card {
+  box-sizing: border-box !important;
+  min-height: 168px !important;
+  padding: 16px !important;
+  border-radius: 18px !important;
+}
+.caixa-admin-seasonal-head {
+  grid-template-columns: 46px minmax(0, 1fr) 28px !important;
+  gap: 11px !important;
+}
+.caixa-admin-seasonal-emoji {
+  width: 46px !important;
+  height: 46px !important;
+  border-radius: 14px !important;
+  font-size: 23px !important;
+}
+.caixa-admin-seasonal-title { font-size: 16px !important; }
+.caixa-admin-seasonal-sub { font-size: 11px !important; }
+.caixa-admin-seasonal-status { width: 28px !important; height: 28px !important; }
+.caixa-admin-seasonal-action { min-height: 40px !important; border-radius: 11px !important; }
+@media (max-width: 760px) {
+  .caixa-admin-seasonal-force-wrap {
+    grid-template-columns: repeat(2, minmax(0, 1fr)) !important;
+    gap: 9px !important;
+  }
+  .caixa-admin-seasonal-card {
+    min-height: 148px !important;
+    padding: 12px !important;
+    border-radius: 15px !important;
+  }
+  .caixa-admin-seasonal-head {
+    grid-template-columns: 34px minmax(0, 1fr) 22px !important;
+    gap: 9px !important;
+  }
+  .caixa-admin-seasonal-emoji {
+    width: 34px !important;
+    height: 34px !important;
+    border-radius: 11px !important;
+    font-size: 19px !important;
+  }
+  .caixa-admin-seasonal-status { width: 22px !important; height: 22px !important; }
+}
