@@ -148,14 +148,20 @@ if (!cfg.apiKey || cfg.apiKey.includes("COLE_")) {
   function dataCompetenciaCredito(credito) {
     return String(credito?.pago === true ? (credito?.pagoEm || credito?.vencimento || "") : (credito?.vencimento || "")).slice(0, 10);
   }
-  function somarCreditosFaturaMes(creditos, pessoa, mes, ano, somentePagos = false) {
+  function creditoFaturaJaVirouGanho(credito, ganhos) {
+    const id = String(credito?.id || "");
+    if (credito?.convertidoEmGanho === true || credito?.ganhoId) return true;
+    return !!id && (Array.isArray(ganhos) ? ganhos : []).some(ganho => String(ganho?.faturaCreditoId || "") === id);
+  }
+  function somarCreditosFaturaMes(creditos, pessoa, mes, ano, somentePagos = false, ganhos = []) {
     const escopo = String(pessoa || "davi").toLowerCase();
     const filtrarPessoa = escopo !== "ambos";
     const dono = escPessoa(escopo);
     return (Array.isArray(creditos) ? creditos : []).reduce((total, credito) => {
       if (!credito || (somentePagos && credito.pago !== true)) return total;
-      // A visão consolidada precisa somar os dois perfis. No fechamento de
-      // cada perfil, a filtragem continua estrita para não cruzar reembolsos.
+      // Créditos já convertidos em ganhos não são somados novamente ao saldo.
+      // Créditos antigos, sem ganho vinculado, conservam o cálculo legado.
+      if (credito?.pago === true && creditoFaturaJaVirouGanho(credito, ganhos)) return total;
       if (filtrarPessoa && escPessoa(credito.pessoa || "davi") !== dono) return total;
       if (!dataMesIgual(dataCompetenciaCredito(credito), mes, ano)) return total;
       return total + (Number(credito.valor) || 0);
@@ -222,11 +228,11 @@ if (!cfg.apiKey || cfg.apiKey.includes("COLE_")) {
 
     const pessoa = dados?.pessoa || "davi";
     const creditosFaturaPagos = somarCreditosFaturaMes(
-      dados?.faturaCreditos, pessoa, dados?.mesAtual, dados?.anoAtual, true
+      dados?.faturaCreditos, pessoa, dados?.mesAtual, dados?.anoAtual, true, ganhos
     );
     const beneficio = ganhosPorOrigem.beneficios - fixosPagosBeneficio - gastosVariaveisBeneficio;
-    // Reembolso só volta ao saldo quando a fatura é efetivamente liquidada.
-    // O crédito é exclusivo das compras de cartão, que saem do saldo em conta.
+    // Créditos antigos sem ganho correspondente preservam o ajuste legado.
+    // Os novos reembolsos entram em ganhos e não são somados novamente aqui.
     const saldoConta = ganhosPorOrigem.ganhos - fixosPagosSaldo - gastosVariaveisSaldo - guardadoNoMes + creditosFaturaPagos;
     return {
       ganhosPorOrigem,
@@ -409,9 +415,10 @@ if (!cfg.apiKey || cfg.apiKey.includes("COLE_")) {
       const ganhos=somaRecebidos(dados.ganhos);
       const ganhosDoMes = somaRecebidosDoMes(dados.ganhos, mes, ano);
       const debitosBrutos=somaPagos(dados.gastosFixos)+somaVariaveisReais(dados.gastosVariaveis);
-      const creditosPagosMes = somarCreditosFaturaMes(faturaCreditos, pessoa, mes, ano, true);
-      // O histórico de débitos registra o que realmente saiu da conta: compras
-      // pagas menos os reembolsos efetivamente aplicados na fatura.
+      const creditosPagosMes = somarCreditosFaturaMes(faturaCreditos, pessoa, mes, ano, true, dados.ganhos);
+      // Créditos já lançados como ganhos não reduzem os débitos novamente.
+      // Apenas registros antigos, ainda sem ganho correspondente, mantêm a
+      // compensação legada para preservar fechamentos anteriores.
       const debitos = debitosBrutos - creditosPagosMes;
       const saldos=calcularSaldosDisponiveis(dadosComCreditos),saldo=saldos.total;
       // Fechamento separado por origem: dinheiro próprio (saldo) x benefício.
@@ -426,7 +433,9 @@ if (!cfg.apiKey || cfg.apiKey.includes("COLE_")) {
       const guardado=(dados.caixinhas||[]).reduce((a,c)=>a+totalCaixinha(c),0),guardadoMes=somaCampo(dados.caixinhas,"valorGuardadoMes"),rendimento=somaCampo(dados.caixinhas,"rendimentoTotal"),categorias=categoriasDoMes(dados);
       const despesasCompromissadas = despesasCompromissadasDoMes(dados, mes, ano);
       const creditosFaturaMes = somarCreditosFaturaMes(faturaCreditos, pessoa, mes, ano, false);
-      const gastosLiquidosMes = despesasCompromissadas - creditosFaturaMes;
+      // Compras aparecem pelo valor integral. Reembolsos convertidos entram
+      // em ganhos, e não são abatidos das categorias nem do total de gastos.
+      const gastosLiquidosMes = despesasCompromissadas - creditosPagosMes;
       const categoriasCompromissadas = categoriasCompromissadasDoMes(dados, mes, ano);
       const hv=hs.exists()?hs.data():{};const anos=Array.isArray(hv.anos)?structuredClone(hv.anos):[];let bloco=anos.find(x=>Number(x.ano)===ano);if(!bloco){bloco={ano,meses:[]};anos.push(bloco);}
       let m=bloco.meses.find(x=>Number(x.mes)===mes);if(!m){m={mes,nome:tituloMes(mes)};bloco.meses.push(m);}const suf=pessoa==="davi"?"Davi":"Gabriel";

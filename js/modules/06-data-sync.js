@@ -232,58 +232,75 @@ function prefetchOutrasPessoas(pessoaJaCarregada) {
 const filaSalvar = new Map(); 
 
 async function salvarBloco(action, payload) {
-  if (isAmbos()) return; 
+  if (isAmbos()) return false;
   const chave = `${state.pessoaAtual}:${action}`;
   state.salvamentosEmAndamento?.add(chave);
   let entrada = filaSalvar.get(chave);
   if (!entrada) {
-    entrada = { emVoo: false, pendente: null };
+    entrada = { emVoo: false, pendente: null, promessa: null };
     filaSalvar.set(chave, entrada);
   }
 
   entrada.pendente = payload;
-  if (entrada.emVoo) return; 
-
-  // Sem internet: nem tenta — manda direto pra fila offline, sem passar
-  // pela animação de "salvando" (que só ia demorar e falhar mesmo).
-  if (!navigator.onLine) {
-    const pessoaOffline = state.pessoaAtual;
-    const payloadOffline = entrada.pendente;
-    entrada.pendente = null;
-    await enfileirarOffline(pessoaOffline, action, payloadOffline);
-    await atualizarIndicadorOffline();
-    return;
-  }
+  // Se já houver um envio do mesmo bloco, aguarda a fila atual consumir
+  // também o payload mais recente, em vez de retornar antes do salvamento.
+  if (entrada.emVoo) return entrada.promessa || true;
 
   entrada.emVoo = true;
-  setSyncState("saving");
-  const pessoaDoEnvio = state.pessoaAtual;
-  let ultimoPayload = null;
-  try {
-    while (entrada.pendente !== null) {
-      ultimoPayload = entrada.pendente;
-      entrada.pendente = null;
-      const res = await caixaApiRequest({
-        method: "POST",
-        body: JSON.stringify({ action, payload: ultimoPayload, pessoa: pessoaDoEnvio }),
-      });
-      if (!res.ok) throw new Error(`HTTP ${res.status}`);
-      const data = await res.json().catch(() => null);
-      if (data && data.ok === false) throw new Error(data.error || "Erro desconhecido");
-    }
-    setSyncState("idle");
-  } catch (err) {
-    if (ehErroDeRede(err) && ultimoPayload !== null) {
-      await enfileirarOffline(pessoaDoEnvio, action, ultimoPayload);
-      await atualizarIndicadorOffline();
-    } else {
+  entrada.promessa = (async () => {
+    const pessoaDoEnvio = state.pessoaAtual;
+    let ultimoPayload = null;
+    try {
+      // Sem internet: a gravação na fila offline conta como persistência aceita.
+      if (!navigator.onLine) {
+        while (entrada.pendente !== null) {
+          const payloadOffline = entrada.pendente;
+          entrada.pendente = null;
+          await enfileirarOffline(pessoaDoEnvio, action, payloadOffline);
+        }
+        await atualizarIndicadorOffline();
+        return true;
+      }
+
+      setSyncState("saving");
+      while (entrada.pendente !== null) {
+        ultimoPayload = entrada.pendente;
+        entrada.pendente = null;
+        const res = await caixaApiRequest({
+          method: "POST",
+          body: JSON.stringify({ action, payload: ultimoPayload, pessoa: pessoaDoEnvio }),
+        });
+        if (!res.ok) throw new Error(`HTTP ${res.status}`);
+        const data = await res.json().catch(() => null);
+        if (data && data.ok === false) throw new Error(data.error || "Erro desconhecido");
+      }
+      setSyncState("idle");
+      return true;
+    } catch (err) {
+      if (ehErroDeRede(err) && (entrada.pendente !== null || ultimoPayload !== null)) {
+        // O payload mais recente substitui o anterior para este bloco, pois
+        // contém a lista completa já atualizada.
+        const payloadOffline = entrada.pendente !== null ? entrada.pendente : ultimoPayload;
+        entrada.pendente = null;
+        await enfileirarOffline(pessoaDoEnvio, action, payloadOffline);
+        while (entrada.pendente !== null) {
+          const payloadMaisRecente = entrada.pendente;
+          entrada.pendente = null;
+          await enfileirarOffline(pessoaDoEnvio, action, payloadMaisRecente);
+        }
+        await atualizarIndicadorOffline();
+        return true;
+      }
       setSyncState("error");
       showToast("Não consegui salvar no Firebase agora.");
+      return false;
+    } finally {
+      entrada.emVoo = false;
+      entrada.promessa = null;
+      state.salvamentosEmAndamento?.delete(chave);
     }
-  } finally {
-    entrada.emVoo = false;
-    state.salvamentosEmAndamento?.delete(chave);
-  }
+  })();
+  return entrada.promessa;
 }
 
 let flushEmAndamento = false;

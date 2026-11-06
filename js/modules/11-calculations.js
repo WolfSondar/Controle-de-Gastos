@@ -100,15 +100,17 @@ function renderTotais() {
         anoAtual: state.anoAtual,
       })
     : null;
-  const creditosFaturaPagosMes = (state.faturaCreditos || []).reduce((total, credito) => {
-    if (!credito || credito.pago !== true) return total;
+  const creditosFaturaPagosLegadosMes = (state.faturaCreditos || []).reduce((total, credito) => {
+    if (!credito || credito.pago !== true || credito.convertidoEmGanho === true || credito.ganhoId) return total;
+    const idCredito = String(credito.id || "");
+    if (idCredito && (state.ganhos || []).some(ganho => String(ganho?.faturaCreditoId || "") === idCredito)) return total;
     const pessoaCredito = String(credito.pessoa || "davi").toLowerCase();
     if (state.pessoaAtual !== "ambos" && pessoaCredito !== String(state.pessoaAtual || "davi").toLowerCase()) return total;
     const dataCredito = String(credito.pagoEm || credito.vencimento || "").slice(0, 7);
     const mesAberto = `${state.anoAtual}-${String(state.mesAtual).padStart(2, "0")}`;
     return dataCredito === mesAberto ? total + (Number(credito.valor) || 0) : total;
   }, 0);
-  const saldo = saldosDisponiveis ? saldosDisponiveis.total : (ganhosPorOrigem.beneficios + ganhosPorOrigem.ganhos - totalFixosPagos - totalVariaveisPagos - totalGuardadoNoMes + creditosFaturaPagosMes);
+  const saldo = saldosDisponiveis ? saldosDisponiveis.total : (ganhosPorOrigem.beneficios + ganhosPorOrigem.ganhos - totalFixosPagos - totalVariaveisPagos - totalGuardadoNoMes + creditosFaturaPagosLegadosMes);
 
   const ganhosEl = document.getElementById("statGanhos");
   const fixosEl = document.getElementById("statFixos");

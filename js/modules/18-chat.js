@@ -15,10 +15,10 @@
 
   const CHAT_PROMPTS = {
     gastar: "Você é o assistente financeiro do Caixa. Descubra de qual origem o usuário quer gastar (benefício ou saldo em conta) e, para o saldo normal, informe quanto realmente pode gastar depois de considerar as entradas que ainda vão cair e todas as contas abertas que precisam ser reservadas. O saldo atual exibido no cartão é apenas o saldo de hoje; não o confunda com o limite de gasto projetado. Use somente os números calculados pelo aplicativo.",
-    gastos: "Você é o assistente financeiro do Caixa. Mostre os gastos registrados no mês, separando pagos e pendentes, e desconte os créditos/reembolsos de cartão vinculados ao mês.",
-    categorias: "Você é o assistente financeiro do Caixa. Identifique as categorias com maior valor registrado no mês, incluindo gastos pagos e pendentes. Informe separadamente os créditos/reembolsos de cartão que reduzem o total líquido.",
+    gastos: "Você é o assistente financeiro do Caixa. Mostre o valor integral dos gastos registrados no mês, separando pagos e pendentes. Créditos de fatura concluída são ganhos separados e não devem ser descontados novamente dos gastos.",
+    categorias: "Você é o assistente financeiro do Caixa. Identifique as categorias com maior valor registrado no mês, incluindo gastos pagos e pendentes. Informe à parte os créditos de fatura lançados como ganhos, sem abatê-los das categorias.",
     guardado: "Você é o assistente financeiro do Caixa. Informe quanto existe atualmente nas caixinhas e destaque metas, se houver.",
-    pendencias: "Você é o assistente financeiro do Caixa. Mostre o que ainda falta pagar e receber, considerando os créditos/reembolsos de cartão vinculados às faturas. Distinga claramente o mês atual dos lançamentos futuros.",
+    pendencias: "Você é o assistente financeiro do Caixa. Mostre o valor integral do que ainda falta pagar e receber. Créditos de fatura ainda não concluída não reduzem o total pendente; quando a fatura for concluída, serão registrados como ganhos separados. Distinga claramente o mês atual dos lançamentos futuros.",
   };
 
   const IC = {
@@ -71,6 +71,26 @@
     }, 0);
   }
 
+  function creditoChatJaVirouGanho(credito) {
+    const id = String(credito?.id || "");
+    if (credito?.convertidoEmGanho === true || credito?.ganhoId) return true;
+    return !!id && listaFinita(state.ganhos).some(ganho => String(ganho?.faturaCreditoId || "") === id);
+  }
+
+  function somarCreditosConvertidosComoGanhoChat(mes = null, ano = null) {
+    const mesRef = Number(mes || state.mesAtual);
+    const anoRef = Number(ano || state.anoAtual);
+    const cicloAtual = anoRef && mesRef ? anoRef * 12 + mesRef : null;
+    return listaFinita(state.faturaCreditos).reduce((total, credito) => {
+      if (!credito || credito.pago !== true || !creditoChatJaVirouGanho(credito)) return total;
+      const pessoaCredito = String(credito.pessoa || "davi").toLowerCase();
+      if (state.pessoaAtual !== "ambos" && pessoaCredito !== String(state.pessoaAtual || "davi").toLowerCase()) return total;
+      const ciclo = chaveMesChat(dataCompetenciaCreditoChat(credito));
+      if (cicloAtual !== null && ciclo !== cicloAtual) return total;
+      return total + (Number(credito.valor) || 0);
+    }, 0);
+  }
+
   function somarCreditosFaturaChat({ status = "todos", mes = null, ano = null, futuros = null } = {}) {
     const mesRef = Number(mes || state.mesAtual);
     const anoRef = Number(ano || state.anoAtual);
@@ -80,7 +100,7 @@
       const pessoaCredito = String(credito.pessoa || "davi").toLowerCase();
       if (state.pessoaAtual !== "ambos" && pessoaCredito !== String(state.pessoaAtual || "davi").toLowerCase()) return total;
       if (status === "pendentes" && credito.pago === true) return total;
-      if (status === "pagos" && credito.pago !== true) return total;
+      if (status === "pagos" && (credito.pago !== true || creditoChatJaVirouGanho(credito))) return total;
       const ciclo = chaveMesChat(dataCompetenciaCreditoChat(credito));
       if (ciclo === null) return total;
       if (cicloAtual !== null && mes !== null && ciclo !== cicloAtual) return total;
@@ -109,13 +129,14 @@
     const guardadoNoMes = somaCampo(state.caixinhas || [], "valorGuardadoMes");
 
     const creditosPagosMes = somarCreditosFaturaChat({ status: "pagos", mes: state.mesAtual, ano: state.anoAtual });
+    const creditosRecebidosComoGanhoMes = somarCreditosConvertidosComoGanhoChat(state.mesAtual, state.anoAtual);
     const creditosAbertosMes = somarCreditosFaturaChat({ status: "pendentes", mes: state.mesAtual, ano: state.anoAtual });
     const creditosAbertosTodos = somarCreditosFaturaChat({ status: "pendentes" });
-    const creditosMes = creditosPagosMes + creditosAbertosMes;
+    const creditosMes = creditosPagosMes + creditosRecebidosComoGanhoMes + creditosAbertosMes;
 
-    // O saldo atual só muda com o reembolso depois que o crédito foi aplicado
-    // no pagamento da fatura. Créditos ainda pendentes reduzem a obrigação,
-    // mas não aumentam o saldo bancário antes da quitação.
+    // Créditos novos entram em state.ganhos quando a fatura é concluída.
+    // Créditos antigos, sem ganho vinculado, continuam no ajuste legado.
+    // Créditos ainda pendentes não reduzem o total a pagar.
     const saldoAtualConta = ganhosOrigem.ganhos - fixosPagosSaldo - saldoGasto - guardadoNoMes + creditosPagosMes;
 
     const aReceberEsseMes = listaFinita(state.ganhos).reduce((a, i) =>
@@ -127,13 +148,13 @@
     const aPagarFixos = fixos.reduce((a, i) => a + (i.pago !== true ? Number(i.valor) || 0 : 0), 0);
     const aPagarVariaveisBruto = variaveis.reduce((a, i) =>
       a + (gastoVariavelEhReal(i) && i.pago !== true && !i.lembrete && !variavelEhBeneficio(i) ? Number(i.valor) || 0 : 0), 0);
-    const aPagarVariaveis = aPagarVariaveisBruto - creditosAbertosTodos;
+    const aPagarVariaveis = aPagarVariaveisBruto;
 
     const aPagarFixosEsseMes = fixos.reduce((a, i) =>
       a + (i.pago !== true && !fixoEhBeneficio(i) && !ehFuturoDoMesAtual(i) ? Number(i.valor) || 0 : 0), 0);
     const aPagarVariaveisEsseMesBruto = variaveis.reduce((a, i) =>
       a + (gastoVariavelEhReal(i) && i.pago !== true && !i.lembrete && !variavelEhBeneficio(i) && !ehFuturoDoMesAtual(i) ? Number(i.valor) || 0 : 0), 0);
-    const aPagarVariaveisEsseMes = aPagarVariaveisEsseMesBruto - creditosAbertosMes;
+    const aPagarVariaveisEsseMes = aPagarVariaveisEsseMesBruto;
     const aPagarFixosFuturos = Math.max(0, aPagarFixos - aPagarFixosEsseMes);
     const aPagarVariaveisFuturos = aPagarVariaveis - aPagarVariaveisEsseMes;
 
@@ -152,7 +173,9 @@
     const variaveisPendentesNoMes = variaveis.reduce((a, i) =>
       a + (gastoVariavelEhReal(i) && i.pago !== true && !i.lembrete && !ehFuturoDoMesAtual(i) ? Number(i.valor) || 0 : 0), 0);
     const gastosMesBruto = fixosDoMes + variaveisDoMes;
-    const gastosMesLiquido = gastosMesBruto - creditosMes;
+    // Os gastos são apresentados integralmente; os reembolsos convertidos já
+    // estão contabilizados nos ganhos recebidos e não reduzem as despesas.
+    const gastosMesLiquido = gastosMesBruto;
     const saldoGeral = ganhosRecebidos - fixosPagos - variaveisPagos + creditosPagosMes;
 
     return {
@@ -160,7 +183,7 @@
       beneficio, saldoAtualConta, conta, contaProjetadaTodosOsMeses, saldoGeral,
       aReceber, aReceberEsseMes, aReceberFuturos, aPagarFixos, aPagarVariaveis,
       aPagarFixosEsseMes, aPagarVariaveisEsseMes, aPagarFixosFuturos, aPagarVariaveisFuturos,
-      creditosMes, creditosPagosMes, creditosAbertosMes, creditosAbertosTodos,
+      creditosMes, creditosPagosMes, creditosRecebidosComoGanhoMes, creditosAbertosMes, creditosAbertosTodos,
       fixosDoMes, variaveisDoMes, fixosPagosNoMes, variaveisPagosNoMes,
       fixosPendentesNoMes, variaveisPendentesNoMes, gastosMesBruto, gastosMesLiquido,
     };
@@ -267,7 +290,7 @@
       ? Object.prototype.hasOwnProperty.call(mes, "gastosLiquidosDavi") && Object.prototype.hasOwnProperty.call(mes, "gastosLiquidosGabriel")
       : Object.prototype.hasOwnProperty.call(mes, `gastosLiquidos${state.pessoaAtual === "gabriel" ? "Gabriel" : "Davi"}`);
     // Históricos anteriores à atualização só guardavam gastos pagos. Os novos
-    // registros guardam o total líquido do mês, incluindo também pendências.
+    // registros guardam os gastos do mês, incluindo também pendências.
     const gastosHistoricos = temGastosComPendencias ? get("gastosLiquidos") : Math.abs(get("debitos"));
     const temGanhosDoMes = state.pessoaAtual === "ambos"
       ? Object.prototype.hasOwnProperty.call(mes, "ganhosMesDavi") && Object.prototype.hasOwnProperty.call(mes, "ganhosMesGabriel")
@@ -381,9 +404,11 @@
         const cats = categoriasChat();
         const linhasTop = cats.slice(0, 3).map((x,i) => `${i+1}. <strong>${esc(x[0])}</strong> — <span class="chat-valor chat-valor-neg">${chatFmt(x[1])}</span>`).join("<br>");
         if (!cats.length && !t.creditosMes) return appendMensagem("Ainda não encontrei gastos registrados neste mês.");
-        const ajusteCredito = t.creditosMes > 0
-          ? `<div class="chat-comparacao-resultado">Créditos/reembolsos de cartão considerados: <span class="chat-valor chat-valor-pos">− ${chatFmt(t.creditosMes)}</span>.</div>` : "";
-        appendMensagem(`<strong>Onde você mais gastou neste mês:</strong><span class="caixa-chat-note">Valores pagos + pendentes, sem incluir lançamentos de meses futuros. Os créditos de cartão reduzem o total líquido, mas não são atribuídos a uma categoria específica.</span>${linhasTop ? `<br>${linhasTop}` : "<p>Não há compras por categoria para listar.</p>"}<div class="chat-comparacao-resultado">Total líquido registrado no mês: <strong>${chatFmt(t.gastosMesLiquido)}</strong>.</div>${ajusteCredito}`);
+        const ajusteCredito = t.creditosRecebidosComoGanhoMes > 0
+          ? `<div class="chat-comparacao-resultado">Reembolsos de fatura lançados como ganhos separados: <span class="chat-valor chat-valor-pos">+ ${chatFmt(t.creditosRecebidosComoGanhoMes)}</span>.</div>` : "";
+        const creditoPendente = t.creditosAbertosMes > 0
+          ? `<div class="chat-comparacao-resultado">Créditos ainda pendentes de conversão em ganho: ${chatFmt(t.creditosAbertosMes)}.</div>` : "";
+        appendMensagem(`<strong>Onde você mais gastou neste mês:</strong><span class="caixa-chat-note">Valores integrais pagos + pendentes, sem incluir lançamentos de meses futuros. Reembolsos de cartão são registrados como ganhos separados quando a fatura é concluída; não reduzem as compras por categoria.</span>${linhasTop ? `<br>${linhasTop}` : "<p>Não há compras por categoria para listar.</p>"}<div class="chat-comparacao-resultado">Total de gastos registrados no mês: <strong>${chatFmt(t.gastosMesLiquido)}</strong>.</div>${ajusteCredito}${creditoPendente}`);
       }
 
       if (id === "guardado") {
@@ -443,9 +468,10 @@
           const dg = atual.gastos - ant.gastos, dr = atual.ganhos - ant.ganhos, ds = atual.guardado - ant.guardado;
           const notaHistoricoAntigo = (!ant.gastosComPendencias || !ant.ganhosDoMesDisponiveis)
             ? `<span class="caixa-chat-note">Observação: o histórico do mês anterior foi salvo antes desta melhoria. Ele pode não conter todas as contas pendentes nem separar o saldo trazido do mês anterior dos ganhos recebidos. A partir dos próximos fechamentos, a comparação usa os valores mensais completos.</span>` : "";
-          const notaCreditos = t.creditosMes > 0
-            ? `<div class="chat-comparacao-resultado">Reembolsos/créditos de cartão já descontados do total atual: <span class="chat-valor chat-valor-pos">${chatFmt(t.creditosMes)}</span>. Eles não são distribuídos entre categorias sem identificação do produto reembolsado.</div>` : "";
-          appendMensagem(`<strong>Este mês x ${esc(ant.nome||"mês anterior")}</strong><div class="chat-comparacao-bloco"><div class="chat-comparacao-titulo">Gastos registrados no mês (pagos + pendentes)</div>${linhas.length?`<ul>${linhas.join("")}</ul>`:`<p>Não houve mudança de categoria relevante.</p>`}<div class="chat-comparacao-resultado">Total líquido deste mês: <strong>${chatFmt(atual.gastos)}</strong>. No mês anterior: <strong>${chatFmt(ant.gastos)}</strong>.</div><div class="chat-comparacao-resultado">Resultado: ${Math.abs(dg)<.01?"os valores ficaram iguais":`neste mês há <span class="chat-valor ${dg>0?"chat-valor-neg":"chat-valor-pos"}">${chatFmt(Math.abs(dg))}</span> ${dg>0?"a mais em gastos registrados":"a menos em gastos registrados"}`}.</div>${notaCreditos}${notaHistoricoAntigo}<div class="chat-comparacao-titulo">Ganhos</div><div class="chat-comparacao-resultado">${Math.abs(dr)<.01?"seus ganhos ficaram iguais":`você recebeu <span class="chat-valor chat-valor-pos">${chatFmt(Math.abs(dr))}</span> ${dr>0?"a mais":"a menos"}`}.</div>${ant.guardado||atual.guardado?`<div class="chat-comparacao-resultado">Guardado: ${Math.abs(ds)<.01?"mesmo valor":`<span class="chat-valor chat-valor-gold">${chatFmt(Math.abs(ds))}</span> ${ds>0?"a mais":"a menos"}`}.</div>`:""}</div>`);
+          const notaCreditos = t.creditosRecebidosComoGanhoMes > 0
+            ? `<div class="chat-comparacao-resultado">Créditos de fatura registrados como ganhos separados neste mês: <span class="chat-valor chat-valor-pos">${chatFmt(t.creditosRecebidosComoGanhoMes)}</span>. Eles já estão incluídos nos ganhos acima e não são abatidos dos gastos.</div>`
+            : (t.creditosAbertosMes > 0 ? `<div class="chat-comparacao-resultado">Créditos de fatura aguardando conclusão: ${chatFmt(t.creditosAbertosMes)}. Eles ainda não foram lançados como ganhos.</div>` : "");
+          appendMensagem(`<strong>Este mês x ${esc(ant.nome||"mês anterior")}</strong><div class="chat-comparacao-bloco"><div class="chat-comparacao-titulo">Gastos registrados no mês (pagos + pendentes)</div>${linhas.length?`<ul>${linhas.join("")}</ul>`:`<p>Não houve mudança de categoria relevante.</p>`}<div class="chat-comparacao-resultado">Total de gastos deste mês: <strong>${chatFmt(atual.gastos)}</strong>. No mês anterior: <strong>${chatFmt(ant.gastos)}</strong>.</div><div class="chat-comparacao-resultado">Resultado: ${Math.abs(dg)<.01?"os valores ficaram iguais":`neste mês há <span class="chat-valor ${dg>0?"chat-valor-neg":"chat-valor-pos"}">${chatFmt(Math.abs(dg))}</span> ${dg>0?"a mais em gastos registrados":"a menos em gastos registrados"}`}.</div>${notaCreditos}${notaHistoricoAntigo}<div class="chat-comparacao-titulo">Ganhos</div><div class="chat-comparacao-resultado">${Math.abs(dr)<.01?"seus ganhos ficaram iguais":`você recebeu <span class="chat-valor chat-valor-pos">${chatFmt(Math.abs(dr))}</span> ${dr>0?"a mais":"a menos"}`}.</div>${ant.guardado||atual.guardado?`<div class="chat-comparacao-resultado">Guardado: ${Math.abs(ds)<.01?"mesmo valor":`<span class="chat-valor chat-valor-gold">${chatFmt(Math.abs(ds))}</span> ${ds>0?"a mais":"a menos"}`}.</div>`:""}</div>`);
         }
       }
 
@@ -458,7 +484,8 @@
         if (t.fixosPagosNoMes + t.variaveisPagosNoMes > 0 || t.fixosPendentesNoMes + t.variaveisPendentesNoMes > 0) {
           eventos.push(`Desse total, <strong>${chatFmt(t.fixosPagosNoMes + t.variaveisPagosNoMes)}</strong> já foi pago e <strong>${chatFmt(t.fixosPendentesNoMes + t.variaveisPendentesNoMes)}</strong> ainda está pendente.`);
         }
-        if (t.creditosMes > 0) eventos.push(`Você tem <span class="chat-valor chat-valor-pos">${chatFmt(t.creditosMes)}</span> em créditos/reembolsos de cartão considerados neste mês.`);
+        if (t.creditosRecebidosComoGanhoMes > 0) eventos.push(`Você recebeu <span class="chat-valor chat-valor-pos">${chatFmt(t.creditosRecebidosComoGanhoMes)}</span> em créditos de fatura, registrados como ganhos separados.`);
+        if (t.creditosAbertosMes > 0) eventos.push(`Há <span class="chat-valor chat-valor-pos">${chatFmt(t.creditosAbertosMes)}</span> em créditos de fatura aguardando conclusão; eles ainda não foram lançados como ganhos.`);
         if (guardadoMes > 0) eventos.push(`Você guardou <span class="chat-valor chat-valor-gold">${chatFmt(guardadoMes)}</span> nas caixinhas neste mês.`);
         const compromissosFixos = listaFinita(state.gastosFixos).filter(i => !ehFuturoDoMesAtual(i)).length;
         const compromissosVariaveis = listaFinita(state.gastosVariaveis).filter(i => gastoVariavelEhReal(i) && !i.lembrete && !ehFuturoDoMesAtual(i)).length;
@@ -506,8 +533,8 @@
           : "";
         const vazio = !detalhes ? `<div class="caixa-chat-empty">Nenhum gasto pendente encontrado.</div>` : detalhes;
         const notaCreditosPendentes = t.creditosAbertosTodos > 0
-          ? `<div class="chat-comparacao-resultado">Créditos/reembolsos pendentes já abatidos do total: <span class="chat-valor chat-valor-pos">${chatFmt(t.creditosAbertosTodos)}</span>.</div>` : "";
-        appendMensagem(`<strong>Ainda falta pagar ${chatFmt(totalPend)} no total líquido.</strong>${notaCreditosPendentes}${vazio}`);
+          ? `<div class="chat-comparacao-resultado">Há ${chatFmt(t.creditosAbertosTodos)} em créditos de fatura aguardando fechamento. Eles serão registrados como ganhos quando a fatura for concluída e não foram abatidos do total a pagar.</div>` : "";
+        appendMensagem(`<strong>Ainda falta pagar ${chatFmt(totalPend)} no total.</strong>${notaCreditosPendentes}${vazio}`);
       }
 
 

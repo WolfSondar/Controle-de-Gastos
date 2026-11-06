@@ -1021,7 +1021,10 @@ function montarGruposFaturaPendentes() {
   return [...mapa.values()].map(g => {
     g.totalCompras = g.registros.reduce((n,r) => n + (Number(r.item.valor) || 0), 0);
     g.totalCreditos = g.creditos.reduce((n,c) => n + (Number(c.valor) || 0), 0);
-    g.total = Math.round((g.totalCompras - g.totalCreditos) * 100) / 100;
+    // O pagamento quita as compras pelo valor integral. Os créditos são
+    // convertidos em ganhos separados durante a confirmação, sem abatê-los
+    // novamente do valor pago.
+    g.total = Math.round(g.totalCompras * 100) / 100;
     return g;
   }).sort((a,b) => a.vencimento.localeCompare(b.vencimento));
 }
@@ -1032,7 +1035,7 @@ on("btnPagarFaturaMes", "click", () => {
   if (faturaPagarOpcoes) faturaPagarOpcoes.innerHTML = faturasElegiveisPagar.map((g,i) => `
     <button type="button" class="acao-card" data-fatura-pagar="${i}">
       <span class="acao-card-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><rect x="3" y="5" width="18" height="15" rx="2"/><path d="M3 10h18M7 15h4"/></svg></span>
-      <span class="acao-card-texto"><strong>${escapeHtml(g.nome)}</strong><small>${g.registros.length} ${g.registros.length === 1 ? "compra pendente" : "compras pendentes"}${g.totalCreditos > 0 ? ` · crédito ${fmt(g.totalCreditos)}` : ""} · vence ${formatarDataCurta(g.vencimento)}</small></span><strong class="fatura-opcao-total">${fmt(g.total)}</strong><span class="acao-card-seta">›</span>
+      <span class="acao-card-texto"><strong>${escapeHtml(g.nome)}</strong><small>${g.registros.length} ${g.registros.length === 1 ? "compra pendente" : "compras pendentes"}${g.totalCreditos > 0 ? ` · ${fmt(g.totalCreditos)} em créditos que virarão ganhos` : ""} · vence ${formatarDataCurta(g.vencimento)}</small></span><strong class="fatura-opcao-total">${fmt(g.total)}</strong><span class="acao-card-seta">›</span>
     </button>`).join("");
   mostrarSubViewFatura(faturaPagarView);
 });
@@ -1047,16 +1050,16 @@ function atualizarDetalhePagamentoFatura(grupo) {
   const fill = document.getElementById("faturaPagamentoProgressFill");
   const quantidade = grupo.registros.length;
   const total = fmt(grupo.total);
-  const infoCredito = grupo.totalCreditos > 0 ? ` · créditos ${fmt(grupo.totalCreditos)}` : "";
+  const infoCredito = grupo.totalCreditos > 0 ? ` · ${fmt(grupo.totalCreditos)} em créditos serão lançados como ganhos` : "";
   if (titulo) titulo.textContent = grupo.nome;
-  if (resumo) resumo.textContent = `${quantidade} ${quantidade === 1 ? "compra" : "compras"}${infoCredito} · total líquido ${total} · vencimento ${formatarDataCurta(grupo.vencimento)}`;
+  if (resumo) resumo.textContent = `${quantidade} ${quantidade === 1 ? "compra" : "compras"}${infoCredito} · valor integral das compras ${total} · vencimento ${formatarDataCurta(grupo.vencimento)}`;
   if (fill) fill.style.width = "0%";
 
   const linhasCompras = grupo.registros.map((r,i) =>
     `<div class="fatura-pagamento-item" data-fatura-item="${i}"><span class="fatura-pagamento-check">✓</span><span class="fatura-pagamento-name">${escapeHtml(nomeExibicaoItem(r.item))}</span><strong>${fmt(r.item.valor)}</strong></div>`
   );
   const linhasCreditos = grupo.creditos.map((c,i) =>
-    `<div class="fatura-pagamento-item is-credit" data-fatura-credito="${i}"><span class="fatura-pagamento-check">+</span><span class="fatura-pagamento-name"><small>Crédito</small>${escapeHtml(c.descricao || "Reembolso")}</span><strong>− ${fmt(c.valor)}</strong></div>`
+    `<div class="fatura-pagamento-item is-credit" data-fatura-credito="${i}"><span class="fatura-pagamento-check">+</span><span class="fatura-pagamento-name"><small>Será lançado como ganho</small>${escapeHtml(c.descricao || "Reembolso")}</span><strong>+ ${fmt(c.valor)}</strong></div>`
   );
   if (faturaPagamentoLista) {
     faturaPagamentoLista.innerHTML = linhasCompras.concat(linhasCreditos).join("") || '<div class="caixa-config-empty">Nenhum lançamento nesta fatura.</div>';
@@ -1064,7 +1067,7 @@ function atualizarDetalhePagamentoFatura(grupo) {
   const confirmar = document.getElementById("faturaPagamentoConfirmar");
   if (confirmar) {
     confirmar.disabled = false;
-    confirmar.textContent = grupo.total > 0 ? `Pagar ${total}` : `Concluir fatura · ${total}`;
+    confirmar.textContent = grupo.total > 0 ? `Marcar compras como pagas · ${total}` : `Concluir créditos · ${fmt(grupo.totalCreditos)}`;
   }
   const formCredito = document.getElementById("faturaCreditoForm");
   formCredito?.classList.add("is-hidden");
@@ -1116,7 +1119,7 @@ document.getElementById("faturaCreditoSalvar")?.addEventListener("click", () => 
   state.faturaCreditos.push(credito);
   grupo.creditos.push(credito);
   grupo.totalCreditos = Math.round((grupo.totalCreditos + credito.valor) * 100) / 100;
-  grupo.total = Math.round((grupo.totalCompras - grupo.totalCreditos) * 100) / 100;
+  grupo.total = Math.round(grupo.totalCompras * 100) / 100;
   marcarAlteracaoLocal();
   sincronizarCacheAtual();
   sincronizarCacheCreditosFatura();
@@ -1129,34 +1132,106 @@ document.getElementById("faturaPagamentoConfirmar")?.addEventListener("click", a
   const grupo = faturaSelecionadaPagamento; if (!grupo) return;
   const btn = document.getElementById("faturaPagamentoConfirmar");
   if (btn) { btn.disabled = true; btn.textContent = "Processando pagamento…"; }
+  const liberarBotao = (texto = "Tentar salvar novamente") => {
+    if (btn) { btn.disabled = false; btn.textContent = texto; }
+  };
   const rows = [...(faturaPagamentoLista?.querySelectorAll(".fatura-pagamento-item") || [])];
   const aguardarAnimacao = ms => new Promise(resolve => setTimeout(resolve, ms));
   for (let i=0; i<rows.length; i++) {
     const row = rows[i];
-    // Primeiro confirma visualmente este lançamento; só depois recolhe o espaço
-    // para que os itens seguintes deslizem suavemente, sem salto de layout.
     row.classList.add("is-paying");
     const fill = document.getElementById("faturaPagamentoProgressFill");
     if (fill) fill.style.width = `${Math.round((i+1)/Math.max(1, rows.length)*100)}%`;
     await aguardarAnimacao(360);
     row.style.height = `${row.getBoundingClientRect().height}px`;
     row.style.flex = "0 0 auto";
-    row.offsetHeight; // aplica a altura inicial antes da transição
+    row.offsetHeight;
     row.classList.add("is-collapsing");
     await aguardarAnimacao(380);
     row.remove();
   }
+
   const agoraPagamento = new Date();
   const dataPagamentoHoje = `${agoraPagamento.getFullYear()}-${String(agoraPagamento.getMonth()+1).padStart(2,"0")}-${String(agoraPagamento.getDate()).padStart(2,"0")}T${String(agoraPagamento.getHours()).padStart(2,"0")}:${String(agoraPagamento.getMinutes()).padStart(2,"0")}:${String(agoraPagamento.getSeconds()).padStart(2,"0")}`;
+  const pessoaPagamento = String(grupo.pessoa || (state.pessoaAtual === "gabriel" ? "gabriel" : "davi"));
+  if (state.pessoaAtual !== pessoaPagamento) {
+    showToast("O perfil selecionado mudou. Abra novamente a fatura para confirmar o pagamento no perfil correto.");
+    liberarBotao();
+    return;
+  }
+  const idFaturaPagamento = String(grupo.id || "default");
+
+  // Primeiro garante um ganho para cada crédito. O vínculo pelo ID torna a
+  // operação idempotente: uma nova tentativa nunca duplica o mesmo reembolso.
+  const ganhosCriadosNestaTentativa = [];
+  const creditosMarcadosNestaTentativa = [];
+  if (!Array.isArray(state.ganhos)) state.ganhos = [];
+  grupo.creditos.forEach(credito => {
+    // Créditos legados podem não ter ID; atribui um identificador próprio
+    // para que reembolsos de mesmo valor/descrição nunca se misturem.
+    if (!credito.id) credito.id = window.crypto?.randomUUID?.() || `credito-${Date.now()}-${Math.random().toString(36).slice(2,10)}`;
+    const idCredito = String(credito.id);
+    let ganho = state.ganhos.find(item => String(item?.faturaCreditoId || "") === idCredito);
+    if (!ganho) {
+      const descricao = String(credito?.descricao || "Reembolso").trim();
+      ganho = {
+        nome: `Crédito fatura ${grupo.nome}${descricao ? ` — ${descricao}` : ""}`,
+        valor: Math.round((Number(credito?.valor) || 0) * 100) / 100,
+        recebido: true,
+        data: dataPagamentoHoje,
+        origem: "saldo",
+        tipo: "Crédito de fatura",
+        pessoa: pessoaPagamento,
+        faturaCreditoId: idCredito,
+        faturaId: idFaturaPagamento,
+        faturaNome: String(grupo.nome || "Fatura"),
+        descricaoCredito: descricao,
+        oculto: false,
+      };
+      ganho.pessoa = pessoaPagamento;
+      state.ganhos.push(ganho);
+      ganhosCriadosNestaTentativa.push(ganho);
+    }
+    if (!credito.ganhoId || !credito.convertidoEmGanho) creditosMarcadosNestaTentativa.push(credito);
+    credito.ganhoId = idCredito;
+    credito.convertidoEmGanho = true;
+  });
+
+  if (grupo.creditos.length) {
+    marcarAlteracaoLocal();
+    sincronizarCacheAtual();
+    const okGanhos = await salvarBloco("saveGanhos", state.ganhos || []);
+    if (okGanhos === false) {
+      // Não deixa um ganho que não foi persistido afetar o saldo na tela.
+      const idsNovos = new Set(ganhosCriadosNestaTentativa.map(ganho => String(ganho.faturaCreditoId)));
+      state.ganhos = (state.ganhos || []).filter(ganho => !idsNovos.has(String(ganho?.faturaCreditoId || "")));
+      creditosMarcadosNestaTentativa.forEach(credito => {
+        delete credito.ganhoId;
+        delete credito.convertidoEmGanho;
+      });
+      marcarAlteracaoLocal();
+      sincronizarCacheAtual();
+      showToast("Não consegui salvar os créditos como ganhos. Nenhum item da fatura foi confirmado; tente novamente.");
+      liberarBotao();
+      return;
+    }
+  }
+
+  // Todas as compras vinculadas à fatura são quitadas pelo valor integral.
+  // A data original da compra é preservada; pagoEm guarda quando a fatura foi quitada.
   grupo.registros.forEach(r => {
     const lista = r.origem === "fixos" ? state.gastosFixos : state.gastosVariaveis;
     const item = lista?.[r.idx];
-    if (item) { item.pago = true; item.data = dataPagamentoHoje; }
+    if (item) {
+      item.pago = true;
+      item.pagoEm = dataPagamentoHoje;
+    }
   });
   grupo.creditos.forEach(credito => {
     credito.pago = true;
     credito.pagoEm = dataPagamentoHoje;
   });
+
   marcarAlteracaoLocal();
   sincronizarCacheAtual();
   sincronizarCacheCreditosFatura();
@@ -1166,14 +1241,16 @@ document.getElementById("faturaPagamentoConfirmar")?.addEventListener("click", a
     salvarBloco("saveConfig", { faturaCreditos: state.faturaCreditos || [] })
   ]);
   if (okFixos === false || okVariaveis === false || okCreditos === false) {
-    showToast("Não foi possível confirmar todos os pagamentos. Confira a lista antes de tentar novamente.");
-    if (btn) { btn.disabled = false; btn.textContent = "Tentar salvar novamente"; }
+    showToast("Não foi possível salvar todos os status da fatura. Os créditos já foram registrados sem duplicação; tente novamente.");
+    liberarBotao();
     return;
   }
-  showToast(grupo.total > 0
-    ? `Fatura ${grupo.nome} concluída — ${fmt(grupo.total)} pagos após os créditos.`
-    : `Fatura ${grupo.nome} concluída com crédito de ${fmt(Math.abs(grupo.total))}.`);
-  fecharAcoesConjunto(); renderAll();
+  const textoCreditos = grupo.totalCreditos > 0
+    ? ` · ${fmt(grupo.totalCreditos)} registrados como ganhos`
+    : "";
+  showToast(`Fatura ${grupo.nome} concluída — ${fmt(grupo.total)} em compras marcadas como pagas${textoCreditos}.`);
+  fecharAcoesConjunto();
+  renderAll();
 });
 
 const CHAVE_DICA_ACOES = "caixa-dica-acoes-conjunto-vista";
