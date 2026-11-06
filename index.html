@@ -507,6 +507,17 @@
       <div class="fatura-pagamento-heading"><span class="fatura-pagamento-mark">✓</span><h3 id="faturaPagamentoTitulo">Pagamento da fatura</h3><p id="faturaPagamentoResumo" class="section-hint"></p></div>
       <div class="fatura-pagamento-progress"><span id="faturaPagamentoProgressFill"></span></div>
       <div id="faturaPagamentoLista" class="fatura-pagamento-lista"></div>
+      <button type="button" class="btn btn-ghost fatura-credito-abrir" id="faturaCreditoAbrir">+ Adicionar crédito / reembolso</button>
+      <div class="fatura-credito-form is-hidden" id="faturaCreditoForm">
+        <label for="faturaCreditoDescricao">Descrição do crédito</label>
+        <input type="text" id="faturaCreditoDescricao" maxlength="70" placeholder="Ex.: Reembolso de produto" autocomplete="off" />
+        <label for="faturaCreditoValor">Valor recebido</label>
+        <input type="text" id="faturaCreditoValor" inputmode="decimal" placeholder="R$ 0,00" autocomplete="off" />
+        <div class="modal-actions">
+          <button type="button" class="btn btn-primary" id="faturaCreditoSalvar">Adicionar crédito</button>
+          <button type="button" class="btn btn-ghost" id="faturaCreditoCancelar">Cancelar</button>
+        </div>
+      </div>
       <div class="modal-actions"><button type="button" class="btn btn-primary" id="faturaPagamentoConfirmar">Pagar fatura</button><button type="button" class="btn btn-ghost" id="faturaPagamentoCancelar">Cancelar</button></div>
     </div>
 

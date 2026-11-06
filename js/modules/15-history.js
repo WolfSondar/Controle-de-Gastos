@@ -957,23 +957,44 @@ on("acoesFechar", "click", fecharAcoesConjunto);
 function montarGruposFaturaPendentes() {
   const hoje = new Date(), mes = Number(state.mesAtual || hoje.getMonth() + 1), ano = Number(state.anoAtual || hoje.getFullYear());
   const pessoa = state.pessoaAtual === "gabriel" ? "gabriel" : "davi";
-  const configs = (Array.isArray(state.faturas) ? state.faturas : []).filter(f => String(f?.pessoa || "davi") === pessoa);
+  const configs = faturasConfiguradas(pessoa);
   const mapa = new Map();
+  const obterGrupo = (cfg, vencimento) => {
+    const id = String(cfg?.id || "default");
+    const key = `${id}|${vencimento}`;
+    if (!mapa.has(key)) mapa.set(key, {
+      id, nome: String(cfg?.nome || "Fatura"), dia: Number(cfg?.dia) || 1,
+      pessoa, vencimento, registros: [], creditos: [], totalCompras: 0, totalCreditos: 0, total: 0
+    });
+    return mapa.get(key);
+  };
+
   [["fixos", state.gastosFixos || []], ["variaveis", state.gastosVariaveis || []]].forEach(([origem, lista]) => {
     lista.forEach((item, idx) => {
       if (item?.pago === true || !itemEhFatura(item)) return;
       const dt = /^(\d{4})-(\d{2})/.exec(String(item.data || ""));
       if (dt && (Number(dt[1]) !== ano || Number(dt[2]) !== mes)) return;
       const cfg = configs.find(f => String(f.id) === String(item.faturaId || "")) || configs[0] || { id: "default", nome: "Fatura", dia: 1 };
-      const key = String(item.faturaId || cfg.id || "default");
-      if (!mapa.has(key)) mapa.set(key, { id: key, nome: String(cfg.nome || "Fatura"), dia: Number(cfg.dia) || 1, registros: [] });
-      mapa.get(key).registros.push({ item, idx, origem });
+      const last = new Date(ano, mes, 0).getDate();
+      const vencimento = `${ano}-${String(mes).padStart(2,"0")}-${String(Math.min(Number(cfg.dia) || 1,last)).padStart(2,"0")}`;
+      obterGrupo(cfg, vencimento).registros.push({ item, idx, origem });
     });
   });
+
+  (Array.isArray(state.faturaCreditos) ? state.faturaCreditos : []).forEach(credito => {
+    if (credito?.pago === true || String(credito?.pessoa || "davi") !== pessoa) return;
+    const dt = /^(\d{4})-(\d{2})-\d{2}$/.exec(String(credito.vencimento || "").slice(0, 10));
+    if (!dt || Number(dt[1]) !== ano || Number(dt[2]) !== mes) return;
+    const cfg = configs.find(f => String(f.id) === String(credito.faturaId || ""));
+    if (!cfg) return;
+    const vencimento = String(credito.vencimento).slice(0, 10);
+    obterGrupo(cfg, vencimento).creditos.push(credito);
+  });
+
   return [...mapa.values()].map(g => {
-    const last = new Date(ano, mes, 0).getDate();
-    g.vencimento = `${ano}-${String(mes).padStart(2,"0")}-${String(Math.min(g.dia,last)).padStart(2,"0")}`;
-    g.total = g.registros.reduce((n,r) => n + (Number(r.item.valor) || 0), 0);
+    g.totalCompras = g.registros.reduce((n,r) => n + (Number(r.item.valor) || 0), 0);
+    g.totalCreditos = g.creditos.reduce((n,c) => n + (Number(c.valor) || 0), 0);
+    g.total = Math.round((g.totalCompras - g.totalCreditos) * 100) / 100;
     return g;
   }).sort((a,b) => a.vencimento.localeCompare(b.vencimento));
 }
@@ -984,7 +1005,7 @@ on("btnPagarFaturaMes", "click", () => {
   if (faturaPagarOpcoes) faturaPagarOpcoes.innerHTML = faturasElegiveisPagar.map((g,i) => `
     <button type="button" class="acao-card" data-fatura-pagar="${i}">
       <span class="acao-card-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><rect x="3" y="5" width="18" height="15" rx="2"/><path d="M3 10h18M7 15h4"/></svg></span>
-      <span class="acao-card-texto"><strong>${escapeHtml(g.nome)}</strong><small>${g.registros.length} ${g.registros.length === 1 ? "lançamento pendente" : "lançamentos pendentes"} · vence ${formatarDataCurta(g.vencimento)}</small></span><strong class="fatura-opcao-total">${fmt(g.total)}</strong><span class="acao-card-seta">›</span>
+      <span class="acao-card-texto"><strong>${escapeHtml(g.nome)}</strong><small>${g.registros.length} ${g.registros.length === 1 ? "compra pendente" : "compras pendentes"}${g.totalCreditos > 0 ? ` · crédito ${fmt(g.totalCreditos)}` : ""} · vence ${formatarDataCurta(g.vencimento)}</small></span><strong class="fatura-opcao-total">${fmt(g.total)}</strong><span class="acao-card-seta">›</span>
     </button>`).join("");
   mostrarSubViewFatura(faturaPagarView);
 });
@@ -993,19 +1014,89 @@ faturaPagarOpcoes?.addEventListener("click", e => {
   const btn = e.target.closest("[data-fatura-pagar]"); if (!btn) return;
   const grupo = faturasElegiveisPagar[Number(btn.dataset.faturaPagar)]; if (grupo) abrirDetalhePagamentoFatura(grupo);
 });
-function abrirDetalhePagamentoFatura(grupo) {
-  faturaSelecionadaPagamento = grupo;
+function atualizarDetalhePagamentoFatura(grupo) {
   const titulo = document.getElementById("faturaPagamentoTitulo");
   const resumo = document.getElementById("faturaPagamentoResumo");
   const fill = document.getElementById("faturaPagamentoProgressFill");
+  const quantidade = grupo.registros.length;
+  const total = fmt(grupo.total);
+  const infoCredito = grupo.totalCreditos > 0 ? ` · créditos ${fmt(grupo.totalCreditos)}` : "";
   if (titulo) titulo.textContent = grupo.nome;
-  if (resumo) resumo.textContent = `${grupo.registros.length} lançamentos · total de ${fmt(grupo.total)} · vencimento ${formatarDataCurta(grupo.vencimento)}`;
+  if (resumo) resumo.textContent = `${quantidade} ${quantidade === 1 ? "compra" : "compras"}${infoCredito} · total líquido ${total} · vencimento ${formatarDataCurta(grupo.vencimento)}`;
   if (fill) fill.style.width = "0%";
-  if (faturaPagamentoLista) faturaPagamentoLista.innerHTML = grupo.registros.map((r,i) => `<div class="fatura-pagamento-item" data-fatura-item="${i}"><span class="fatura-pagamento-check">✓</span><span class="fatura-pagamento-name">${escapeHtml(nomeExibicaoItem(r.item))}</span><strong>${fmt(r.item.valor)}</strong></div>`).join("");
+
+  const linhasCompras = grupo.registros.map((r,i) =>
+    `<div class="fatura-pagamento-item" data-fatura-item="${i}"><span class="fatura-pagamento-check">✓</span><span class="fatura-pagamento-name">${escapeHtml(nomeExibicaoItem(r.item))}</span><strong>${fmt(r.item.valor)}</strong></div>`
+  );
+  const linhasCreditos = grupo.creditos.map((c,i) =>
+    `<div class="fatura-pagamento-item is-credit" data-fatura-credito="${i}"><span class="fatura-pagamento-check">+</span><span class="fatura-pagamento-name"><small>Crédito</small>${escapeHtml(c.descricao || "Reembolso")}</span><strong>− ${fmt(c.valor)}</strong></div>`
+  );
+  if (faturaPagamentoLista) {
+    faturaPagamentoLista.innerHTML = linhasCompras.concat(linhasCreditos).join("") || '<div class="caixa-config-empty">Nenhum lançamento nesta fatura.</div>';
+  }
   const confirmar = document.getElementById("faturaPagamentoConfirmar");
-  if (confirmar) { confirmar.disabled = false; confirmar.textContent = `Pagar ${fmt(grupo.total)}`; }
+  if (confirmar) {
+    confirmar.disabled = false;
+    confirmar.textContent = grupo.total > 0 ? `Pagar ${total}` : `Concluir fatura · ${total}`;
+  }
+  const formCredito = document.getElementById("faturaCreditoForm");
+  formCredito?.classList.add("is-hidden");
+  const desc = document.getElementById("faturaCreditoDescricao");
+  const valor = document.getElementById("faturaCreditoValor");
+  if (desc) desc.value = "";
+  if (valor) valor.value = "";
+  const abrirCredito = document.getElementById("faturaCreditoAbrir");
+  if (abrirCredito) abrirCredito.classList.remove("is-hidden");
+}
+
+function abrirDetalhePagamentoFatura(grupo) {
+  faturaSelecionadaPagamento = grupo;
+  atualizarDetalhePagamentoFatura(grupo);
   mostrarSubViewFatura(faturaPagamentoView);
 }
+
+const faturaCreditoAbrir = document.getElementById("faturaCreditoAbrir");
+const faturaCreditoForm = document.getElementById("faturaCreditoForm");
+faturaCreditoAbrir?.addEventListener("click", () => {
+  faturaCreditoAbrir.classList.add("is-hidden");
+  faturaCreditoForm?.classList.remove("is-hidden");
+  document.getElementById("faturaCreditoDescricao")?.focus();
+});
+document.getElementById("faturaCreditoCancelar")?.addEventListener("click", () => {
+  faturaCreditoForm?.classList.add("is-hidden");
+  faturaCreditoAbrir?.classList.remove("is-hidden");
+});
+document.getElementById("faturaCreditoSalvar")?.addEventListener("click", () => {
+  const grupo = faturaSelecionadaPagamento;
+  if (!grupo || state.pessoaAtual === "ambos") return;
+  const descricao = String(document.getElementById("faturaCreditoDescricao")?.value || "").trim();
+  const rawValor = String(document.getElementById("faturaCreditoValor")?.value || "").trim().replace(/R\$/gi, "").replace(/\s/g, "");
+  const numero = Number(rawValor.includes(",") ? rawValor.replace(/\./g, "").replace(",", ".") : rawValor);
+  if (!descricao) { showToast("Informe a descrição do crédito."); return; }
+  if (!Number.isFinite(numero) || numero <= 0) { showToast("Informe um valor de crédito maior que zero."); return; }
+
+  const credito = {
+    id: window.crypto?.randomUUID?.() || `credito-${Date.now()}-${Math.random().toString(36).slice(2,8)}`,
+    pessoa: state.pessoaAtual === "gabriel" ? "gabriel" : "davi",
+    faturaId: String(grupo.id),
+    vencimento: String(grupo.vencimento).slice(0, 10),
+    descricao,
+    valor: Math.round(numero * 100) / 100,
+    pago: false,
+    criadoEm: new Date().toISOString(),
+  };
+  if (!Array.isArray(state.faturaCreditos)) state.faturaCreditos = [];
+  state.faturaCreditos.push(credito);
+  grupo.creditos.push(credito);
+  grupo.totalCreditos = Math.round((grupo.totalCreditos + credito.valor) * 100) / 100;
+  grupo.total = Math.round((grupo.totalCompras - grupo.totalCreditos) * 100) / 100;
+  marcarAlteracaoLocal();
+  sincronizarCacheAtual();
+  sincronizarCacheCreditosFatura();
+  salvarBloco("saveConfig", { faturaCreditos: state.faturaCreditos });
+  atualizarDetalhePagamentoFatura(grupo);
+  showToast(`Crédito de ${fmt(credito.valor)} adicionado à fatura ${grupo.nome}.`);
+});
 document.getElementById("faturaPagamentoCancelar")?.addEventListener("click", () => mostrarSubViewFatura(faturasElegiveisPagar.length > 1 ? faturaPagarView : acoesMenuView));
 document.getElementById("faturaPagamentoConfirmar")?.addEventListener("click", async () => {
   const grupo = faturaSelecionadaPagamento; if (!grupo) return;
@@ -1019,7 +1110,7 @@ document.getElementById("faturaPagamentoConfirmar")?.addEventListener("click", a
     // para que os itens seguintes deslizem suavemente, sem salto de layout.
     row.classList.add("is-paying");
     const fill = document.getElementById("faturaPagamentoProgressFill");
-    if (fill) fill.style.width = `${Math.round((i+1)/rows.length*100)}%`;
+    if (fill) fill.style.width = `${Math.round((i+1)/Math.max(1, rows.length)*100)}%`;
     await aguardarAnimacao(360);
     row.style.height = `${row.getBoundingClientRect().height}px`;
     row.style.flex = "0 0 auto";
@@ -1035,16 +1126,26 @@ document.getElementById("faturaPagamentoConfirmar")?.addEventListener("click", a
     const item = lista?.[r.idx];
     if (item) { item.pago = true; item.data = dataPagamentoHoje; }
   });
-  const [okFixos, okVariaveis] = await Promise.all([
+  grupo.creditos.forEach(credito => {
+    credito.pago = true;
+    credito.pagoEm = dataPagamentoHoje;
+  });
+  marcarAlteracaoLocal();
+  sincronizarCacheAtual();
+  sincronizarCacheCreditosFatura();
+  const [okFixos, okVariaveis, okCreditos] = await Promise.all([
     salvarBloco("saveGastosFixos", state.gastosFixos),
-    salvarBloco("saveGastosVariaveis", state.gastosVariaveis)
+    salvarBloco("saveGastosVariaveis", state.gastosVariaveis),
+    salvarBloco("saveConfig", { faturaCreditos: state.faturaCreditos || [] })
   ]);
-  if (okFixos === false || okVariaveis === false) {
+  if (okFixos === false || okVariaveis === false || okCreditos === false) {
     showToast("Não foi possível confirmar todos os pagamentos. Confira a lista antes de tentar novamente.");
     if (btn) { btn.disabled = false; btn.textContent = "Tentar salvar novamente"; }
     return;
   }
-  showToast(`Fatura ${grupo.nome} paga — ${fmt(grupo.total)} registrados como pagos.`);
+  showToast(grupo.total > 0
+    ? `Fatura ${grupo.nome} concluída — ${fmt(grupo.total)} pagos após os créditos.`
+    : `Fatura ${grupo.nome} concluída com crédito de ${fmt(Math.abs(grupo.total))}.`);
   fecharAcoesConjunto(); renderAll();
 });
 

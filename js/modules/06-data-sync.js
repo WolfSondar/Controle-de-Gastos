@@ -36,16 +36,19 @@ async function carregarDados() {
     state.temasConfig = cache.temasConfig || null;
     // O último tema visual fica em cache separado das regras sazonais.
     // Assim a abertura nunca precisa passar visualmente por Padrão.
-    const temaCache = cache.temaAtivo || caixaTemaAtivoGlobal();
-    if (["default", "christmas", "halloween"].includes(temaCache)) {
-      try { localStorage.setItem("caixa-tema-estilo-v1", temaCache); } catch (_) {}
-      document.documentElement.dataset.caixaTheme = temaCache;
-      window.CAIXA_ATUALIZAR_COR_CHROME_TEMA?.();
-      window.CAIXA_ATUALIZAR_MUSICA_TEMA?.();
-      caixaGarantirCssTemaGlobal(temaCache);
-      if (temaCache === "christmas" && typeof garantirEstiloNatalRefinado === "function") garantirEstiloNatalRefinado();
-    }
+    let temaCache = cache.temaAtivo || caixaTemaAtivoGlobal();
+    // O cache pode ter sido criado no mês anterior. Validamos o calendário
+    // antes de mostrá-lo, inclusive quando a abertura acontece offline.
+    if (temaCache !== "default" && !caixaTemaPodeSerUsadoGlobal(temaCache)) temaCache = "default";
+    if (!["default", "christmas", "halloween"].includes(temaCache)) temaCache = "default";
+    try { localStorage.setItem("caixa-tema-estilo-v1", temaCache); } catch (_) {}
+    document.documentElement.dataset.caixaTheme = temaCache;
+    window.CAIXA_ATUALIZAR_COR_CHROME_TEMA?.();
+    window.CAIXA_ATUALIZAR_MUSICA_TEMA?.();
+    caixaGarantirCssTemaGlobal(temaCache);
+    if (temaCache === "christmas" && typeof garantirEstiloNatalRefinado === "function") garantirEstiloNatalRefinado();
     state.faturas = Array.isArray(cache.faturas) ? cache.faturas : state.faturas;
+    state.faturaCreditos = Array.isArray(cache.faturaCreditos) ? cache.faturaCreditos : state.faturaCreditos;
     // Em modo offline, o cache pode fornecer o último mês conhecido.
     // Online, não usamos esse valor: o mês será definido somente pelo Firebase.
     if (!navigator.onLine) {
@@ -124,6 +127,7 @@ async function carregarDados() {
       iconCategorias: colecaoMudou(state.iconCategorias || [], data.iconCategorias || []),
       temasConfig: JSON.stringify(state.temasConfig || null) !== JSON.stringify(data.temasConfig || null),
       faturas: JSON.stringify(state.faturas || []) !== JSON.stringify(Array.isArray(data.faturas) ? data.faturas : []),
+      faturaCreditos: JSON.stringify(state.faturaCreditos || []) !== JSON.stringify(Array.isArray(data.faturaCreditos) ? data.faturaCreditos : []),
     };
     state.ganhos = data.ganhos || [];
     state.gastosFixos = data.gastosFixos || [];
@@ -135,6 +139,7 @@ async function carregarDados() {
     state.iconCategorias = data.iconCategorias || [];
     state.temasConfig = data.temasConfig || null;
     state.faturas = Array.isArray(data.faturas) ? data.faturas : [];
+    state.faturaCreditos = Array.isArray(data.faturaCreditos) ? data.faturaCreditos : [];
     state.loaded = true;
     if (pessoaRequisitada === "ambos") {
       state.mesAtualDavi = Number(data.configDavi?.mesAtual) || null;

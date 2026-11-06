@@ -308,3 +308,23 @@ window.CAIXA_TEMA_ATIVO = caixaTemaAtivoGlobal;
 window.CAIXA_SINCRONIZAR_TEMA_SAZONAL = caixaSincronizarTemaSazonalGlobal;
 window.CAIXA_GARANTIR_CSS_TEMA = caixaGarantirCssTemaGlobal;
 
+// Reavalia o calendário mesmo quando a aplicação permanece aberta na virada
+// do mês (ou no primeiro/último dia configurado para cada tema).
+let caixaTemaSazonalRelogio = null;
+function iniciarRelogioTemaSazonal() {
+  if (caixaTemaSazonalRelogio) return;
+  caixaTemaSazonalRelogio = setInterval(() => {
+    // Durante a carga inicial, os dados em cache/Firebase ainda podem atualizar
+    // as regras sazonais. Evitamos aplicar um fallback prematuro nesse intervalo.
+    if (window.CAIXA_CARREGAMENTO_INICIAL_TEMA || !state.loaded) return;
+    const esperado = ["christmas", "halloween"].find(id => caixaTemaPodeSerUsadoGlobal(id)) || "default";
+    const aplicado = document.documentElement.dataset.caixaTheme || "default";
+    if (caixaTemaAtivoGlobal() === esperado && aplicado === esperado) return;
+    const ativo = caixaSincronizarTemaSazonalGlobal();
+    window.CAIXA_GARANTIR_CSS_TEMA?.(ativo);
+    window.CAIXA_ATUALIZAR_CAMADAS_TEMAS?.();
+    window.CAIXA_ATUALIZAR_DECORACAO_POPUPS?.();
+  }, 60000);
+}
+iniciarRelogioTemaSazonal();
+

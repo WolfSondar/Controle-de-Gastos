@@ -310,6 +310,7 @@ if (!cfg.apiKey || cfg.apiKey.includes("COLE_")) {
       caixinhas:[...(a.caixinhas||[]).map(x=>({...x,pessoa:"davi"})),...(b.caixinhas||[]).map(x=>({...x,pessoa:"gabriel"}))],
       categorias:a.categorias||b.categorias||[], iconCategorias:a.iconCategorias||b.iconCategorias||[], iconNomes:a.iconNomes||b.iconNomes||{}, temasConfig:a.temasConfig||b.temasConfig||null,
       faturas:Array.isArray(a.faturas)?a.faturas:[],
+      faturaCreditos:Array.isArray(a.faturaCreditos)?a.faturaCreditos:[],
       mesAtual:a.mesAtual, anoAtual:a.anoAtual,
       configDavi:{mesAtual:a.mesAtual,anoAtual:a.anoAtual}, configGabriel:{mesAtual:b.mesAtual,anoAtual:b.anoAtual},
     };
@@ -327,6 +328,7 @@ if (!cfg.apiKey || cfg.apiKey.includes("COLE_")) {
       temasConfig:c.temasConfig||null,
 
       faturas:Array.isArray(c.faturas)?c.faturas:[],
+      faturaCreditos:Array.isArray(c.faturaCreditos)?c.faturaCreditos:[],
     };
   }
   async function lerHistorico(uid){
@@ -586,13 +588,14 @@ if (!cfg.apiKey || cfg.apiKey.includes("COLE_")) {
     if(action==="sincronizarGanhoCorrespondenteFixo") return respostaJson(await sincronizarGanhoCorrespondenteFixoFirestore(uid,body));
     if(action==="saveConfig"){
       const patch = body?.payload && typeof body.payload === "object" ? body.payload : {};
-      const permitidos = ["categorias","iconCategorias","iconNomes","temasConfig","faturas"];
+      const permitidos = ["categorias","iconCategorias","iconNomes","temasConfig","faturas","faturaCreditos"];
       const limpo = {};
       for (const chave of permitidos) {
         if (Object.prototype.hasOwnProperty.call(patch, chave)) limpo[chave] = patch[chave];
       }
       if (Object.prototype.hasOwnProperty.call(limpo,"categorias") && !Array.isArray(limpo.categorias)) throw new Error("Categorias inválidas.");
       if (Object.prototype.hasOwnProperty.call(limpo,"faturas") && !Array.isArray(limpo.faturas)) throw new Error("Faturas inválidas.");
+      if (Object.prototype.hasOwnProperty.call(limpo,"faturaCreditos") && !Array.isArray(limpo.faturaCreditos)) throw new Error("Créditos de fatura inválidos.");
       await setDoc(configRef(uid), limpo, {merge:true});
       return respostaJson({ok:true});
     }

@@ -442,9 +442,10 @@
     const regra = (state.temasConfig || {})[id];
     const calendario = metadadosTemaApp(id).seasonal;
     if (!regra || !calendario) return false;
-    if (regra.forcarAgora === true) return true;
     const hoje = new Date();
+    // O forçamento administrativo não ultrapassa a virada do mês sazonal.
     if (hoje.getMonth() + 1 !== Number(calendario.month)) return false;
+    if (regra.forcarAgora === true) return true;
     const dia = hoje.getDate();
     return dia >= Number(calendario.startDay) && dia <= Number(calendario.endDay);
   }
@@ -531,7 +532,9 @@
     }
 
     const cfg = state.temasConfig || {};
-    const ativoForcado = cfg.christmas?.forcarAgora ? "christmas" : (cfg.halloween?.forcarAgora ? "halloween" : "");
+    const ativoForcado = cfg.christmas?.forcarAgora && temaPodeSerUsado("christmas")
+      ? "christmas"
+      : (cfg.halloween?.forcarAgora && temaPodeSerUsado("halloween") ? "halloween" : "");
     wrap.innerHTML = temasForcaveis.map(t => `
       <button type="button" class="caixa-admin-seasonal-card${ativoForcado === t.id ? " is-active" : ""}" data-caixa-seasonal-force-card="${t.id}" aria-pressed="${ativoForcado === t.id}">
         <span class="caixa-admin-seasonal-head">
@@ -581,6 +584,7 @@
       temasConfig: state.temasConfig,
       temaAtivo: ativo,
       faturas: state.faturas,
+      faturaCreditos: state.faturaCreditos,
       mesAtual: state.mesAtual,
       anoAtual: state.anoAtual
     }).catch(() => {});

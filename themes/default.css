@@ -10970,3 +10970,18 @@ html[data-theme="dark"] { --benefit-income: var(--benefit); --benefit-expense: v
 @media (prefers-reduced-motion: reduce) {
   *, *::before, *::after { scroll-behavior: auto !important; animation-duration: .01ms !important; transition-duration: .01ms !important; }
 }
+
+
+/* Créditos/reembolsos vinculados exclusivamente ao ciclo e cartão selecionados. */
+.fatura-pagamento-item.is-credit {
+  border-color: color-mix(in srgb, var(--benefit-income, #23845d) 28%, var(--border-color, transparent));
+  background: color-mix(in srgb, var(--benefit-income, #23845d) 7%, var(--card-bg, transparent));
+}
+.fatura-pagamento-item.is-credit .fatura-pagamento-check,
+.fatura-pagamento-item.is-credit strong { color: var(--benefit-income, #23845d); }
+.fatura-pagamento-name small { display:block; margin-bottom:2px; color:var(--benefit-income, #23845d); font-size:.68rem; font-weight:800; text-transform:uppercase; letter-spacing:.05em; }
+.fatura-credito-abrir { width:100%; margin:4px 0 12px; }
+.fatura-credito-form { padding:13px; margin:0 0 14px; border:1px solid var(--border-color,rgba(128,128,128,.2)); border-radius:15px; background:var(--card-bg,rgba(128,128,128,.04)); }
+.fatura-credito-form label { display:block; margin:0 0 6px 2px; color:var(--muted); font-size:.75rem; font-weight:750; }
+.fatura-credito-form input { width:100%; min-height:43px; margin:0 0 12px; padding:10px 12px; border:1px solid var(--border-color,rgba(128,128,128,.22)); border-radius:11px; color:var(--text-color,inherit); background:var(--paper,transparent); font:inherit; }
+.fatura-credito-form .modal-actions { margin-top:4px!important; }

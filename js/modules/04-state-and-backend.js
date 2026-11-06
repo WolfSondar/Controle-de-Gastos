@@ -39,6 +39,9 @@ const state = {
   iconNomes: {}, // nomes amigáveis dos ícones
   temasConfig: null, // temas sazonais e regras administrativas
   faturas: [], // [{id,nome,dia,pessoa}] configuradas pelo usuário
+  // Créditos/reembolsos são ligados a uma pessoa, uma fatura e um vencimento.
+  // Assim afetam somente uma fatura específica, sem alterar parcelas futuras.
+  faturaCreditos: [], // [{id,pessoa,faturaId,vencimento,descricao,valor,pago}]
 };
 
 function renderMesAtual() {
@@ -197,6 +200,7 @@ async function setCache(pessoa, data) {
     temasConfig: data.temasConfig || null,
     temaAtivo: data.temaAtivo || (typeof caixaTemaAtivoGlobal === "function" ? caixaTemaAtivoGlobal() : "default"),
     faturas: Array.isArray(data.faturas) ? data.faturas : [],
+    faturaCreditos: Array.isArray(data.faturaCreditos) ? data.faturaCreditos : [],
     mesAtual: data.mesAtual || null,
     anoAtual: data.anoAtual || null,
   });
@@ -358,9 +362,12 @@ function caixaTemaPodeSerUsadoGlobal(id) {
   const regra = regraTemaSazonalGlobal(id);
   const calendario = metadadosTemaApp(id).seasonal;
   if (!regra || !calendario) return false;
-  if (regra.forcarAgora === true) return true;
   const hoje = new Date();
+  // Mesmo um tema marcado para teste pelo Admin só pode ficar ativo no mês
+  // ao qual pertence. Isso evita Halloween permanecer em novembro e Natal
+  // atravessar para janeiro por causa de um forçarAgora antigo.
   if (hoje.getMonth() + 1 !== Number(calendario.month)) return false;
+  if (regra.forcarAgora === true) return true;
   const dia = hoje.getDate();
   return dia >= Number(calendario.startDay) && dia <= Number(calendario.endDay);
 }

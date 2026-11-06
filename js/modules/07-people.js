@@ -99,6 +99,7 @@ async function trocarPessoa(pessoa) {
     state.saldoInicialBeneficio = Number(cache.saldoInicialBeneficio) || 0;
     state.categoriasConfig = cache.categorias || null;
     state.iconCategorias = cache.iconCategorias || [];
+    state.faturas = Array.isArray(cache.faturas) ? cache.faturas : state.faturas;
     if (!navigator.onLine) {
       state.mesAtual = Number(cache.mesAtual) || null;
       state.anoAtual = Number(cache.anoAtual) || null;
@@ -193,7 +194,22 @@ function sincronizarCacheAtual() {
     caixinhas: state.caixinhas,
     saldoInicialConta: state.saldoInicialConta,
     saldoInicialBeneficio: state.saldoInicialBeneficio,
+    faturas: state.faturas,
+    faturaCreditos: state.faturaCreditos,
+    temasConfig: state.temasConfig,
   });
+}
+
+// Créditos de fatura ficam na configuração global do usuário, não em um perfil.
+// Mantemos também o cache do outro perfil atualizado para que uma abertura
+// posterior sem internet não recupere uma lista antiga de reembolsos.
+async function sincronizarCacheCreditosFatura() {
+  if (isAmbos()) return;
+  const outraPessoa = state.pessoaAtual === "gabriel" ? "davi" : "gabriel";
+  try {
+    const cache = await getCache(outraPessoa);
+    if (cache) await setCache(outraPessoa, { ...cache, faturaCreditos: state.faturaCreditos || [] });
+  } catch (_) {}
 }
 
 function criarOperacoesLista(key, action) {

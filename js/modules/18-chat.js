@@ -795,27 +795,45 @@
     }
 
     function perguntarFaturaAntesDaData(callback) {
-      // Gastos deste fluxo são registrados como compra em fatura por padrão.
+      // O usuário escolhe o cartão primeiro. O ciclo é calculado separadamente
+      // para cada vencimento, sem empurrar automaticamente toda compra para
+      // a próxima fatura ao entrar na janela de fechamento.
       cadastroAtivo.fatura = true;
       const faturas = faturasConfiguradas(state.pessoaAtual);
-      const concluirFatura = (faturaId) => {
+      const concluirDataFatura = (faturaId) => {
         const fatura = faturaPorId(faturaId, state.pessoaAtual);
-        const vencimento = dataVencimentoFaturaAtual(fatura?.id || "");
+        const ciclo = calcularCicloFaturaParaLancamento(state.pessoaAtual, new Date(), fatura?.id || "");
         cadastroAtivo.faturaId = fatura?.id || "";
         cadastroAtivo.faturaNome = fatura?.nome || "Fatura";
-        cadastroAtivo.data = vencimento;
-        appendMensagem(`Fatura: <strong>${esc(cadastroAtivo.faturaNome)}</strong> · vencimento ${esc(formatarDataParaChat(vencimento))}`);
-        callback(vencimento, true);
+
+        const concluir = vencimento => {
+          cadastroAtivo.data = vencimento;
+          appendMensagem(`Fatura: <strong>${esc(cadastroAtivo.faturaNome)}</strong> · vencimento ${esc(formatarDataParaChat(vencimento))}`);
+          callback(vencimento, true);
+        };
+
+        if (ciclo.situacao === "janela") {
+          appendMensagem(`Esta compra está nos sete dias anteriores ao fechamento da fatura <strong>${esc(cadastroAtivo.faturaNome)}</strong>. Em qual ciclo ela deve entrar?`);
+          escolhaChat([
+            ["atual", `Fatura atual · vence ${formatarDataParaChat(ciclo.atual)}`, "Entra no fechamento que está chegando"],
+            ["proxima", `Próxima fatura · vence ${formatarDataParaChat(ciclo.proxima)}`, "Entra no ciclo seguinte"]
+          ], escolha => concluir(escolha === "atual" ? ciclo.atual : ciclo.proxima));
+          return;
+        }
+
+        // Antes da janela: fatura atual. Depois do fechamento: próxima fatura.
+        concluir(ciclo.selecionado);
       };
+
       if (faturas.length > 1) {
         selectChat(
           "Em qual fatura?",
           faturas.map(f => [String(f.id), String(f.nome || "Fatura")]),
-          concluirFatura,
+          concluirDataFatura,
           { placeholder: "Escolha a fatura…" }
         );
       } else if (faturas.length === 1) {
-        concluirFatura(faturas[0].id);
+        concluirDataFatura(faturas[0].id);
       } else {
         cadastroAtivo.faturaId = "";
         cadastroAtivo.faturaNome = "Fatura";

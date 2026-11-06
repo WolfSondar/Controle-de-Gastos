@@ -159,6 +159,58 @@ function dataVencimentoFaturaAtual(faturaId = "") {
   return proximaDataVencimentoFatura(pessoaDaFaturaAtual(), new Date(), faturaId);
 }
 
+// Define o ciclo de uma compra usando o dia de vencimento do cartão escolhido.
+// A janela de escolha são os sete dias que antecedem o fechamento (vencimento - 7).
+// Antes da janela usa a fatura atual; depois do fechamento usa a próxima.
+function calcularCicloFaturaParaLancamento(pessoa, base = new Date(), faturaId = "") {
+  const fatura = faturaId ? faturaPorId(faturaId, pessoa) : faturaPadraoPessoa(pessoa);
+  const diaVencimento = Math.max(1, Math.min(31, Number(fatura?.dia) || VENCIMENTOS_FATURA_PADRAO[pessoa] || 9));
+  const hoje = new Date(base);
+  hoje.setHours(12, 0, 0, 0);
+
+  let ano = hoje.getFullYear();
+  let mes = hoje.getMonth();
+  const vencimentoNoMes = (a, m) => {
+    const ultimo = new Date(a, m + 1, 0).getDate();
+    return new Date(a, m, Math.min(diaVencimento, ultimo), 12, 0, 0, 0);
+  };
+  let vencimentoAtual = vencimentoNoMes(ano, mes);
+  if (hoje > vencimentoAtual) {
+    mes += 1;
+    if (mes > 11) { mes = 0; ano += 1; }
+    vencimentoAtual = vencimentoNoMes(ano, mes);
+  }
+
+  const fechamento = new Date(vencimentoAtual);
+  fechamento.setDate(fechamento.getDate() - 7);
+  const inicioJanela = new Date(fechamento);
+  inicioJanela.setDate(inicioJanela.getDate() - 7);
+
+  let anoSeguinte = vencimentoAtual.getFullYear();
+  let mesSeguinte = vencimentoAtual.getMonth() + 1;
+  if (mesSeguinte > 11) { mesSeguinte = 0; anoSeguinte += 1; }
+  const vencimentoSeguinte = vencimentoNoMes(anoSeguinte, mesSeguinte);
+  const paraISO = data => `${data.getFullYear()}-${String(data.getMonth() + 1).padStart(2, "0")}-${String(data.getDate()).padStart(2, "0")}`;
+
+  let situacao = "antes";
+  let selecionado = vencimentoAtual;
+  if (hoje >= fechamento) {
+    situacao = "depois";
+    selecionado = vencimentoSeguinte;
+  } else if (hoje >= inicioJanela) {
+    situacao = "janela";
+  }
+
+  return {
+    situacao,
+    inicioJanela: paraISO(inicioJanela),
+    fechamento: paraISO(fechamento),
+    atual: paraISO(vencimentoAtual),
+    proxima: paraISO(vencimentoSeguinte),
+    selecionado: paraISO(selecionado),
+  };
+}
+
 function metaInfoHtml(item) {
   const partes = [];
   if (itemEhFatura(item)) {
