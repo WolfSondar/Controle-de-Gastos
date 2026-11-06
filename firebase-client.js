@@ -140,6 +140,36 @@ if (!cfg.apiKey || cfg.apiKey.includes("COLE_")) {
   function somaPagos(lista) { return (lista || []).reduce((a,i) => a + (i?.pago === true ? Number(i.valor)||0 : 0), 0); }
   function ehCaixinhaLancamento(nome) { return typeof nome === "string" && nome.indexOf("Guardado: ") === 0; }
   function somaVariaveisReais(lista) { return (lista || []).reduce((a,i) => a + (!ehCaixinhaLancamento(i?.nome) && i?.pago === true && i?.lembrete !== true ? Number(i.valor)||0 : 0),0); }
+  function itemEhFatura(i) { return i?.fatura === true || /^Fatura:\s*/i.test(String(i?.nome || "")); }
+  function dataMesIgual(data, mes, ano) {
+    const m = /^(\d{4})-(\d{2})/.exec(String(data || ""));
+    return !!m && Number(m[1]) === Number(ano) && Number(m[2]) === Number(mes);
+  }
+  function dataCompetenciaCredito(credito) {
+    return String(credito?.pago === true ? (credito?.pagoEm || credito?.vencimento || "") : (credito?.vencimento || "")).slice(0, 10);
+  }
+  function somarCreditosFaturaMes(creditos, pessoa, mes, ano, somentePagos = false) {
+    const escopo = String(pessoa || "davi").toLowerCase();
+    const filtrarPessoa = escopo !== "ambos";
+    const dono = escPessoa(escopo);
+    return (Array.isArray(creditos) ? creditos : []).reduce((total, credito) => {
+      if (!credito || (somentePagos && credito.pago !== true)) return total;
+      // A visão consolidada precisa somar os dois perfis. No fechamento de
+      // cada perfil, a filtragem continua estrita para não cruzar reembolsos.
+      if (filtrarPessoa && escPessoa(credito.pessoa || "davi") !== dono) return total;
+      if (!dataMesIgual(dataCompetenciaCredito(credito), mes, ano)) return total;
+      return total + (Number(credito.valor) || 0);
+    }, 0);
+  }
+  function somaRecebidosDoMes(lista, mes, ano) {
+    const cicloAtual = Number(ano) * 12 + Number(mes);
+    return (Array.isArray(lista) ? lista : []).reduce((total, item) => {
+      if (item?.recebido !== true || String(item?.tipo || "").toLowerCase() === "saldo_anterior") return total;
+      const ciclo = cicloMesData(item?.data);
+      if (ciclo !== null && ciclo !== cicloAtual) return total;
+      return total + (Number(item?.valor) || 0);
+    }, 0);
+  }
   function totalCaixinha(c) { return (Number(c?.valorGuardado)||0)+(Number(c?.rendimentoTotal)||0)+(Number(c?.valorGuardadoMes)||0); }
   function somaCampo(lista,campo) { return (lista||[]).reduce((a,i)=>a+(Number(i?.[campo])||0),0); }
   function separarGanhos(lista) {
@@ -190,8 +220,14 @@ if (!cfg.apiKey || cfg.apiKey.includes("COLE_")) {
     const guardadoNoMes = caixinhas.reduce((acc, item) =>
       acc + (Number(item?.valorGuardadoMes) || 0), 0);
 
+    const pessoa = dados?.pessoa || "davi";
+    const creditosFaturaPagos = somarCreditosFaturaMes(
+      dados?.faturaCreditos, pessoa, dados?.mesAtual, dados?.anoAtual, true
+    );
     const beneficio = ganhosPorOrigem.beneficios - fixosPagosBeneficio - gastosVariaveisBeneficio;
-    const saldoConta = ganhosPorOrigem.ganhos - fixosPagosSaldo - gastosVariaveisSaldo - guardadoNoMes;
+    // Reembolso só volta ao saldo quando a fatura é efetivamente liquidada.
+    // O crédito é exclusivo das compras de cartão, que saem do saldo em conta.
+    const saldoConta = ganhosPorOrigem.ganhos - fixosPagosSaldo - gastosVariaveisSaldo - guardadoNoMes + creditosFaturaPagos;
     return {
       ganhosPorOrigem,
       fixosPagos,
@@ -200,6 +236,7 @@ if (!cfg.apiKey || cfg.apiKey.includes("COLE_")) {
       gastosVariaveisBeneficio,
       gastosVariaveisSaldo,
       guardadoNoMes,
+      creditosFaturaPagos,
       beneficio,
       saldoConta,
       total: beneficio + saldoConta,
@@ -295,6 +332,28 @@ if (!cfg.apiKey || cfg.apiKey.includes("COLE_")) {
     out.pago=false;
     return out;
   }
+  function itemPertenceAoMesFechado(item, mes, ano) {
+    const ciclo = cicloMesData(item?.data);
+    return ciclo === null || ciclo <= Number(ano) * 12 + Number(mes);
+  }
+  function despesasCompromissadasDoMes(dados, mes, ano) {
+    const fixos = (dados.gastosFixos || []).reduce((total, item) =>
+      total + (itemPertenceAoMesFechado(item, mes, ano) ? (Number(item?.valor) || 0) : 0), 0);
+    const variaveis = (dados.gastosVariaveis || []).reduce((total, item) =>
+      total + (!ehCaixinhaLancamento(item?.nome) && item?.lembrete !== true && itemPertenceAoMesFechado(item, mes, ano) ? (Number(item?.valor) || 0) : 0), 0);
+    return fixos + variaveis;
+  }
+  function categoriasCompromissadasDoMes(dados, mes, ano) {
+    const mapa = {};
+    const add = item => {
+      if (!item || ehCaixinhaLancamento(item?.nome) || item?.lembrete === true || !itemPertenceAoMesFechado(item, mes, ano)) return;
+      const categoria = String(item.tipo || "Outros").trim() || "Outros";
+      mapa[categoria] = (mapa[categoria] || 0) + (Number(item.valor) || 0);
+    };
+    (dados.gastosFixos || []).forEach(add);
+    (dados.gastosVariaveis || []).forEach(add);
+    return mapa;
+  }
   function categoriasDoMes(dados) {
     const mapa={};
     const add=(i)=>{if(i?.pago!==true||ehCaixinhaLancamento(i?.nome)||i?.lembrete===true)return;const c=String(i.tipo||"Outros").trim()||"Outros";mapa[c]=(mapa[c]||0)+(Number(i.valor)||0);};
@@ -341,23 +400,46 @@ if (!cfg.apiKey || cfg.apiKey.includes("COLE_")) {
     const pessoa=escPessoa(body.pessoa),mes=Number(body.mes),ano=Number(body.ano),next=mesSeguinte(mes,ano);
     if(Number(body.mes)<1||Number(body.mes)>12||!ano)throw new Error("Mês ou ano inválido para fechamento");
     return runTransaction(db, async tx=>{
-      const pref=perfilRef(uid,pessoa), href=historicoRef(uid); const ps=await tx.get(pref), hs=await tx.get(href);
+      const pref=perfilRef(uid,pessoa), href=historicoRef(uid), cref=configRef(uid);
+      const [ps, hs, cs] = await Promise.all([tx.get(pref), tx.get(href), tx.get(cref)]);
       const dados=ps.exists()?ps.data():{}; if(Number(dados.mesAtual)!==mes||Number(dados.anoAtual)!==ano)throw new Error(`O mês informado não é o mês atual de ${pessoa}.`);
-      const ganhos=somaRecebidos(dados.ganhos),debitos=somaPagos(dados.gastosFixos)+somaVariaveisReais(dados.gastosVariaveis);
-      const saldos=calcularSaldosDisponiveis(dados),saldo=saldos.total;
+      const configuracao = cs.exists() ? cs.data() : {};
+      const faturaCreditos = Array.isArray(configuracao.faturaCreditos) ? configuracao.faturaCreditos : [];
+      const dadosComCreditos = { ...dados, pessoa, faturaCreditos };
+      const ganhos=somaRecebidos(dados.ganhos);
+      const ganhosDoMes = somaRecebidosDoMes(dados.ganhos, mes, ano);
+      const debitosBrutos=somaPagos(dados.gastosFixos)+somaVariaveisReais(dados.gastosVariaveis);
+      const creditosPagosMes = somarCreditosFaturaMes(faturaCreditos, pessoa, mes, ano, true);
+      // O histórico de débitos registra o que realmente saiu da conta: compras
+      // pagas menos os reembolsos efetivamente aplicados na fatura.
+      const debitos = debitosBrutos - creditosPagosMes;
+      const saldos=calcularSaldosDisponiveis(dadosComCreditos),saldo=saldos.total;
       // Fechamento separado por origem: dinheiro próprio (saldo) x benefício.
       // Esses campos ficam gravados no histórico para que o mês continue
       // mostrando de onde veio o dinheiro e onde ele foi usado.
       const ganhosSaldo=Number(saldos.ganhosPorOrigem?.ganhos)||0;
       const ganhosBeneficio=Number(saldos.ganhosPorOrigem?.beneficios)||0;
-      const gastosSaldo=(Number(saldos.fixosPagosSaldo)||0)+(Number(saldos.gastosVariaveisSaldo)||0);
+      const gastosSaldo=(Number(saldos.fixosPagosSaldo)||0)+(Number(saldos.gastosVariaveisSaldo)||0)-creditosPagosMes;
       const gastosBeneficio=(Number(saldos.fixosPagosBeneficio)||0)+(Number(saldos.gastosVariaveisBeneficio)||0);
       const saldoSaldo=Number(saldos.saldoConta)||0;
       const saldoBeneficio=Number(saldos.beneficio)||0;
       const guardado=(dados.caixinhas||[]).reduce((a,c)=>a+totalCaixinha(c),0),guardadoMes=somaCampo(dados.caixinhas,"valorGuardadoMes"),rendimento=somaCampo(dados.caixinhas,"rendimentoTotal"),categorias=categoriasDoMes(dados);
+      const despesasCompromissadas = despesasCompromissadasDoMes(dados, mes, ano);
+      const creditosFaturaMes = somarCreditosFaturaMes(faturaCreditos, pessoa, mes, ano, false);
+      const gastosLiquidosMes = despesasCompromissadas - creditosFaturaMes;
+      const categoriasCompromissadas = categoriasCompromissadasDoMes(dados, mes, ano);
       const hv=hs.exists()?hs.data():{};const anos=Array.isArray(hv.anos)?structuredClone(hv.anos):[];let bloco=anos.find(x=>Number(x.ano)===ano);if(!bloco){bloco={ano,meses:[]};anos.push(bloco);}
       let m=bloco.meses.find(x=>Number(x.mes)===mes);if(!m){m={mes,nome:tituloMes(mes)};bloco.meses.push(m);}const suf=pessoa==="davi"?"Davi":"Gabriel";
       m[`ganhos${suf}`]=ganhos;m[`debitos${suf}`]=-debitos;m[`saldo${suf}`]=saldo;m[`guardado${suf}`]=guardado;
+      // Métrica mensal sem saldo carregado de meses anteriores. O campo
+      // legado ganhosDavi/Gabriel é mantido para não quebrar gráficos antigos.
+      m[`ganhosMes${suf}`]=ganhosDoMes;
+      // Novos campos preservam o retrato completo do mês, inclusive as contas
+      // pendentes. Os campos antigos continuam disponíveis para compatibilidade.
+      m[`gastosCompromissos${suf}`]=despesasCompromissadas;
+      m[`creditosFatura${suf}`]=creditosFaturaMes;
+      m[`gastosLiquidos${suf}`]=gastosLiquidosMes;
+      m[`categoriasCompromissos${suf}`]=categoriasCompromissadas;
       m[`ganhosSaldo${suf}`]=ganhosSaldo;
       m[`ganhosBeneficio${suf}`]=ganhosBeneficio;
       m[`gastosSaldo${suf}`]=gastosSaldo;
